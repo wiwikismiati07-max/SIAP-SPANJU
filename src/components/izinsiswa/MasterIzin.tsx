@@ -93,19 +93,32 @@ export default function MasterIzin() {
         const ws = wb.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws);
 
-        const newGuru = data.map((row: any) => ({
-          id: crypto.randomUUID(),
-          nama_guru: row['Nama Guru'] || row['NAMA GURU'] || row['nama_guru']
-        })).filter(g => g.nama_guru);
+        const newGuru = data.map((row: any) => {
+          // Flexible column name detection
+          const keys = Object.keys(row);
+          const nameKey = keys.find(k => k.toLowerCase().trim() === 'nama guru' || k.toLowerCase().trim() === 'nama_guru' || k.toLowerCase().trim() === 'guru');
+          const nama_guru = nameKey ? String(row[nameKey]).trim() : '';
+          
+          return {
+            id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36),
+            nama_guru: nama_guru
+          };
+        }).filter(g => g.nama_guru);
 
         if (newGuru.length === 0) {
-          alert('Format Excel tidak sesuai. Pastikan ada kolom "Nama Guru".');
+          alert('Format Excel tidak sesuai. Pastikan ada kolom "Nama Guru". Kolom yang ditemukan: ' + Object.keys(data[0] || {}).join(', '));
           return;
         }
 
+        console.log('Attempting to upload gurus:', newGuru);
+
         if (supabase) {
-          const { error } = await supabase.from('master_guru').insert(newGuru);
-          if (error) throw error;
+          const { data: result, error } = await supabase.from('master_guru').insert(newGuru).select();
+          if (error) {
+            console.error('Supabase insert error:', error);
+            throw error;
+          }
+          console.log('Upload success:', result);
         } else {
           const localGuru = JSON.parse(localStorage.getItem('master_guru') || '[]');
           localStorage.setItem('master_guru', JSON.stringify([...localGuru, ...newGuru]));
@@ -131,19 +144,32 @@ export default function MasterIzin() {
         const ws = wb.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws);
 
-        const newMapel = data.map((row: any) => ({
-          id: crypto.randomUUID(),
-          nama_mapel: row['Mata Pelajaran'] || row['MATA PELAJARAN'] || row['nama_mapel'] || row['Mapel']
-        })).filter(m => m.nama_mapel);
+        const newMapel = data.map((row: any) => {
+          // Flexible column name detection
+          const keys = Object.keys(row);
+          const mapelKey = keys.find(k => k.toLowerCase().trim() === 'mata pelajaran' || k.toLowerCase().trim() === 'mata_pelajaran' || k.toLowerCase().trim() === 'mapel');
+          const nama_mapel = mapelKey ? String(row[mapelKey]).trim() : '';
+
+          return {
+            id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36),
+            nama_mapel: nama_mapel
+          };
+        }).filter(m => m.nama_mapel);
 
         if (newMapel.length === 0) {
-          alert('Format Excel tidak sesuai. Pastikan ada kolom "Mata Pelajaran".');
+          alert('Format Excel tidak sesuai. Pastikan ada kolom "Mata Pelajaran". Kolom yang ditemukan: ' + Object.keys(data[0] || {}).join(', '));
           return;
         }
 
+        console.log('Attempting to upload mapels:', newMapel);
+
         if (supabase) {
-          const { error } = await supabase.from('master_mapel').insert(newMapel);
-          if (error) throw error;
+          const { data: result, error } = await supabase.from('master_mapel').insert(newMapel).select();
+          if (error) {
+            console.error('Supabase insert error:', error);
+            throw error;
+          }
+          console.log('Upload success:', result);
         } else {
           const localMapel = JSON.parse(localStorage.getItem('master_mapel') || '[]');
           localStorage.setItem('master_mapel', JSON.stringify([...localMapel, ...newMapel]));

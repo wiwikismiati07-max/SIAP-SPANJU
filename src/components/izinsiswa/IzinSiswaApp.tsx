@@ -28,7 +28,7 @@ export default function IzinSiswaApp() {
             <UserCheck size={24} />
           </div>
           <div>
-            <h1 className="text-lg md:text-xl font-bold text-slate-800 leading-tight">Izin Siswa</h1>
+            <h1 className="text-lg md:text-xl font-bold text-slate-800 leading-tight">Izin Siswa <span className="text-[10px] font-normal text-slate-400">v1.2</span></h1>
             <p className="text-[10px] md:text-xs text-slate-500">Sistem Informasi Perizinan Siswa</p>
           </div>
         </div>

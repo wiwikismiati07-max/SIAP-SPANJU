@@ -11,10 +11,17 @@ const ALASAN_OPTIONS = [
   "Lainnya"
 ];
 
+const KELAS_OPTIONS = [
+  '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
+  '8A', '8B', '8C', '8D', '8E', '8F', '8G', '8H',
+  '9A', '9B', '9C', '9D', '9E', '9F', '9G', '9H'
+];
+
 export default function FormWaliMurid() {
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedKelas, setSelectedKelas] = useState('');
   
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
   const [namaWali, setNamaWali] = useState('');
@@ -115,10 +122,11 @@ export default function FormWaliMurid() {
     }
   };
 
-  const filteredSiswa = siswaList.filter(s => 
-    s.nama.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.kelas.toLowerCase().includes(searchTerm.toLowerCase())
-  ).slice(0, 10);
+  const filteredSiswa = siswaList.filter(s => {
+    const matchKelas = selectedKelas ? s.kelas === selectedKelas : true;
+    const matchSearch = s.nama.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchKelas && matchSearch;
+  });
 
   return (
     <div className="max-w-2xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
@@ -157,48 +165,68 @@ export default function FormWaliMurid() {
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-2">Cari Siswa <span className="text-rose-500">*</span></label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-            <input
-              type="text"
-              value={searchTerm}
-              onFocus={() => setIsDropdownOpen(true)}
-              onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Kelas <span className="text-rose-500">*</span></label>
+            <select
+              value={selectedKelas}
               onChange={(e) => {
-                setSearchTerm(e.target.value);
+                setSelectedKelas(e.target.value);
                 setSelectedSiswa(null);
-                setIsDropdownOpen(true);
+                setSearchTerm('');
               }}
-              placeholder="Ketik nama atau kelas..."
-              className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-            />
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all appearance-none"
+            >
+              <option value="">Semua Kelas</option>
+              {KELAS_OPTIONS.map(k => (
+                <option key={k} value={k}>{k}</option>
+              ))}
+            </select>
           </div>
-          
-          {isDropdownOpen && !selectedSiswa && (
-            <div className="mt-2 border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white absolute z-10 w-full max-w-2xl">
-              {filteredSiswa.length > 0 ? (
-                filteredSiswa.map(siswa => (
-                  <button
-                    key={siswa.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedSiswa(siswa);
-                      setSearchTerm(`${siswa.nama} - ${siswa.kelas}`);
-                      setIsDropdownOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors"
-                  >
-                    <div className="font-medium text-slate-800">{siswa.nama}</div>
-                    <div className="text-sm text-slate-500">Kelas {siswa.kelas}</div>
-                  </button>
-                ))
-              ) : (
-                <div className="px-4 py-3 text-slate-500 text-sm">Siswa tidak ditemukan</div>
-              )}
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Cari Nama Siswa <span className="text-rose-500">*</span></label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+              <input
+                type="text"
+                value={searchTerm}
+                onFocus={() => setIsDropdownOpen(true)}
+                onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setSelectedSiswa(null);
+                  setIsDropdownOpen(true);
+                }}
+                placeholder={selectedKelas ? "Ketik nama siswa..." : "Pilih kelas dulu atau ketik nama..."}
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+              />
             </div>
-          )}
+            
+            {isDropdownOpen && !selectedSiswa && (
+              <div className="mt-2 border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white absolute z-10 w-full max-w-2xl max-h-60 overflow-y-auto">
+                {filteredSiswa.length > 0 ? (
+                  filteredSiswa.map(siswa => (
+                    <button
+                      key={siswa.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSiswa(siswa);
+                        setSearchTerm(`${siswa.nama} - ${siswa.kelas}`);
+                        setIsDropdownOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors"
+                    >
+                      <div className="font-medium text-slate-800">{siswa.nama}</div>
+                      <div className="text-sm text-slate-500">Kelas {siswa.kelas}</div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-slate-500 text-sm">Siswa tidak ditemukan</div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

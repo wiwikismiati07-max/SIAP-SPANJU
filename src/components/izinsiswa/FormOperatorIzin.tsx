@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { IzinWithSiswa, Siswa, Guru } from '../../types/izinsiswa';
-import { Check, X, Clock, Plus, Search, Calendar, User } from 'lucide-react';
+import { Check, X, Clock, Plus, Search, Calendar, User, BookOpen } from 'lucide-react';
 import { format } from 'date-fns';
 
 const ALASAN_OPTIONS = [
@@ -9,6 +9,12 @@ const ALASAN_OPTIONS = [
   "Acara Keluarga",
   "Keperluan Mendesak",
   "Lainnya"
+];
+
+const KELAS_OPTIONS = [
+  '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
+  '8A', '8B', '8C', '8D', '8E', '8F', '8G', '8H',
+  '9A', '9B', '9C', '9D', '9E', '9F', '9G', '9H'
 ];
 
 export default function FormOperatorIzin() {
@@ -19,10 +25,13 @@ export default function FormOperatorIzin() {
   // Manual Input State
   const [showManualInput, setShowManualInput] = useState(false);
   const [guruList, setGuruList] = useState<Guru[]>([]);
+  const [mapelList, setMapelList] = useState<any[]>([]);
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedKelas, setSelectedKelas] = useState('');
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
   const [selectedGuru, setSelectedGuru] = useState('');
+  const [selectedMapel, setSelectedMapel] = useState('');
   const [tanggalMulai, setTanggalMulai] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [tanggalSelesai, setTanggalSelesai] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [alasan, setAlasan] = useState('');
@@ -42,9 +51,12 @@ export default function FormOperatorIzin() {
         if (sData) setSiswaList(sData);
         const { data: gData } = await supabase.from('master_guru').select('*');
         if (gData) setGuruList(gData);
+        const { data: mData } = await supabase.from('master_mapel').select('*');
+        if (mData) setMapelList(mData);
       } else {
         setSiswaList(JSON.parse(localStorage.getItem('sitelat_siswa') || '[]'));
         setGuruList(JSON.parse(localStorage.getItem('master_guru') || '[]'));
+        setMapelList(JSON.parse(localStorage.getItem('master_mapel') || '[]'));
       }
     } catch (error) {
       console.error('Error fetching master data:', error);
@@ -127,7 +139,7 @@ export default function FormOperatorIzin() {
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSiswa || !alasan || !selectedGuru) {
+    if (!selectedSiswa || !alasan || !selectedGuru || !selectedMapel) {
       alert('Mohon lengkapi semua data');
       return;
     }
@@ -143,6 +155,7 @@ export default function FormOperatorIzin() {
       id: crypto.randomUUID(),
       siswa_id: selectedSiswa.id,
       guru_id: selectedGuru,
+      mapel_id: selectedMapel,
       tanggal_mulai: tanggalMulai,
       tanggal_selesai: tanggalSelesai,
       alasan: finalAlasan,
@@ -168,6 +181,7 @@ export default function FormOperatorIzin() {
       setAlasanLainnya('');
       setSearchTerm('');
       setSelectedGuru('');
+      setSelectedMapel('');
       fetchPending(); // Refresh data just in case
     } catch (error: any) {
       console.error('Error saving:', error);
@@ -177,10 +191,11 @@ export default function FormOperatorIzin() {
     }
   };
 
-  const filteredSiswa = siswaList.filter(s => 
-    s.nama.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.kelas.toLowerCase().includes(searchTerm.toLowerCase())
-  ).slice(0, 10);
+  const filteredSiswa = siswaList.filter(s => {
+    const matchKelas = selectedKelas ? s.kelas === selectedKelas : true;
+    const matchSearch = s.nama.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchKelas && matchSearch;
+  });
 
   return (
     <div className="space-y-6">
@@ -207,9 +222,27 @@ export default function FormOperatorIzin() {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">
           <h3 className="text-lg font-bold text-slate-800 mb-4">Input Manual Izin (Langsung Disetujui)</h3>
           <form onSubmit={handleManualSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Cari Siswa <span className="text-rose-500">*</span></label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Kelas <span className="text-rose-500">*</span></label>
+                <select
+                  value={selectedKelas}
+                  onChange={(e) => {
+                    setSelectedKelas(e.target.value);
+                    setSelectedSiswa(null);
+                    setSearchTerm('');
+                  }}
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all appearance-none"
+                >
+                  <option value="">Semua Kelas</option>
+                  {KELAS_OPTIONS.map(k => (
+                    <option key={k} value={k}>{k}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Cari Nama Siswa <span className="text-rose-500">*</span></label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                   <input
@@ -222,13 +255,13 @@ export default function FormOperatorIzin() {
                       setSelectedSiswa(null);
                       setIsDropdownOpen(true);
                     }}
-                    placeholder="Ketik nama atau kelas..."
+                    placeholder={selectedKelas ? "Ketik nama siswa..." : "Pilih kelas dulu atau ketik nama..."}
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                   />
                 </div>
                 
                 {isDropdownOpen && !selectedSiswa && (
-                  <div className="mt-2 border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white absolute z-10 w-full max-w-md">
+                  <div className="mt-2 border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white absolute z-10 w-full max-w-md max-h-60 overflow-y-auto">
                     {filteredSiswa.length > 0 ? (
                       filteredSiswa.map(siswa => (
                         <button
@@ -265,6 +298,24 @@ export default function FormOperatorIzin() {
                     <option value="">Pilih Guru...</option>
                     {guruList.map(g => (
                       <option key={g.id} value={g.id}>{g.nama_guru}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Mata Pelajaran <span className="text-rose-500">*</span></label>
+                <div className="relative">
+                  <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                  <select
+                    value={selectedMapel}
+                    onChange={(e) => setSelectedMapel(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all appearance-none"
+                    required
+                  >
+                    <option value="">Pilih Mapel...</option>
+                    {mapelList.map(m => (
+                      <option key={m.id} value={m.id}>{m.nama_mapel}</option>
                     ))}
                   </select>
                 </div>

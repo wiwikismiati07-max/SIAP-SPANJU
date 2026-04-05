@@ -41,21 +41,30 @@ export default function LaporanIzin() {
           
         if (iData) {
           const { data: sData } = await supabase.from('master_siswa').select('*');
+          const { data: gData } = await supabase.from('master_guru').select('*');
+          const { data: mData } = await supabase.from('master_mapel').select('*');
+          
           const joinedData = iData.map(i => ({
             ...i,
-            siswa: sData?.find(s => s.id === i.siswa_id) || { id: i.siswa_id, nama: 'Unknown', kelas: '-' }
+            siswa: sData?.find(s => s.id === i.siswa_id) || { id: i.siswa_id, nama: 'Unknown', kelas: '-' },
+            guru: gData?.find(g => g.id === i.guru_id),
+            mapel: mData?.find(m => m.id === i.mapel_id)
           }));
           setData(joinedData as IzinWithSiswa[]);
         }
       } else {
         const localData = JSON.parse(localStorage.getItem('izinsiswa_data') || '[]');
         const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
+        const localGuru = JSON.parse(localStorage.getItem('master_guru') || '[]');
+        const localMapel = JSON.parse(localStorage.getItem('master_mapel') || '[]');
         
         const filtered = localData
           .filter((d: any) => d.tanggal_mulai >= dateRange.start && d.tanggal_mulai <= dateRange.end)
           .map((d: any) => ({
             ...d,
-            siswa: localSiswa.find((s: any) => s.id === d.siswa_id) || { id: d.siswa_id, nama: 'Unknown', kelas: '-' }
+            siswa: localSiswa.find((s: any) => s.id === d.siswa_id) || { id: d.siswa_id, nama: 'Unknown', kelas: '-' },
+            guru: localGuru.find((g: any) => g.id === d.guru_id),
+            mapel: localMapel.find((m: any) => m.id === d.mapel_id)
           }))
           .sort((a: any, b: any) => new Date(b.tanggal_mulai).getTime() - new Date(a.tanggal_mulai).getTime());
           
@@ -77,6 +86,8 @@ export default function LaporanIzin() {
       'ALASAN': d.alasan,
       'STATUS': d.status,
       'DIAJUKAN OLEH': d.diajukan_oleh,
+      'GURU PEMBERI IZIN': d.guru?.nama_guru || '-',
+      'MATA PELAJARAN': d.mapel?.nama_mapel || '-',
       'NAMA WALI': d.nama_wali || '-',
       'NO TELP WALI': d.no_telp_wali || '-'
     }));
@@ -226,6 +237,7 @@ export default function LaporanIzin() {
                     </td>
                     <td className="p-4">
                       <div className="text-sm text-slate-700">{izin.alasan}</div>
+                      {izin.mapel && <div className="text-[10px] text-blue-600 font-bold uppercase mt-1">Mapel: {izin.mapel.nama_mapel}</div>}
                     </td>
                     <td className="p-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -241,6 +253,7 @@ export default function LaporanIzin() {
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 w-fit">
                           {izin.diajukan_oleh}
                         </span>
+                        {izin.guru && <span className="text-[10px] text-slate-500 font-bold">Guru: {izin.guru.nama_guru}</span>}
                         {izin.nama_wali && <span className="text-xs text-slate-500">Wali: {izin.nama_wali}</span>}
                         {izin.no_telp_wali && <span className="text-xs text-slate-500">Telp: {izin.no_telp_wali}</span>}
                       </div>

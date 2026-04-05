@@ -27,12 +27,14 @@ export interface IzinSiswa {
   no_telp_wali?: string;
   lampiran_url?: string;
   guru_id?: string;
+  mapel_id?: string;
   created_at?: string;
 }
 
 export interface IzinWithSiswa extends IzinSiswa {
   siswa: Siswa;
   guru?: Guru;
+  mapel?: Mapel;
 }
 
 export interface KalenderBelajar {
