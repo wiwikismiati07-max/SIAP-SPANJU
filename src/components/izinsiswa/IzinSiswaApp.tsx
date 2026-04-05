@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Users, FileText, Calendar, Menu, X, UserCheck, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Calendar, Menu, X, UserCheck, AlertTriangle, Database } from 'lucide-react';
 import DashboardIzin from './DashboardIzin';
 import MasterIzin from './MasterIzin';
 import FormWaliMurid from './FormWaliMurid';
@@ -7,6 +7,7 @@ import FormOperatorIzin from './FormOperatorIzin';
 import LaporanIzin from './LaporanIzin';
 import LaporanPanggilan from './LaporanPanggilan';
 import KalenderBelajar from './KalenderBelajar';
+import { supabase } from '../../lib/supabase';
 
 export default function IzinSiswaApp() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'wali' | 'operator' | 'laporan' | 'panggilan' | 'kalender'>('dashboard');
@@ -31,9 +32,22 @@ export default function IzinSiswaApp() {
             <p className="text-[10px] md:text-xs text-slate-500">Sistem Informasi Perizinan Siswa</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-xs md:text-sm text-slate-500 font-medium">
-          <Calendar size={16} className="hidden md:block" />
-          {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2 text-xs md:text-sm text-slate-500 font-medium">
+            <Calendar size={16} />
+            {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </div>
+          {supabase ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold border border-emerald-200 shadow-sm">
+              <Database size={14} />
+              <span className="hidden sm:inline">Supabase</span> Connected
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full text-xs font-bold border border-amber-200 shadow-sm">
+              <Database size={14} />
+              Local Storage
+            </div>
+          )}
         </div>
       </div>
 
