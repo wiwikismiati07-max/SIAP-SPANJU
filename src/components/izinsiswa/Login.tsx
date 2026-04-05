@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react';
+import { LogIn, User, Lock, AlertCircle } from 'lucide-react';
 
 interface LoginProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (userData: any) => void;
 }
 
 export default function Login({ onLoginSuccess }: LoginProps) {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,24 +19,32 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
     try {
       if (!supabase) {
-        // Fallback for local development without supabase
-        if (email === 'admin@admin.com' && password === 'admin123') {
-          localStorage.setItem('isLoggedIn', 'true');
-          onLoginSuccess();
+        // Fallback for local development
+        if (username === 'admin' && password === 'admin123') {
+          const mockUser = { username: 'admin', role: 'full', nama_lengkap: 'Admin Local' };
+          localStorage.setItem('app_user', JSON.stringify(mockUser));
+          onLoginSuccess(mockUser);
           return;
         }
-        throw new Error('Supabase tidak terhubung. Gunakan admin@admin.com / admin123');
+        throw new Error('Supabase tidak terhubung.');
       }
 
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // Login kustom menggunakan tabel users_app
+      const { data, error: queryError } = await supabase
+        .from('users_app')
+        .select('*')
+        .eq('username', username)
+        .eq('password', password)
+        .single();
 
-      if (authError) throw authError;
-      onLoginSuccess();
+      if (queryError || !data) {
+        throw new Error('Username atau Password salah.');
+      }
+
+      localStorage.setItem('app_user', JSON.stringify(data));
+      onLoginSuccess(data);
     } catch (err: any) {
-      setError(err.message || 'Gagal login. Periksa kembali email dan password Anda.');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -50,7 +58,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             <LogIn size={32} />
           </div>
           <h1 className="text-2xl font-bold">Izin Siswa App</h1>
-          <p className="text-emerald-100 mt-1">Sistem Informasi Perizinan Siswa</p>
+          <p className="text-emerald-100 mt-1">Login Staff & Administrator</p>
         </div>
 
         <form onSubmit={handleLogin} className="p-8 space-y-6">
@@ -63,15 +71,15 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Email</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Nama User</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                  placeholder="nama@sekolah.sch.id"
+                  placeholder="Masukkan username..."
                   required
                 />
               </div>
@@ -113,19 +121,15 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           <button
             type="button"
             onClick={() => {
-              // We need a way to tell IzinSiswaApp to show only the Wali Murid form
               window.dispatchEvent(new CustomEvent('showPublicForm'));
             }}
             className="w-full py-3 bg-white text-emerald-600 border-2 border-emerald-600 rounded-xl font-bold hover:bg-emerald-50 transition-all"
           >
             Form Pengajuan Izin (Wali Murid)
           </button>
-
-          <div className="text-center text-sm text-slate-500">
-            <p>Gunakan akun yang telah didaftarkan oleh Admin Sekolah.</p>
-          </div>
         </form>
       </div>
     </div>
   );
 }
+
