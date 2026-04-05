@@ -28,9 +28,12 @@ import {
   Award,
   ChevronLeft,
   ChevronRight,
-  Settings
+  Settings,
+  Sparkles,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { supabase } from './lib/supabase';
 
 // --- Types & Constants ---
 
@@ -46,7 +49,7 @@ interface AppLink {
 const ICON_MAP: Record<string, React.ElementType> = {
   Globe, Shield, Book, Users, Activity, FileText, Calendar, 
   MessageSquare, Briefcase, Zap, Search, ClipboardList, 
-  FileCheck, Award, LayoutDashboard
+  FileCheck, Award, LayoutDashboard, Sparkles
 };
 
 const COLORS = [
@@ -60,7 +63,7 @@ const COLORS = [
 ];
 
 const EXTERNAL_APPS = [
-  { id: "silat-spanju", title: "Silat Spanju", url: "https://silat-spanju.vercel.app/", icon: "Shield", color: "from-pink-400 to-pink-600" },
+  { id: "app-baru", title: "Aplikasi Baru (gen-lang-client-0275224699)", url: "#", icon: "Sparkles", color: "from-purple-400 to-purple-600" },
   { id: "sim-agama", title: "SIM-Agama", url: "https://sim-agama.vercel.app/", icon: "Book", color: "from-blue-400 to-blue-600" },
   { id: "disiplin-spanju", title: "Disiplin Spanju", url: "https://disiplin-spanju.vercel.app/", icon: "Calendar", color: "from-pink-400 to-pink-600" },
   { id: "uks-smpn7", title: "UKS SMPN 7", url: "https://uksspanju.vercel.app/", icon: "Activity", color: "from-blue-400 to-blue-600" },
@@ -79,6 +82,8 @@ const IMAGE_KILAS = "https://wsrv.nl/?url=i.ibb.co.com/3yssw38v/Gemini-Generated
 const IMAGE_8_PROGRAM = "https://wsrv.nl/?url=i.ibb.co.com/VWYCc9Cc/Gemini-Generated-Image-a54l2ma54l2ma54l.png";
 const IMAGE_KORELASI_SRA = "https://wsrv.nl/?url=i.ibb.co/5wM2Bd4/gambar-3.jpg";
 
+import SiTelatApp from './components/sitelat/SiTelatApp';
+
 // --- Components ---
 
 export default function App() {
@@ -86,7 +91,7 @@ export default function App() {
   const [userLinks, setUserLinks] = useState<AppLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | null>(null);
+  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -102,27 +107,47 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Data persistence
+  // Data persistence with Supabase
   useEffect(() => {
-    const saved = localStorage.getItem('dashboard_links');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setUserLinks(parsed);
-      } catch (e) {
-        console.error("Failed to parse links", e);
+    const fetchLinks = async () => {
+      // Check if supabase is configured
+      if (!supabase) {
+        // Fallback to localStorage if Supabase is not configured yet
+        const saved = localStorage.getItem('dashboard_links');
+        if (saved) {
+          try {
+            setUserLinks(JSON.parse(saved));
+          } catch (e) {
+            console.error("Failed to parse links", e);
+          }
+        } else {
+          setUserLinks([{ id: '1', title: 'Survey Kepuasan', url: 'https://survey-kepuasan-alpha.vercel.app/', displayMode: 'iframe', color: COLORS[0], icon: 'MessageSquare' }]);
+        }
+        return;
       }
-    } else {
-      // Initial default links if none exist
-      const initialLinks: AppLink[] = [
-        { id: '1', title: 'Survey Kepuasan', url: 'https://survey-kepuasan-alpha.vercel.app/', displayMode: 'iframe', color: COLORS[0], icon: 'MessageSquare' },
-      ];
-      setUserLinks(initialLinks);
-    }
+
+      try {
+        const { data, error } = await supabase.from('app_links').select('*');
+        if (error) throw error;
+        if (data && data.length > 0) {
+          setUserLinks(data);
+        } else {
+          setUserLinks([{ id: '1', title: 'Survey Kepuasan', url: 'https://survey-kepuasan-alpha.vercel.app/', displayMode: 'iframe', color: COLORS[0], icon: 'MessageSquare' }]);
+        }
+      } catch (error) {
+        console.error('Error fetching links from Supabase:', error);
+        // Fallback
+        const saved = localStorage.getItem('dashboard_links');
+        if (saved) setUserLinks(JSON.parse(saved));
+      }
+    };
+    fetchLinks();
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('dashboard_links', JSON.stringify(userLinks));
+    if (!supabase) {
+      localStorage.setItem('dashboard_links', JSON.stringify(userLinks));
+    }
   }, [userLinks]);
 
   // Loading simulation for iframe
@@ -244,9 +269,10 @@ export default function App() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-hide min-w-[280px]">
+        <div className="flex-1 overflow-y-auto p-4 space-y-2 min-w-[280px]">
           {/* Static Sections */}
           {[
+            { id: 'sitelat', title: 'Si-Telat', subtitle: 'Sistem Keterlambatan Siswa', icon: Clock, color: 'from-blue-500 to-blue-700' },
             { id: 'kilas', title: 'Kilas Aplikasi', subtitle: 'Referensi Dasar', icon: Book, color: 'from-pink-500 to-pink-600' },
             { id: 'program', title: '8 Program Prioritas', subtitle: 'SMPN 7 Pasuruan', icon: LayoutDashboard, color: 'from-blue-400 to-blue-600' },
             { id: 'spip', title: '15 Indikator SPIP', subtitle: 'Anti Korupsi', icon: Shield, color: 'from-purple-400 to-purple-600' },
@@ -322,11 +348,19 @@ export default function App() {
                   </div>
                 </button>
                 <button
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
                     const updated = userLinks.filter(l => l.id !== link.id);
                     setUserLinks(updated);
                     if (selectedLinkId === link.id) setSelectedLinkId(null);
+                    
+                    if (supabase) {
+                      try {
+                        await supabase.from('app_links').delete().eq('id', link.id);
+                      } catch (error) {
+                        console.error('Error deleting link from Supabase:', error);
+                      }
+                    }
                   }}
                   className="absolute -right-1 -top-1 opacity-0 group-hover:opacity-100 p-1 text-rose-500 hover:text-white bg-white hover:bg-rose-500 rounded-lg shadow-lg border border-slate-100 transition-all z-10"
                 >
@@ -351,7 +385,12 @@ export default function App() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col relative p-1.5 md:p-3 md:pl-0">
+      <main className="flex-1 min-h-0 min-w-0 flex flex-col relative p-1.5 md:p-3 md:pl-0">
+        {activeSection === 'sitelat' && (
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            <SiTelatApp />
+          </div>
+        )}
         <AnimatePresence mode="wait">
           {activeSection === 'kilas' && (
             <motion.div
@@ -359,7 +398,7 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="flex-1 flex flex-col bg-white/60 backdrop-blur-3xl rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto shadow-2xl border border-white/50 p-6 md:p-12 scrollbar-hide"
+              className="flex-1 min-h-0 flex flex-col bg-white/60 backdrop-blur-3xl rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto shadow-2xl border border-white/50 p-6 md:p-12"
             >
               <div className="max-w-4xl mx-auto space-y-12">
                 <div className="text-center space-y-4 relative">
@@ -403,7 +442,7 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="flex-1 flex flex-col bg-white/60 backdrop-blur-3xl rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto shadow-2xl border border-white/50 p-6 md:p-12 scrollbar-hide"
+              className="flex-1 min-h-0 flex flex-col bg-white/60 backdrop-blur-3xl rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto shadow-2xl border border-white/50 p-6 md:p-12"
             >
               <div className="max-w-5xl mx-auto space-y-12">
                 <div className="text-center space-y-4 relative">
@@ -434,7 +473,7 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="flex-1 flex flex-col bg-white/60 backdrop-blur-3xl rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto shadow-2xl border border-white/50 p-6 md:p-12 scrollbar-hide"
+              className="flex-1 min-h-0 flex flex-col bg-white/60 backdrop-blur-3xl rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto shadow-2xl border border-white/50 p-6 md:p-12"
             >
               <div className="max-w-5xl mx-auto space-y-12">
                 <div className="text-center space-y-4 relative">
@@ -473,7 +512,7 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="flex-1 flex flex-col bg-white/60 backdrop-blur-3xl rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto shadow-2xl border border-white/50 p-6 md:p-12 scrollbar-hide"
+              className="flex-1 min-h-0 flex flex-col bg-white/60 backdrop-blur-3xl rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto shadow-2xl border border-white/50 p-6 md:p-12"
             >
               <div className="max-w-5xl mx-auto space-y-12">
                 <div className="text-center space-y-4 relative">
@@ -504,7 +543,7 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="flex-1 flex flex-col bg-white/60 backdrop-blur-3xl rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto shadow-2xl border border-white/50 p-6 md:p-12 scrollbar-hide"
+              className="flex-1 min-h-0 flex flex-col bg-white/60 backdrop-blur-3xl rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto shadow-2xl border border-white/50 p-6 md:p-12"
             >
               <div className="max-w-5xl mx-auto space-y-12">
                 <div className="text-center space-y-4 relative">
