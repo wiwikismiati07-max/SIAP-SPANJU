@@ -4,6 +4,7 @@ import { IzinWithSiswa } from '../../types/izinsiswa';
 import { Download, Search, Calendar as CalendarIcon, Edit, Trash2, X, FileText, Users } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
 import * as XLSX from 'xlsx';
+import XLSXStyle from 'xlsx-js-style';
 
 export default function LaporanIzin() {
   const [data, setData] = useState<IzinWithSiswa[]>([]);
@@ -85,7 +86,7 @@ export default function LaporanIzin() {
     }
   };
 
-  const handleDownloadExcel = () => {
+  const handleDownloadExcel = async () => {
     if (reportType === 'detail') {
       const exportData = filteredData.map(d => ({
         'NAMA': d.siswa?.nama,
@@ -112,46 +113,175 @@ export default function LaporanIzin() {
         return;
       }
 
-      const days = eachDayOfInterval({
-        start: new Date(dateRange.start),
-        end: new Date(dateRange.end)
-      });
+      setLoading(true);
+      try {
+        let studentsInClass: any[] = [];
+        if (supabase) {
+          const { data: sData } = await supabase
+            .from('master_siswa')
+            .select('*')
+            .eq('kelas', selectedKelas)
+            .order('nama', { ascending: true });
+          studentsInClass = sData || [];
+        } else {
+          const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
+          studentsInClass = localSiswa
+            .filter((s: any) => s.kelas === selectedKelas)
+            .sort((a: any, b: any) => a.nama.localeCompare(b.nama));
+        }
 
-      // Get students in this class
-      const studentsInClass = Array.from(new Set(data.filter(i => i.siswa?.kelas === selectedKelas).map(i => i.siswa?.id)))
-        .map(id => data.find(i => i.siswa?.id === id)?.siswa)
-        .filter(Boolean);
+        if (studentsInClass.length === 0) {
+          alert('Tidak ada data siswa untuk kelas ini');
+          return;
+        }
 
-      if (studentsInClass.length === 0) {
-        alert('Tidak ada data siswa untuk kelas ini dalam periode tersebut');
-        return;
-      }
+        // Create Worksheet structure
+        const header = [
+          ["PEMERINTAH KOTA PASURUAN"],
+          ["SMP NEGERI 7"],
+          ["Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139"],
+          ["Telepon (0343) 426845"],
+          ["Pos-el smp7pas@yahoo.co.id , Laman www.smpn7pasuruan.sch.id"],
+          [""],
+          ["LAPORAN ABSENSI HARIAN SISWA"],
+          ["Kelas: " + selectedKelas + " | Periode: " + dateRange.start + " s/d " + dateRange.end],
+          [""],
+          ["NO", "NAMA SISWA", "MASUK (X)", "IZIN ( )", "SAKIT ( )", "ALPHA ( )"]
+        ];
 
-      const exportData: any[] = [];
+        const rows = studentsInClass.map((student, index) => {
+          // Check if student has izin in this range
+          // For daily report, we usually show per day, but if range is multiple days, 
+          // we might need a different structure. 
+          // The user said "Laporan absensi harian", implying one day.
+          // If range is multiple days, I'll just check if they had ANY izin in that range for this simple version,
+          // or better, just use the start date as the "Harian" date if they are the same.
+          
+          const studentIzins = data.filter(i => i.siswa_id === student.id && i.status === 'Disetujui');
+          
+          const isSakit = studentIzins.some(i => i.alasan === 'Sakit');
+          const isIzin = studentIzins.some(i => i.alasan !== 'Sakit');
+          const isMasuk = studentIzins.length === 0;
 
-      days.forEach(day => {
-        studentsInClass.forEach(student => {
-          const dayIzin = data.find(i => 
-            i.siswa_id === student?.id && 
-            isSameDay(new Date(i.tanggal_mulai), day) &&
-            i.status === 'Disetujui'
-          );
-
-          exportData.push({
-            'Tanggal': format(day, 'dd/MM/yyyy'),
-            'Nama Siswa': student?.nama,
-            'Kelas': student?.kelas,
-            'Sakit': dayIzin?.alasan === 'Sakit' ? 'V' : '',
-            'Izin': (dayIzin && dayIzin.alasan !== 'Sakit') ? 'V' : '',
-            'Alpa': '' // Manual entry usually
-          });
+          return [
+            index + 1,
+            student.nama,
+            isMasuk ? "X" : "",
+            isIzin ? "V" : "",
+            isSakit ? "V" : "",
+            "" // Alpha manual
+          ];
         });
-      });
 
-      const ws = XLSX.utils.json_to_sheet(exportData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Absensi Harian");
-      XLSX.writeFile(wb, `Absensi_Harian_${selectedKelas}_${dateRange.start}_${dateRange.end}.xlsx`);
+        const months = [
+          "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+          "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+        ];
+        const today = new Date();
+        const formattedDate = `${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear()}`;
+
+        const footer = [
+          [""],
+          [""],
+          ["Mengetahui,", "", "", "Pasuruan, " + formattedDate],
+          ["Kepala Sekolah,", "", "", "Guru BK,"],
+          [""],
+          [""],
+          [""],
+          ["NUR FADILAH, S.Pd", "", "", "WIWIK ISMIATI, S.Pd"],
+          ["NIP. 19860410 201001 2 030", "", "", "NIP. 19831116 200904 2 003"]
+        ];
+
+        const wsData = [...header, ...rows, ...footer];
+        const ws = XLSXStyle.utils.aoa_to_sheet(wsData);
+
+        // Styling (Basic merges and widths)
+        ws['!merges'] = [
+          { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }, // Gov
+          { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } }, // School
+          { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } }, // Address
+          { s: { r: 3, c: 0 }, e: { r: 3, c: 5 } }, // Telp
+          { s: { r: 4, c: 0 }, e: { r: 4, c: 5 } }, // Email
+          { s: { r: 6, c: 0 }, e: { r: 6, c: 5 } }, // Title
+          { s: { r: 7, c: 0 }, e: { r: 7, c: 5 } }, // Subtitle
+        ];
+
+        ws['!cols'] = [
+          { wch: 5 },  // NO
+          { wch: 40 }, // NAMA
+          { wch: 12 }, // MASUK
+          { wch: 12 }, // IZIN
+          { wch: 12 }, // SAKIT
+          { wch: 12 }  // ALPHA
+        ];
+
+        // Apply styles to cells
+        const range = XLSXStyle.utils.decode_range(ws['!ref'] || '');
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cell_address = { c: C, r: R };
+            const cell_ref = XLSXStyle.utils.encode_cell(cell_address);
+            if (!ws[cell_ref]) continue;
+
+            // Default style
+            ws[cell_ref].s = {
+              font: { name: "Arial", sz: 10 },
+              alignment: { vertical: "center", horizontal: "center" }
+            };
+
+            // Kop Surat (Rows 0-4)
+            if (R >= 0 && R <= 4) {
+              ws[cell_ref].s.font.bold = true;
+              if (R === 1) ws[cell_ref].s.font.sz = 14;
+            }
+
+            // Title (Row 6)
+            if (R === 6) {
+              ws[cell_ref].s.font.bold = true;
+              ws[cell_ref].s.font.sz = 16;
+            }
+
+            // Table Header (Row 9)
+            if (R === 9) {
+              ws[cell_ref].s.fill = { fgColor: { rgb: "4F81BD" } }; // Blue
+              ws[cell_ref].s.font.color = { rgb: "FFFFFF" }; // White
+              ws[cell_ref].s.font.bold = true;
+              ws[cell_ref].s.border = {
+                top: { style: "thin" },
+                bottom: { style: "thin" },
+                left: { style: "thin" },
+                right: { style: "thin" }
+              };
+            }
+
+            // Table Body (Rows 10 to 10 + rows.length - 1)
+            if (R >= 10 && R < 10 + rows.length) {
+              ws[cell_ref].s.border = {
+                top: { style: "thin" },
+                bottom: { style: "thin" },
+                left: { style: "thin" },
+                right: { style: "thin" }
+              };
+              if (C === 1) ws[cell_ref].s.alignment.horizontal = "left";
+            }
+
+            // Footer (Signatures)
+            if (R >= 10 + rows.length + 2) {
+              ws[cell_ref].s.alignment.horizontal = "left";
+              if (R === 10 + rows.length + 7) ws[cell_ref].s.font.bold = true; // Names
+            }
+          }
+        }
+
+        const wb = XLSXStyle.utils.book_new();
+        XLSXStyle.utils.book_append_sheet(wb, ws, "Absensi Harian");
+        XLSXStyle.writeFile(wb, `Absensi_Harian_${selectedKelas}_${dateRange.start}.xlsx`);
+      } catch (error) {
+        console.error(error);
+        alert('Gagal membuat laporan');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
