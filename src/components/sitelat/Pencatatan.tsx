@@ -87,7 +87,17 @@ export default function Pencatatan() {
 
     try {
       if (supabase) {
-        await supabase.from('transaksi_terlambat').insert([newRecord]);
+        const { error } = await supabase.from('transaksi_terlambat').insert([{
+          siswa_id: selectedSiswa.id,
+          tanggal: format(new Date(), 'yyyy-MM-dd'),
+          jam: format(new Date(), 'HH:mm'),
+          alasan: finalAlasan
+        }]);
+        if (error) {
+          console.error("Supabase insert error:", error);
+          alert(`Gagal menyimpan data: ${error.message}`);
+          return;
+        }
       } else {
         const localTrans = JSON.parse(localStorage.getItem('sitelat_transaksi') || '[]');
         localTrans.push(newRecord);
@@ -96,9 +106,9 @@ export default function Pencatatan() {
       
       alert('Data keterlambatan berhasil dicatat!');
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving:', error);
-      alert('Gagal menyimpan data');
+      alert(`Terjadi kesalahan sistem: ${error.message || 'Gagal menyimpan data'}`);
     } finally {
       setLoading(false);
     }

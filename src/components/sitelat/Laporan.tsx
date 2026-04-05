@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { TransaksiWithSiswa, Siswa } from '../../types/sitelat';
-import { Search, Trash2, Edit2, Save, X, Download } from 'lucide-react';
+import { Search, Trash2, Edit2, Save, X, Download, Upload } from 'lucide-react';
 import { format } from 'date-fns';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -19,6 +19,8 @@ export default function Laporan() {
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
   
   // Form State for Edit
   const [showForm, setShowForm] = useState(false);
@@ -38,14 +40,20 @@ export default function Laporan() {
     setLoading(true);
     try {
       if (supabase) {
-        const { data: sData } = await supabase.from('master_siswa').select('*');
+        const { data: sData, error: sError } = await supabase.from('master_siswa').select('*');
+        if (sError) console.error("Error fetching master_siswa:", sError);
         if (sData) setSiswaList(sData);
 
-        const { data: tData } = await supabase
+        const { data: tData, error: tError } = await supabase
           .from('transaksi_terlambat')
           .select(`*, siswa:master_siswa(id, nama, kelas)`)
           .order('tanggal', { ascending: false })
           .order('jam', { ascending: false });
+          
+        if (tError) {
+          console.error("Error fetching transaksi_terlambat:", tError);
+          alert(`Gagal memuat data laporan: ${tError.message}`);
+        }
         if (tData) setTransaksi(tData as TransaksiWithSiswa[]);
       } else {
         const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
@@ -127,6 +135,150 @@ export default function Laporan() {
     });
     setEditingId(t.id);
     setShowForm(true);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(arrayBuffer);
+      
+      const worksheet = workbook.getWorksheet(1);
+      if (!worksheet) throw new Error("Worksheet tidak ditemukan");
+      
+      const newTransactions: any[] = [];
+      
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber < 2) return; // Skip header row (Row 1)
+        
+        const nama = row.getCell(1).text?.trim();
+        const kelas = row.getCell(2).text?.trim();
+        let tanggal = row.getCell(3).text?.trim();
+        let jam = row.getCell(4).text?.trim();
+        const alasan = row.getCell(5).text?.trim();
+
+        if (!nama || !kelas || !tanggal || !jam) return; // Skip empty or invalid rows
+
+        // Format date if it's an excel date object
+        const tglCell = row.getCell(3).value;
+        if (tglCell instanceof Date) {
+          tanggal = format(tglCell, 'yyyy-MM-dd');
+        } else if (typeof tglCell === 'string') {
+           // Handle DD/MM/YYYY or YYYY-MM-DD
+           if (tglCell.includes('/')) {
+             const parts = tglCell.split('/');
+             if (parts[0].length === 2 && parts[2].length === 4) {
+               tanggal = `${parts[2]}-${parts[1]}-${parts[0]}`;
+             } else {
+               tanggal = tglCell;
+             }
+           } else {
+             tanggal = tglCell;
+           }
+        }
+
+        const jamCell = row.getCell(4).value;
+        if (jamCell instanceof Date) {
+          jam = format(jamCell, 'HH:mm');
+        } else if (typeof jamCell === 'number') {
+           // Excel time fraction
+           const totalSeconds = Math.floor(jamCell * 86400);
+           const h = Math.floor(totalSeconds / 3600);
+           const m = Math.floor((totalSeconds % 3600) / 60);
+           jam = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        } else if (typeof jamCell === 'string') {
+           jam = jamCell;
+        }
+
+        newTransactions.push({ nama, kelas, tanggal, jam, alasan });
+      });
+
+      if (newTransactions.length === 0) {
+        alert("Tidak ada data valid yang ditemukan di file Excel.");
+        return;
+      }
+
+      // Process data
+      if (supabase) {
+        // 1. Get existing students
+        const { data: existingStudents, error: fetchError } = await supabase.from('master_siswa').select('*');
+        if (fetchError) throw new Error(`Gagal mengambil data siswa: ${fetchError.message}`);
+        
+        const studentMap = new Map(existingStudents?.map(s => [`${s.nama}-${s.kelas}`, s.id]) || []);
+
+        for (const t of newTransactions) {
+          const studentKey = `${t.nama}-${t.kelas}`;
+          let siswa_id = studentMap.get(studentKey);
+
+          if (!siswa_id) {
+            // Create new student
+            const { data: newSiswa, error: insertError } = await supabase
+              .from('master_siswa')
+              .insert([{ nama: t.nama, kelas: t.kelas }])
+              .select('id')
+              .single();
+              
+            if (insertError) {
+              console.error("Failed to create student", t.nama, insertError);
+              throw new Error(`Gagal membuat data siswa ${t.nama}: ${insertError.message}`);
+            }
+            if (newSiswa) {
+              siswa_id = newSiswa.id;
+              studentMap.set(studentKey, siswa_id);
+            }
+          }
+
+          // Insert transaction
+          const { error: txError } = await supabase.from('transaksi_terlambat').insert([{
+            siswa_id,
+            tanggal: t.tanggal,
+            jam: t.jam,
+            alasan: t.alasan || 'Lainnya'
+          }]);
+          
+          if (txError) {
+            console.error("Failed to insert transaction", t, txError);
+            throw new Error(`Gagal menyimpan transaksi untuk ${t.nama}: ${txError.message}`);
+          }
+        }
+      } else {
+        // Offline mode
+        let localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
+        let localTrans = JSON.parse(localStorage.getItem('sitelat_transaksi') || '[]');
+        
+        for (const t of newTransactions) {
+          let siswa = localSiswa.find((s: any) => s.nama === t.nama && s.kelas === t.kelas);
+          if (!siswa) {
+            siswa = { id: crypto.randomUUID(), nama: t.nama, kelas: t.kelas };
+            localSiswa.push(siswa);
+          }
+          
+          localTrans.push({
+            id: crypto.randomUUID(),
+            siswa_id: siswa.id,
+            tanggal: t.tanggal,
+            jam: t.jam,
+            alasan: t.alasan || 'Lainnya'
+          });
+        }
+        
+        localStorage.setItem('sitelat_siswa', JSON.stringify(localSiswa));
+        localStorage.setItem('sitelat_transaksi', JSON.stringify(localTrans));
+      }
+
+      alert(`Berhasil mengimpor ${newTransactions.length} data!`);
+      fetchData();
+    } catch (error: any) {
+      console.error('Error importing data:', error);
+      alert(`Gagal mengimpor data: ${error.message || 'Pastikan format Excel sesuai dengan template unduhan.'}`);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const exportToExcel = async () => {
@@ -290,12 +442,28 @@ export default function Laporan() {
           <h2 className="text-2xl font-bold text-slate-800">Laporan Keterlambatan</h2>
           <p className="text-slate-500 text-sm">Kelola dan unduh laporan transaksi keterlambatan</p>
         </div>
-        <button 
-          onClick={exportToExcel}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
-        >
-          <Download size={16} /> Download Excel
-        </button>
+        <div className="flex gap-2">
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileUpload} 
+            accept=".xlsx, .xls" 
+            className="hidden" 
+          />
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
+          >
+            <Upload size={16} /> {isUploading ? 'Mengimpor...' : 'Upload Data Lama'}
+          </button>
+          <button 
+            onClick={exportToExcel}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
+          >
+            <Download size={16} /> Download Excel
+          </button>
+        </div>
       </div>
 
       {showForm && (
