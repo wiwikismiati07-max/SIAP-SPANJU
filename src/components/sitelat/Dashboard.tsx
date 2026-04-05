@@ -31,17 +31,19 @@ export default function Dashboard() {
         // Fetch transactions
         const { data: transData } = await supabase
           .from('transaksi_terlambat')
-          .select(`
-            *,
-            siswa:master_siswa(id, nama, kelas)
-          `)
+          .select(`*`)
           .gte('tanggal', dateRange.start)
           .lte('tanggal', dateRange.end)
           .order('tanggal', { ascending: false })
           .order('jam', { ascending: false });
 
         if (transData) {
-          setTransaksi(transData as TransaksiWithSiswa[]);
+          const { data: sData } = await supabase.from('master_siswa').select('*');
+          const joinedData = transData.map(t => ({
+            ...t,
+            siswa: sData?.find(s => s.id === t.siswa_id) || { id: t.siswa_id, nama: 'Unknown', kelas: '-' }
+          }));
+          setTransaksi(joinedData as TransaksiWithSiswa[]);
         }
       } else {
         // Fallback to local storage

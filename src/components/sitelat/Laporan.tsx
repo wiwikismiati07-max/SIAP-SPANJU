@@ -46,7 +46,7 @@ export default function Laporan() {
 
         const { data: tData, error: tError } = await supabase
           .from('transaksi_terlambat')
-          .select(`*, siswa:master_siswa(id, nama, kelas)`)
+          .select(`*`)
           .order('tanggal', { ascending: false })
           .order('jam', { ascending: false });
           
@@ -54,7 +54,14 @@ export default function Laporan() {
           console.error("Error fetching transaksi_terlambat:", tError);
           alert(`Gagal memuat data laporan: ${tError.message}`);
         }
-        if (tData) setTransaksi(tData as TransaksiWithSiswa[]);
+        
+        if (tData) {
+          const joinedData = tData.map(t => ({
+            ...t,
+            siswa: sData?.find(s => s.id === t.siswa_id) || { id: t.siswa_id, nama: 'Unknown', kelas: '-' }
+          }));
+          setTransaksi(joinedData as TransaksiWithSiswa[]);
+        }
       } else {
         const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
         setSiswaList(localSiswa);
