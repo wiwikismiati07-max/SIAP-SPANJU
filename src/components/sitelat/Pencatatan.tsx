@@ -27,6 +27,7 @@ export default function Pencatatan() {
   // Selection State
   const [selectedKelas, setSelectedKelas] = useState('');
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
+  const [selectedAlasan, setSelectedAlasan] = useState('');
   const [alasanLainnya, setAlasanLainnya] = useState('');
 
   useEffect(() => {
@@ -67,11 +68,11 @@ export default function Pencatatan() {
     setStep(3);
   };
 
-  const handleSubmit = async (alasan: string) => {
-    if (!selectedSiswa) return;
+  const handleSubmit = async () => {
+    if (!selectedSiswa || !selectedAlasan) return;
     
-    const finalAlasan = alasan === 'Lainnya' ? alasanLainnya : alasan;
-    if (alasan === 'Lainnya' && !alasanLainnya) {
+    const finalAlasan = selectedAlasan === 'Lainnya' ? alasanLainnya : selectedAlasan;
+    if (selectedAlasan === 'Lainnya' && !alasanLainnya) {
       alert('Mohon ketik alasan lainnya');
       return;
     }
@@ -81,7 +82,7 @@ export default function Pencatatan() {
       id: crypto.randomUUID(),
       siswa_id: selectedSiswa.id,
       tanggal: format(new Date(), 'yyyy-MM-dd'),
-      jam: format(new Date(), 'HH:mm'),
+      jam: format(new Date(), 'HH:mm:ss'), // Use HH:mm:ss for Supabase time column
       alasan: finalAlasan
     };
 
@@ -90,12 +91,13 @@ export default function Pencatatan() {
         const { error } = await supabase.from('transaksi_terlambat').insert([{
           siswa_id: selectedSiswa.id,
           tanggal: format(new Date(), 'yyyy-MM-dd'),
-          jam: format(new Date(), 'HH:mm'),
+          jam: format(new Date(), 'HH:mm:ss'), // Use HH:mm:ss for Supabase time column
           alasan: finalAlasan
         }]);
         if (error) {
           console.error("Supabase insert error:", error);
           alert(`Gagal menyimpan data: ${error.message}`);
+          setLoading(false);
           return;
         }
       } else {
@@ -118,6 +120,7 @@ export default function Pencatatan() {
     setStep(1);
     setSelectedKelas('');
     setSelectedSiswa(null);
+    setSelectedAlasan('');
     setAlasanLainnya('');
   };
 
@@ -216,34 +219,55 @@ export default function Pencatatan() {
               {ALASAN_OPTIONS.filter(a => a !== 'Lainnya').map(a => (
                 <button
                   key={a}
-                  onClick={() => handleSubmit(a)}
+                  onClick={() => setSelectedAlasan(a)}
                   disabled={loading}
-                  className="p-4 rounded-2xl border-2 border-slate-100 hover:border-blue-500 hover:bg-blue-50 text-slate-700 font-bold text-center transition-all hover:scale-105 hover:shadow-md active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+                  className={`p-4 rounded-2xl border-2 transition-all hover:scale-105 hover:shadow-md active:scale-95 disabled:opacity-50 disabled:pointer-events-none font-bold text-center ${
+                    selectedAlasan === a 
+                      ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                      : 'border-slate-100 hover:border-blue-500 hover:bg-blue-50 text-slate-700'
+                  }`}
                 >
                   {a}
                 </button>
               ))}
             </div>
             
-            <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
-              <h4 className="font-bold text-slate-700">Alasan Lainnya</h4>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  placeholder="Ketik alasan manual..." 
-                  value={alasanLainnya}
-                  onChange={(e) => setAlasanLainnya(e.target.value)}
-                  className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none"
-                />
-                <button 
-                  onClick={() => handleSubmit('Lainnya')}
-                  disabled={loading || !alasanLainnya.trim()}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50 shadow-sm"
-                >
-                  Simpan
-                </button>
+            <div 
+              className={`mt-4 p-6 rounded-2xl border-2 transition-colors space-y-4 cursor-pointer ${
+                selectedAlasan === 'Lainnya' ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-slate-50 hover:border-blue-500 hover:bg-blue-50'
+              }`}
+              onClick={() => setSelectedAlasan('Lainnya')}
+            >
+              <div className="flex items-center justify-between">
+                <h4 className={`font-bold ${selectedAlasan === 'Lainnya' ? 'text-blue-700' : 'text-slate-700'}`}>Alasan Lainnya</h4>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  selectedAlasan === 'Lainnya' ? 'border-blue-500' : 'border-slate-300'
+                }`}>
+                  {selectedAlasan === 'Lainnya' && <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />}
+                </div>
               </div>
+              
+              {selectedAlasan === 'Lainnya' && (
+                <div className="flex gap-2 animate-in fade-in slide-in-from-top-2" onClick={e => e.stopPropagation()}>
+                  <input 
+                    type="text" 
+                    placeholder="Ketik alasan manual..." 
+                    value={alasanLainnya}
+                    onChange={(e) => setAlasanLainnya(e.target.value)}
+                    className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/20 outline-none"
+                    autoFocus
+                  />
+                </div>
+              )}
             </div>
+
+            <button 
+              onClick={handleSubmit}
+              disabled={loading || !selectedAlasan || (selectedAlasan === 'Lainnya' && !alasanLainnya.trim())}
+              className="w-full mt-8 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:bg-slate-300 shadow-sm text-lg"
+            >
+              {loading ? 'Menyimpan...' : 'Simpan Data'}
+            </button>
           </div>
         )}
       </div>
