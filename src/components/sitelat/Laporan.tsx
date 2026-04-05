@@ -234,6 +234,7 @@ export default function Laporan() {
 
           // Insert transaction
           const { error: txError } = await supabase.from('transaksi_terlambat').insert([{
+            id: crypto.randomUUID(),
             siswa_id,
             tanggal: t.tanggal,
             jam: t.jam,

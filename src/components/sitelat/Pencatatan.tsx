@@ -89,6 +89,7 @@ export default function Pencatatan() {
     try {
       if (supabase) {
         const { error } = await supabase.from('transaksi_terlambat').insert([{
+          id: newRecord.id,
           siswa_id: selectedSiswa.id,
           tanggal: format(new Date(), 'yyyy-MM-dd'),
           jam: format(new Date(), 'HH:mm:ss'), // Use HH:mm:ss for Supabase time column
