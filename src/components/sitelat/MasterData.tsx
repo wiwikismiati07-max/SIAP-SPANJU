@@ -51,28 +51,27 @@ export default function MasterData() {
         const nama = row['NAMA'] || row['Nama'] || row['nama'] || '';
         const kelas = row['KELAS'] || row['Kelas'] || row['kelas'] || '';
         return {
-          id: generateId(nama, kelas),
+          id: crypto.randomUUID(),
           nama,
           kelas
         };
       }).filter(s => s.nama && s.kelas);
 
       if (supabase) {
-        // Upsert to avoid breaking foreign keys
-        const { error } = await supabase.from('master_siswa').upsert(newSiswa, { onConflict: 'id' });
+        // Since we generate new UUIDs, we should just insert. 
+        // If we want to avoid duplicates, we'd need to check existing names/classes first.
+        // For now, let's just insert them.
+        const { error } = await supabase.from('master_siswa').insert(newSiswa);
         if (error) throw error;
-        
-        // Optionally, we could delete students not in the new list, but that might break existing transactions.
-        // So we just upsert.
       } else {
         localStorage.setItem('sitelat_siswa', JSON.stringify(newSiswa));
       }
       
       fetchSiswa(); // Refresh from DB
       alert('Data siswa berhasil diupload!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading excel:', error);
-      alert('Gagal mengupload data Excel.');
+      alert(`Gagal mengupload data Excel: ${error.message}`);
     } finally {
       setLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

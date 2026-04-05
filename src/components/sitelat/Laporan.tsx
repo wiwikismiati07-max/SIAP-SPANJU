@@ -223,9 +223,10 @@ export default function Laporan() {
 
           if (!siswa_id) {
             // Create new student
+            const newId = crypto.randomUUID();
             const { data: newSiswa, error: insertError } = await supabase
               .from('master_siswa')
-              .insert([{ nama: t.nama, kelas: t.kelas }])
+              .insert([{ id: newId, nama: t.nama, kelas: t.kelas }])
               .select('id')
               .single();
               
