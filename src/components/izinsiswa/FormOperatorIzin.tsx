@@ -264,7 +264,7 @@ export default function FormOperatorIzin() {
                   >
                     <option value="">Pilih Guru...</option>
                     {guruList.map(g => (
-                      <option key={g.id} value={g.id}>{g.nama_guru} - {g.mata_pelajaran}</option>
+                      <option key={g.id} value={g.id}>{g.nama_guru}</option>
                     ))}
                   </select>
                 </div>

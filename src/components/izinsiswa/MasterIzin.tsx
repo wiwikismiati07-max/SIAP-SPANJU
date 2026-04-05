@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Download, Upload, Save, Users } from 'lucide-react';
+import { Download, Upload, Save, Users, BookOpen } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function MasterIzin() {
@@ -8,21 +8,24 @@ export default function MasterIzin() {
 
   const backupData = async () => {
     try {
-      let dataToExport = { izin_siswa: [], kalender_belajar: [], master_guru: [] };
+      let dataToExport = { izin_siswa: [], kalender_belajar: [], master_guru: [], master_mapel: [] };
       if (supabase) {
         const { data: iData } = await supabase.from('izin_siswa').select('*');
         const { data: kData } = await supabase.from('kalender_belajar').select('*');
         const { data: gData } = await supabase.from('master_guru').select('*');
+        const { data: mData } = await supabase.from('master_mapel').select('*');
         dataToExport = { 
           izin_siswa: iData || [], 
           kalender_belajar: kData || [],
-          master_guru: gData || []
+          master_guru: gData || [],
+          master_mapel: mData || []
         };
       } else {
         dataToExport = {
           izin_siswa: JSON.parse(localStorage.getItem('izinsiswa_data') || '[]'),
           kalender_belajar: JSON.parse(localStorage.getItem('kalender_belajar') || '[]'),
-          master_guru: JSON.parse(localStorage.getItem('master_guru') || '[]')
+          master_guru: JSON.parse(localStorage.getItem('master_guru') || '[]'),
+          master_mapel: JSON.parse(localStorage.getItem('master_mapel') || '[]')
         };
       }
 
@@ -53,11 +56,17 @@ export default function MasterIzin() {
              if (json.master_guru) {
                await supabase.from('master_guru').upsert(json.master_guru, { onConflict: 'id' });
              }
+             if (json.master_mapel) {
+               await supabase.from('master_mapel').upsert(json.master_mapel, { onConflict: 'id' });
+             }
           } else {
              localStorage.setItem('izinsiswa_data', JSON.stringify(json.izin_siswa));
              localStorage.setItem('kalender_belajar', JSON.stringify(json.kalender_belajar));
              if (json.master_guru) {
                localStorage.setItem('master_guru', JSON.stringify(json.master_guru));
+             }
+             if (json.master_mapel) {
+               localStorage.setItem('master_mapel', JSON.stringify(json.master_mapel));
              }
           }
           alert('Data berhasil direstore!');
@@ -86,12 +95,11 @@ export default function MasterIzin() {
 
         const newGuru = data.map((row: any) => ({
           id: crypto.randomUUID(),
-          nama_guru: row['Nama Guru'] || row['NAMA GURU'] || row['nama_guru'],
-          mata_pelajaran: row['Mata Pelajaran'] || row['MATA PELAJARAN'] || row['mata_pelajaran'] || '-'
+          nama_guru: row['Nama Guru'] || row['NAMA GURU'] || row['nama_guru']
         })).filter(g => g.nama_guru);
 
         if (newGuru.length === 0) {
-          alert('Format Excel tidak sesuai. Pastikan ada kolom "Nama Guru" dan "Mata Pelajaran".');
+          alert('Format Excel tidak sesuai. Pastikan ada kolom "Nama Guru".');
           return;
         }
 
@@ -103,6 +111,44 @@ export default function MasterIzin() {
           localStorage.setItem('master_guru', JSON.stringify([...localGuru, ...newGuru]));
         }
         alert(`${newGuru.length} data guru berhasil diupload!`);
+      } catch (error: any) {
+        alert(`Gagal upload: ${error.message}`);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleUploadMapel = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const bstr = event.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        const newMapel = data.map((row: any) => ({
+          id: crypto.randomUUID(),
+          nama_mapel: row['Mata Pelajaran'] || row['MATA PELAJARAN'] || row['nama_mapel'] || row['Mapel']
+        })).filter(m => m.nama_mapel);
+
+        if (newMapel.length === 0) {
+          alert('Format Excel tidak sesuai. Pastikan ada kolom "Mata Pelajaran".');
+          return;
+        }
+
+        if (supabase) {
+          const { error } = await supabase.from('master_mapel').insert(newMapel);
+          if (error) throw error;
+        } else {
+          const localMapel = JSON.parse(localStorage.getItem('master_mapel') || '[]');
+          localStorage.setItem('master_mapel', JSON.stringify([...localMapel, ...newMapel]));
+        }
+        alert(`${newMapel.length} data mata pelajaran berhasil diupload!`);
       } catch (error: any) {
         alert(`Gagal upload: ${error.message}`);
       }
@@ -146,7 +192,7 @@ export default function MasterIzin() {
           <h3 className="text-lg font-bold text-slate-800 mb-4">Master Data Guru</h3>
           <p className="text-sm text-slate-600 mb-4">
             Upload data guru dari file Excel (.xlsx) untuk digunakan pada form input manual izin.
-            Pastikan file memiliki kolom <strong>Nama Guru</strong> dan <strong>Mata Pelajaran</strong>.
+            Pastikan file memiliki kolom <strong>Nama Guru</strong>.
           </p>
           <label className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-xl font-medium transition-colors cursor-pointer">
             <Users size={18} /> Upload Data Guru (Excel)
@@ -155,6 +201,23 @@ export default function MasterIzin() {
               accept=".xlsx, .xls" 
               className="hidden" 
               onChange={handleUploadGuru}
+            />
+          </label>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Master Data Mata Pelajaran</h3>
+          <p className="text-sm text-slate-600 mb-4">
+            Upload data mata pelajaran dari file Excel (.xlsx).
+            Pastikan file memiliki kolom <strong>Mata Pelajaran</strong>.
+          </p>
+          <label className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-xl font-medium transition-colors cursor-pointer">
+            <BookOpen size={18} /> Upload Data Mapel (Excel)
+            <input 
+              type="file" 
+              accept=".xlsx, .xls" 
+              className="hidden" 
+              onChange={handleUploadMapel}
             />
           </label>
         </div>

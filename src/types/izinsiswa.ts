@@ -7,7 +7,11 @@ export interface Siswa {
 export interface Guru {
   id: string;
   nama_guru: string;
-  mata_pelajaran: string;
+}
+
+export interface Mapel {
+  id: string;
+  nama_mapel: string;
 }
 
 export interface IzinSiswa {
