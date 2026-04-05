@@ -30,7 +30,8 @@ import {
   ChevronRight,
   Settings,
   Sparkles,
-  Clock
+  Clock,
+  UserCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from './lib/supabase';
@@ -83,6 +84,7 @@ const IMAGE_8_PROGRAM = "https://wsrv.nl/?url=i.ibb.co.com/VWYCc9Cc/Gemini-Gener
 const IMAGE_KORELASI_SRA = "https://wsrv.nl/?url=i.ibb.co/5wM2Bd4/gambar-3.jpg";
 
 import SiTelatApp from './components/sitelat/SiTelatApp';
+import IzinSiswaApp from './components/izinsiswa/IzinSiswaApp';
 
 // --- Components ---
 
@@ -91,7 +93,7 @@ export default function App() {
   const [userLinks, setUserLinks] = useState<AppLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | null>(null);
+  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -273,6 +275,7 @@ export default function App() {
           {/* Static Sections */}
           {[
             { id: 'sitelat', title: 'Si-Telat', subtitle: 'Sistem Keterlambatan Siswa', icon: Clock, color: 'from-blue-500 to-blue-700' },
+            { id: 'izinsiswa', title: 'Izin Siswa', subtitle: 'Sistem Perizinan Siswa', icon: UserCheck, color: 'from-emerald-500 to-emerald-700' },
             { id: 'kilas', title: 'Kilas Aplikasi', subtitle: 'Referensi Dasar', icon: Book, color: 'from-pink-500 to-pink-600' },
             { id: 'program', title: '8 Program Prioritas', subtitle: 'SMPN 7 Pasuruan', icon: LayoutDashboard, color: 'from-blue-400 to-blue-600' },
             { id: 'spip', title: '15 Indikator SPIP', subtitle: 'Anti Korupsi', icon: Shield, color: 'from-purple-400 to-purple-600' },
@@ -389,6 +392,11 @@ export default function App() {
         {activeSection === 'sitelat' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
             <SiTelatApp />
+          </div>
+        )}
+        {activeSection === 'izinsiswa' && (
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            <IzinSiswaApp />
           </div>
         )}
         <AnimatePresence mode="wait">
