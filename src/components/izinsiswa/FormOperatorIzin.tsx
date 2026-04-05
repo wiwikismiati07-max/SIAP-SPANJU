@@ -25,17 +25,17 @@ export default function FormOperatorIzin() {
   // Manual Input State
   const [showManualInput, setShowManualInput] = useState(false);
   const [guruList, setGuruList] = useState<Guru[]>([]);
-  const [mapelList, setMapelList] = useState<any[]>([]);
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedKelas, setSelectedKelas] = useState('');
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
   const [selectedGuru, setSelectedGuru] = useState('');
-  const [selectedMapel, setSelectedMapel] = useState('');
   const [tanggalMulai, setTanggalMulai] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [tanggalSelesai, setTanggalSelesai] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [alasan, setAlasan] = useState('');
   const [alasanLainnya, setAlasanLainnya] = useState('');
+  const [lampiranFile, setLampiranFile] = useState<File | null>(null);
+  const [lampiranPreview, setLampiranPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -51,15 +51,28 @@ export default function FormOperatorIzin() {
         if (sData) setSiswaList(sData);
         const { data: gData } = await supabase.from('master_guru').select('*');
         if (gData) setGuruList(gData);
-        const { data: mData } = await supabase.from('master_mapel').select('*');
-        if (mData) setMapelList(mData);
       } else {
         setSiswaList(JSON.parse(localStorage.getItem('sitelat_siswa') || '[]'));
         setGuruList(JSON.parse(localStorage.getItem('master_guru') || '[]'));
-        setMapelList(JSON.parse(localStorage.getItem('master_mapel') || '[]'));
       }
     } catch (error) {
       console.error('Error fetching master data:', error);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Ukuran file maksimal 2MB');
+        return;
+      }
+      setLampiranFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLampiranPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -139,7 +152,7 @@ export default function FormOperatorIzin() {
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSiswa || !alasan || !selectedGuru || !selectedMapel) {
+    if (!selectedSiswa || !alasan || !selectedGuru) {
       alert('Mohon lengkapi semua data');
       return;
     }
@@ -151,20 +164,39 @@ export default function FormOperatorIzin() {
     }
 
     setSubmitting(true);
-    const newRecord = {
-      id: crypto.randomUUID(),
-      siswa_id: selectedSiswa.id,
-      guru_id: selectedGuru,
-      mapel_id: selectedMapel,
-      tanggal_mulai: tanggalMulai,
-      tanggal_selesai: tanggalSelesai,
-      alasan: finalAlasan,
-      status: 'Disetujui', // Langsung disetujui jika input manual
-      diajukan_oleh: 'Guru',
-      created_at: new Date().toISOString()
-    };
-
+    
+    let lampiranUrl = '';
     try {
+      if (lampiranFile && supabase) {
+        const fileExt = lampiranFile.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('lampiran_izin')
+          .upload(fileName, lampiranFile);
+        
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from('lampiran_izin')
+            .getPublicUrl(fileName);
+          lampiranUrl = urlData.publicUrl;
+        }
+      } else if (lampiranPreview) {
+        lampiranUrl = lampiranPreview; // Local base64
+      }
+
+      const newRecord = {
+        id: crypto.randomUUID(),
+        siswa_id: selectedSiswa.id,
+        guru_id: selectedGuru,
+        tanggal_mulai: tanggalMulai,
+        tanggal_selesai: tanggalSelesai,
+        alasan: finalAlasan,
+        lampiran_url: lampiranUrl,
+        status: 'Disetujui',
+        diajukan_oleh: 'Guru',
+        created_at: new Date().toISOString()
+      };
+
       if (supabase) {
         const { error } = await supabase.from('izin_siswa').insert([newRecord]);
         if (error) throw error;
@@ -174,15 +206,16 @@ export default function FormOperatorIzin() {
         localStorage.setItem('izinsiswa_data', JSON.stringify(localData));
       }
       
-      alert('Izin manual berhasil ditambahkan dan disetujui.');
+      alert('Izin manual berhasil ditambahkan.');
       setShowManualInput(false);
       setSelectedSiswa(null);
       setAlasan('');
       setAlasanLainnya('');
       setSearchTerm('');
       setSelectedGuru('');
-      setSelectedMapel('');
-      fetchPending(); // Refresh data just in case
+      setLampiranFile(null);
+      setLampiranPreview(null);
+      fetchPending();
     } catch (error: any) {
       console.error('Error saving:', error);
       alert(`Gagal menyimpan izin: ${error.message}`);
@@ -220,7 +253,7 @@ export default function FormOperatorIzin() {
 
       {showManualInput && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Input Manual Izin (Langsung Disetujui)</h3>
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Input Manual Izin</h3>
           <form onSubmit={handleManualSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -286,7 +319,7 @@ export default function FormOperatorIzin() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Nama Guru (Pemberi Izin) <span className="text-rose-500">*</span></label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Nama Guru <span className="text-rose-500">*</span></label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                   <select
@@ -298,24 +331,6 @@ export default function FormOperatorIzin() {
                     <option value="">Pilih Guru...</option>
                     {guruList.map(g => (
                       <option key={g.id} value={g.id}>{g.nama_guru}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Mata Pelajaran <span className="text-rose-500">*</span></label>
-                <div className="relative">
-                  <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                  <select
-                    value={selectedMapel}
-                    onChange={(e) => setSelectedMapel(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all appearance-none"
-                    required
-                  >
-                    <option value="">Pilih Mapel...</option>
-                    {mapelList.map(m => (
-                      <option key={m.id} value={m.id}>{m.nama_mapel}</option>
                     ))}
                   </select>
                 </div>
@@ -352,37 +367,61 @@ export default function FormOperatorIzin() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Alasan Izin <span className="text-rose-500">*</span></label>
-              <div className="flex flex-wrap gap-2">
-                {ALASAN_OPTIONS.map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setAlasan(opt)}
-                    className={`py-2 px-4 rounded-xl border text-sm font-medium transition-all ${
-                      alasan === opt 
-                        ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500' 
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-              
-              {alasan === 'Lainnya' && (
-                <div className="mt-3">
-                  <input
-                    type="text"
-                    value={alasanLainnya}
-                    onChange={(e) => setAlasanLainnya(e.target.value)}
-                    placeholder="Tuliskan alasan..."
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    required
-                  />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Alasan Izin <span className="text-rose-500">*</span></label>
+                <div className="flex flex-wrap gap-2">
+                  {ALASAN_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setAlasan(opt)}
+                      className={`py-2 px-4 rounded-xl border text-sm font-medium transition-all ${
+                        alasan === opt 
+                          ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500' 
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
                 </div>
-              )}
+                
+                {alasan === 'Lainnya' && (
+                  <div className="mt-3">
+                    <input
+                      type="text"
+                      value={alasanLainnya}
+                      onChange={(e) => setAlasanLainnya(e.target.value)}
+                      placeholder="Tuliskan alasan..."
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      required
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Lampiran Foto Bukti</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="w-full px-4 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 transition-all"
+                />
+                {lampiranPreview && (
+                  <div className="mt-2 relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200">
+                    <img src={lampiranPreview} alt="Preview" className="w-full h-full object-cover" />
+                    <button 
+                      type="button"
+                      onClick={() => { setLampiranFile(null); setLampiranPreview(null); }}
+                      className="absolute top-0 right-0 bg-rose-500 text-white p-0.5 rounded-bl-lg"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="pt-2">

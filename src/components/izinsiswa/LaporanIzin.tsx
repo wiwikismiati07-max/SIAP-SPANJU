@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { IzinWithSiswa } from '../../types/izinsiswa';
-import { Download, Search, Calendar as CalendarIcon, Edit, Trash2, X } from 'lucide-react';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { Download, Search, Calendar as CalendarIcon, Edit, Trash2, X, FileText, Users } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
 import * as XLSX from 'xlsx';
 
 export default function LaporanIzin() {
@@ -10,10 +10,18 @@ export default function LaporanIzin() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipe, setFilterTipe] = useState<'Semua' | 'Wali Murid'>('Semua');
+  const [reportType, setReportType] = useState<'detail' | 'absensi'>('detail');
+  const [selectedKelas, setSelectedKelas] = useState('');
   const [dateRange, setDateRange] = useState({
     start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
     end: format(endOfMonth(new Date()), 'yyyy-MM-dd')
   });
+
+  const KELAS_OPTIONS = [
+    '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
+    '8A', '8B', '8C', '8D', '8E', '8F', '8G', '8H',
+    '9A', '9B', '9C', '9D', '9E', '9F', '9G', '9H'
+  ];
 
   // Edit State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -78,24 +86,73 @@ export default function LaporanIzin() {
   };
 
   const handleDownloadExcel = () => {
-    const exportData = filteredData.map(d => ({
-      'NAMA': d.siswa?.nama,
-      'KELAS': d.siswa?.kelas,
-      'TANGGAL MULAI': d.tanggal_mulai,
-      'TANGGAL SELESAI': d.tanggal_selesai,
-      'ALASAN': d.alasan,
-      'STATUS': d.status,
-      'DIAJUKAN OLEH': d.diajukan_oleh,
-      'GURU PEMBERI IZIN': d.guru?.nama_guru || '-',
-      'MATA PELAJARAN': d.mapel?.nama_mapel || '-',
-      'NAMA WALI': d.nama_wali || '-',
-      'NO TELP WALI': d.no_telp_wali || '-'
-    }));
+    if (reportType === 'detail') {
+      const exportData = filteredData.map(d => ({
+        'NAMA': d.siswa?.nama,
+        'KELAS': d.siswa?.kelas,
+        'TANGGAL MULAI': d.tanggal_mulai,
+        'TANGGAL SELESAI': d.tanggal_selesai,
+        'ALASAN': d.alasan,
+        'STATUS': d.status,
+        'DIAJUKAN OLEH': d.diajukan_oleh,
+        'GURU PEMBERI IZIN': d.guru?.nama_guru || '-',
+        'MATA PELAJARAN': d.mapel?.nama_mapel || '-',
+        'NAMA WALI': d.nama_wali || '-',
+        'NO TELP WALI': d.no_telp_wali || '-'
+      }));
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Laporan Izin");
-    XLSX.writeFile(wb, `Laporan_Izin_${dateRange.start}_sd_${dateRange.end}.xlsx`);
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Laporan Izin");
+      XLSX.writeFile(wb, `Laporan_Izin_${dateRange.start}_sd_${dateRange.end}.xlsx`);
+    } else {
+      // Absensi Harian Report
+      if (!selectedKelas) {
+        alert('Pilih kelas terlebih dahulu untuk laporan absensi harian');
+        return;
+      }
+
+      const days = eachDayOfInterval({
+        start: new Date(dateRange.start),
+        end: new Date(dateRange.end)
+      });
+
+      // Get students in this class
+      const studentsInClass = Array.from(new Set(data.filter(i => i.siswa?.kelas === selectedKelas).map(i => i.siswa?.id)))
+        .map(id => data.find(i => i.siswa?.id === id)?.siswa)
+        .filter(Boolean);
+
+      if (studentsInClass.length === 0) {
+        alert('Tidak ada data siswa untuk kelas ini dalam periode tersebut');
+        return;
+      }
+
+      const exportData: any[] = [];
+
+      days.forEach(day => {
+        studentsInClass.forEach(student => {
+          const dayIzin = data.find(i => 
+            i.siswa_id === student?.id && 
+            isSameDay(new Date(i.tanggal_mulai), day) &&
+            i.status === 'Disetujui'
+          );
+
+          exportData.push({
+            'Tanggal': format(day, 'dd/MM/yyyy'),
+            'Nama Siswa': student?.nama,
+            'Kelas': student?.kelas,
+            'Sakit': dayIzin?.alasan === 'Sakit' ? 'V' : '',
+            'Izin': (dayIzin && dayIzin.alasan !== 'Sakit') ? 'V' : '',
+            'Alpa': '' // Manual entry usually
+          });
+        });
+      });
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Absensi Harian");
+      XLSX.writeFile(wb, `Absensi_Harian_${selectedKelas}_${dateRange.start}_${dateRange.end}.xlsx`);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -147,13 +204,14 @@ export default function LaporanIzin() {
                         d.siswa?.kelas.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         d.alasan.toLowerCase().includes(searchTerm.toLowerCase());
     const matchTipe = filterTipe === 'Semua' || d.diajukan_oleh === filterTipe;
-    return matchSearch && matchTipe;
+    const matchKelas = selectedKelas ? d.siswa?.kelas === selectedKelas : true;
+    return matchSearch && matchTipe && matchKelas;
   });
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-slate-800">Laporan Detail Izin</h2>
+        <h2 className="text-2xl font-bold text-slate-800">Laporan Perizinan</h2>
         <button
           onClick={handleDownloadExcel}
           className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl font-medium transition-colors"
@@ -162,43 +220,85 @@ export default function LaporanIzin() {
         </button>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-          <input
-            type="text"
-            placeholder="Cari nama, kelas, atau alasan..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
-          />
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <CalendarIcon className="text-slate-400" size={20} />
-          <input
-            type="date"
-            value={dateRange.start}
-            onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
-          />
-          <span className="text-slate-400">-</span>
-          <input
-            type="date"
-            value={dateRange.end}
-            onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
-          />
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+        <div className="flex flex-wrap gap-4">
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Tipe Laporan</label>
+            <div className="flex bg-slate-100 p-1 rounded-xl">
+              <button
+                onClick={() => setReportType('detail')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${
+                  reportType === 'detail' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <FileText size={16} />
+                Detail Izin
+              </button>
+              <button
+                onClick={() => setReportType('absensi')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${
+                  reportType === 'absensi' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Users size={16} />
+                Absensi Harian
+              </button>
+            </div>
+          </div>
+
+          <div className="w-full sm:w-auto">
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Filter Kelas</label>
+            <select
+              value={selectedKelas}
+              onChange={(e) => setSelectedKelas(e.target.value)}
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none appearance-none"
+            >
+              <option value="">Semua Kelas</option>
+              {KELAS_OPTIONS.map(k => (
+                <option key={k} value={k}>{k}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <select
-          value={filterTipe}
-          onChange={(e) => setFilterTipe(e.target.value as any)}
-          className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
-        >
-          <option value="Semua">Semua Pengajuan</option>
-          <option value="Wali Murid">Laporan Izin Wali</option>
-        </select>
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <input
+              type="text"
+              placeholder="Cari nama, kelas, atau alasan..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="text-slate-400" size={20} />
+            <input
+              type="date"
+              value={dateRange.start}
+              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+            <span className="text-slate-400">-</span>
+            <input
+              type="date"
+              value={dateRange.end}
+              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+            />
+          </div>
+
+          <select
+            value={filterTipe}
+            onChange={(e) => setFilterTipe(e.target.value as any)}
+            className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+          >
+            <option value="Semua">Semua Pengajuan</option>
+            <option value="Wali Murid">Laporan Izin Wali</option>
+          </select>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -206,7 +306,7 @@ export default function LaporanIzin() {
           <div className="p-8 text-center text-slate-500">Memuat data...</div>
         ) : filteredData.length === 0 ? (
           <div className="p-8 text-center text-slate-500">Tidak ada data izin pada periode ini.</div>
-        ) : (
+        ) : reportType === 'detail' ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -287,6 +387,17 @@ export default function LaporanIzin() {
                 ))}
               </tbody>
             </table>
+          </div>
+        ) : (
+          <div className="p-12 text-center">
+            <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Users size={32} className="text-emerald-600" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800">Laporan Absensi Harian</h3>
+            <p className="text-slate-500 max-w-md mx-auto mt-2">
+              Laporan ini menampilkan rekap Sakit, Izin, dan Alpa per siswa dalam rentang waktu tertentu.
+              Silakan pilih kelas dan klik tombol <strong>Download Excel</strong> untuk melihat detail lengkapnya.
+            </p>
           </div>
         )}
       </div>
