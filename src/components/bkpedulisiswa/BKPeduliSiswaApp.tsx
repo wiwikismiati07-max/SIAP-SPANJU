@@ -58,7 +58,7 @@ export default function BKPeduliSiswaApp() {
             <Users size={24} />
           </div>
           <div>
-            <h1 className="text-lg md:text-xl font-bold text-slate-800 leading-tight">BK Peduli Siswa <span className="text-[10px] font-normal text-slate-400">v1.0</span></h1>
+            <h1 className="text-lg md:text-xl font-bold text-slate-800 leading-tight uppercase tracking-tight">BK_PEDULI SISWA SMPN7 <span className="text-[10px] font-normal text-slate-400 normal-case">v1.0</span></h1>
             <p className="text-[10px] md:text-xs text-slate-500">
               Halo, {user.nama_lengkap || user.username} ({user.role}) - Digital Counseling System
             </p>
@@ -114,7 +114,7 @@ export default function BKPeduliSiswaApp() {
             }`}
           >
             <PlusCircle size={20} />
-            <span className="font-semibold">Transaksi</span>
+            <span className="font-semibold">Input Pelanggaran</span>
           </button>
           <button
             onClick={() => { setActiveTab('laporan'); setIsMobileMenuOpen(false); }}
@@ -137,7 +137,7 @@ export default function BKPeduliSiswaApp() {
                 }`}
               >
                 <Database size={20} />
-                <span className="font-semibold">Master</span>
+                <span className="font-semibold">Master Pelanggaran</span>
               </button>
             </>
           )}
