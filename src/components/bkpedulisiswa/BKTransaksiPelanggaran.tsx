@@ -98,15 +98,21 @@ export default function BKTransaksiPelanggaran() {
     setLoading(true);
     try {
       if (supabase) {
+        // Exclude 'kelas' from the data sent to Supabase as it might not be in the schema
+        // or we want to keep the schema clean since it's already in master_siswa.
+        // However, if the user wants it stored historically, we should add it to DB.
+        // For now, let's destructure it out to prevent the "column not found" error.
+        const { kelas, ...dataToSave } = formData;
+
         if (editingId) {
           const { error } = await supabase
             .from('transaksi_pelanggaran')
-            .update(formData)
+            .update(dataToSave)
             .eq('id', editingId);
           if (error) throw error;
           setSuccessMsg('Data pelanggaran berhasil diperbarui!');
         } else {
-          const { error } = await supabase.from('transaksi_pelanggaran').insert([formData]);
+          const { error } = await supabase.from('transaksi_pelanggaran').insert([dataToSave]);
           if (error) throw error;
           setSuccessMsg('Data pelanggaran berhasil disimpan!');
         }
