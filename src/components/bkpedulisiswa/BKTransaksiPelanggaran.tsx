@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Siswa } from '../../types/izinsiswa';
 import { MasterPelanggaran, TransaksiPelanggaran } from '../../types/bkpedulisiswa';
-import { Save, Search, User, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, CheckCircle2, Trash2, Edit2, X, ClipboardList } from 'lucide-react';
+import { Save, Search, User, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, CheckCircle2, Trash2, Edit2, X, ClipboardList, Plus, Paperclip, FileText as FileIcon } from 'lucide-react';
+import { TindakLanjutKasus } from '../../types/bkpedulisiswa';
 
 export default function BKTransaksiPelanggaran() {
   const [loading, setLoading] = useState(false);
@@ -14,6 +15,8 @@ export default function BKTransaksiPelanggaran() {
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showOtherKasus, setShowOtherKasus] = useState(false);
+  const [showOtherTindakLanjut, setShowOtherTindakLanjut] = useState(false);
 
   const initialFormData = {
     tanggal: new Date().toISOString().split('T')[0],
@@ -21,16 +24,17 @@ export default function BKTransaksiPelanggaran() {
     kelas: '',
     siswa_id: '',
     pelanggaran_id: '',
-    alasan: '',
-    penanganan: 'Kedisiplinan',
-    konsekuensi: 'Surat pernyataan Siswa',
-    tindak_lanjut: 'Konseling Individu',
+    kasus_kategori: 'Kedisiplinan',
+    kasus_kategori_lain: '',
+    kronologi: '',
+    bukti_fisik: [] as string[],
     wali_kelas: '',
     guru_bk: 'Wiwik Ismiati S.pd',
     status: 'Proses'
   };
 
   const [formData, setFormData] = useState(initialFormData);
+  const [tindakLanjuts, setTindakLanjuts] = useState<Partial<TindakLanjutKasus>[]>([]);
 
   const KELAS_OPTIONS = [
     '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
@@ -38,14 +42,12 @@ export default function BKTransaksiPelanggaran() {
     '9A', '9B', '9C', '9D', '9E', '9F', '9G', '9H'
   ];
 
-  const PENANGANAN_OPTIONS = ['Akademik', 'Bullying', 'Etika', 'Kedisiplinan', 'Lainnya'];
-  const KONSEKUENSI_OPTIONS = ['Surat pernyataan orang tua', 'Surat pernyataan Siswa'];
+  const KASUS_OPTIONS = ['Kedisiplinan', 'Etika', 'Akademi', 'Bullying', 'Perkelahian', 'merokok', 'Narkoba', 'Lain-Lain'];
   const TINDAK_LANJUT_OPTIONS = [
-    'Konseling Individu', 'Konseling Kelompok', 'Bimbingan Kelompok', 
-    'Kunjungan Rumah/Home Visit', 'Tangan alih kasus/Referral', 
-    'Konferensi Kasus', 'Mediasi'
+    'Konseling Individu', 'Konseling Kelompok', 'Panggilan Orang Tua', 
+    'Mediasi', 'Home visit', 'Skorsing', 'Lain-lain'
   ];
-  const GURU_BK_OPTIONS = ['Wiwik Ismiati S.pd', 'Ekik Febriani S.pd'];
+  const GURU_BK_OPTIONS = ['Wiwik Ismiati S.pd', 'Eki Febriani S.pd'];
 
   useEffect(() => {
     fetchInitialData();
@@ -76,7 +78,8 @@ export default function BKTransaksiPelanggaran() {
           .select(`
             *,
             siswa:master_siswa(*),
-            pelanggaran:master_pelanggaran(*)
+            pelanggaran:master_pelanggaran(*),
+            tindak_lanjuts:tindak_lanjut_kasus(*)
           `)
           .order('created_at', { ascending: false })
           .limit(10);
@@ -85,6 +88,59 @@ export default function BKTransaksiPelanggaran() {
       }
     } catch (error) {
       console.error('Error fetching transaksi:', error);
+    }
+  };
+
+  const handleAddTindakLanjut = () => {
+    setTindakLanjuts([...tindakLanjuts, { 
+      tanggal: new Date().toISOString().split('T')[0], 
+      tindak_lanjut: 'Konseling Individu',
+      keterangan: ''
+    }]);
+  };
+
+  const handleRemoveTindakLanjut = (index: number) => {
+    setTindakLanjuts(tindakLanjuts.filter((_, i) => i !== index));
+  };
+
+  const handleTindakLanjutChange = (index: number, field: string, value: string) => {
+    const updated = [...tindakLanjuts];
+    updated[index] = { ...updated[index], [field]: value };
+    setTindakLanjuts(updated);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    setLoading(true);
+    try {
+      const newUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `bukti_fisik/${fileName}`;
+
+        if (supabase) {
+          const { error: uploadError } = await supabase.storage
+            .from('bk_peduli_siswa')
+            .upload(filePath, file);
+
+          if (uploadError) throw uploadError;
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('bk_peduli_siswa')
+            .getPublicUrl(filePath);
+          
+          newUrls.push(publicUrl);
+        }
+      }
+      setFormData(prev => ({ ...prev, bukti_fisik: [...prev.bukti_fisik, ...newUrls] }));
+    } catch (error: any) {
+      alert('Error uploading file: ' + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -98,11 +154,12 @@ export default function BKTransaksiPelanggaran() {
     setLoading(true);
     try {
       if (supabase) {
-        // Exclude 'kelas' from the data sent to Supabase as it might not be in the schema
-        // or we want to keep the schema clean since it's already in master_siswa.
-        // However, if the user wants it stored historically, we should add it to DB.
-        // For now, let's destructure it out to prevent the "column not found" error.
-        const { kelas, ...dataToSave } = formData;
+        const { kasus_kategori_lain, ...dataToSave } = formData;
+        if (formData.kasus_kategori === 'Lain-Lain') {
+          dataToSave.kasus_kategori = kasus_kategori_lain as any;
+        }
+
+        let transaksiId = editingId;
 
         if (editingId) {
           const { error } = await supabase
@@ -110,14 +167,30 @@ export default function BKTransaksiPelanggaran() {
             .update(dataToSave)
             .eq('id', editingId);
           if (error) throw error;
+          
+          // Delete existing follow-ups to re-insert (simple way to sync)
+          await supabase.from('tindak_lanjut_kasus').delete().eq('transaksi_id', editingId);
+          
           setSuccessMsg('Data pelanggaran berhasil diperbarui!');
         } else {
-          const { error } = await supabase.from('transaksi_pelanggaran').insert([dataToSave]);
+          const { data, error } = await supabase.from('transaksi_pelanggaran').insert([dataToSave]).select();
           if (error) throw error;
+          transaksiId = data[0].id;
           setSuccessMsg('Data pelanggaran berhasil disimpan!');
+        }
+
+        // Insert follow-ups
+        if (transaksiId && tindakLanjuts.length > 0) {
+          const followUpsToSave = tindakLanjuts.map(tl => ({
+            ...tl,
+            transaksi_id: transaksiId
+          }));
+          const { error: tlError } = await supabase.from('tindak_lanjut_kasus').insert(followUpsToSave);
+          if (tlError) throw tlError;
         }
         
         setFormData(initialFormData);
+        setTindakLanjuts([]);
         setEditingId(null);
         setSelectedSiswa(null);
         setSearchTerm('');
@@ -133,7 +206,7 @@ export default function BKTransaksiPelanggaran() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Hapus data transaksi ini?')) return;
+    if (!confirm('Hapus data transaksi ini? Semua tindak lanjut terkait juga akan terhapus.')) return;
     try {
       if (supabase) {
         const { error } = await supabase.from('transaksi_pelanggaran').delete().eq('id', id);
@@ -147,20 +220,23 @@ export default function BKTransaksiPelanggaran() {
 
   const handleEdit = (t: TransaksiPelanggaran) => {
     setEditingId(t.id);
+    const isOtherKasus = !KASUS_OPTIONS.includes(t.kasus_kategori || '');
     setFormData({
       tanggal: t.tanggal,
       jam: t.jam,
-      kelas: t.siswa?.kelas || '',
+      kelas: t.kelas || '',
       siswa_id: t.siswa_id,
       pelanggaran_id: t.pelanggaran_id,
-      alasan: t.alasan || '',
-      penanganan: t.penanganan || 'Kedisiplinan',
-      konsekuensi: t.konsekuensi || 'Surat pernyataan Siswa',
-      tindak_lanjut: t.tindak_lanjut || 'Konseling Individu',
+      kasus_kategori: (isOtherKasus ? 'Lain-Lain' : t.kasus_kategori) as any,
+      kasus_kategori_lain: isOtherKasus ? t.kasus_kategori : '',
+      kronologi: t.kronologi || '',
+      bukti_fisik: t.bukti_fisik || [],
       wali_kelas: t.wali_kelas || '',
       guru_bk: t.guru_bk || 'Wiwik Ismiati S.pd',
       status: t.status || 'Proses'
     });
+    setShowOtherKasus(isOtherKasus);
+    setTindakLanjuts(t.tindak_lanjuts || []);
     setSelectedSiswa(t.siswa || null);
     setSearchTerm(t.siswa?.nama || '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -264,7 +340,7 @@ export default function BKTransaksiPelanggaran() {
         {/* Step 2: Violation Details */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-4">
           <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-            <AlertCircle size={16} /> Detail Pelanggaran
+            <AlertCircle size={16} /> Detail Kasus
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -294,68 +370,147 @@ export default function BKTransaksiPelanggaran() {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Jenis Pelanggaran</label>
-            <select 
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
-              value={formData.pelanggaran_id}
-              onChange={e => setFormData({...formData, pelanggaran_id: e.target.value})}
-            >
-              <option value="">Pilih Pelanggaran</option>
-              {pelanggaran.map(p => (
-                <option key={p.id} value={p.id}>{p.nama_pelanggaran} ({p.kategori})</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Jenis Pelanggaran (Master)</label>
+              <select 
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
+                value={formData.pelanggaran_id}
+                onChange={e => setFormData({...formData, pelanggaran_id: e.target.value})}
+              >
+                <option value="">Pilih Pelanggaran</option>
+                {pelanggaran.map(p => (
+                  <option key={p.id} value={p.id}>{p.nama_pelanggaran} ({p.kategori})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Kategori Kasus</label>
+              <select 
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
+                value={formData.kasus_kategori}
+                onChange={e => {
+                  setFormData({...formData, kasus_kategori: e.target.value as any});
+                  setShowOtherKasus(e.target.value === 'Lain-Lain');
+                }}
+              >
+                {KASUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+              {showOtherKasus && (
+                <input 
+                  type="text"
+                  placeholder="Sebutkan kategori kasus lainnya..."
+                  className="w-full mt-2 px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none animate-in slide-in-from-top-1"
+                  value={formData.kasus_kategori_lain}
+                  onChange={e => setFormData({...formData, kasus_kategori_lain: e.target.value})}
+                />
+              )}
+            </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Alasan Pelanggaran</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Kronologi Kejadian (Maks. 500 Kata)</label>
             <textarea 
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none h-24 resize-none"
-              placeholder="Jelaskan alasan siswa melanggar..."
-              value={formData.alasan}
-              onChange={e => setFormData({...formData, alasan: e.target.value})}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none h-40 resize-none"
+              placeholder="Jelaskan kronologi kejadian secara detail..."
+              value={formData.kronologi}
+              onChange={e => setFormData({...formData, kronologi: e.target.value})}
             />
+            <p className="text-[10px] text-right text-slate-400 mt-1">
+              {formData.kronologi.split(/\s+/).filter(Boolean).length} / 500 kata
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Bukti Fisik (Multi Attachment)</label>
+            <div className="flex flex-wrap gap-3 mb-3">
+              {formData.bukti_fisik.map((url, idx) => (
+                <div key={idx} className="relative group w-20 h-20 rounded-xl overflow-hidden border border-slate-200">
+                  <img src={url} alt="Bukti" className="w-full h-full object-cover" />
+                  <button 
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, bukti_fisik: prev.bukti_fisik.filter((_, i) => i !== idx) }))}
+                    className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+              <label className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:border-pink-500 hover:text-pink-500 transition-all cursor-pointer">
+                <Paperclip size={20} />
+                <span className="text-[10px] font-bold mt-1">Upload</span>
+                <input type="file" multiple className="hidden" onChange={handleFileUpload} accept="image/*" />
+              </label>
+            </div>
           </div>
         </div>
 
         {/* Step 3: Handling & Follow Up */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-4">
-          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-            <BookOpen size={16} /> Penanganan & Tindak Lanjut
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <BookOpen size={16} /> Penanganan & Tindak Lanjut
+            </h3>
+            <button 
+              type="button"
+              onClick={handleAddTindakLanjut}
+              className="flex items-center gap-1 px-3 py-1 bg-pink-50 text-pink-600 rounded-lg text-xs font-bold border border-pink-100 hover:bg-pink-100 transition-colors"
+            >
+              <Plus size={14} /> Tambah Tindak Lanjut
+            </button>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Penanganan Siswa</label>
-              <select 
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
-                value={formData.penanganan}
-                onChange={e => setFormData({...formData, penanganan: e.target.value as any})}
-              >
-                {PENANGANAN_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
+          {tindakLanjuts.length === 0 ? (
+            <div className="p-8 text-center border-2 border-dashed border-slate-100 rounded-2xl text-slate-400 text-sm italic">
+              Belum ada tindak lanjut yang ditambahkan.
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Konsekuensi</label>
-              <select 
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
-                value={formData.konsekuensi}
-                onChange={e => setFormData({...formData, konsekuensi: e.target.value as any})}
-              >
-                {KONSEKUENSI_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
+          ) : (
+            <div className="space-y-4">
+              {tindakLanjuts.map((tl, idx) => (
+                <div key={idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 relative group animate-in slide-in-from-right-2">
+                  <button 
+                    type="button"
+                    onClick={() => handleRemoveTindakLanjut(idx)}
+                    className="absolute top-2 right-2 p-1 text-slate-400 hover:text-rose-500 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tanggal TL</label>
+                      <input 
+                        type="date" 
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-pink-500"
+                        value={tl.tanggal}
+                        onChange={e => handleTindakLanjutChange(idx, 'tanggal', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tindak Lanjut</label>
+                      <select 
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-pink-500"
+                        value={tl.tindak_lanjut}
+                        onChange={e => handleTindakLanjutChange(idx, 'tindak_lanjut', e.target.value)}
+                      >
+                        {TINDAK_LANJUT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Keterangan / Hasil</label>
+                    <textarea 
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-pink-500 h-16 resize-none"
+                      placeholder="Catat hasil tindak lanjut..."
+                      value={tl.keterangan}
+                      onChange={e => handleTindakLanjutChange(idx, 'keterangan', e.target.value)}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tindak Lanjut</label>
-              <select 
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
-                value={formData.tindak_lanjut}
-                onChange={e => setFormData({...formData, tindak_lanjut: e.target.value as any})}
-              >
-                {TINDAK_LANJUT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Guru BK</label>
               <select 
@@ -375,6 +530,17 @@ export default function BKTransaksiPelanggaran() {
               >
                 <option value="">Pilih Wali Kelas</option>
                 {guru.map(g => <option key={g.id} value={g.nama_guru}>{g.nama_guru}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Status Kasus</label>
+              <select 
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
+                value={formData.status}
+                onChange={e => setFormData({...formData, status: e.target.value as any})}
+              >
+                <option value="Proses">Proses</option>
+                <option value="Selesai">Selesai</option>
               </select>
             </div>
           </div>

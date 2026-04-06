@@ -64,13 +64,8 @@ const COLORS = [
 ];
 
 const EXTERNAL_APPS = [
-  { id: "app-baru", title: "Aplikasi Baru (gen-lang-client-0275224699)", url: "#", icon: "Sparkles", color: "from-purple-400 to-purple-600" },
-  { id: "sim-agama", title: "SIM-Agama", url: "https://sim-agama.vercel.app/", icon: "Book", color: "from-blue-400 to-blue-600" },
-  { id: "disiplin-spanju", title: "Disiplin Spanju", url: "https://disiplin-spanju.vercel.app/", icon: "Calendar", color: "from-pink-400 to-pink-600" },
-  { id: "uks-smpn7", title: "UKS SMPN 7", url: "https://uksspanju.vercel.app/", icon: "Activity", color: "from-blue-400 to-blue-600" },
-  { id: "sipena", title: "SIPENA", url: "https://sipena7.vercel.app/", icon: "Book", color: "from-pink-400 to-pink-600" },
   { id: "tata-tertib", title: "Tata Tertib Siswa", url: "https://tally.so/r/q4D1XY", icon: "FileText", color: "from-blue-400 to-blue-600" },
-  { id: "bk-peduli", title: "BK Peduli Siswa", url: "https://bk-peduli-siswa.vercel.app/", icon: "Users", color: "from-pink-400 to-pink-600" },
+  { id: "bk-peduli", title: "Disiplin Siswa", url: "https://bk-peduli-siswa.vercel.app/", icon: "Users", color: "from-pink-400 to-pink-600" },
   { id: "izin-siswa", title: "Izin Siswa", url: "https://izin-siswa.vercel.app/", icon: "ClipboardList", color: "from-blue-400 to-blue-600" },
   { id: "dispensasi-siswa", title: "Dispensasi Siswa", url: "https://dispensasi-siswa-lime.vercel.app/", icon: "FileCheck", color: "from-pink-400 to-pink-600" },
   { id: "prestasi-siswa", title: "Prestasi Siswa", url: "https://prestasi-siswa.vercel.app/", icon: "Award", color: "from-blue-400 to-blue-600" },
@@ -277,7 +272,7 @@ export default function App() {
           {[
             { id: 'sitelat', title: 'Si-Telat', subtitle: 'Sistem Keterlambatan Siswa', icon: Clock, color: 'from-blue-500 to-blue-700' },
             { id: 'izinsiswa', title: 'Izin Siswa', subtitle: 'Sistem Perizinan Siswa', icon: UserCheck, color: 'from-emerald-500 to-emerald-700' },
-            { id: 'bkpedulisiswa', title: 'BK Peduli Siswa', subtitle: 'Digital Counseling System', icon: Users, color: 'from-pink-500 to-pink-700' },
+            { id: 'bkpedulisiswa', title: 'Disiplin Siswa', subtitle: 'Digital Counseling System', icon: Users, color: 'from-pink-500 to-pink-700' },
             { id: 'kilas', title: 'Kilas Aplikasi', subtitle: 'Referensi Dasar', icon: Book, color: 'from-pink-500 to-pink-600' },
             { id: 'program', title: '8 Program Prioritas', subtitle: 'SMPN 7 Pasuruan', icon: LayoutDashboard, color: 'from-blue-400 to-blue-600' },
             { id: 'spip', title: '15 Indikator SPIP', subtitle: 'Anti Korupsi', icon: Shield, color: 'from-purple-400 to-purple-600' },

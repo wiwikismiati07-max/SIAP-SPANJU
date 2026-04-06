@@ -114,7 +114,7 @@ export default function BKPeduliSiswaApp() {
             }`}
           >
             <PlusCircle size={20} />
-            <span className="font-semibold">Input Pelanggaran</span>
+            <span className="font-semibold">Transaksi</span>
           </button>
           <button
             onClick={() => { setActiveTab('laporan'); setIsMobileMenuOpen(false); }}
@@ -137,7 +137,7 @@ export default function BKPeduliSiswaApp() {
                 }`}
               >
                 <Database size={20} />
-                <span className="font-semibold">Master Pelanggaran</span>
+                <span className="font-semibold">Master</span>
               </button>
             </>
           )}

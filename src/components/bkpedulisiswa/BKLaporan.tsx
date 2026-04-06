@@ -9,6 +9,9 @@ import { TransaksiPelanggaran } from '../../types/bkpedulisiswa';
 export default function BKLaporan() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<TransaksiPelanggaran[]>([]);
+  const [reportType, setReportType] = useState<'kasus' | 'tindak_lanjut'>('kasus');
+  const [viewMode, setViewMode] = useState<'table' | 'tree'>('table');
+  const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState({
     startDate: format(new Date(), 'yyyy-MM-01'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
@@ -32,7 +35,7 @@ export default function BKLaporan() {
       if (supabase) {
         let query = supabase
           .from('transaksi_pelanggaran')
-          .select('*, siswa:siswa_id(nama, kelas), pelanggaran:pelanggaran_id(nama_pelanggaran, kategori, poin)')
+          .select('*, siswa:master_siswa(*), pelanggaran:master_pelanggaran(*), tindak_lanjuts:tindak_lanjut_kasus(*)')
           .gte('tanggal', filter.startDate)
           .lte('tanggal', filter.endDate)
           .order('tanggal', { ascending: false });
@@ -44,7 +47,7 @@ export default function BKLaporan() {
 
         let filtered = fetchedData || [];
         if (filter.kelas) {
-          filtered = filtered.filter((d: any) => d.siswa?.kelas === filter.kelas);
+          filtered = filtered.filter((d: any) => d.siswa?.kelas === filter.kelas || d.kelas === filter.kelas);
         }
 
         setData(filtered);
@@ -56,13 +59,18 @@ export default function BKLaporan() {
     }
   };
 
-  const handleDownloadExcel = async (type: 'all' | 'finished') => {
+  const filteredData = data.filter(d => 
+    d.siswa?.nama.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleDownloadExcel = async () => {
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Laporan Pelanggaran');
+    const worksheet = workbook.addWorksheet(reportType === 'kasus' ? 'Laporan Kasus' : 'Laporan Tindak Lanjut');
 
     // Fetch logo image
     let logoId;
     try {
+      // Using a proxy to avoid CORS issues if needed, or direct if allowed
       const response = await fetch('https://api.allorigins.win/raw?url=https://iili.io/KDFk4fI.png');
       const blob = await response.blob();
       const arrayBuffer = await blob.arrayBuffer();
@@ -78,38 +86,45 @@ export default function BKLaporan() {
     if (logoId !== undefined) {
       worksheet.addImage(logoId, {
         tl: { col: 0, row: 0 },
-        ext: { width: 90, height: 90 }
+        ext: { width: 80, height: 80 }
       });
     }
 
     // Header text
-    worksheet.mergeCells('B1:N1');
+    const headerColCount = reportType === 'kasus' ? 10 : 9;
+    const headerRange = `B1:${String.fromCharCode(65 + headerColCount)}1`;
+    const headerRange2 = `B2:${String.fromCharCode(65 + headerColCount)}2`;
+    const headerRange3 = `B3:${String.fromCharCode(65 + headerColCount)}3`;
+    const headerRange4 = `B4:${String.fromCharCode(65 + headerColCount)}4`;
+    const headerRange5 = `B5:${String.fromCharCode(65 + headerColCount)}5`;
+
+    worksheet.mergeCells(headerRange);
     worksheet.getCell('B1').value = 'PEMERINTAH KOTA PASURUAN';
     worksheet.getCell('B1').font = { bold: true, size: 14, name: 'Times New Roman' };
     worksheet.getCell('B1').alignment = { horizontal: 'center', vertical: 'middle' };
 
-    worksheet.mergeCells('B2:N2');
+    worksheet.mergeCells(headerRange2);
     worksheet.getCell('B2').value = 'SMP NEGERI 7';
     worksheet.getCell('B2').font = { bold: true, size: 16, name: 'Times New Roman' };
     worksheet.getCell('B2').alignment = { horizontal: 'center', vertical: 'middle' };
 
-    worksheet.mergeCells('B3:N3');
+    worksheet.mergeCells(headerRange3);
     worksheet.getCell('B3').value = 'Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139';
     worksheet.getCell('B3').font = { size: 11, name: 'Times New Roman' };
     worksheet.getCell('B3').alignment = { horizontal: 'center', vertical: 'middle' };
 
-    worksheet.mergeCells('B4:N4');
+    worksheet.mergeCells(headerRange4);
     worksheet.getCell('B4').value = 'Telepon (0343) 426845';
     worksheet.getCell('B4').font = { size: 11, name: 'Times New Roman' };
     worksheet.getCell('B4').alignment = { horizontal: 'center', vertical: 'middle' };
 
-    worksheet.mergeCells('B5:N5');
+    worksheet.mergeCells(headerRange5);
     worksheet.getCell('B5').value = 'Pos-el smp7pas@yahoo.co.id , Laman www.smpn7pasuruan.sch.id';
     worksheet.getCell('B5').font = { size: 11, name: 'Times New Roman' };
     worksheet.getCell('B5').alignment = { horizontal: 'center', vertical: 'middle' };
 
     // Double border under header
-    for (let i = 1; i <= 14; i++) {
+    for (let i = 1; i <= headerColCount + 1; i++) {
       worksheet.getCell(6, i).border = {
         bottom: { style: 'double' },
         top: { style: 'thin' }
@@ -117,18 +132,20 @@ export default function BKLaporan() {
     }
 
     // Report Title
-    worksheet.mergeCells('B8:N8');
-    worksheet.getCell('B8').value = 'Laporan Pelanggaran Siswa';
+    const titleRange = `B8:${String.fromCharCode(65 + headerColCount)}8`;
+    worksheet.mergeCells(titleRange);
+    worksheet.getCell('B8').value = reportType === 'kasus' ? 'LAPORAN KASUS SISWA' : 'LAPORAN TINDAK LANJUT KASUS';
     worksheet.getCell('B8').font = { bold: true, size: 12, name: 'Times New Roman' };
     worksheet.getCell('B8').alignment = { horizontal: 'center', vertical: 'middle' };
 
     // Table Headers
-    const headers = [
-      'NO', 'TANGGAL', 'JAM', 'NAMA SISWA', 'KELAS', 
-      'PELANGGARAN', 'KATEGORI', 'POIN', 'ALASAN', 
-      'PENANGANAN', 'KONSEKUENSI', 'TINDAK LANJUT', 
-      'WALI KELAS', 'GURU BK', 'STATUS'
-    ];
+    let headers: string[] = [];
+    if (reportType === 'kasus') {
+      headers = ['NO', 'TANGGAL', 'KELAS', 'NAMA SISWA', 'KATEGORI KASUS', 'KRONOLOGI', 'GURU BK', 'WALI KELAS', 'STATUS'];
+    } else {
+      headers = ['NO', 'TANGGAL KASUS', 'NAMA SISWA', 'KELAS', 'KATEGORI KASUS', 'TANGGAL TL', 'TINDAK LANJUT', 'KETERANGAN', 'GURU BK'];
+    }
+
     const headerRow = worksheet.getRow(10);
     headerRow.values = headers;
     headerRow.eachCell((cell) => {
@@ -142,86 +159,82 @@ export default function BKLaporan() {
     });
 
     // Table Data
-    const exportData = data.filter(d => type === 'finished' ? d.status === 'Selesai' : true);
-    
-    exportData.forEach((d, index) => {
-      const row = worksheet.addRow([
-        index + 1,
-        d.tanggal,
-        d.jam,
-        d.siswa?.nama || 'Unknown',
-        d.siswa?.kelas || '-',
-        d.pelanggaran?.nama_pelanggaran || '-',
-        d.pelanggaran?.kategori || '-',
-        d.pelanggaran?.poin || 0,
-        d.alasan || '-',
-        d.penanganan || '-',
-        d.konsekuensi || '-',
-        d.tindak_lanjut || '-',
-        d.wali_kelas || '-',
-        d.guru_bk || '-',
-        d.status
-      ]);
-      
-      const isAlt = index % 2 !== 0;
-      
-      row.eachCell((cell) => {
-        cell.font = { name: 'Calibri' };
-        if (isAlt) {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-        }
-        cell.border = {
-          top: { style: 'thin' }, left: { style: 'thin' },
-          bottom: { style: 'thin' }, right: { style: 'thin' }
-        };
-        cell.alignment = { vertical: 'middle', wrapText: true };
+    if (reportType === 'kasus') {
+      filteredData.forEach((d, index) => {
+        const row = worksheet.addRow([
+          index + 1,
+          d.tanggal,
+          d.kelas || d.siswa?.kelas || '-',
+          d.siswa?.nama || '-',
+          d.kasus_kategori || '-',
+          d.kronologi || '-',
+          d.guru_bk || '-',
+          d.wali_kelas || '-',
+          d.status
+        ]);
+        row.eachCell((cell) => {
+          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+          cell.alignment = { vertical: 'middle', wrapText: true };
+        });
       });
-    });
+    } else {
+      let rowIndex = 1;
+      filteredData.forEach((d) => {
+        if (d.tindak_lanjuts && d.tindak_lanjuts.length > 0) {
+          d.tindak_lanjuts.forEach((tl) => {
+            const row = worksheet.addRow([
+              rowIndex++,
+              d.tanggal,
+              d.siswa?.nama || '-',
+              d.kelas || d.siswa?.kelas || '-',
+              d.kasus_kategori || '-',
+              tl.tanggal,
+              tl.tindak_lanjut,
+              tl.keterangan || '-',
+              d.guru_bk || '-'
+            ]);
+            row.eachCell((cell) => {
+              cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+              cell.alignment = { vertical: 'middle', wrapText: true };
+            });
+          });
+        }
+      });
+    }
 
     // Column Widths
     worksheet.getColumn(1).width = 5;
-    worksheet.getColumn(2).width = 12;
-    worksheet.getColumn(3).width = 8;
+    worksheet.getColumn(2).width = 15;
+    worksheet.getColumn(3).width = 10;
     worksheet.getColumn(4).width = 25;
-    worksheet.getColumn(5).width = 8;
-    worksheet.getColumn(6).width = 25;
-    worksheet.getColumn(7).width = 15;
-    worksheet.getColumn(8).width = 8;
-    worksheet.getColumn(9).width = 20;
-    worksheet.getColumn(10).width = 20;
-    worksheet.getColumn(11).width = 20;
-    worksheet.getColumn(12).width = 20;
-    worksheet.getColumn(13).width = 20;
-    worksheet.getColumn(14).width = 20;
-    worksheet.getColumn(15).width = 12;
+    worksheet.getColumn(5).width = 20;
+    worksheet.getColumn(6).width = 30;
+    worksheet.getColumn(7).width = 20;
+    worksheet.getColumn(8).width = 20;
+    worksheet.getColumn(9).width = 15;
 
     // Footer
-    const lastRow = 11 + exportData.length + 2;
+    const lastDataRow = worksheet.lastRow?.number || 10;
+    const footerRow = lastDataRow + 2;
     
-    worksheet.getCell(`B${lastRow}`).value = 'Mengetahui';
-    worksheet.getCell(`B${lastRow}`).font = { name: 'Times New Roman' };
-    worksheet.getCell(`L${lastRow}`).value = `Pasuruan, ${format(new Date(), 'd MMMM yyyy')}`;
-    worksheet.getCell(`L${lastRow}`).font = { name: 'Times New Roman' };
+    worksheet.getCell(`B${footerRow}`).value = 'Mengetahui';
+    worksheet.getCell(`G${footerRow}`).value = `Pasuruan, ${format(new Date(), 'd MMMM yyyy')}`;
     
-    worksheet.getCell(`B${lastRow + 1}`).value = 'Kepala Sekolah';
-    worksheet.getCell(`B${lastRow + 1}`).font = { name: 'Times New Roman' };
-    worksheet.getCell(`L${lastRow + 1}`).value = 'Guru BK';
-    worksheet.getCell(`L${lastRow + 1}`).font = { name: 'Times New Roman' };
+    worksheet.getCell(`B${footerRow + 1}`).value = 'Kepala Sekolah';
+    worksheet.getCell(`G${footerRow + 1}`).value = 'Guru BK';
     
-    worksheet.getCell(`B${lastRow + 5}`).value = 'NUR FADILAH, S.Pd';
-    worksheet.getCell(`B${lastRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
-    worksheet.getCell(`L${lastRow + 5}`).value = 'WIWIK ISMIATI, S.Pd';
-    worksheet.getCell(`L${lastRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
+    worksheet.getCell(`B${footerRow + 5}`).value = 'NUR FADILAH, S.Pd';
+    worksheet.getCell(`B${footerRow + 5}`).font = { bold: true, underline: true };
+    worksheet.getCell(`G${footerRow + 5}`).value = 'WIWIK ISMIATI, S.Pd';
+    worksheet.getCell(`G${footerRow + 5}`).font = { bold: true, underline: true };
     
-    worksheet.getCell(`B${lastRow + 6}`).value = 'NIP. 19860410 201001 2 030';
-    worksheet.getCell(`B${lastRow + 6}`).font = { name: 'Times New Roman' };
-    worksheet.getCell(`L${lastRow + 6}`).value = 'NIP. 19831116 200904 2 003';
-    worksheet.getCell(`L${lastRow + 6}`).font = { name: 'Times New Roman' };
+    worksheet.getCell(`B${footerRow + 6}`).value = 'NIP. 19860410 201001 2 030';
+    worksheet.getCell(`G${footerRow + 6}`).value = 'NIP. 19831116 200904 2 003';
 
     // Save File
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    saveAs(blob, `Laporan_Pelanggaran_${type}_${filter.startDate}_to_${filter.endDate}.xlsx`);
+    saveAs(blob, `Laporan_${reportType === 'kasus' ? 'Kasus' : 'Tindak_Lanjut'}_${filter.startDate}_${filter.endDate}.xlsx`);
   };
 
   const handleUpdateStatus = async (id: string, newStatus: 'Proses' | 'Selesai') => {
@@ -240,51 +253,63 @@ export default function BKLaporan() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Laporan Pelanggaran Siswa</h2>
-          <p className="text-sm text-slate-500">Rekapitulasi data pelanggaran dan tindak lanjut</p>
+          <h2 className="text-2xl font-bold text-slate-800">Laporan Digital Counseling</h2>
+          <p className="text-sm text-slate-500">Rekapitulasi data kasus dan tindak lanjut siswa</p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="bg-slate-100 p-1 rounded-xl flex gap-1 mr-2">
+            <button 
+              onClick={() => setReportType('kasus')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${reportType === 'kasus' ? 'bg-white shadow-sm text-pink-600' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Laporan Kasus
+            </button>
+            <button 
+              onClick={() => setReportType('tindak_lanjut')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${reportType === 'tindak_lanjut' ? 'bg-white shadow-sm text-pink-600' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Tindak Lanjut
+            </button>
+          </div>
+          <div className="bg-slate-100 p-1 rounded-xl flex gap-1 mr-2">
+            <button 
+              onClick={() => setViewMode('tree')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'tree' ? 'bg-white shadow-sm text-pink-600' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Tree
+            </button>
+            <button 
+              onClick={() => setViewMode('table')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'table' ? 'bg-white shadow-sm text-pink-600' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Table
+            </button>
+          </div>
           <button 
-            onClick={() => handleDownloadExcel('all')}
-            className="flex items-center gap-2 px-4 py-2 bg-pink-50 text-pink-600 rounded-xl text-sm font-bold border border-pink-100 hover:bg-pink-100 transition-colors"
+            onClick={handleDownloadExcel}
+            className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-pink-100 hover:bg-pink-700 transition-colors"
           >
             <Download size={18} />
-            Download Semua
-          </button>
-          <button 
-            onClick={() => handleDownloadExcel('finished')}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-bold border border-emerald-100 hover:bg-emerald-100 transition-colors"
-          >
-            <Download size={18} />
-            Download Selesai
+            Download Excel
           </button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Dari Tanggal</label>
+      <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex flex-wrap gap-4">
+        <div className="flex-1 min-w-[200px] relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
           <input 
-            type="date" 
-            className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none text-sm"
-            value={filter.startDate}
-            onChange={e => setFilter({...filter, startDate: e.target.value})}
+            type="text" 
+            placeholder="Cari Nama Siswa..." 
+            className="w-full pl-12 pr-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none transition-all"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
           />
         </div>
-        <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Sampai Tanggal</label>
-          <input 
-            type="date" 
-            className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none text-sm"
-            value={filter.endDate}
-            onChange={e => setFilter({...filter, endDate: e.target.value})}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Kelas</label>
+        <div className="w-40">
           <select 
-            className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none text-sm"
+            className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
             value={filter.kelas}
             onChange={e => setFilter({...filter, kelas: e.target.value})}
           >
@@ -292,10 +317,9 @@ export default function BKLaporan() {
             {KELAS_OPTIONS.map(k => <option key={k} value={k}>{k}</option>)}
           </select>
         </div>
-        <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Status</label>
+        <div className="w-40">
           <select 
-            className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none text-sm"
+            className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
             value={filter.status}
             onChange={e => setFilter({...filter, status: e.target.value})}
           >
@@ -304,78 +328,176 @@ export default function BKLaporan() {
             <option value="Selesai">Selesai</option>
           </select>
         </div>
-      </div>
-
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold tracking-widest">
-                <th className="px-6 py-4">Siswa</th>
-                <th className="px-6 py-4">Pelanggaran</th>
-                <th className="px-6 py-4">Tindak Lanjut</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Memuat data laporan...</td>
-                </tr>
-              ) : data.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Tidak ada data ditemukan.</td>
-                </tr>
-              ) : (
-                data.map((d) => (
-                  <tr key={d.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <p className="font-bold text-slate-800 text-sm">{d.siswa?.nama}</p>
-                      <p className="text-xs text-slate-500">Kelas {d.siswa?.kelas} • {d.tanggal}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-medium text-slate-700">{d.pelanggaran?.nama_pelanggaran}</p>
-                      <p className="text-[10px] text-slate-400 uppercase font-bold">{d.pelanggaran?.kategori} • {d.pelanggaran?.poin} Poin</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="text-xs font-medium text-slate-600">{d.tindak_lanjut}</p>
-                      <p className="text-[10px] text-slate-400 italic">BK: {d.guru_bk}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-                        d.status === 'Selesai' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
-                      }`}>
-                        {d.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {d.status === 'Proses' ? (
-                        <button 
-                          onClick={() => handleUpdateStatus(d.id, 'Selesai')}
-                          className="flex items-center gap-1 ml-auto px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold border border-emerald-100 hover:bg-emerald-100 transition-colors"
-                        >
-                          <CheckCircle2 size={14} />
-                          Selesaikan
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => handleUpdateStatus(d.id, 'Proses')}
-                          className="flex items-center gap-1 ml-auto px-3 py-1 bg-slate-50 text-slate-500 rounded-lg text-xs font-bold border border-slate-100 hover:bg-slate-100 transition-colors"
-                        >
-                          <Clock size={14} />
-                          Buka Lagi
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="flex items-center gap-2">
+          <input 
+            type="date" 
+            className="px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
+            value={filter.startDate}
+            onChange={e => setFilter({...filter, startDate: e.target.value})}
+          />
+          <span className="text-slate-400 font-bold">s/d</span>
+          <input 
+            type="date" 
+            className="px-4 py-3 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
+            value={filter.endDate}
+            onChange={e => setFilter({...filter, endDate: e.target.value})}
+          />
         </div>
       </div>
+
+      {viewMode === 'tree' ? (
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-[#8BA866] px-6 py-4">
+            <h3 className="text-white font-bold">{reportType === 'kasus' ? 'Laporan Kasus Siswa' : 'Laporan Tindak Lanjut'}</h3>
+          </div>
+          <div className="p-2 space-y-1">
+            {loading ? (
+              <div className="p-8 text-center text-slate-400 italic">Memuat data...</div>
+            ) : filteredData.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 italic">Tidak ada data ditemukan.</div>
+            ) : (
+              filteredData.map((d) => (
+                <div key={d.id} className="space-y-1 border-b border-slate-100 pb-2 last:border-0">
+                  {/* Level 1: Nama Siswa */}
+                  <div className="bg-[#D4E4BC] px-4 py-3 flex items-center gap-3">
+                    <div className="w-5 h-5 bg-white/50 rounded flex items-center justify-center text-slate-600">
+                      <span className="text-xs font-bold">-</span>
+                    </div>
+                    <span className="font-black text-slate-700 uppercase tracking-tight">{d.siswa?.nama}</span>
+                    <span className="ml-auto text-[10px] font-bold bg-white/50 px-2 py-1 rounded text-slate-600">{d.tanggal}</span>
+                  </div>
+                  
+                  {/* Level 2: Kelas & Kategori */}
+                  <div className="ml-6 bg-[#E6F0D9] px-4 py-2 flex items-center gap-3">
+                    <div className="w-5 h-5 bg-white/50 rounded flex items-center justify-center text-slate-600">
+                      <span className="text-xs font-bold">-</span>
+                    </div>
+                    <span className="font-bold text-slate-700">Kelas {d.kelas || d.siswa?.kelas} • {d.kasus_kategori}</span>
+                  </div>
+
+                  {/* Level 3: Kronologi (if kasus) or Follow-ups (if tindak_lanjut) */}
+                  {reportType === 'kasus' ? (
+                    <div className="ml-12 px-4 py-3 flex items-start gap-3">
+                      <div className="w-5 h-5 border border-slate-300 rounded flex items-center justify-center text-slate-600 mt-1 shrink-0">
+                        <span className="text-[10px] font-bold">-</span>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-sm text-slate-600 italic leading-relaxed">
+                          {d.kronologi || 'Tidak ada kronologi yang dicatat.'}
+                        </p>
+                        <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase">
+                          <span>BK: {d.guru_bk}</span>
+                          <span>Wali: {d.wali_kelas}</span>
+                          <span className={d.status === 'Selesai' ? 'text-emerald-600' : 'text-amber-600'}>Status: {d.status}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="ml-12 space-y-1">
+                      {d.tindak_lanjuts && d.tindak_lanjuts.length > 0 ? (
+                        d.tindak_lanjuts.map((tl, idx) => (
+                          <div key={idx} className="px-4 py-2 flex items-start gap-3 border-l-2 border-slate-100 ml-2">
+                            <div className="w-4 h-4 bg-pink-100 rounded-full flex items-center justify-center text-pink-600 mt-1 shrink-0">
+                              <CheckCircle2 size={10} />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-700">{tl.tanggal} - {tl.tindak_lanjut}</p>
+                              <p className="text-sm text-slate-500 italic">{tl.keterangan}</p>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-4 py-2 text-xs text-slate-400 italic ml-4">Belum ada tindak lanjut.</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      ) : (
+        /* Table View */
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold tracking-widest">
+                  <th className="px-6 py-4">Siswa</th>
+                  <th className="px-6 py-4">Kasus</th>
+                  <th className="px-6 py-4">{reportType === 'kasus' ? 'Kronologi' : 'Tindak Lanjut'}</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Memuat data laporan...</td>
+                  </tr>
+                ) : filteredData.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Tidak ada data ditemukan.</td>
+                  </tr>
+                ) : (
+                  filteredData.map((d) => (
+                    <tr key={d.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-slate-800 text-sm">{d.siswa?.nama}</p>
+                        <p className="text-xs text-slate-500">Kelas {d.kelas || d.siswa?.kelas} • {d.tanggal}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-medium text-slate-700">{d.kasus_kategori}</p>
+                        <p className="text-[10px] text-slate-400 uppercase font-bold">BK: {d.guru_bk}</p>
+                      </td>
+                      <td className="px-6 py-4 max-w-xs">
+                        {reportType === 'kasus' ? (
+                          <p className="text-xs text-slate-600 line-clamp-2">{d.kronologi}</p>
+                        ) : (
+                          <div className="space-y-1">
+                            {d.tindak_lanjuts?.slice(0, 2).map((tl, i) => (
+                              <p key={i} className="text-[10px] text-slate-500 truncate">• {tl.tindak_lanjut}</p>
+                            ))}
+                            {(d.tindak_lanjuts?.length || 0) > 2 && <p className="text-[10px] text-pink-500">+{d.tindak_lanjuts!.length - 2} lagi...</p>}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                          d.status === 'Selesai' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
+                        }`}>
+                          {d.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          {d.status === 'Proses' ? (
+                            <button 
+                              onClick={() => handleUpdateStatus(d.id, 'Selesai')}
+                              className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                              title="Selesaikan"
+                            >
+                              <CheckCircle2 size={16} />
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => handleUpdateStatus(d.id, 'Proses')}
+                              className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"
+                              title="Buka Lagi"
+                            >
+                              <Clock size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

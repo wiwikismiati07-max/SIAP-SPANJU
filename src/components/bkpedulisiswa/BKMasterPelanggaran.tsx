@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Upload, Trash2, Plus, Search, Database, AlertCircle } from 'lucide-react';
+import { Upload, Trash2, Plus, Search, Database, AlertCircle, Download, FileJson } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { MasterPelanggaran } from '../../types/bkpedulisiswa';
 
@@ -32,6 +32,71 @@ export default function BKMasterPelanggaran() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBackup = async () => {
+    try {
+      if (supabase) {
+        const { data: pData } = await supabase.from('master_pelanggaran').select('*');
+        const { data: sData } = await supabase.from('master_siswa').select('*');
+        const { data: gData } = await supabase.from('master_guru').select('*');
+        
+        const backupData = {
+          master_pelanggaran: pData,
+          master_siswa: sData,
+          master_guru: gData,
+          backup_date: new Date().toISOString()
+        };
+
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `backup_master_bk_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (error: any) {
+      alert('Error backup: ' + error.message);
+    }
+  };
+
+  const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const content = evt.target?.result as string;
+        const backupData = JSON.parse(content);
+
+        if (!confirm('Restore data akan menimpa data yang ada (jika ID sama) atau menambah data baru. Lanjutkan?')) return;
+
+        setLoading(true);
+        if (supabase) {
+          if (backupData.master_pelanggaran) {
+            await supabase.from('master_pelanggaran').upsert(backupData.master_pelanggaran);
+          }
+          if (backupData.master_siswa) {
+            await supabase.from('master_siswa').upsert(backupData.master_siswa);
+          }
+          if (backupData.master_guru) {
+            await supabase.from('master_guru').upsert(backupData.master_guru);
+          }
+          alert('Restore data berhasil!');
+          fetchPelanggaran();
+        }
+      } catch (err: any) {
+        alert('Error restore: ' + err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const handleAdd = async () => {
@@ -145,6 +210,19 @@ export default function BKMasterPelanggaran() {
           <p className="text-sm text-slate-500">Kelola jenis-jenis pelanggaran siswa</p>
         </div>
         <div className="flex items-center gap-2">
+          <button 
+            onClick={handleBackup}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold border border-slate-200 hover:bg-slate-200 transition-colors"
+            title="Backup Master Data ke JSON"
+          >
+            <Download size={18} />
+            Backup
+          </button>
+          <label className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold border border-slate-200 hover:bg-slate-200 cursor-pointer transition-colors" title="Restore Master Data dari JSON">
+            <FileJson size={18} />
+            Restore
+            <input type="file" className="hidden" accept=".json" onChange={handleRestore} />
+          </label>
           <label className="flex items-center gap-2 px-4 py-2 bg-pink-50 text-pink-600 rounded-xl text-sm font-bold border border-pink-100 hover:bg-pink-100 cursor-pointer transition-colors">
             <Upload size={18} />
             Upload Excel
