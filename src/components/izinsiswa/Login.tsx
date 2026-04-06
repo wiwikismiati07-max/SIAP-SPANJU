@@ -4,9 +4,12 @@ import { LogIn, User, Lock, AlertCircle } from 'lucide-react';
 
 interface LoginProps {
   onLoginSuccess: (userData: any) => void;
+  title?: string;
+  subtitle?: string;
+  colorClass?: string;
 }
 
-export default function Login({ onLoginSuccess }: LoginProps) {
+export default function Login({ onLoginSuccess, title = "Izin Siswa App", subtitle = "Login Staff & Administrator", colorClass = "bg-emerald-600" }: LoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -53,12 +56,12 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
-        <div className="p-8 bg-emerald-600 text-white text-center">
+        <div className={`p-8 ${colorClass} text-white text-center`}>
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
             <LogIn size={32} />
           </div>
-          <h1 className="text-2xl font-bold">Izin Siswa App</h1>
-          <p className="text-emerald-100 mt-1">Login Staff & Administrator</p>
+          <h1 className="text-2xl font-bold">{title}</h1>
+          <p className="opacity-90 mt-1">{subtitle}</p>
         </div>
 
         <form onSubmit={handleLogin} className="p-8 space-y-6">
@@ -104,29 +107,33 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`w-full py-3 ${colorClass} text-white rounded-xl font-bold hover:brightness-110 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {loading ? 'Memproses...' : 'Masuk ke Aplikasi'}
           </button>
 
-          <div className="relative py-4">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200"></div>
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-slate-500 font-bold">Atau</span>
-            </div>
-          </div>
+          {title === "Izin Siswa App" && (
+            <>
+              <div className="relative py-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200"></div>
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-2 text-slate-500 font-bold">Atau</span>
+                </div>
+              </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent('showPublicForm'));
-            }}
-            className="w-full py-3 bg-white text-emerald-600 border-2 border-emerald-600 rounded-xl font-bold hover:bg-emerald-50 transition-all"
-          >
-            Form Pengajuan Izin (Wali Murid)
-          </button>
+              <button
+                type="button"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('showPublicForm'));
+                }}
+                className="w-full py-3 bg-white text-emerald-600 border-2 border-emerald-600 rounded-xl font-bold hover:bg-emerald-50 transition-all"
+              >
+                Form Pengajuan Izin (Wali Murid)
+              </button>
+            </>
+          )}
         </form>
       </div>
     </div>

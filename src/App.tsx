@@ -65,7 +65,7 @@ const COLORS = [
 
 const EXTERNAL_APPS = [
   { id: "tata-tertib", title: "Tata Tertib Siswa", url: "https://tally.so/r/q4D1XY", icon: "FileText", color: "from-blue-400 to-blue-600" },
-  { id: "bk-peduli", title: "BK_PEDULI SISWA SMPN7", url: "https://bk-peduli-siswa.vercel.app/", icon: "Users", color: "from-pink-400 to-pink-600" },
+  { id: "bk-peduli", title: "Disiplin Siswa", url: "https://bk-peduli-siswa.vercel.app/", icon: "Users", color: "from-pink-400 to-pink-600" },
   { id: "izin-siswa", title: "Izin Siswa", url: "https://izin-siswa.vercel.app/", icon: "ClipboardList", color: "from-blue-400 to-blue-600" },
   { id: "dispensasi-siswa", title: "Dispensasi Siswa", url: "https://dispensasi-siswa-lime.vercel.app/", icon: "FileCheck", color: "from-pink-400 to-pink-600" },
   { id: "prestasi-siswa", title: "Prestasi Siswa", url: "https://prestasi-siswa.vercel.app/", icon: "Award", color: "from-blue-400 to-blue-600" },
@@ -89,7 +89,7 @@ export default function App() {
   const [userLinks, setUserLinks] = useState<AppLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | null>(null);
+  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -272,7 +272,8 @@ export default function App() {
           {[
             { id: 'sitelat', title: 'Si-Telat', subtitle: 'Sistem Keterlambatan Siswa', icon: Clock, color: 'from-blue-500 to-blue-700' },
             { id: 'izinsiswa', title: 'Izin Siswa', subtitle: 'Sistem Perizinan Siswa', icon: UserCheck, color: 'from-emerald-500 to-emerald-700' },
-            { id: 'bkpedulisiswa', title: 'BK_PEDULI SISWA SMPN7', subtitle: 'Digital Counseling System', icon: Users, color: 'from-pink-500 to-pink-700' },
+            { id: 'disiplinsiswa', title: 'Disiplin Siswa', subtitle: 'Kasus Ringan (Guru)', icon: ClipboardList, color: 'from-blue-500 to-blue-700' },
+            { id: 'bkpedulisiswa', title: 'BK_PEDULI SISWA SMPN7', subtitle: 'Kasus Berat (Guru BK)', icon: Users, color: 'from-pink-500 to-pink-700' },
             { id: 'kilas', title: 'Kilas Aplikasi', subtitle: 'Referensi Dasar', icon: Book, color: 'from-pink-500 to-pink-600' },
             { id: 'program', title: '8 Program Prioritas', subtitle: 'SMPN 7 Pasuruan', icon: LayoutDashboard, color: 'from-blue-400 to-blue-600' },
             { id: 'spip', title: '15 Indikator SPIP', subtitle: 'Anti Korupsi', icon: Shield, color: 'from-purple-400 to-purple-600' },
@@ -394,6 +395,36 @@ export default function App() {
         {activeSection === 'izinsiswa' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
             <IzinSiswaApp />
+          </div>
+        )}
+        {activeSection === 'disiplinsiswa' && (
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            <div className="h-full flex flex-col">
+              <div className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                    <ClipboardList size={18} />
+                  </div>
+                  <h2 className="font-bold text-slate-800">Disiplin Siswa (Kasus Ringan)</h2>
+                </div>
+                <a 
+                  href="https://bk-peduli-siswa.vercel.app/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
+                >
+                  Buka Penuh <ExternalLink size={12} />
+                </a>
+              </div>
+              <div className="flex-1">
+                <iframe
+                  src="https://bk-peduli-siswa.vercel.app/"
+                  className="w-full h-full border-none"
+                  title="Disiplin Siswa"
+                  sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-scripts allow-same-origin allow-storage-access-by-user-activation"
+                />
+              </div>
+            </div>
           </div>
         )}
         {activeSection === 'bkpedulisiswa' && (

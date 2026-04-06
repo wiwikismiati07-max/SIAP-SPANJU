@@ -40,7 +40,14 @@ export default function BKPeduliSiswaApp() {
 
   // If not logged in, show login (BK Peduli Siswa is internal only)
   if (!isLoggedIn) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <Login 
+        onLoginSuccess={handleLoginSuccess} 
+        title="BK_PEDULI SISWA SMPN7"
+        subtitle="Digital Counseling System Login"
+        colorClass="bg-pink-600"
+      />
+    );
   }
 
   return (
