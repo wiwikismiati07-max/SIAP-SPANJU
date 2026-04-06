@@ -42,9 +42,8 @@ export default function DashboardIzin() {
           .select(`
             *,
             siswa:siswa_id (
-              nama_lengkap,
-              kelas,
-              nisn
+              nama,
+              kelas
             )
           `)
           .gte('tanggal_mulai', start)
@@ -269,7 +268,7 @@ export default function DashboardIzin() {
             {topAbsentees.map((s: any) => (
               <div key={s.id} className="bg-white p-4 rounded-xl shadow-sm border border-rose-200 flex items-center justify-between">
                 <div>
-                  <div className="font-bold text-slate-800">{s.nama_lengkap}</div>
+                  <div className="font-bold text-slate-800">{s.nama}</div>
                   <div className="text-xs text-slate-500">Kelas {s.kelas}</div>
                 </div>
                 <div className="bg-rose-100 text-rose-700 px-3 py-1 rounded-full text-sm font-bold">
