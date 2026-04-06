@@ -68,29 +68,68 @@ export default function BKMasterPelanggaran() {
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json(ws);
+      try {
+        const dataBuffer = evt.target?.result;
+        if (!dataBuffer) throw new Error('Gagal membaca file.');
+        
+        const wb = XLSX.read(dataBuffer, { type: 'array' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const jsonData = XLSX.utils.sheet_to_json(ws);
 
-      const formattedData = data.map((row: any) => ({
-        nama_pelanggaran: row['NAMA PELANGGARAN'] || row['NAMA'] || row['Pelanggaran'],
-        kategori: row['KATEGORI'] || 'Ringan',
-        poin: row['POIN'] || 0
-      })).filter(r => r.nama_pelanggaran);
-
-      if (supabase) {
-        const { error } = await supabase.from('master_pelanggaran').insert(formattedData);
-        if (error) {
-          alert('Error uploading data: ' + error.message);
-        } else {
-          alert('Data berhasil diupload!');
-          fetchPelanggaran();
+        if (jsonData.length === 0) {
+          alert('File Excel kosong atau tidak terbaca.');
+          return;
         }
+
+        const formattedData = jsonData.map((row: any) => {
+          // Flexible header matching
+          const getVal = (keys: string[]) => {
+            for (const key of keys) {
+              const foundKey = Object.keys(row).find(k => k.trim().toUpperCase() === key.toUpperCase());
+              if (foundKey) return row[foundKey];
+            }
+            return null;
+          };
+
+          const nama = getVal(['NAMA PELANGGARAN', 'NAMA', 'PELANGGARAN', 'VIOLATION', 'NAMA_PELANGGARAN']);
+          const kategori = getVal(['KATEGORI', 'CATEGORY', 'LEVEL']) || 'Ringan';
+          const poin = parseInt(getVal(['POIN', 'POINTS', 'SCORE']) || '0') || 0;
+
+          return {
+            nama_pelanggaran: nama,
+            kategori: kategori,
+            poin: poin
+          };
+        }).filter(r => r.nama_pelanggaran);
+
+        if (formattedData.length === 0) {
+          alert('Tidak ada data yang valid ditemukan. Pastikan header kolom benar (Contoh: NAMA PELANGGARAN, KATEGORI, POIN)');
+          return;
+        }
+
+        if (supabase) {
+          setLoading(true);
+          const { error } = await supabase.from('master_pelanggaran').insert(formattedData);
+          if (error) {
+            alert('Gagal menyimpan ke database: ' + error.message);
+          } else {
+            alert(`Berhasil mengupload ${formattedData.length} data!`);
+            await fetchPelanggaran();
+          }
+        } else {
+          alert('Koneksi database tidak tersedia.');
+        }
+      } catch (err: any) {
+        console.error('Upload error:', err);
+        alert('Terjadi kesalahan saat memproses file: ' + err.message);
+      } finally {
+        setLoading(false);
       }
     };
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file);
+    // Reset input
+    e.target.value = '';
   };
 
   const filteredData = pelanggaran.filter(p => 
@@ -172,6 +211,14 @@ export default function BKMasterPelanggaran() {
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
+          <button 
+            onClick={fetchPelanggaran}
+            disabled={loading}
+            className="p-2 text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-lg transition-all disabled:opacity-50"
+            title="Refresh Data"
+          >
+            <Database size={20} className={loading ? 'animate-spin' : ''} />
+          </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">

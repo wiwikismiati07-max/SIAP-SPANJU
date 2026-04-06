@@ -2,7 +2,7 @@
 
 -- Master Pelanggaran (Types of violations)
 CREATE TABLE IF NOT EXISTS master_pelanggaran (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
   nama_pelanggaran TEXT NOT NULL,
   kategori TEXT, -- Ringan, Sedang, Berat
   poin INTEGER DEFAULT 0,
@@ -11,11 +11,11 @@ CREATE TABLE IF NOT EXISTS master_pelanggaran (
 
 -- Transaksi Pelanggaran (Violation records)
 CREATE TABLE IF NOT EXISTS transaksi_pelanggaran (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
   tanggal DATE NOT NULL DEFAULT CURRENT_DATE,
   jam TIME NOT NULL DEFAULT CURRENT_TIME,
-  siswa_id UUID REFERENCES master_siswa(id),
-  pelanggaran_id UUID REFERENCES master_pelanggaran(id),
+  siswa_id TEXT REFERENCES master_siswa(id),
+  pelanggaran_id TEXT REFERENCES master_pelanggaran(id),
   alasan TEXT,
   penanganan TEXT, -- Akademik, Bullying, Etika, Kedisiplinan, Lainnya
   konsekuensi TEXT, -- Surat pernyataan orang tua, Surat pernyataan Siswa
