@@ -1,28 +1,54 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { IzinWithSiswa } from '../../types/izinsiswa';
-import { Download, Search, Calendar as CalendarIcon, Edit, Trash2, X, FileText, Users } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
+import { Download, Search, Calendar as CalendarIcon, Edit, Trash2, X, FileText, Users, BarChart3, AlertTriangle } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, startOfYear } from 'date-fns';
 import * as XLSX from 'xlsx';
-import XLSXStyle from 'xlsx-js-style';
+import ExcelJS from 'exceljs';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 export default function LaporanIzin() {
+  const KELAS_OPTIONS = [
+    '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
+    '8A', '8B', '8C', '8D', '8E', '8F', '8G', '8H',
+    '9A', '9B', '9C', '9D', '9E', '9F', '9G', '9H'
+  ];
+
   const [data, setData] = useState<IzinWithSiswa[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipe, setFilterTipe] = useState<'Semua' | 'Wali Murid'>('Semua');
-  const [reportType, setReportType] = useState<'detail' | 'absensi'>('detail');
+  const [reportType, setReportType] = useState<'detail' | 'absensi' | 'statistik'>('detail');
   const [selectedKelas, setSelectedKelas] = useState('');
   const [dateRange, setDateRange] = useState({
     start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
     end: format(endOfMonth(new Date()), 'yyyy-MM-dd')
   });
 
-  const KELAS_OPTIONS = [
-    '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
-    '8A', '8B', '8C', '8D', '8E', '8F', '8G', '8H',
-    '9A', '9B', '9C', '9D', '9E', '9F', '9G', '9H'
-  ];
+  // Statistics calculations
+  const statsPerKelas = KELAS_OPTIONS.map(kelas => ({
+    name: kelas,
+    count: data.filter(i => i.siswa?.kelas === kelas && i.status === 'Disetujui').length
+  })).filter(s => s.count > 0);
+
+  const statsPerBulan = Array.from({ length: 12 }).map((_, i) => {
+    const monthDate = new Date(new Date().getFullYear(), i, 1);
+    const monthName = format(monthDate, 'MMM');
+    const count = data.filter(item => {
+      const d = parseISO(item.tanggal_mulai);
+      return d.getMonth() === i && d.getFullYear() === new Date().getFullYear() && item.status === 'Disetujui';
+    }).length;
+    return { name: monthName, count };
+  });
+
+  const topAbsentees = Array.from(new Set(data.map(i => i.siswa_id)))
+    .map(id => {
+      const student = data.find(i => i.siswa_id === id)?.siswa;
+      const count = data.filter(i => i.siswa_id === id && i.status === 'Disetujui').length;
+      return { ...student, count };
+    })
+    .filter(s => s.count >= 3)
+    .sort((a, b) => b.count - a.count);
 
   // Edit State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -107,7 +133,7 @@ export default function LaporanIzin() {
       XLSX.utils.book_append_sheet(wb, ws, "Laporan Izin");
       XLSX.writeFile(wb, `Laporan_Izin_${dateRange.start}_sd_${dateRange.end}.xlsx`);
     } else {
-      // Absensi Harian Report
+      // Absensi Harian Report with ExcelJS for Logo and Styling
       if (!selectedKelas) {
         alert('Pilih kelas terlebih dahulu untuk laporan absensi harian');
         return;
@@ -135,147 +161,146 @@ export default function LaporanIzin() {
           return;
         }
 
-        // Create Worksheet structure
-        const header = [
-          ["PEMERINTAH KOTA PASURUAN"],
-          ["SMP NEGERI 7"],
-          ["Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139"],
-          ["Telepon (0343) 426845"],
-          ["Pos-el smp7pas@yahoo.co.id , Laman www.smpn7pasuruan.sch.id"],
-          [""],
-          ["LAPORAN ABSENSI HARIAN SISWA"],
-          ["Kelas: " + selectedKelas + " | Periode: " + dateRange.start + " s/d " + dateRange.end],
-          [""],
-          ["NO", "NAMA SISWA", "MASUK (X)", "IZIN ( )", "SAKIT ( )", "ALPHA ( )"]
-        ];
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Absensi Harian');
 
-        const rows = studentsInClass.map((student, index) => {
-          // Check if student has izin in this range
-          // For daily report, we usually show per day, but if range is multiple days, 
-          // we might need a different structure. 
-          // The user said "Laporan absensi harian", implying one day.
-          // If range is multiple days, I'll just check if they had ANY izin in that range for this simple version,
-          // or better, just use the start date as the "Harian" date if they are the same.
-          
-          const studentIzins = data.filter(i => i.siswa_id === student.id && i.status === 'Disetujui');
-          
-          const isSakit = studentIzins.some(i => i.alasan === 'Sakit');
-          const isIzin = studentIzins.some(i => i.alasan !== 'Sakit');
-          const isMasuk = studentIzins.length === 0;
+        // Add Logo
+        try {
+          const response = await fetch('https://iili.io/KDFk4fI.png');
+          const blob = await response.blob();
+          const arrayBuffer = await blob.arrayBuffer();
+          const imageId = workbook.addImage({
+            buffer: arrayBuffer,
+            extension: 'png',
+          });
+          worksheet.addImage(imageId, {
+            tl: { col: 0, row: 0 },
+            ext: { width: 60, height: 60 }
+          });
+        } catch (e) {
+          console.error('Failed to load logo', e);
+        }
 
-          return [
-            index + 1,
-            student.nama,
-            isMasuk ? "X" : "",
-            isIzin ? "V" : "",
-            isSakit ? "V" : "",
-            "" // Alpha manual
-          ];
+        // Header
+        worksheet.mergeCells('A1:F1');
+        worksheet.getCell('A1').value = 'PEMERINTAH KOTA PASURUAN';
+        worksheet.mergeCells('A2:F2');
+        worksheet.getCell('A2').value = 'SMP NEGERI 7';
+        worksheet.mergeCells('A3:F3');
+        worksheet.getCell('A3').value = 'Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139';
+        worksheet.mergeCells('A4:F4');
+        worksheet.getCell('A4').value = 'Telepon (0343) 426845';
+        worksheet.mergeCells('A5:F5');
+        worksheet.getCell('A5').value = 'Pos-el smp7pas@yahoo.co.id , Laman www.smpn7pasuruan.sch.id';
+
+        // Title
+        worksheet.mergeCells('A7:F7');
+        worksheet.getCell('A7').value = 'LAPORAN ABSENSI HARIAN SISWA';
+        worksheet.mergeCells('A8:F8');
+        worksheet.getCell('A8').value = `Kelas: ${selectedKelas} | Periode: ${dateRange.start} s/d ${dateRange.end}`;
+
+        // Styling Headers
+        ['A1', 'A2', 'A3', 'A4', 'A5', 'A7', 'A8'].forEach(cell => {
+          worksheet.getCell(cell).alignment = { horizontal: 'center', vertical: 'middle' };
+          worksheet.getCell(cell).font = { bold: true, name: 'Arial' };
+        });
+        worksheet.getCell('A2').font.size = 14;
+        worksheet.getCell('A7').font.size = 16;
+
+        // Table Header
+        const headerRow = worksheet.getRow(10);
+        headerRow.values = ['NO', 'NAMA SISWA', 'MASUK (X)', 'IZIN ( )', 'SAKIT ( )', 'ALPHA ( )'];
+        headerRow.eachCell((cell) => {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF1F4E78' } // Dark Blue
+          };
+          cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
         });
 
-        const months = [
-          "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-          "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-        ];
+        // Data Rows
+        studentsInClass.forEach((student, index) => {
+          const studentIzins = data.filter(i => i.siswa_id === student.id && i.status === 'Disetujui');
+          const isSakit = studentIzins.some(i => i.alasan === 'Sakit');
+          const isIzin = studentIzins.some(i => i.alasan === 'Izin' || i.alasan === 'Acara Keluarga' || i.alasan === 'Keperluan Mendesak');
+          const isAlpa = studentIzins.some(i => i.alasan === 'Alpa');
+          const isMasuk = studentIzins.length === 0;
+
+          const row = worksheet.addRow([
+            index + 1,
+            student.nama,
+            isMasuk ? 'X' : '',
+            isIzin ? 'V' : '',
+            isSakit ? 'V' : '',
+            isAlpa ? 'V' : ''
+          ]);
+
+          row.eachCell((cell, colNumber) => {
+            cell.border = {
+              top: { style: 'thin' },
+              left: { style: 'thin' },
+              bottom: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+            cell.alignment = { vertical: 'middle', horizontal: colNumber === 2 ? 'left' : 'center' };
+            
+            // Alternating Light Blue
+            if (index % 2 !== 0) {
+              cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFD9E1F2' } // Light Blue
+              };
+            }
+          });
+        });
+
+        // Column Widths
+        worksheet.getColumn(1).width = 5;
+        worksheet.getColumn(2).width = 40;
+        worksheet.getColumn(3).width = 12;
+        worksheet.getColumn(4).width = 12;
+        worksheet.getColumn(5).width = 12;
+        worksheet.getColumn(6).width = 12;
+
+        // Footer
+        const lastRow = worksheet.lastRow?.number || 10;
+        const footerStart = lastRow + 2;
+        
+        const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
         const today = new Date();
         const formattedDate = `${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear()}`;
 
-        const footer = [
-          [""],
-          [""],
-          ["Mengetahui,", "", "", "Pasuruan, " + formattedDate],
-          ["Kepala Sekolah,", "", "", "Guru BK,"],
-          [""],
-          [""],
-          [""],
-          ["NUR FADILAH, S.Pd", "", "", "WIWIK ISMIATI, S.Pd"],
-          ["NIP. 19860410 201001 2 030", "", "", "NIP. 19831116 200904 2 003"]
-        ];
+        worksheet.getCell(`A${footerStart}`).value = 'Mengetahui,';
+        worksheet.getCell(`D${footerStart}`).value = `Pasuruan, ${formattedDate}`;
+        worksheet.getCell(`A${footerStart + 1}`).value = 'Kepala Sekolah,';
+        worksheet.getCell(`D${footerStart + 1}`).value = 'Guru BK,';
+        
+        worksheet.getCell(`A${footerStart + 5}`).value = 'NUR FADILAH, S.Pd';
+        worksheet.getCell(`D${footerStart + 5}`).value = 'WIWIK ISMIATI, S.Pd';
+        worksheet.getCell(`A${footerStart + 5}`).font = { bold: true, underline: true };
+        worksheet.getCell(`D${footerStart + 5}`).font = { bold: true, underline: true };
+        
+        worksheet.getCell(`A${footerStart + 6}`).value = 'NIP. 19860410 201001 2 030';
+        worksheet.getCell(`D${footerStart + 6}`).value = 'NIP. 19831116 200904 2 003';
 
-        const wsData = [...header, ...rows, ...footer];
-        const ws = XLSXStyle.utils.aoa_to_sheet(wsData);
-
-        // Styling (Basic merges and widths)
-        ws['!merges'] = [
-          { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }, // Gov
-          { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } }, // School
-          { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } }, // Address
-          { s: { r: 3, c: 0 }, e: { r: 3, c: 5 } }, // Telp
-          { s: { r: 4, c: 0 }, e: { r: 4, c: 5 } }, // Email
-          { s: { r: 6, c: 0 }, e: { r: 6, c: 5 } }, // Title
-          { s: { r: 7, c: 0 }, e: { r: 7, c: 5 } }, // Subtitle
-        ];
-
-        ws['!cols'] = [
-          { wch: 5 },  // NO
-          { wch: 40 }, // NAMA
-          { wch: 12 }, // MASUK
-          { wch: 12 }, // IZIN
-          { wch: 12 }, // SAKIT
-          { wch: 12 }  // ALPHA
-        ];
-
-        // Apply styles to cells
-        const range = XLSXStyle.utils.decode_range(ws['!ref'] || '');
-        for (let R = range.s.r; R <= range.e.r; ++R) {
-          for (let C = range.s.c; C <= range.e.c; ++C) {
-            const cell_address = { c: C, r: R };
-            const cell_ref = XLSXStyle.utils.encode_cell(cell_address);
-            if (!ws[cell_ref]) continue;
-
-            // Default style
-            ws[cell_ref].s = {
-              font: { name: "Arial", sz: 10 },
-              alignment: { vertical: "center", horizontal: "center" }
-            };
-
-            // Kop Surat (Rows 0-4)
-            if (R >= 0 && R <= 4) {
-              ws[cell_ref].s.font.bold = true;
-              if (R === 1) ws[cell_ref].s.font.sz = 14;
-            }
-
-            // Title (Row 6)
-            if (R === 6) {
-              ws[cell_ref].s.font.bold = true;
-              ws[cell_ref].s.font.sz = 16;
-            }
-
-            // Table Header (Row 9)
-            if (R === 9) {
-              ws[cell_ref].s.fill = { fgColor: { rgb: "4F81BD" } }; // Blue
-              ws[cell_ref].s.font.color = { rgb: "FFFFFF" }; // White
-              ws[cell_ref].s.font.bold = true;
-              ws[cell_ref].s.border = {
-                top: { style: "thin" },
-                bottom: { style: "thin" },
-                left: { style: "thin" },
-                right: { style: "thin" }
-              };
-            }
-
-            // Table Body (Rows 10 to 10 + rows.length - 1)
-            if (R >= 10 && R < 10 + rows.length) {
-              ws[cell_ref].s.border = {
-                top: { style: "thin" },
-                bottom: { style: "thin" },
-                left: { style: "thin" },
-                right: { style: "thin" }
-              };
-              if (C === 1) ws[cell_ref].s.alignment.horizontal = "left";
-            }
-
-            // Footer (Signatures)
-            if (R >= 10 + rows.length + 2) {
-              ws[cell_ref].s.alignment.horizontal = "left";
-              if (R === 10 + rows.length + 7) ws[cell_ref].s.font.bold = true; // Names
-            }
-          }
-        }
-
-        const wb = XLSXStyle.utils.book_new();
-        XLSXStyle.utils.book_append_sheet(wb, ws, "Absensi Harian");
-        XLSXStyle.writeFile(wb, `Absensi_Harian_${selectedKelas}_${dateRange.start}.xlsx`);
+        // Generate and Download
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `Absensi_Harian_${selectedKelas}_${dateRange.start}.xlsx`;
+        anchor.click();
+        window.URL.revokeObjectURL(url);
       } catch (error) {
         console.error(error);
         alert('Gagal membuat laporan');
@@ -372,6 +397,15 @@ export default function LaporanIzin() {
               >
                 <Users size={16} />
                 Absensi Harian
+              </button>
+              <button
+                onClick={() => setReportType('statistik')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${
+                  reportType === 'statistik' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <BarChart3 size={16} />
+                Statistik
               </button>
             </div>
           </div>
@@ -518,7 +552,7 @@ export default function LaporanIzin() {
               </tbody>
             </table>
           </div>
-        ) : (
+        ) : reportType === 'absensi' ? (
           <div className="p-12 text-center">
             <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <Users size={32} className="text-emerald-600" />
@@ -528,6 +562,80 @@ export default function LaporanIzin() {
               Laporan ini menampilkan rekap Sakit, Izin, dan Alpa per siswa dalam rentang waktu tertentu.
               Silakan pilih kelas dan klik tombol <strong>Download Excel</strong> untuk melihat detail lengkapnya.
             </p>
+          </div>
+        ) : (
+          <div className="p-6 space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                  <BarChart3 size={20} className="text-blue-600" />
+                  Statistik Izin Per Kelas
+                </h3>
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={statsPerKelas}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                      <Tooltip 
+                        contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
+                        cursor={{fill: '#f1f5f9'}}
+                      />
+                      <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                        {statsPerKelas.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][index % 5]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                  <CalendarIcon size={20} className="text-emerald-600" />
+                  Tren Izin Per Bulan
+                </h3>
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={statsPerBulan}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                      <Tooltip 
+                        contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
+                        cursor={{fill: '#f1f5f9'}}
+                      />
+                      <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-rose-50 p-6 rounded-2xl border border-rose-100">
+              <h3 className="text-lg font-bold text-rose-800 mb-4 flex items-center gap-2">
+                <AlertTriangle size={20} className="text-rose-600" />
+                Siswa Sering Izin (&gt;= 3x Per Bulan)
+              </h3>
+              {topAbsentees.length === 0 ? (
+                <p className="text-rose-600/70 italic">Tidak ada siswa dengan frekuensi izin tinggi.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {topAbsentees.map((s) => (
+                    <div key={s.id} className="bg-white p-4 rounded-xl shadow-sm border border-rose-200 flex items-center justify-between">
+                      <div>
+                        <div className="font-bold text-slate-800">{s.nama}</div>
+                        <div className="text-xs text-slate-500">Kelas {s.kelas}</div>
+                      </div>
+                      <div className="bg-rose-100 text-rose-700 px-3 py-1 rounded-full text-sm font-bold">
+                        {s.count}x
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

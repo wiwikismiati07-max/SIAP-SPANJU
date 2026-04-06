@@ -8,6 +8,7 @@ const ALASAN_OPTIONS = [
   "Sakit",
   "Acara Keluarga",
   "Keperluan Mendesak",
+  "Alpa",
   "Lainnya"
 ];
 

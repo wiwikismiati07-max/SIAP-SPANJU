@@ -8,6 +8,7 @@ const ALASAN_OPTIONS = [
   "Sakit",
   "Acara Keluarga",
   "Keperluan Mendesak",
+  "Alpa",
   "Lainnya"
 ];
 
@@ -206,7 +207,7 @@ export default function FormOperatorIzin() {
         localStorage.setItem('izinsiswa_data', JSON.stringify(localData));
       }
       
-      alert('Izin manual berhasil ditambahkan.');
+      alert('Absensi manual berhasil ditambahkan.');
       setShowManualInput(false);
       setSelectedSiswa(null);
       setAlasan('');
@@ -218,7 +219,7 @@ export default function FormOperatorIzin() {
       fetchPending();
     } catch (error: any) {
       console.error('Error saving:', error);
-      alert(`Gagal menyimpan izin: ${error.message}`);
+      alert(`Gagal menyimpan absensi: ${error.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -233,14 +234,14 @@ export default function FormOperatorIzin() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-slate-800">Persetujuan Izin (Operator)</h2>
+        <h2 className="text-2xl font-bold text-slate-800">Absensi Siswa</h2>
         <div className="flex gap-2">
           <button 
             onClick={() => setShowManualInput(!showManualInput)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
           >
             {showManualInput ? <X size={18} /> : <Plus size={18} />}
-            {showManualInput ? 'Batal Input' : 'Input Manual Izin'}
+            {showManualInput ? 'Batal Input' : 'Input Absensi Siswa'}
           </button>
           <button 
             onClick={fetchPending}

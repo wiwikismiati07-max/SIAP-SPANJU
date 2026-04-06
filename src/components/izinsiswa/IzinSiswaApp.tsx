@@ -158,7 +158,7 @@ export default function IzinSiswaApp() {
             }`}
           >
             <UserCheck size={20} />
-            <span className="font-semibold">Form Izin (Operator)</span>
+            <span className="font-semibold">Absensi Siswa</span>
           </button>
           <button
             onClick={() => { setActiveTab('kalender'); setIsMobileMenuOpen(false); }}
