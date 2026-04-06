@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Siswa } from '../../types/izinsiswa';
-import { MasterPelanggaran } from '../../types/bkpedulisiswa';
-import { Save, Search, User, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { MasterPelanggaran, TransaksiPelanggaran } from '../../types/bkpedulisiswa';
+import { Save, Search, User, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, CheckCircle2, Trash2, Edit2, X, ClipboardList } from 'lucide-react';
 
 export default function BKTransaksiPelanggaran() {
   const [loading, setLoading] = useState(false);
   const [siswa, setSiswa] = useState<Siswa[]>([]);
   const [pelanggaran, setPelanggaran] = useState<MasterPelanggaran[]>([]);
+  const [guru, setGuru] = useState<any[]>([]);
+  const [transaksi, setTransaksi] = useState<TransaksiPelanggaran[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     tanggal: new Date().toISOString().split('T')[0],
     jam: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }),
     kelas: '',
@@ -25,7 +28,9 @@ export default function BKTransaksiPelanggaran() {
     wali_kelas: '',
     guru_bk: 'Wiwik Ismiati S.pd',
     status: 'Proses'
-  });
+  };
+
+  const [formData, setFormData] = useState(initialFormData);
 
   const KELAS_OPTIONS = [
     '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
@@ -51,11 +56,35 @@ export default function BKTransaksiPelanggaran() {
       if (supabase) {
         const { data: sData } = await supabase.from('master_siswa').select('*').order('nama', { ascending: true });
         const { data: pData } = await supabase.from('master_pelanggaran').select('*').order('nama_pelanggaran', { ascending: true });
+        const { data: gData } = await supabase.from('master_guru').select('*').order('nama_guru', { ascending: true });
+        
         setSiswa(sData || []);
         setPelanggaran(pData || []);
+        setGuru(gData || []);
+        fetchTransaksi();
       }
     } catch (error) {
       console.error('Error fetching initial data:', error);
+    }
+  };
+
+  const fetchTransaksi = async () => {
+    try {
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('transaksi_pelanggaran')
+          .select(`
+            *,
+            siswa:master_siswa(*),
+            pelanggaran:master_pelanggaran(*)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        if (error) throw error;
+        setTransaksi(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching transaksi:', error);
     }
   };
 
@@ -69,19 +98,24 @@ export default function BKTransaksiPelanggaran() {
     setLoading(true);
     try {
       if (supabase) {
-        const { error } = await supabase.from('transaksi_pelanggaran').insert([formData]);
-        if (error) throw error;
+        if (editingId) {
+          const { error } = await supabase
+            .from('transaksi_pelanggaran')
+            .update(formData)
+            .eq('id', editingId);
+          if (error) throw error;
+          setSuccessMsg('Data pelanggaran berhasil diperbarui!');
+        } else {
+          const { error } = await supabase.from('transaksi_pelanggaran').insert([formData]);
+          if (error) throw error;
+          setSuccessMsg('Data pelanggaran berhasil disimpan!');
+        }
         
-        setSuccessMsg('Data pelanggaran berhasil disimpan!');
-        setFormData({
-          ...formData,
-          siswa_id: '',
-          pelanggaran_id: '',
-          alasan: '',
-          wali_kelas: ''
-        });
+        setFormData(initialFormData);
+        setEditingId(null);
         setSelectedSiswa(null);
         setSearchTerm('');
+        fetchTransaksi();
         
         setTimeout(() => setSuccessMsg(null), 3000);
       }
@@ -90,6 +124,40 @@ export default function BKTransaksiPelanggaran() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Hapus data transaksi ini?')) return;
+    try {
+      if (supabase) {
+        const { error } = await supabase.from('transaksi_pelanggaran').delete().eq('id', id);
+        if (error) throw error;
+        fetchTransaksi();
+      }
+    } catch (error: any) {
+      alert('Error: ' + error.message);
+    }
+  };
+
+  const handleEdit = (t: TransaksiPelanggaran) => {
+    setEditingId(t.id);
+    setFormData({
+      tanggal: t.tanggal,
+      jam: t.jam,
+      kelas: t.siswa?.kelas || '',
+      siswa_id: t.siswa_id,
+      pelanggaran_id: t.pelanggaran_id,
+      alasan: t.alasan || '',
+      penanganan: t.penanganan || 'Kedisiplinan',
+      konsekuensi: t.konsekuensi || 'Surat pernyataan Siswa',
+      tindak_lanjut: t.tindak_lanjut || 'Konseling Individu',
+      wali_kelas: t.wali_kelas || '',
+      guru_bk: t.guru_bk || 'Wiwik Ismiati S.pd',
+      status: t.status || 'Proses'
+    });
+    setSelectedSiswa(t.siswa || null);
+    setSearchTerm(t.siswa?.nama || '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const filteredSiswa = siswa.filter(s => 
@@ -132,6 +200,7 @@ export default function BKTransaksiPelanggaran() {
                 onChange={e => {
                   setFormData({...formData, kelas: e.target.value, siswa_id: ''});
                   setSelectedSiswa(null);
+                  setSearchTerm('');
                 }}
               >
                 <option value="">Semua Kelas</option>
@@ -139,36 +208,28 @@ export default function BKTransaksiPelanggaran() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Cari Nama Siswa</label>
-              <div className="relative">
-                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input 
-                  type="text" 
-                  placeholder="Ketik nama siswa..."
-                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none transition-all"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                />
-              </div>
-              
-              {searchTerm && !selectedSiswa && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                  {filteredSiswa.map(s => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      className="w-full text-left px-4 py-2 hover:bg-pink-50 transition-colors text-sm"
-                      onClick={() => {
-                        setSelectedSiswa(s);
-                        setFormData({...formData, siswa_id: s.id, kelas: s.kelas});
-                        setSearchTerm(s.nama);
-                      }}
-                    >
-                      <span className="font-bold">{s.nama}</span> - <span className="text-slate-500">Kelas {s.kelas}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Pilih Siswa</label>
+              <select 
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none transition-all"
+                value={formData.siswa_id}
+                onChange={e => {
+                  const s = siswa.find(item => item.id === e.target.value);
+                  if (s) {
+                    setSelectedSiswa(s);
+                    setFormData({...formData, siswa_id: s.id, kelas: s.kelas});
+                    setSearchTerm(s.nama);
+                  } else {
+                    setSelectedSiswa(null);
+                    setFormData({...formData, siswa_id: ''});
+                    setSearchTerm('');
+                  }
+                }}
+              >
+                <option value="">{formData.kelas ? `Pilih Siswa Kelas ${formData.kelas}...` : 'Pilih Siswa (Pilih Kelas Dulu)...'}</option>
+                {filteredSiswa.map(s => (
+                  <option key={s.id} value={s.id}>{s.nama}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -188,7 +249,7 @@ export default function BKTransaksiPelanggaran() {
                 }}
                 className="text-pink-600 hover:text-pink-800 text-xs font-bold"
               >
-                Ganti
+                Reset
               </button>
             </div>
           )}
@@ -299,15 +360,16 @@ export default function BKTransaksiPelanggaran() {
                 {GURU_BK_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </div>
-            <div className="md:col-span-2">
+            <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Wali Kelas</label>
-              <input 
-                type="text" 
-                placeholder="Nama Wali Kelas..."
+              <select 
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
                 value={formData.wali_kelas}
                 onChange={e => setFormData({...formData, wali_kelas: e.target.value})}
-              />
+              >
+                <option value="">Pilih Wali Kelas</option>
+                {guru.map(g => <option key={g.id} value={g.nama_guru}>{g.nama_guru}</option>)}
+              </select>
             </div>
           </div>
         </div>
@@ -315,18 +377,98 @@ export default function BKTransaksiPelanggaran() {
         <button 
           type="submit"
           disabled={loading}
-          className="w-full py-4 bg-pink-600 text-white rounded-3xl font-bold text-lg shadow-xl shadow-pink-100 hover:bg-pink-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+          className={`w-full py-4 rounded-3xl font-bold text-lg shadow-xl transition-all flex items-center justify-center gap-3 disabled:opacity-50 ${
+            editingId ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-100' : 'bg-pink-600 hover:bg-pink-700 shadow-pink-100'
+          } text-white`}
         >
           {loading ? (
             <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
             <>
-              <Save size={24} />
-              Simpan Data Pelanggaran
+              {editingId ? <Edit2 size={24} /> : <Save size={24} />}
+              {editingId ? 'Update Data Pelanggaran' : 'Simpan Data Pelanggaran'}
             </>
           )}
         </button>
+        {editingId && (
+          <button 
+            type="button"
+            onClick={() => {
+              setEditingId(null);
+              setFormData(initialFormData);
+              setSelectedSiswa(null);
+              setSearchTerm('');
+            }}
+            className="w-full py-3 text-slate-500 font-bold flex items-center justify-center gap-2"
+          >
+            <X size={18} /> Batal Edit
+          </button>
+        )}
       </form>
+
+      {/* Transaction List */}
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden mt-8">
+        <div className="p-6 border-b border-slate-100">
+          <h3 className="font-bold text-slate-800 flex items-center gap-2">
+            <ClipboardList className="text-pink-600" size={20} />
+            Riwayat Input Terakhir
+          </h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold tracking-widest">
+                <th className="px-6 py-4">Siswa</th>
+                <th className="px-6 py-4">Pelanggaran</th>
+                <th className="px-6 py-4">Tanggal</th>
+                <th className="px-6 py-4 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {transaksi.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-8 text-center text-slate-400 italic">Belum ada data transaksi</td>
+                </tr>
+              ) : (
+                transaksi.map((t) => (
+                  <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-slate-800 text-sm">{t.siswa?.nama}</p>
+                      <p className="text-xs text-slate-500">Kelas {t.siswa?.kelas}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-slate-700">{t.pelanggaran?.nama_pelanggaran}</p>
+                      <span className="text-[10px] font-bold text-pink-600 uppercase">{t.pelanggaran?.kategori}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-slate-600">{t.tanggal}</p>
+                      <p className="text-[10px] text-slate-400">{t.jam}</p>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button 
+                          onClick={() => handleEdit(t)}
+                          className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
+                          title="Edit"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(t.id)}
+                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Hapus"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
