@@ -1,29 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Siswa } from '../../types/izinsiswa';
-import { MasterPelanggaran, TransaksiPelanggaran } from '../../types/bkpedulisiswa';
+import { MasterKasus, TransaksiKasus, TindakLanjutKasus } from '../../types/bkpedulisiswa';
 import { Save, Search, User, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, CheckCircle2, Trash2, Edit2, X, ClipboardList, Plus, Paperclip, FileText as FileIcon } from 'lucide-react';
-import { TindakLanjutKasus } from '../../types/bkpedulisiswa';
 
-export default function BKTransaksiPelanggaran() {
+export default function BKTransaksiKasus() {
   const [loading, setLoading] = useState(false);
   const [siswa, setSiswa] = useState<Siswa[]>([]);
-  const [pelanggaran, setPelanggaran] = useState<MasterPelanggaran[]>([]);
+  const [kasus, setKasus] = useState<MasterKasus[]>([]);
   const [guru, setGuru] = useState<any[]>([]);
-  const [transaksi, setTransaksi] = useState<TransaksiPelanggaran[]>([]);
+  const [transaksi, setTransaksi] = useState<TransaksiKasus[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showOtherKasus, setShowOtherKasus] = useState(false);
-  const [showOtherTindakLanjut, setShowOtherTindakLanjut] = useState(false);
 
   const initialFormData = {
     tanggal: new Date().toISOString().split('T')[0],
     jam: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }),
     kelas: '',
     siswa_id: '',
-    pelanggaran_id: '',
+    kasus_id: '',
     kasus_kategori: 'Kedisiplinan',
     kasus_kategori_lain: '',
     kronologi: '',
@@ -57,11 +55,11 @@ export default function BKTransaksiPelanggaran() {
     try {
       if (supabase) {
         const { data: sData } = await supabase.from('master_siswa').select('*').order('nama', { ascending: true });
-        const { data: pData } = await supabase.from('master_pelanggaran').select('*').order('nama_pelanggaran', { ascending: true });
+        const { data: kData } = await supabase.from('bk_master_kasus').select('*').order('nama_kasus', { ascending: true });
         const { data: gData } = await supabase.from('master_guru').select('*').order('nama_guru', { ascending: true });
         
         setSiswa(sData || []);
-        setPelanggaran(pData || []);
+        setKasus(kData || []);
         setGuru(gData || []);
         fetchTransaksi();
       }
@@ -74,12 +72,12 @@ export default function BKTransaksiPelanggaran() {
     try {
       if (supabase) {
         const { data, error } = await supabase
-          .from('transaksi_pelanggaran')
+          .from('bk_transaksi_kasus')
           .select(`
             *,
             siswa:master_siswa(*),
-            pelanggaran:master_pelanggaran(*),
-            tindak_lanjuts:tindak_lanjut_kasus(*)
+            kasus:bk_master_kasus(*),
+            tindak_lanjuts:bk_tindak_lanjut(*)
           `)
           .order('created_at', { ascending: false })
           .limit(10);
@@ -123,14 +121,20 @@ export default function BKTransaksiPelanggaran() {
         const filePath = `bukti_fisik/${fileName}`;
 
         if (supabase) {
+          // Using 'bukti_fisik' bucket
           const { error: uploadError } = await supabase.storage
-            .from('bk_peduli_siswa')
+            .from('bukti_fisik')
             .upload(filePath, file);
 
-          if (uploadError) throw uploadError;
+          if (uploadError) {
+            if (uploadError.message.includes('Bucket not found')) {
+              throw new Error('Bucket storage "bukti_fisik" belum dibuat di Supabase. Silakan buat bucket bernama "bukti_fisik" dan set ke Public.');
+            }
+            throw uploadError;
+          }
 
           const { data: { publicUrl } } = supabase.storage
-            .from('bk_peduli_siswa')
+            .from('bukti_fisik')
             .getPublicUrl(filePath);
           
           newUrls.push(publicUrl);
@@ -138,7 +142,7 @@ export default function BKTransaksiPelanggaran() {
       }
       setFormData(prev => ({ ...prev, bukti_fisik: [...prev.bukti_fisik, ...newUrls] }));
     } catch (error: any) {
-      alert('Error uploading file: ' + error.message);
+      alert('Error: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -146,8 +150,8 @@ export default function BKTransaksiPelanggaran() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.siswa_id || !formData.pelanggaran_id) {
-      alert('Pilih siswa dan jenis pelanggaran!');
+    if (!formData.siswa_id || !formData.kasus_id) {
+      alert('Pilih siswa dan jenis kasus!');
       return;
     }
 
@@ -163,29 +167,27 @@ export default function BKTransaksiPelanggaran() {
 
         if (editingId) {
           const { error } = await supabase
-            .from('transaksi_pelanggaran')
+            .from('bk_transaksi_kasus')
             .update(dataToSave)
             .eq('id', editingId);
           if (error) throw error;
           
-          // Delete existing follow-ups to re-insert (simple way to sync)
-          await supabase.from('tindak_lanjut_kasus').delete().eq('transaksi_id', editingId);
+          await supabase.from('bk_tindak_lanjut').delete().eq('transaksi_id', editingId);
           
-          setSuccessMsg('Data pelanggaran berhasil diperbarui!');
+          setSuccessMsg('Data kasus berhasil diperbarui!');
         } else {
-          const { data, error } = await supabase.from('transaksi_pelanggaran').insert([dataToSave]).select();
+          const { data, error } = await supabase.from('bk_transaksi_kasus').insert([dataToSave]).select();
           if (error) throw error;
           transaksiId = data[0].id;
-          setSuccessMsg('Data pelanggaran berhasil disimpan!');
+          setSuccessMsg('Data kasus berhasil disimpan!');
         }
 
-        // Insert follow-ups
         if (transaksiId && tindakLanjuts.length > 0) {
           const followUpsToSave = tindakLanjuts.map(tl => ({
             ...tl,
             transaksi_id: transaksiId
           }));
-          const { error: tlError } = await supabase.from('tindak_lanjut_kasus').insert(followUpsToSave);
+          const { error: tlError } = await supabase.from('bk_tindak_lanjut').insert(followUpsToSave);
           if (tlError) throw tlError;
         }
         
@@ -209,7 +211,7 @@ export default function BKTransaksiPelanggaran() {
     if (!confirm('Hapus data transaksi ini? Semua tindak lanjut terkait juga akan terhapus.')) return;
     try {
       if (supabase) {
-        const { error } = await supabase.from('transaksi_pelanggaran').delete().eq('id', id);
+        const { error } = await supabase.from('bk_transaksi_kasus').delete().eq('id', id);
         if (error) throw error;
         fetchTransaksi();
       }
@@ -218,7 +220,7 @@ export default function BKTransaksiPelanggaran() {
     }
   };
 
-  const handleEdit = (t: TransaksiPelanggaran) => {
+  const handleEdit = (t: TransaksiKasus) => {
     setEditingId(t.id);
     const isOtherKasus = !KASUS_OPTIONS.includes(t.kasus_kategori || '');
     setFormData({
@@ -226,7 +228,7 @@ export default function BKTransaksiPelanggaran() {
       jam: t.jam,
       kelas: t.kelas || '',
       siswa_id: t.siswa_id,
-      pelanggaran_id: t.pelanggaran_id,
+      kasus_id: t.kasus_id,
       kasus_kategori: (isOtherKasus ? 'Lain-Lain' : t.kasus_kategori) as any,
       kasus_kategori_lain: isOtherKasus ? t.kasus_kategori : '',
       kronologi: t.kronologi || '',
@@ -254,8 +256,8 @@ export default function BKTransaksiPelanggaran() {
           <ShieldAlert size={24} />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Input Pelanggaran Siswa</h2>
-          <p className="text-sm text-slate-500">Catat pelanggaran dan tindak lanjut konseling</p>
+          <h2 className="text-2xl font-bold text-slate-800">Input Kasus Siswa (BK)</h2>
+          <p className="text-sm text-slate-500">Catat kasus berat dan tindak lanjut konseling</p>
         </div>
       </div>
 
@@ -267,7 +269,6 @@ export default function BKTransaksiPelanggaran() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Step 1: Siswa Selection */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-4">
           <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
             <User size={16} /> Data Siswa
@@ -337,7 +338,6 @@ export default function BKTransaksiPelanggaran() {
           )}
         </div>
 
-        {/* Step 2: Violation Details */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-4">
           <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
             <AlertCircle size={16} /> Detail Kasus
@@ -372,15 +372,15 @@ export default function BKTransaksiPelanggaran() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Jenis Pelanggaran (Master)</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Jenis Kasus (Master)</label>
               <select 
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
-                value={formData.pelanggaran_id}
-                onChange={e => setFormData({...formData, pelanggaran_id: e.target.value})}
+                value={formData.kasus_id}
+                onChange={e => setFormData({...formData, kasus_id: e.target.value})}
               >
-                <option value="">Pilih Pelanggaran</option>
-                {pelanggaran.map(p => (
-                  <option key={p.id} value={p.id}>{p.nama_pelanggaran} ({p.kategori})</option>
+                <option value="">Pilih Kasus</option>
+                {kasus.map(k => (
+                  <option key={k.id} value={k.id}>{k.nama_kasus} ({k.kategori})</option>
                 ))}
               </select>
             </div>
@@ -445,7 +445,6 @@ export default function BKTransaksiPelanggaran() {
           </div>
         </div>
 
-        {/* Step 3: Handling & Follow Up */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
@@ -558,7 +557,7 @@ export default function BKTransaksiPelanggaran() {
           ) : (
             <>
               {editingId ? <Edit2 size={24} /> : <Save size={24} />}
-              {editingId ? 'Update Data Pelanggaran' : 'Simpan Data Pelanggaran'}
+              {editingId ? 'Update Data Kasus' : 'Simpan Data Kasus'}
             </>
           )}
         </button>
@@ -578,12 +577,11 @@ export default function BKTransaksiPelanggaran() {
         )}
       </form>
 
-      {/* Transaction List */}
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden mt-8">
         <div className="p-6 border-b border-slate-100">
           <h3 className="font-bold text-slate-800 flex items-center gap-2">
             <ClipboardList className="text-pink-600" size={20} />
-            Riwayat Input Terakhir
+            Riwayat Kasus Terakhir
           </h3>
         </div>
         <div className="overflow-x-auto">
@@ -591,7 +589,7 @@ export default function BKTransaksiPelanggaran() {
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold tracking-widest">
                 <th className="px-6 py-4">Siswa</th>
-                <th className="px-6 py-4">Pelanggaran</th>
+                <th className="px-6 py-4">Kasus</th>
                 <th className="px-6 py-4">Tanggal</th>
                 <th className="px-6 py-4 text-right">Aksi</th>
               </tr>
@@ -599,7 +597,7 @@ export default function BKTransaksiPelanggaran() {
             <tbody className="divide-y divide-slate-100">
               {transaksi.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-8 text-center text-slate-400 italic">Belum ada data transaksi</td>
+                  <td colSpan={4} className="px-6 py-8 text-center text-slate-400 italic">Belum ada data kasus</td>
                 </tr>
               ) : (
                 transaksi.map((t) => (
@@ -609,8 +607,8 @@ export default function BKTransaksiPelanggaran() {
                       <p className="text-xs text-slate-500">Kelas {t.siswa?.kelas}</p>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-sm text-slate-700">{t.pelanggaran?.nama_pelanggaran}</p>
-                      <span className="text-[10px] font-bold text-pink-600 uppercase">{t.pelanggaran?.kategori}</span>
+                      <p className="text-sm text-slate-700">{t.kasus?.nama_kasus}</p>
+                      <span className="text-[10px] font-bold text-pink-600 uppercase">{t.kasus?.kategori}</span>
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-sm text-slate-600">{t.tanggal}</p>

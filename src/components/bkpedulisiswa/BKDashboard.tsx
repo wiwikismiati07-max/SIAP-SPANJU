@@ -33,7 +33,7 @@ export default function BKDashboard() {
         
         // Fetch all cases
         const { data: allKasus, error: pError } = await supabase
-          .from('transaksi_pelanggaran')
+          .from('bk_transaksi_kasus')
           .select('*, siswa:master_siswa(nama, kelas)');
         
         if (pError) throw pError;

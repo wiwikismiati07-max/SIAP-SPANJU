@@ -1,20 +1,20 @@
 import { Siswa } from './izinsiswa';
 
-export interface MasterPelanggaran {
+export interface MasterKasus {
   id: string;
-  nama_pelanggaran: string;
+  nama_kasus: string;
   kategori?: string;
   poin?: number;
   created_at?: string;
 }
 
-export interface TransaksiPelanggaran {
+export interface TransaksiKasus {
   id: string;
   tanggal: string;
   jam: string;
   kelas: string;
   siswa_id: string;
-  pelanggaran_id: string;
+  kasus_id: string;
   kasus_kategori?: 'Kedisiplinan' | 'Etika' | 'Akademi' | 'Bullying' | 'Perkelahian' | 'merokok' | 'Narkoba' | 'Lain-Lain';
   kronologi?: string;
   bukti_fisik?: string[];
@@ -25,7 +25,7 @@ export interface TransaksiPelanggaran {
   
   // Joined fields
   siswa?: Siswa;
-  pelanggaran?: MasterPelanggaran;
+  kasus?: MasterKasus;
   tindak_lanjuts?: TindakLanjutKasus[];
 }
 

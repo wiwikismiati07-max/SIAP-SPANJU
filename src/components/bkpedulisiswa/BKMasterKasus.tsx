@@ -2,33 +2,33 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Upload, Trash2, Plus, Search, Database, AlertCircle, Download, FileJson } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { MasterPelanggaran } from '../../types/bkpedulisiswa';
+import { MasterKasus } from '../../types/bkpedulisiswa';
 
-export default function BKMasterPelanggaran() {
+export default function BKMasterKasus() {
   const [loading, setLoading] = useState(true);
-  const [pelanggaran, setPelanggaran] = useState<MasterPelanggaran[]>([]);
+  const [kasus, setKasus] = useState<MasterKasus[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newPelanggaran, setNewPelanggaran] = useState({
-    nama_pelanggaran: '',
-    kategori: 'Ringan',
+  const [newKasus, setNewKasus] = useState({
+    nama_kasus: '',
+    kategori: 'Berat',
     poin: 0
   });
 
   useEffect(() => {
-    fetchPelanggaran();
+    fetchKasus();
   }, []);
 
-  const fetchPelanggaran = async () => {
+  const fetchKasus = async () => {
     setLoading(true);
     try {
       if (supabase) {
-        const { data, error } = await supabase.from('master_pelanggaran').select('*').order('nama_pelanggaran', { ascending: true });
+        const { data, error } = await supabase.from('bk_master_kasus').select('*').order('nama_kasus', { ascending: true });
         if (error) throw error;
-        setPelanggaran(data || []);
+        setKasus(data || []);
       }
     } catch (error) {
-      console.error('Error fetching master pelanggaran:', error);
+      console.error('Error fetching master kasus:', error);
     } finally {
       setLoading(false);
     }
@@ -37,12 +37,12 @@ export default function BKMasterPelanggaran() {
   const handleBackup = async () => {
     try {
       if (supabase) {
-        const { data: pData } = await supabase.from('master_pelanggaran').select('*');
+        const { data: kData } = await supabase.from('bk_master_kasus').select('*');
         const { data: sData } = await supabase.from('master_siswa').select('*');
         const { data: gData } = await supabase.from('master_guru').select('*');
         
         const backupData = {
-          master_pelanggaran: pData,
+          bk_master_kasus: kData,
           master_siswa: sData,
           master_guru: gData,
           backup_date: new Date().toISOString()
@@ -52,7 +52,7 @@ export default function BKMasterPelanggaran() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `backup_master_bk_${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `backup_master_bk_kasus_${new Date().toISOString().split('T')[0]}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -77,8 +77,8 @@ export default function BKMasterPelanggaran() {
 
         setLoading(true);
         if (supabase) {
-          if (backupData.master_pelanggaran) {
-            await supabase.from('master_pelanggaran').upsert(backupData.master_pelanggaran);
+          if (backupData.bk_master_kasus) {
+            await supabase.from('bk_master_kasus').upsert(backupData.bk_master_kasus);
           }
           if (backupData.master_siswa) {
             await supabase.from('master_siswa').upsert(backupData.master_siswa);
@@ -87,7 +87,7 @@ export default function BKMasterPelanggaran() {
             await supabase.from('master_guru').upsert(backupData.master_guru);
           }
           alert('Restore data berhasil!');
-          fetchPelanggaran();
+          fetchKasus();
         }
       } catch (err: any) {
         alert('Error restore: ' + err.message);
@@ -100,17 +100,17 @@ export default function BKMasterPelanggaran() {
   };
 
   const handleAdd = async () => {
-    if (!newPelanggaran.nama_pelanggaran) return;
+    if (!newKasus.nama_kasus) return;
     try {
       if (supabase) {
-        const { error } = await supabase.from('master_pelanggaran').insert([newPelanggaran]);
+        const { error } = await supabase.from('bk_master_kasus').insert([newKasus]);
         if (error) throw error;
-        setNewPelanggaran({ nama_pelanggaran: '', kategori: 'Ringan', poin: 0 });
+        setNewKasus({ nama_kasus: '', kategori: 'Berat', poin: 0 });
         setShowAddForm(false);
-        fetchPelanggaran();
+        fetchKasus();
       }
     } catch (error) {
-      console.error('Error adding pelanggaran:', error);
+      console.error('Error adding kasus:', error);
     }
   };
 
@@ -118,12 +118,12 @@ export default function BKMasterPelanggaran() {
     if (!confirm('Hapus data ini?')) return;
     try {
       if (supabase) {
-        const { error } = await supabase.from('master_pelanggaran').delete().eq('id', id);
+        const { error } = await supabase.from('bk_master_kasus').delete().eq('id', id);
         if (error) throw error;
-        fetchPelanggaran();
+        fetchKasus();
       }
     } catch (error) {
-      console.error('Error deleting pelanggaran:', error);
+      console.error('Error deleting kasus:', error);
     }
   };
 
@@ -148,7 +148,6 @@ export default function BKMasterPelanggaran() {
         }
 
         const formattedData = jsonData.map((row: any) => {
-          // Flexible header matching
           const getVal = (keys: string[]) => {
             for (const key of keys) {
               const foundKey = Object.keys(row).find(k => k.trim().toUpperCase() === key.toUpperCase());
@@ -157,30 +156,30 @@ export default function BKMasterPelanggaran() {
             return null;
           };
 
-          const nama = getVal(['NAMA PELANGGARAN', 'NAMA', 'PELANGGARAN', 'VIOLATION', 'NAMA_PELANGGARAN']);
-          const kategori = getVal(['KATEGORI', 'CATEGORY', 'LEVEL']) || 'Ringan';
+          const nama = getVal(['NAMA KASUS', 'NAMA', 'KASUS', 'CASE', 'NAMA_KASUS', 'NAMA PELANGGARAN']);
+          const kategori = getVal(['KATEGORI', 'CATEGORY', 'LEVEL']) || 'Berat';
           const poin = parseInt(getVal(['POIN', 'POINTS', 'SCORE']) || '0') || 0;
 
           return {
-            nama_pelanggaran: nama,
+            nama_kasus: nama,
             kategori: kategori,
             poin: poin
           };
-        }).filter(r => r.nama_pelanggaran);
+        }).filter(r => r.nama_kasus);
 
         if (formattedData.length === 0) {
-          alert('Tidak ada data yang valid ditemukan. Pastikan header kolom benar (Contoh: NAMA PELANGGARAN, KATEGORI, POIN)');
+          alert('Tidak ada data yang valid ditemukan. Pastikan header kolom benar (Contoh: NAMA KASUS, KATEGORI, POIN)');
           return;
         }
 
         if (supabase) {
           setLoading(true);
-          const { error } = await supabase.from('master_pelanggaran').insert(formattedData);
+          const { error } = await supabase.from('bk_master_kasus').insert(formattedData);
           if (error) {
             alert('Gagal menyimpan ke database: ' + error.message);
           } else {
             alert(`Berhasil mengupload ${formattedData.length} data!`);
-            await fetchPelanggaran();
+            await fetchKasus();
           }
         } else {
           alert('Koneksi database tidak tersedia.');
@@ -193,21 +192,20 @@ export default function BKMasterPelanggaran() {
       }
     };
     reader.readAsArrayBuffer(file);
-    // Reset input
     e.target.value = '';
   };
 
-  const filteredData = pelanggaran.filter(p => 
-    p.nama_pelanggaran.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.kategori?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredData = kasus.filter(k => 
+    k.nama_kasus.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    k.kategori?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Master Pelanggaran</h2>
-          <p className="text-sm text-slate-500">Kelola jenis-jenis pelanggaran siswa</p>
+          <h2 className="text-2xl font-bold text-slate-800">Master Kasus (BK)</h2>
+          <p className="text-sm text-slate-500">Kelola jenis-jenis kasus berat siswa</p>
         </div>
         <div className="flex items-center gap-2">
           <button 
@@ -242,24 +240,24 @@ export default function BKMasterPelanggaran() {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 animate-in fade-in slide-in-from-top-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nama Pelanggaran</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nama Kasus</label>
               <input 
                 type="text" 
                 className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
-                value={newPelanggaran.nama_pelanggaran}
-                onChange={e => setNewPelanggaran({...newPelanggaran, nama_pelanggaran: e.target.value})}
+                value={newKasus.nama_kasus}
+                onChange={e => setNewKasus({...newKasus, nama_kasus: e.target.value})}
               />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Kategori</label>
               <select 
                 className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
-                value={newPelanggaran.kategori}
-                onChange={e => setNewPelanggaran({...newPelanggaran, kategori: e.target.value})}
+                value={newKasus.kategori}
+                onChange={e => setNewKasus({...newKasus, kategori: e.target.value})}
               >
-                <option value="Ringan">Ringan</option>
-                <option value="Sedang">Sedang</option>
                 <option value="Berat">Berat</option>
+                <option value="Sangat Berat">Sangat Berat</option>
+                <option value="Khusus">Khusus</option>
               </select>
             </div>
             <div>
@@ -267,8 +265,8 @@ export default function BKMasterPelanggaran() {
               <input 
                 type="number" 
                 className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
-                value={newPelanggaran.poin}
-                onChange={e => setNewPelanggaran({...newPelanggaran, poin: parseInt(e.target.value) || 0})}
+                value={newKasus.poin}
+                onChange={e => setNewKasus({...newKasus, poin: parseInt(e.target.value) || 0})}
               />
             </div>
           </div>
@@ -284,13 +282,13 @@ export default function BKMasterPelanggaran() {
           <Search size={20} className="text-slate-400" />
           <input 
             type="text" 
-            placeholder="Cari pelanggaran..." 
+            placeholder="Cari kasus..." 
             className="flex-1 outline-none text-sm"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
           <button 
-            onClick={fetchPelanggaran}
+            onClick={fetchKasus}
             disabled={loading}
             className="p-2 text-slate-400 hover:text-pink-600 hover:bg-pink-50 rounded-lg transition-all disabled:opacity-50"
             title="Refresh Data"
@@ -302,7 +300,7 @@ export default function BKMasterPelanggaran() {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold tracking-widest">
-                <th className="px-6 py-4">Nama Pelanggaran</th>
+                <th className="px-6 py-4">Nama Kasus</th>
                 <th className="px-6 py-4">Kategori</th>
                 <th className="px-6 py-4">Poin</th>
                 <th className="px-6 py-4 text-right">Aksi</th>
@@ -318,22 +316,22 @@ export default function BKMasterPelanggaran() {
                   <td colSpan={4} className="px-6 py-12 text-center text-slate-400 italic">Tidak ada data ditemukan.</td>
                 </tr>
               ) : (
-                filteredData.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-slate-800">{p.nama_pelanggaran}</td>
+                filteredData.map((k) => (
+                  <tr key={k.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-slate-800">{k.nama_kasus}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-                        p.kategori === 'Berat' ? 'bg-rose-100 text-rose-600' :
-                        p.kategori === 'Sedang' ? 'bg-amber-100 text-amber-600' :
-                        'bg-emerald-100 text-emerald-600'
+                        k.kategori === 'Berat' ? 'bg-rose-100 text-rose-600' :
+                        k.kategori === 'Sangat Berat' ? 'bg-red-100 text-red-600' :
+                        'bg-purple-100 text-purple-600'
                       }`}>
-                        {p.kategori}
+                        {k.kategori}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-slate-600 font-bold">{p.poin}</td>
+                    <td className="px-6 py-4 text-slate-600 font-bold">{k.poin}</td>
                     <td className="px-6 py-4 text-right">
                       <button 
-                        onClick={() => handleDelete(p.id)}
+                        onClick={() => handleDelete(k.id)}
                         className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                       >
                         <Trash2 size={18} />

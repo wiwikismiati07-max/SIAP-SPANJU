@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Users, FileText, Database, Menu, X, LogOut, ShieldCheck, AlertCircle, ClipboardList, PlusCircle } from 'lucide-react';
 import BKDashboard from './BKDashboard';
-import BKMasterPelanggaran from './BKMasterPelanggaran';
-import BKTransaksiPelanggaran from './BKTransaksiPelanggaran';
+import BKMasterKasus from './BKMasterKasus';
+import BKTransaksiKasus from './BKTransaksiKasus';
 import BKLaporan from './BKLaporan';
 import Login from '../izinsiswa/Login';
 import { supabase } from '../../lib/supabase';
@@ -121,7 +121,7 @@ export default function BKPeduliSiswaApp() {
             }`}
           >
             <PlusCircle size={20} />
-            <span className="font-semibold">Input Pelanggaran</span>
+            <span className="font-semibold">Input Kasus</span>
           </button>
           <button
             onClick={() => { setActiveTab('laporan'); setIsMobileMenuOpen(false); }}
@@ -144,7 +144,7 @@ export default function BKPeduliSiswaApp() {
                 }`}
               >
                 <Database size={20} />
-                <span className="font-semibold">Master Pelanggaran</span>
+                <span className="font-semibold">Master Kasus</span>
               </button>
             </>
           )}
@@ -161,9 +161,9 @@ export default function BKPeduliSiswaApp() {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 w-full">
           {activeTab === 'dashboard' && <BKDashboard />}
-          {activeTab === 'transaksi' && <BKTransaksiPelanggaran />}
+          {activeTab === 'transaksi' && <BKTransaksiKasus />}
           {activeTab === 'laporan' && <BKLaporan />}
-          {activeTab === 'master' && <BKMasterPelanggaran />}
+          {activeTab === 'master' && <BKMasterKasus />}
         </div>
       </div>
     </div>

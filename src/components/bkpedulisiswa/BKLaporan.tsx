@@ -4,11 +4,11 @@ import { FileText, Download, Search, Filter, Calendar, CheckCircle2, Clock } fro
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
-import { TransaksiPelanggaran } from '../../types/bkpedulisiswa';
+import { TransaksiKasus } from '../../types/bkpedulisiswa';
 
 export default function BKLaporan() {
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<TransaksiPelanggaran[]>([]);
+  const [data, setData] = useState<TransaksiKasus[]>([]);
   const [reportType, setReportType] = useState<'kasus' | 'tindak_lanjut'>('kasus');
   const [viewMode, setViewMode] = useState<'table' | 'tree'>('table');
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,8 +34,8 @@ export default function BKLaporan() {
     try {
       if (supabase) {
         let query = supabase
-          .from('transaksi_pelanggaran')
-          .select('*, siswa:master_siswa(*), pelanggaran:master_pelanggaran(*), tindak_lanjuts:tindak_lanjut_kasus(*)')
+          .from('bk_transaksi_kasus')
+          .select('*, siswa:master_siswa(*), kasus:bk_master_kasus(*), tindak_lanjuts:bk_tindak_lanjut(*)')
           .gte('tanggal', filter.startDate)
           .lte('tanggal', filter.endDate)
           .order('tanggal', { ascending: false });
@@ -166,7 +166,7 @@ export default function BKLaporan() {
           d.tanggal,
           d.kelas || d.siswa?.kelas || '-',
           d.siswa?.nama || '-',
-          d.kasus_kategori || '-',
+          d.kasus?.nama_kasus || d.kasus_kategori || '-',
           d.kronologi || '-',
           d.guru_bk || '-',
           d.wali_kelas || '-',
@@ -240,7 +240,7 @@ export default function BKLaporan() {
   const handleUpdateStatus = async (id: string, newStatus: 'Proses' | 'Selesai') => {
     try {
       if (supabase) {
-        const { error } = await supabase.from('transaksi_pelanggaran').update({ status: newStatus }).eq('id', id);
+        const { error } = await supabase.from('bk_transaksi_kasus').update({ status: newStatus }).eq('id', id);
         if (error) throw error;
         fetchData();
       }
@@ -446,10 +446,10 @@ export default function BKLaporan() {
                         <p className="font-bold text-slate-800 text-sm">{d.siswa?.nama}</p>
                         <p className="text-xs text-slate-500">Kelas {d.kelas || d.siswa?.kelas} • {d.tanggal}</p>
                       </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-medium text-slate-700">{d.kasus_kategori}</p>
-                        <p className="text-[10px] text-slate-400 uppercase font-bold">BK: {d.guru_bk}</p>
-                      </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-medium text-slate-700">{d.kasus?.nama_kasus || d.kasus_kategori}</p>
+                      <p className="text-[10px] text-slate-400 uppercase font-bold">BK: {d.guru_bk}</p>
+                    </td>
                       <td className="px-6 py-4 max-w-xs">
                         {reportType === 'kasus' ? (
                           <p className="text-xs text-slate-600 line-clamp-2">{d.kronologi}</p>
