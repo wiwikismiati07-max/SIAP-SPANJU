@@ -3,7 +3,7 @@
 
 -- 1. Master Kasus (Daftar Jenis Kasus Berat)
 CREATE TABLE IF NOT EXISTS public.bk_master_kasus (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
     nama_kasus TEXT NOT NULL,
     kategori TEXT DEFAULT 'Berat',
     poin INTEGER DEFAULT 0,
@@ -12,12 +12,12 @@ CREATE TABLE IF NOT EXISTS public.bk_master_kasus (
 
 -- 2. Transaksi Kasus (Data Kasus Siswa)
 CREATE TABLE IF NOT EXISTS public.bk_transaksi_kasus (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
     tanggal DATE NOT NULL DEFAULT CURRENT_DATE,
     jam TIME NOT NULL DEFAULT CURRENT_TIME,
     kelas TEXT NOT NULL,
-    siswa_id UUID REFERENCES public.master_siswa(id),
-    kasus_id UUID REFERENCES public.bk_master_kasus(id),
+    siswa_id TEXT REFERENCES public.master_siswa(id),
+    kasus_id TEXT REFERENCES public.bk_master_kasus(id),
     kasus_kategori TEXT NOT NULL, -- Kedisiplinan, Etika, Akademi, Bullying, Perkelahian, merokok, Narkoba, Lain-Lain
     kronologi TEXT, -- Up to 500 words
     bukti_fisik TEXT[], -- Array of URLs/Paths
@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS public.bk_transaksi_kasus (
 
 -- 3. Tindak Lanjut Kasus (Sub-tabel dari Transaksi Kasus)
 CREATE TABLE IF NOT EXISTS public.bk_tindak_lanjut (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    transaksi_id UUID REFERENCES public.bk_transaksi_kasus(id) ON DELETE CASCADE,
+    id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
+    transaksi_id TEXT REFERENCES public.bk_transaksi_kasus(id) ON DELETE CASCADE,
     tanggal DATE NOT NULL DEFAULT CURRENT_DATE,
     tindak_lanjut TEXT NOT NULL, -- Konseling Individu, Konseling Kelompok, Panggilan Orang Tua, Mediasi, Home visit, Skorsing, Lain-lain
     keterangan TEXT,
