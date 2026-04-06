@@ -362,7 +362,7 @@ export default function Laporan() {
     const headerRow = worksheet.getRow(10);
     headerRow.values = headers;
     headerRow.eachCell((cell) => {
-      cell.font = { bold: true, name: 'Calibri' };
+      cell.font = { bold: true, name: 'Calibri', color: { argb: 'FFFFFFFF' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5B9BD5' } };
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
       cell.border = {

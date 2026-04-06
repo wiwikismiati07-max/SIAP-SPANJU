@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { FileText, Download, Search, Filter, Calendar, CheckCircle2, Clock } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { TransaksiPelanggaran } from '../../types/bkpedulisiswa';
 
@@ -55,30 +56,172 @@ export default function BKLaporan() {
     }
   };
 
-  const handleDownloadExcel = (type: 'all' | 'finished') => {
-    const exportData = data
-      .filter(d => type === 'finished' ? d.status === 'Selesai' : true)
-      .map(d => ({
-        'TANGGAL': d.tanggal,
-        'JAM': d.jam,
-        'NAMA SISWA': d.siswa?.nama,
-        'KELAS': d.siswa?.kelas,
-        'PELANGGARAN': d.pelanggaran?.nama_pelanggaran,
-        'KATEGORI': d.pelanggaran?.kategori,
-        'POIN': d.pelanggaran?.poin,
-        'ALASAN': d.alasan,
-        'PENANGANAN': d.penanganan,
-        'KONSEKUENSI': d.konsekuensi,
-        'TINDAK LANJUT': d.tindak_lanjut,
-        'WALI KELAS': d.wali_kelas,
-        'GURU BK': d.guru_bk,
-        'STATUS': d.status
-      }));
+  const handleDownloadExcel = async (type: 'all' | 'finished') => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Laporan Pelanggaran');
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Laporan Pelanggaran");
-    XLSX.writeFile(wb, `Laporan_Pelanggaran_${type}_${filter.startDate}_to_${filter.endDate}.xlsx`);
+    // Fetch logo image
+    let logoId;
+    try {
+      const response = await fetch('https://api.allorigins.win/raw?url=https://iili.io/KDFk4fI.png');
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      logoId = workbook.addImage({
+        buffer: arrayBuffer,
+        extension: 'png',
+      });
+    } catch (error) {
+      console.error('Failed to load logo image:', error);
+    }
+
+    // Add Image to Worksheet
+    if (logoId !== undefined) {
+      worksheet.addImage(logoId, {
+        tl: { col: 0, row: 0 },
+        ext: { width: 90, height: 90 }
+      });
+    }
+
+    // Header text
+    worksheet.mergeCells('B1:N1');
+    worksheet.getCell('B1').value = 'PEMERINTAH KOTA PASURUAN';
+    worksheet.getCell('B1').font = { bold: true, size: 14, name: 'Times New Roman' };
+    worksheet.getCell('B1').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    worksheet.mergeCells('B2:N2');
+    worksheet.getCell('B2').value = 'SMP NEGERI 7';
+    worksheet.getCell('B2').font = { bold: true, size: 16, name: 'Times New Roman' };
+    worksheet.getCell('B2').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    worksheet.mergeCells('B3:N3');
+    worksheet.getCell('B3').value = 'Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139';
+    worksheet.getCell('B3').font = { size: 11, name: 'Times New Roman' };
+    worksheet.getCell('B3').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    worksheet.mergeCells('B4:N4');
+    worksheet.getCell('B4').value = 'Telepon (0343) 426845';
+    worksheet.getCell('B4').font = { size: 11, name: 'Times New Roman' };
+    worksheet.getCell('B4').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    worksheet.mergeCells('B5:N5');
+    worksheet.getCell('B5').value = 'Pos-el smp7pas@yahoo.co.id , Laman www.smpn7pasuruan.sch.id';
+    worksheet.getCell('B5').font = { size: 11, name: 'Times New Roman' };
+    worksheet.getCell('B5').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Double border under header
+    for (let i = 1; i <= 14; i++) {
+      worksheet.getCell(6, i).border = {
+        bottom: { style: 'double' },
+        top: { style: 'thin' }
+      };
+    }
+
+    // Report Title
+    worksheet.mergeCells('B8:N8');
+    worksheet.getCell('B8').value = 'Laporan Pelanggaran Siswa';
+    worksheet.getCell('B8').font = { bold: true, size: 12, name: 'Times New Roman' };
+    worksheet.getCell('B8').alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Table Headers
+    const headers = [
+      'NO', 'TANGGAL', 'JAM', 'NAMA SISWA', 'KELAS', 
+      'PELANGGARAN', 'KATEGORI', 'POIN', 'ALASAN', 
+      'PENANGANAN', 'KONSEKUENSI', 'TINDAK LANJUT', 
+      'WALI KELAS', 'GURU BK', 'STATUS'
+    ];
+    const headerRow = worksheet.getRow(10);
+    headerRow.values = headers;
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, name: 'Calibri', color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5B9BD5' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = {
+        top: { style: 'thin' }, left: { style: 'thin' },
+        bottom: { style: 'thin' }, right: { style: 'thin' }
+      };
+    });
+
+    // Table Data
+    const exportData = data.filter(d => type === 'finished' ? d.status === 'Selesai' : true);
+    
+    exportData.forEach((d, index) => {
+      const row = worksheet.addRow([
+        index + 1,
+        d.tanggal,
+        d.jam,
+        d.siswa?.nama || 'Unknown',
+        d.siswa?.kelas || '-',
+        d.pelanggaran?.nama_pelanggaran || '-',
+        d.pelanggaran?.kategori || '-',
+        d.pelanggaran?.poin || 0,
+        d.alasan || '-',
+        d.penanganan || '-',
+        d.konsekuensi || '-',
+        d.tindak_lanjut || '-',
+        d.wali_kelas || '-',
+        d.guru_bk || '-',
+        d.status
+      ]);
+      
+      const isAlt = index % 2 !== 0;
+      
+      row.eachCell((cell) => {
+        cell.font = { name: 'Calibri' };
+        if (isAlt) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+        }
+        cell.border = {
+          top: { style: 'thin' }, left: { style: 'thin' },
+          bottom: { style: 'thin' }, right: { style: 'thin' }
+        };
+        cell.alignment = { vertical: 'middle', wrapText: true };
+      });
+    });
+
+    // Column Widths
+    worksheet.getColumn(1).width = 5;
+    worksheet.getColumn(2).width = 12;
+    worksheet.getColumn(3).width = 8;
+    worksheet.getColumn(4).width = 25;
+    worksheet.getColumn(5).width = 8;
+    worksheet.getColumn(6).width = 25;
+    worksheet.getColumn(7).width = 15;
+    worksheet.getColumn(8).width = 8;
+    worksheet.getColumn(9).width = 20;
+    worksheet.getColumn(10).width = 20;
+    worksheet.getColumn(11).width = 20;
+    worksheet.getColumn(12).width = 20;
+    worksheet.getColumn(13).width = 20;
+    worksheet.getColumn(14).width = 20;
+    worksheet.getColumn(15).width = 12;
+
+    // Footer
+    const lastRow = 11 + exportData.length + 2;
+    
+    worksheet.getCell(`B${lastRow}`).value = 'Mengetahui';
+    worksheet.getCell(`B${lastRow}`).font = { name: 'Times New Roman' };
+    worksheet.getCell(`L${lastRow}`).value = `Pasuruan, ${format(new Date(), 'd MMMM yyyy')}`;
+    worksheet.getCell(`L${lastRow}`).font = { name: 'Times New Roman' };
+    
+    worksheet.getCell(`B${lastRow + 1}`).value = 'Kepala Sekolah';
+    worksheet.getCell(`B${lastRow + 1}`).font = { name: 'Times New Roman' };
+    worksheet.getCell(`L${lastRow + 1}`).value = 'Guru BK';
+    worksheet.getCell(`L${lastRow + 1}`).font = { name: 'Times New Roman' };
+    
+    worksheet.getCell(`B${lastRow + 5}`).value = 'NUR FADILAH, S.Pd';
+    worksheet.getCell(`B${lastRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
+    worksheet.getCell(`L${lastRow + 5}`).value = 'WIWIK ISMIATI, S.Pd';
+    worksheet.getCell(`L${lastRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
+    
+    worksheet.getCell(`B${lastRow + 6}`).value = 'NIP. 19860410 201001 2 030';
+    worksheet.getCell(`B${lastRow + 6}`).font = { name: 'Times New Roman' };
+    worksheet.getCell(`L${lastRow + 6}`).value = 'NIP. 19831116 200904 2 003';
+    worksheet.getCell(`L${lastRow + 6}`).font = { name: 'Times New Roman' };
+
+    // Save File
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(blob, `Laporan_Pelanggaran_${type}_${filter.startDate}_to_${filter.endDate}.xlsx`);
   };
 
   const handleUpdateStatus = async (id: string, newStatus: 'Proses' | 'Selesai') => {
