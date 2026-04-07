@@ -32,7 +32,8 @@ import {
   Sparkles,
   Clock,
   UserCheck,
-  Trophy
+  Trophy,
+  HeartPulse
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from './lib/supabase';
@@ -85,6 +86,7 @@ import BKPeduliSiswaApp from './components/bkpedulisiswa/BKPeduliSiswaApp';
 import DispensasiApp from './components/dispensasi/DispensasiApp';
 import PrestasiApp from './components/siprestasi/PrestasiApp';
 import KeagamaanApp from './components/keagamaan/KeagamaanApp';
+import UksApp from './components/uks/UksApp';
 
 // --- Components ---
 
@@ -93,7 +95,7 @@ export default function App() {
   const [userLinks, setUserLinks] = useState<AppLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | null>(null);
+  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -276,9 +278,10 @@ export default function App() {
           {[
             { id: 'sitelat', title: 'Si-Telat', subtitle: 'Sistem Keterlambatan Siswa', icon: Clock, color: 'from-blue-500 to-blue-700' },
             { id: 'izinsiswa', title: 'Izin Siswa', subtitle: 'Sistem Perizinan Siswa', icon: UserCheck, color: 'from-emerald-500 to-emerald-700' },
-            { id: 'dispensasi', title: 'Si-DISPENSASI', subtitle: 'Dispensasi Siswa (Baru)', icon: FileCheck, color: 'from-pink-600 to-blue-600', prominent: true },
+            { id: 'dispensasi', title: 'Si-DISPENSASI', subtitle: 'Dispensasi Siswa (Baru)', icon: FileCheck, color: 'from-pink-600 to-blue-600', prominent: true, extraLarge: true },
             { id: 'prestasi', title: 'Si-PRESTASI', subtitle: 'Prestasi Siswa (Baru)', icon: Trophy, color: 'from-purple-600 to-indigo-600', prominent: true },
             { id: 'keagamaan', title: 'KEAGAMAAN', subtitle: 'Kegiatan Keagamaan (Baru)', icon: Book, color: 'from-emerald-600 to-teal-600', prominent: true },
+            { id: 'uks', title: 'UKS SMPN7', subtitle: 'Unit Kesehatan Sekolah (Baru)', icon: HeartPulse, color: 'from-rose-500 to-red-700', prominent: true },
             { id: 'disiplinsiswa', title: 'Disiplin Siswa', subtitle: 'Kasus Ringan (Guru)', icon: ClipboardList, color: 'from-blue-500 to-blue-700' },
             { id: 'bkpedulisiswa', title: 'BK_PEDULI SISWA SMPN7', subtitle: 'Kasus Berat (Guru BK)', icon: Users, color: 'from-pink-500 to-pink-700' },
             { id: 'kilas', title: 'Kilas Aplikasi', subtitle: 'Referensi Dasar', icon: Book, color: 'from-pink-500 to-pink-600' },
@@ -302,7 +305,7 @@ export default function App() {
                 <section.icon size={20} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className={`font-black tracking-tight truncate uppercase ${section.prominent ? 'text-[16px] text-black' : 'text-[14px]'} ${activeSection === section.id && !section.prominent ? 'text-slate-800' : (section.prominent ? '' : 'text-slate-600')}`}>{section.title}</p>
+                <p className={`font-black tracking-tight truncate uppercase ${section.prominent ? (section.extraLarge ? 'text-[20px] text-black' : 'text-[16px] text-black') : 'text-[14px]'} ${activeSection === section.id && !section.prominent ? 'text-slate-800' : (section.prominent ? '' : 'text-slate-600')}`}>{section.title}</p>
                 <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{section.subtitle}</p>
               </div>
             </button>
@@ -452,6 +455,11 @@ export default function App() {
         {activeSection === 'keagamaan' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
             <KeagamaanApp onBack={() => setActiveSection(null)} />
+          </div>
+        )}
+        {activeSection === 'uks' && (
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            <UksApp onBack={() => setActiveSection(null)} />
           </div>
         )}
         <AnimatePresence mode="wait">
