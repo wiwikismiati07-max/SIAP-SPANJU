@@ -1,4 +1,4 @@
--- SQL Schema for Keagamaan Application (FIXED TYPES)
+-- SQL Schema for Keagamaan Application (FIXED TYPES & LABELS)
 -- Run this in your Supabase SQL Editor
 
 -- 1. Table for Religious Programs
@@ -10,14 +10,15 @@ CREATE TABLE IF NOT EXISTS public.agama_program (
 );
 
 -- 2. Table for Religious Attendance
+-- Note: master_siswa.id is TEXT, master_guru.id is UUID
 CREATE TABLE IF NOT EXISTS public.agama_absensi (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     siswa_id TEXT REFERENCES public.master_siswa(id) ON DELETE CASCADE,
     tanggal DATE NOT NULL DEFAULT CURRENT_DATE,
     jam TEXT NOT NULL,
     kegiatan_id UUID REFERENCES public.agama_program(id) ON DELETE CASCADE,
-    wali_kelas_id TEXT REFERENCES public.master_guru(id) ON DELETE SET NULL,
-    alasan TEXT NOT NULL CHECK (alasan IN ('Sakit', 'Izin', 'Haid', 'Alpha', 'Pulang sebelum waktunya', 'Hadir')),
+    wali_kelas_id UUID REFERENCES public.master_guru(id) ON DELETE SET NULL,
+    alasan TEXT NOT NULL CHECK (alasan IN ('Sakit', 'Izin', 'Haid', 'Alpa', 'Pulang sebelum waktunya', 'Hadir')),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -25,8 +26,11 @@ CREATE TABLE IF NOT EXISTS public.agama_absensi (
 ALTER TABLE public.agama_program ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.agama_absensi ENABLE ROW LEVEL SECURITY;
 
--- Policies (Allow all for now as per previous patterns)
+-- Policies
+DROP POLICY IF EXISTS "Allow all for agama_program" ON public.agama_program;
 CREATE POLICY "Allow all for agama_program" ON public.agama_program FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow all for agama_absensi" ON public.agama_absensi;
 CREATE POLICY "Allow all for agama_absensi" ON public.agama_absensi FOR ALL USING (true);
 
 -- Insert some initial data if empty

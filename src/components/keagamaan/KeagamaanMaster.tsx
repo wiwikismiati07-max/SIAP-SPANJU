@@ -52,9 +52,10 @@ const KeagamaanMaster: React.FC = () => {
       setFormData({ nama_kegiatan: '', waktu: '' });
       setEditingId(null);
       fetchPrograms();
-    } catch (error) {
+      alert('Berhasil menyimpan program');
+    } catch (error: any) {
       console.error('Error saving program:', error);
-      alert('Gagal menyimpan program');
+      alert(`Gagal menyimpan program: ${error.message || 'Pastikan tabel agama_program sudah dibuat di Supabase'}`);
     }
   };
 

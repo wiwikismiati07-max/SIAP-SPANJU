@@ -378,6 +378,7 @@ const KeagamaanLaporan: React.FC = () => {
                       <span className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase ${
                         item.alasan === 'Hadir' ? 'bg-emerald-50 text-emerald-600' :
                         item.alasan === 'Haid' ? 'bg-rose-50 text-rose-600' :
+                        item.alasan === 'Alpa' ? 'bg-slate-100 text-slate-600' :
                         'bg-amber-50 text-amber-600'
                       }`}>
                         {item.alasan}

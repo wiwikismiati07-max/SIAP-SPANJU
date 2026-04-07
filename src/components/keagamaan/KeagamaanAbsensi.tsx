@@ -34,7 +34,7 @@ const KeagamaanAbsensi: React.FC = () => {
     { id: 'Hadir', label: 'Hadir', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
     { id: 'Izin', label: 'Izin', color: 'bg-blue-50 text-blue-600 border-blue-200' },
     { id: 'Sakit', label: 'Sakit', color: 'bg-amber-50 text-amber-600 border-amber-200' },
-    { id: 'Alpha', label: 'Alpha', color: 'bg-slate-50 text-slate-600 border-slate-200' },
+    { id: 'Alpa', label: 'Alpa', color: 'bg-slate-50 text-slate-600 border-slate-200' },
     { id: 'Haid', label: 'Haid', color: 'bg-rose-50 text-rose-600 border-rose-200' },
     { id: 'Pulang sebelum waktunya', label: 'Pulang sebelum waktunya', color: 'bg-purple-50 text-purple-600 border-purple-200' }
   ];
@@ -129,9 +129,10 @@ const KeagamaanAbsensi: React.FC = () => {
       });
       setEditingId(null);
       fetchAbsensi();
-    } catch (error) {
+      alert('Berhasil menyimpan absensi');
+    } catch (error: any) {
       console.error('Error saving absensi:', error);
-      alert('Gagal menyimpan absensi');
+      alert(`Gagal menyimpan absensi: ${error.message || 'Pastikan tabel agama_absensi sudah dibuat di Supabase'}`);
     } finally {
       setSubmitting(false);
     }
@@ -385,7 +386,7 @@ const KeagamaanAbsensi: React.FC = () => {
                       <span className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase ${
                         abs.alasan === 'Hadir' ? 'bg-emerald-50 text-emerald-600' :
                         abs.alasan === 'Haid' ? 'bg-rose-50 text-rose-600' :
-                        abs.alasan === 'Alpha' ? 'bg-slate-100 text-slate-600' :
+                        abs.alasan === 'Alpa' ? 'bg-slate-100 text-slate-600' :
                         'bg-amber-50 text-amber-600'
                       }`}>
                         {abs.alasan}
