@@ -166,7 +166,7 @@ const DispMasterData: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[380px]">
           <table className="w-full text-left">
             <thead>
               <tr className="text-[10px] uppercase font-bold text-slate-400 tracking-wider border-b border-slate-50">

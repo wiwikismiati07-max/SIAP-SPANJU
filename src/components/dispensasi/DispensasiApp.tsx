@@ -77,8 +77,8 @@ const DispensasiApp: React.FC<DispensasiAppProps> = ({ onBack }) => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 ml-64 p-8">
-        <div className="max-w-6xl mx-auto">
+      <div className="flex-1 ml-64 p-8 overflow-y-auto h-screen">
+        <div className="max-w-6xl mx-auto pb-12">
           {activeTab === 'dashboard' && <DispDashboard />}
           {activeTab === 'master' && <DispMasterData />}
           {activeTab === 'input' && <DispInputData />}

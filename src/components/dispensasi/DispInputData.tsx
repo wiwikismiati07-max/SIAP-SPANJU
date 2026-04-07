@@ -302,10 +302,10 @@ const DispInputData: React.FC = () => {
       {/* Recent Data Table */}
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
-          <h3 className="font-bold text-slate-800">10 Transaksi Terakhir</h3>
-          <span className="text-xs text-slate-400">Scroll untuk melihat lebih banyak</span>
+          <h3 className="font-bold text-slate-800">Riwayat Transaksi</h3>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Maks. 5 baris (Scroll kebawah)</span>
         </div>
-        <div className="overflow-x-auto max-h-[500px]">
+        <div className="overflow-auto max-h-[380px]">
           <table className="w-full text-left">
             <thead className="sticky top-0 bg-white z-10">
               <tr className="text-[10px] uppercase font-bold text-slate-400 tracking-wider border-b border-slate-50">
