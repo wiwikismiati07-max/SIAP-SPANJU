@@ -184,7 +184,9 @@ export default function BKTransaksiKasus() {
 
         if (transaksiId && tindakLanjuts.length > 0) {
           const followUpsToSave = tindakLanjuts.map(tl => ({
-            ...tl,
+            tanggal: tl.tanggal,
+            tindak_lanjut: tl.tindak_lanjut,
+            keterangan: tl.keterangan,
             transaksi_id: transaksiId
           }));
           const { error: tlError } = await supabase.from('bk_tindak_lanjut').insert(followUpsToSave);
