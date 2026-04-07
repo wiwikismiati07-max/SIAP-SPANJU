@@ -13,13 +13,15 @@ const PrestasiLaporan: React.FC = () => {
   });
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<any[]>([]);
+  const [hasFetched, setHasFetched] = useState(false);
 
   const fetchReport = async () => {
     try {
       setLoading(true);
+      setHasFetched(true);
       const { data, error } = await supabase
         .from('prestasi_siswa')
-        .select('*, siswa:master_siswa(nama), wali_kelas:master_guru(nama_guru)')
+        .select('*, siswa:master_siswa(nama), wali_kelas:wali_kelas_id(nama_guru)')
         .gte('tanggal', dateRange.from)
         .lte('tanggal', dateRange.to)
         .order('tanggal', { ascending: false });
@@ -28,7 +30,7 @@ const PrestasiLaporan: React.FC = () => {
       setReportData(data || []);
     } catch (error) {
       console.error('Error fetching report:', error);
-      alert('Gagal memuat laporan');
+      alert('Gagal memuat laporan: ' + (error instanceof Error ? error.message : 'Terjadi kesalahan sistem'));
     } finally {
       setLoading(false);
     }
@@ -177,7 +179,7 @@ const PrestasiLaporan: React.FC = () => {
               {!loading && reportData.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-8 py-12 text-center text-slate-400 font-bold">
-                    {reportData.length === 0 ? 'Klik Tampilkan untuk memuat data' : 'Tidak ada data ditemukan'}
+                    {!hasFetched ? 'Klik Tampilkan untuk memuat data' : 'Tidak ada data ditemukan untuk periode ini'}
                   </td>
                 </tr>
               )}
