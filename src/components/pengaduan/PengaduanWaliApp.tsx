@@ -146,7 +146,7 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps> = ({ onBack }) => {
   const filteredSiswa = siswa.filter(s => s.kelas === selectedClass);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="h-full bg-slate-50 flex flex-col">
       {/* Header */}
       <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20">
         <div className="flex items-center gap-4">
