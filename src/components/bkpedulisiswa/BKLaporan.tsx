@@ -425,6 +425,7 @@ export default function BKLaporan() {
                 <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold tracking-widest">
                   <th className="px-6 py-4">Siswa</th>
                   <th className="px-6 py-4">Kasus</th>
+                  {reportType === 'tindak_lanjut' && <th className="px-6 py-4">Tanggal TL</th>}
                   <th className="px-6 py-4">{reportType === 'kasus' ? 'Kronologi' : 'Tindak Lanjut'}</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Aksi</th>
@@ -450,6 +451,16 @@ export default function BKLaporan() {
                       <p className="text-sm font-medium text-slate-700">{d.kasus?.nama_kasus || d.kasus_kategori}</p>
                       <p className="text-[10px] text-slate-400 uppercase font-bold">BK: {d.guru_bk}</p>
                     </td>
+                      {reportType === 'tindak_lanjut' && (
+                        <td className="px-6 py-4">
+                          <div className="space-y-1">
+                            {d.tindak_lanjuts?.slice(0, 2).map((tl, i) => (
+                              <p key={i} className="text-[10px] text-slate-500 truncate">{tl.tanggal}</p>
+                            ))}
+                            {(d.tindak_lanjuts?.length || 0) > 2 && <div className="h-[14px]" />}
+                          </div>
+                        </td>
+                      )}
                       <td className="px-6 py-4 max-w-xs">
                         {reportType === 'kasus' ? (
                           <p className="text-xs text-slate-600 line-clamp-2">{d.kronologi}</p>
