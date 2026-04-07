@@ -67,11 +67,6 @@ const COLORS = [
 
 const EXTERNAL_APPS = [
   { id: "tata-tertib", title: "Tata Tertib Siswa", url: "https://tally.so/r/q4D1XY", icon: "FileText", color: "from-blue-400 to-blue-600" },
-  { id: "bk-peduli", title: "Disiplin Siswa", url: "https://bk-peduli-siswa.vercel.app/", icon: "Users", color: "from-pink-400 to-pink-600" },
-  { id: "izin-siswa", title: "Izin Siswa", url: "https://izin-siswa.vercel.app/", icon: "ClipboardList", color: "from-blue-400 to-blue-600" },
-  { id: "dispensasi-siswa", title: "Dispensasi Siswa", url: "https://dispensasi-siswa-lime.vercel.app/", icon: "FileCheck", color: "from-pink-400 to-pink-600" },
-  { id: "prestasi-siswa", title: "Prestasi Siswa", url: "https://prestasi-siswa.vercel.app/", icon: "Award", color: "from-blue-400 to-blue-600" },
-  { id: "pengaduan-wali-murid", title: "Pengaduan Wali Murid", url: "https://pengaduan-topaz.vercel.app/", icon: "MessageSquare", color: "from-pink-400 to-pink-600" },
   { id: "8-program-prioritas-spanju", title: "8 Program Prioritas Spanju", url: "https://7-kaih-nine.vercel.app/", icon: "LayoutDashboard", color: "from-blue-400 to-blue-600" }
 ];
 
@@ -87,6 +82,7 @@ import DispensasiApp from './components/dispensasi/DispensasiApp';
 import PrestasiApp from './components/siprestasi/PrestasiApp';
 import KeagamaanApp from './components/keagamaan/KeagamaanApp';
 import UksApp from './components/uks/UksApp';
+import PengaduanWaliApp from './components/pengaduan/PengaduanWaliApp';
 
 // --- Components ---
 
@@ -95,7 +91,7 @@ export default function App() {
   const [userLinks, setUserLinks] = useState<AppLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | null>(null);
+  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -278,6 +274,7 @@ export default function App() {
           {[
             { id: 'sitelat', title: 'Si-Telat', subtitle: 'Sistem Keterlambatan Siswa', icon: Clock, color: 'from-blue-500 to-blue-700' },
             { id: 'izinsiswa', title: 'Izin Siswa', subtitle: 'Sistem Perizinan Siswa', icon: UserCheck, color: 'from-emerald-500 to-emerald-700' },
+            { id: 'pengaduan', title: 'PENGADUAN WALI MURID', subtitle: 'Layanan Pengaduan (Baru)', icon: MessageSquare, color: 'from-pink-500 to-rose-600', prominent: true, extraLarge: true },
             { id: 'dispensasi', title: 'Si-DISPENSASI', subtitle: 'Dispensasi Siswa (Baru)', icon: FileCheck, color: 'from-pink-600 to-blue-600', prominent: true, extraLarge: true },
             { id: 'prestasi', title: 'Si-PRESTASI', subtitle: 'Prestasi Siswa (Baru)', icon: Trophy, color: 'from-purple-600 to-indigo-600', prominent: true },
             { id: 'keagamaan', title: 'KEAGAMAAN', subtitle: 'Kegiatan Keagamaan (Baru)', icon: Book, color: 'from-emerald-600 to-teal-600', prominent: true },
@@ -460,6 +457,11 @@ export default function App() {
         {activeSection === 'uks' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
             <UksApp onBack={() => setActiveSection(null)} />
+          </div>
+        )}
+        {activeSection === 'pengaduan' && (
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            <PengaduanWaliApp onBack={() => setActiveSection(null)} />
           </div>
         )}
         <AnimatePresence mode="wait">
