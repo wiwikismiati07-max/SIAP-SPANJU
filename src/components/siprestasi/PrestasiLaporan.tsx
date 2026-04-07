@@ -19,7 +19,7 @@ const PrestasiLaporan: React.FC = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('prestasi_siswa')
-        .select('*, siswa:master_siswa(nama), wali_kelas:master_guru(nama)')
+        .select('*, siswa:master_siswa(nama), wali_kelas:master_guru(nama_guru)')
         .gte('tanggal', dateRange.from)
         .lte('tanggal', dateRange.to)
         .order('tanggal', { ascending: false });
@@ -50,7 +50,7 @@ const PrestasiLaporan: React.FC = () => {
       'Nama Lomba': item.nama_lomba,
       'Juara/Peringkat': item.juara,
       'Tingkat': item.tingkat,
-      'Wali Kelas': item.wali_kelas?.nama,
+      'Wali Kelas': item.wali_kelas?.nama_guru,
       'Guru BK': item.guru_bk,
       'Bukti Sertifikat': item.bukti_url || '-'
     }));
@@ -168,7 +168,7 @@ const PrestasiLaporan: React.FC = () => {
                   </td>
                   <td className="px-8 py-5">
                     <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-600">WK: {item.wali_kelas?.nama || '-'}</span>
+                      <span className="text-xs font-bold text-slate-600">WK: {item.wali_kelas?.nama_guru || '-'}</span>
                       <span className="text-xs font-bold text-slate-600">BK: {item.guru_bk}</span>
                     </div>
                   </td>

@@ -67,8 +67,8 @@ const PrestasiInput: React.FC = () => {
     try {
       const { data: teacherData } = await supabase
         .from('master_guru')
-        .select('id, nama')
-        .order('nama');
+        .select('id, nama_guru')
+        .order('nama_guru');
       setTeachers(teacherData || []);
     } catch (error) {
       console.error('Error fetching teachers:', error);
@@ -396,7 +396,7 @@ const PrestasiInput: React.FC = () => {
                       onChange={(e) => setFormData({ ...formData, wali_kelas_id: e.target.value })}
                     >
                       <option value="">Pilih Wali Kelas</option>
-                      {teachers.map(t => <option key={t.id} value={t.id}>{t.nama}</option>)}
+                      {teachers.map(t => <option key={t.id} value={t.id}>{t.nama_guru}</option>)}
                     </select>
                   </div>
                 </div>
