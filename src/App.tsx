@@ -31,7 +31,8 @@ import {
   Settings,
   Sparkles,
   Clock,
-  UserCheck
+  UserCheck,
+  Trophy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from './lib/supabase';
@@ -82,6 +83,7 @@ import SiTelatApp from './components/sitelat/SiTelatApp';
 import IzinSiswaApp from './components/izinsiswa/IzinSiswaApp';
 import BKPeduliSiswaApp from './components/bkpedulisiswa/BKPeduliSiswaApp';
 import DispensasiApp from './components/dispensasi/DispensasiApp';
+import PrestasiApp from './components/siprestasi/PrestasiApp';
 
 // --- Components ---
 
@@ -90,7 +92,7 @@ export default function App() {
   const [userLinks, setUserLinks] = useState<AppLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | null>(null);
+  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -273,7 +275,8 @@ export default function App() {
           {[
             { id: 'sitelat', title: 'Si-Telat', subtitle: 'Sistem Keterlambatan Siswa', icon: Clock, color: 'from-blue-500 to-blue-700' },
             { id: 'izinsiswa', title: 'Izin Siswa', subtitle: 'Sistem Perizinan Siswa', icon: UserCheck, color: 'from-emerald-500 to-emerald-700' },
-            { id: 'dispensasi', title: 'Si-DISPENSASI', subtitle: 'Dispensasi Siswa (Baru)', icon: FileCheck, color: 'from-pink-600 to-blue-600' },
+            { id: 'dispensasi', title: 'Si-DISPENSASI', subtitle: 'Dispensasi Siswa (Baru)', icon: FileCheck, color: 'from-pink-600 to-blue-600', prominent: true },
+            { id: 'prestasi', title: 'Si-PRESTASI', subtitle: 'Prestasi Siswa (Baru)', icon: Trophy, color: 'from-purple-600 to-indigo-600', prominent: true },
             { id: 'disiplinsiswa', title: 'Disiplin Siswa', subtitle: 'Kasus Ringan (Guru)', icon: ClipboardList, color: 'from-blue-500 to-blue-700' },
             { id: 'bkpedulisiswa', title: 'BK_PEDULI SISWA SMPN7', subtitle: 'Kasus Berat (Guru BK)', icon: Users, color: 'from-pink-500 to-pink-700' },
             { id: 'kilas', title: 'Kilas Aplikasi', subtitle: 'Referensi Dasar', icon: Book, color: 'from-pink-500 to-pink-600' },
@@ -297,7 +300,7 @@ export default function App() {
                 <section.icon size={20} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className={`font-black tracking-tight truncate text-[14px] uppercase ${activeSection === section.id ? 'text-slate-800' : 'text-slate-600'}`}>{section.title}</p>
+                <p className={`font-black tracking-tight truncate uppercase ${section.prominent ? 'text-[16px] text-black' : 'text-[14px]'} ${activeSection === section.id && !section.prominent ? 'text-slate-800' : (section.prominent ? '' : 'text-slate-600')}`}>{section.title}</p>
                 <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{section.subtitle}</p>
               </div>
             </button>
@@ -437,6 +440,11 @@ export default function App() {
         {activeSection === 'dispensasi' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
             <DispensasiApp onBack={() => setActiveSection(null)} />
+          </div>
+        )}
+        {activeSection === 'prestasi' && (
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            <PrestasiApp onBack={() => setActiveSection(null)} />
           </div>
         )}
         <AnimatePresence mode="wait">
