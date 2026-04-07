@@ -84,10 +84,22 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps> = ({ onBack }) => {
         .from('pengaduan_wali')
         .select('*, siswa:master_siswa(nama, kelas)')
         .order('created_at', { ascending: false });
-      if (error) throw error;
-      setPengaduanList(data || []);
-    } catch (error) {
+      
+      if (error) {
+        // Fallback to simple select if join fails
+        const { data: simpleData, error: simpleError } = await supabase
+          .from('pengaduan_wali')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (simpleError) throw simpleError;
+        setPengaduanList(simpleData || []);
+      } else {
+        setPengaduanList(data || []);
+      }
+    } catch (error: any) {
       console.error('Error fetching pengaduan:', error);
+      setMessage({ type: 'error', text: `Gagal memuat data: ${error.message}` });
     } finally {
       setLoading(false);
     }
@@ -115,6 +127,9 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps> = ({ onBack }) => {
 
       setMessage({ type: 'success', text: 'Laporan pengaduan berhasil dikirim! Pihak sekolah akan segera menindaklanjuti.' });
       resetForm();
+      if (view === 'list') {
+        fetchPengaduan();
+      }
       setTimeout(() => setMessage(null), 5000);
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || 'Gagal mengirim pengaduan' });
