@@ -81,6 +81,7 @@ const IMAGE_KORELASI_SRA = "https://wsrv.nl/?url=i.ibb.co/5wM2Bd4/gambar-3.jpg";
 import SiTelatApp from './components/sitelat/SiTelatApp';
 import IzinSiswaApp from './components/izinsiswa/IzinSiswaApp';
 import BKPeduliSiswaApp from './components/bkpedulisiswa/BKPeduliSiswaApp';
+import DispensasiApp from './components/dispensasi/DispensasiApp';
 
 // --- Components ---
 
@@ -89,7 +90,7 @@ export default function App() {
   const [userLinks, setUserLinks] = useState<AppLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | null>(null);
+  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -253,12 +254,12 @@ export default function App() {
         <div className="p-6 flex items-center justify-between border-b border-white/50 min-w-[280px]">
           <div className="flex flex-col gap-0.5 font-display">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-lg shadow-pink-100 rotate-3 overflow-hidden p-1">
+              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-pink-100 rotate-3 overflow-hidden p-1 border border-slate-100">
                 <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
               </div>
-              <span className="text-xl font-black tracking-tight text-slate-800">SIAP SPANJU</span>
+              <span className="text-2xl font-black tracking-tighter text-black">SIAP SPANJU</span>
             </div>
-            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-[0.1em] leading-none ml-10">
+            <span className="text-[9px] font-black text-slate-600 uppercase tracking-[0.15em] leading-none ml-12">
               Sistem Integrasi Aplikasi Pembinaan Siswa
             </span>
           </div>
@@ -272,6 +273,7 @@ export default function App() {
           {[
             { id: 'sitelat', title: 'Si-Telat', subtitle: 'Sistem Keterlambatan Siswa', icon: Clock, color: 'from-blue-500 to-blue-700' },
             { id: 'izinsiswa', title: 'Izin Siswa', subtitle: 'Sistem Perizinan Siswa', icon: UserCheck, color: 'from-emerald-500 to-emerald-700' },
+            { id: 'dispensasi', title: 'Si-DISPENSASI', subtitle: 'Dispensasi Siswa (Baru)', icon: FileCheck, color: 'from-pink-600 to-blue-600' },
             { id: 'disiplinsiswa', title: 'Disiplin Siswa', subtitle: 'Kasus Ringan (Guru)', icon: ClipboardList, color: 'from-blue-500 to-blue-700' },
             { id: 'bkpedulisiswa', title: 'BK_PEDULI SISWA SMPN7', subtitle: 'Kasus Berat (Guru BK)', icon: Users, color: 'from-pink-500 to-pink-700' },
             { id: 'kilas', title: 'Kilas Aplikasi', subtitle: 'Referensi Dasar', icon: Book, color: 'from-pink-500 to-pink-600' },
@@ -430,6 +432,11 @@ export default function App() {
         {activeSection === 'bkpedulisiswa' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
             <BKPeduliSiswaApp />
+          </div>
+        )}
+        {activeSection === 'dispensasi' && (
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            <DispensasiApp onBack={() => setActiveSection(null)} />
           </div>
         )}
         <AnimatePresence mode="wait">
