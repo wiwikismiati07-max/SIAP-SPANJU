@@ -3,8 +3,9 @@ import { supabase } from '../../lib/supabase';
 import { IzinWithSiswa } from '../../types/izinsiswa';
 import { Download, Search, Calendar as CalendarIcon, Edit, Trash2, X, FileText, Users, BarChart3, AlertTriangle } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, startOfYear } from 'date-fns';
-import * as XLSX from 'xlsx';
+import { id as idLocale } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 export default function LaporanIzin() {
@@ -113,34 +114,157 @@ export default function LaporanIzin() {
   };
 
   const handleDownloadExcel = async () => {
-    if (reportType === 'detail') {
-      const exportData = filteredData.map(d => ({
-        'NAMA': d.siswa?.nama,
-        'KELAS': d.siswa?.kelas,
-        'TANGGAL MULAI': d.tanggal_mulai,
-        'TANGGAL SELESAI': d.tanggal_selesai,
-        'ALASAN': d.alasan,
-        'STATUS': d.status,
-        'DIAJUKAN OLEH': d.diajukan_oleh,
-        'GURU PEMBERI IZIN': d.guru?.nama_guru || '-',
-        'MATA PELAJARAN': d.mapel?.nama_mapel || '-',
-        'NAMA WALI': d.nama_wali || '-',
-        'NO TELP WALI': d.no_telp_wali || '-'
-      }));
+    if (filteredData.length === 0) {
+      alert('Tidak ada data untuk diunduh.');
+      return;
+    }
 
-      const ws = XLSX.utils.json_to_sheet(exportData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Laporan Izin");
-      XLSX.writeFile(wb, `Laporan_Izin_${dateRange.start}_sd_${dateRange.end}.xlsx`);
-    } else {
-      // Absensi Harian Report with ExcelJS for Logo and Styling
-      if (!selectedKelas) {
-        alert('Pilih kelas terlebih dahulu untuk laporan absensi harian');
-        return;
+    setLoading(true);
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet(reportType === 'detail' ? 'Detail Izin' : 'Absensi Harian');
+
+      // Set Column Widths
+      if (reportType === 'detail') {
+        worksheet.columns = [
+          { width: 5 },   // No
+          { width: 30 },  // Nama
+          { width: 10 },  // Kelas
+          { width: 25 },  // Tanggal
+          { width: 30 },  // Alasan
+          { width: 15 },  // Status
+          { width: 20 },  // Diajukan Oleh
+          { width: 25 },  // Guru/Wali
+        ];
+      } else {
+        worksheet.columns = [
+          { width: 5 },   // No
+          { width: 40 },  // Nama Siswa
+          { width: 12 },  // Masuk
+          { width: 12 },  // Izin
+          { width: 12 },  // Sakit
+          { width: 12 },  // Alpha
+        ];
       }
 
-      setLoading(true);
+      // --- HEADER SECTION ---
       try {
+        const response = await fetch('https://iili.io/KDFk4fI.png');
+        const buffer = await response.arrayBuffer();
+        const logoId = workbook.addImage({
+          buffer: buffer,
+          extension: 'png',
+        });
+        worksheet.addImage(logoId, {
+          tl: { col: 0.2, row: 0.2 },
+          ext: { width: 80, height: 90 }
+        });
+      } catch (e) {
+        console.error('Failed to load logo:', e);
+      }
+
+      const headerRows = [
+        ['PEMERINTAH KOTA PASURUAN'],
+        ['SMP NEGERI 7'],
+        ['Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139'],
+        ['Telepon (0343) 426845'],
+        ['Pos-el smp7pas@yahoo.co.id, Laman www.smpn7pasuruan.sch.id']
+      ];
+
+      const totalCols = reportType === 'detail' ? 8 : 6;
+
+      headerRows.forEach((text, i) => {
+        const row = worksheet.getRow(i + 1);
+        const startCol = Math.floor(totalCols / 2);
+        row.getCell(startCol).value = text[0];
+        worksheet.mergeCells(i + 1, startCol, i + 1, totalCols);
+        const cell = row.getCell(startCol);
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.font = { 
+          name: 'Arial', 
+          bold: i === 1, 
+          size: i === 1 ? 16 : 11 
+        };
+      });
+
+      // Separator Line
+      worksheet.getRow(6).height = 5;
+      worksheet.mergeCells(6, 1, 6, totalCols);
+      worksheet.getRow(6).getCell(1).border = { bottom: { style: 'double', color: { argb: 'FF000000' } } };
+
+      // Title
+      worksheet.mergeCells(8, 1, 8, totalCols);
+      const titleCell = worksheet.getCell(8, 1);
+      titleCell.value = reportType === 'detail' ? 'Laporan Dispensasi Siswa' : `Laporan Absensi Harian - Kelas ${selectedKelas}`;
+      titleCell.font = { name: 'Arial', bold: true, size: 20 };
+      titleCell.alignment = { horizontal: 'center' };
+
+      // Subtitle for period
+      worksheet.mergeCells(9, 1, 9, totalCols);
+      const subTitleCell = worksheet.getCell(9, 1);
+      subTitleCell.value = `Periode: ${dateRange.start} s/d ${dateRange.end}`;
+      subTitleCell.alignment = { horizontal: 'center' };
+
+      // --- TABLE SECTION ---
+      const headerRow = worksheet.getRow(11);
+      let headers = [];
+      if (reportType === 'detail') {
+        headers = ['NO', 'NAMA SISWA', 'KELAS', 'TANGGAL', 'ALASAN', 'STATUS', 'PENGAJU', 'GURU/WALI'];
+      } else {
+        headers = ['NO', 'NAMA SISWA', 'MASUK (X)', 'IZIN (V)', 'SAKIT (V)', 'ALPHA (V)'];
+      }
+      
+      headers.forEach((h, i) => {
+        const cell = headerRow.getCell(i + 1);
+        cell.value = h;
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF4F81BD' }
+        };
+        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+
+      // Data Rows
+      if (reportType === 'detail') {
+        filteredData.forEach((item, index) => {
+          const row = worksheet.getRow(12 + index);
+          const dateStr = item.tanggal_mulai === item.tanggal_selesai 
+            ? item.tanggal_mulai 
+            : `${item.tanggal_mulai} - ${item.tanggal_selesai}`;
+          
+          const values = [
+            index + 1,
+            item.siswa?.nama || '-',
+            item.siswa?.kelas || '-',
+            dateStr,
+            item.alasan,
+            item.status,
+            item.diajukan_oleh,
+            item.diajukan_oleh === 'Wali Murid' ? item.nama_wali : (item.guru?.nama_guru || '-')
+          ];
+
+          values.forEach((v, i) => {
+            const cell = row.getCell(i + 1);
+            cell.value = v;
+            cell.alignment = { horizontal: i === 0 || i === 2 || i === 5 ? 'center' : 'left', vertical: 'middle' };
+            cell.border = {
+              top: { style: 'thin' },
+              left: { style: 'thin' },
+              bottom: { style: 'thin' },
+              right: { style: 'thin' }
+            };
+          });
+        });
+      } else {
+        // Absensi Logic
         let studentsInClass: any[] = [];
         if (supabase) {
           const { data: sData } = await supabase
@@ -156,77 +280,6 @@ export default function LaporanIzin() {
             .sort((a: any, b: any) => a.nama.localeCompare(b.nama));
         }
 
-        if (studentsInClass.length === 0) {
-          alert('Tidak ada data siswa untuk kelas ini');
-          return;
-        }
-
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('Absensi Harian');
-
-        // Add Logo
-        try {
-          const response = await fetch('https://iili.io/KDFk4fI.png');
-          const blob = await response.blob();
-          const arrayBuffer = await blob.arrayBuffer();
-          const imageId = workbook.addImage({
-            buffer: arrayBuffer,
-            extension: 'png',
-          });
-          worksheet.addImage(imageId, {
-            tl: { col: 0, row: 0 },
-            ext: { width: 60, height: 60 }
-          });
-        } catch (e) {
-          console.error('Failed to load logo', e);
-        }
-
-        // Header
-        worksheet.mergeCells('A1:F1');
-        worksheet.getCell('A1').value = 'PEMERINTAH KOTA PASURUAN';
-        worksheet.mergeCells('A2:F2');
-        worksheet.getCell('A2').value = 'SMP NEGERI 7';
-        worksheet.mergeCells('A3:F3');
-        worksheet.getCell('A3').value = 'Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139';
-        worksheet.mergeCells('A4:F4');
-        worksheet.getCell('A4').value = 'Telepon (0343) 426845';
-        worksheet.mergeCells('A5:F5');
-        worksheet.getCell('A5').value = 'Pos-el smp7pas@yahoo.co.id , Laman www.smpn7pasuruan.sch.id';
-
-        // Title
-        worksheet.mergeCells('A7:F7');
-        worksheet.getCell('A7').value = 'LAPORAN ABSENSI HARIAN SISWA';
-        worksheet.mergeCells('A8:F8');
-        worksheet.getCell('A8').value = `Kelas: ${selectedKelas} | Periode: ${dateRange.start} s/d ${dateRange.end}`;
-
-        // Styling Headers
-        ['A1', 'A2', 'A3', 'A4', 'A5', 'A7', 'A8'].forEach(cell => {
-          worksheet.getCell(cell).alignment = { horizontal: 'center', vertical: 'middle' };
-          worksheet.getCell(cell).font = { bold: true, name: 'Arial' };
-        });
-        worksheet.getCell('A2').font.size = 14;
-        worksheet.getCell('A7').font.size = 16;
-
-        // Table Header
-        const headerRow = worksheet.getRow(10);
-        headerRow.values = ['NO', 'NAMA SISWA', 'MASUK (X)', 'IZIN ( )', 'SAKIT ( )', 'ALPHA ( )'];
-        headerRow.eachCell((cell) => {
-          cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FF1F4E78' } // Dark Blue
-          };
-          cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
-          cell.border = {
-            top: { style: 'thin' },
-            left: { style: 'thin' },
-            bottom: { style: 'thin' },
-            right: { style: 'thin' }
-          };
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        });
-
-        // Data Rows
         studentsInClass.forEach((student, index) => {
           const studentIzins = data.filter(i => i.siswa_id === student.id && i.status === 'Disetujui');
           const isSakit = studentIzins.some(i => i.alasan === 'Sakit');
@@ -234,79 +287,90 @@ export default function LaporanIzin() {
           const isAlpa = studentIzins.some(i => i.alasan === 'Alpa');
           const isMasuk = studentIzins.length === 0;
 
-          const row = worksheet.addRow([
+          const row = worksheet.getRow(12 + index);
+          const values = [
             index + 1,
             student.nama,
             isMasuk ? 'X' : '',
             isIzin ? 'V' : '',
             isSakit ? 'V' : '',
             isAlpa ? 'V' : ''
-          ]);
+          ];
 
-          row.eachCell((cell, colNumber) => {
+          values.forEach((v, i) => {
+            const cell = row.getCell(i + 1);
+            cell.value = v;
+            cell.alignment = { horizontal: i === 1 ? 'left' : 'center', vertical: 'middle' };
             cell.border = {
               top: { style: 'thin' },
               left: { style: 'thin' },
               bottom: { style: 'thin' },
               right: { style: 'thin' }
             };
-            cell.alignment = { vertical: 'middle', horizontal: colNumber === 2 ? 'left' : 'center' };
-            
-            // Alternating Light Blue
             if (index % 2 !== 0) {
-              cell.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: { argb: 'FFD9E1F2' } // Light Blue
-              };
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
             }
           });
         });
-
-        // Column Widths
-        worksheet.getColumn(1).width = 5;
-        worksheet.getColumn(2).width = 40;
-        worksheet.getColumn(3).width = 12;
-        worksheet.getColumn(4).width = 12;
-        worksheet.getColumn(5).width = 12;
-        worksheet.getColumn(6).width = 12;
-
-        // Footer
-        const lastRow = worksheet.lastRow?.number || 10;
-        const footerStart = lastRow + 2;
-        
-        const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-        const today = new Date();
-        const formattedDate = `${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear()}`;
-
-        worksheet.getCell(`A${footerStart}`).value = 'Mengetahui,';
-        worksheet.getCell(`D${footerStart}`).value = `Pasuruan, ${formattedDate}`;
-        worksheet.getCell(`A${footerStart + 1}`).value = 'Kepala Sekolah,';
-        worksheet.getCell(`D${footerStart + 1}`).value = 'Guru BK,';
-        
-        worksheet.getCell(`A${footerStart + 5}`).value = 'NUR FADILAH, S.Pd';
-        worksheet.getCell(`D${footerStart + 5}`).value = 'WIWIK ISMIATI, S.Pd';
-        worksheet.getCell(`A${footerStart + 5}`).font = { bold: true, underline: true };
-        worksheet.getCell(`D${footerStart + 5}`).font = { bold: true, underline: true };
-        
-        worksheet.getCell(`A${footerStart + 6}`).value = 'NIP. 19860410 201001 2 030';
-        worksheet.getCell(`D${footerStart + 6}`).value = 'NIP. 19831116 200904 2 003';
-
-        // Generate and Download
-        const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const url = window.URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = `Absensi_Harian_${selectedKelas}_${dateRange.start}.xlsx`;
-        anchor.click();
-        window.URL.revokeObjectURL(url);
-      } catch (error) {
-        console.error(error);
-        alert('Gagal membuat laporan');
-      } finally {
-        setLoading(false);
       }
+
+      // --- FOOTER SECTION ---
+      const dataCount = reportType === 'detail' ? filteredData.length : (worksheet.lastRow?.number ? worksheet.lastRow.number - 11 : 0);
+      const footerStartRow = 12 + dataCount + 3;
+
+      // Left Signature
+      const leftColStart = 2;
+      const leftColEnd = 3;
+      worksheet.mergeCells(footerStartRow, leftColStart, footerStartRow, leftColEnd);
+      worksheet.getCell(footerStartRow, leftColStart).value = 'Mengetahui';
+      worksheet.getCell(footerStartRow, leftColStart).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 1, leftColStart, footerStartRow + 1, leftColEnd);
+      worksheet.getCell(footerStartRow + 1, leftColStart).value = 'Kepala Sekolah';
+      worksheet.getCell(footerStartRow + 1, leftColStart).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 6, leftColStart, footerStartRow + 6, leftColEnd);
+      const kasekName = worksheet.getCell(footerStartRow + 6, leftColStart);
+      kasekName.value = 'NUR FADILAH, S.Pd';
+      kasekName.font = { bold: true, underline: true };
+      kasekName.alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 7, leftColStart, footerStartRow + 7, leftColEnd);
+      worksheet.getCell(footerStartRow + 7, leftColStart).value = 'NIP. 19860410 201001 2 030';
+      worksheet.getCell(footerStartRow + 7, leftColStart).alignment = { horizontal: 'center' };
+
+      // Right Signature
+      const rightColStart = totalCols - 2;
+      const rightColEnd = totalCols;
+      const today = format(new Date(), 'd MMMM yyyy', { locale: idLocale });
+      worksheet.mergeCells(footerStartRow, rightColStart, footerStartRow, rightColEnd);
+      worksheet.getCell(footerStartRow, rightColStart).value = `Pasuruan, ${today}`;
+      worksheet.getCell(footerStartRow, rightColStart).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 1, rightColStart, footerStartRow + 1, rightColEnd);
+      worksheet.getCell(footerStartRow + 1, rightColStart).value = 'Guru BK';
+      worksheet.getCell(footerStartRow + 1, rightColStart).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 6, rightColStart, footerStartRow + 6, rightColEnd);
+      const bkName = worksheet.getCell(footerStartRow + 6, rightColStart);
+      bkName.value = 'WIWIK ISMIATI, S.Pd';
+      bkName.font = { bold: true, underline: true };
+      bkName.alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 7, rightColStart, footerStartRow + 7, rightColEnd);
+      worksheet.getCell(footerStartRow + 7, rightColStart).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(footerStartRow + 7, rightColStart).alignment = { horizontal: 'center' };
+
+      // Generate and Save
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `Laporan_Dispensasi_${dateRange.start}_sd_${dateRange.end}.xlsx`);
+
+    } catch (error) {
+      console.error('Excel Export Error:', error);
+      alert('Gagal mengekspor Excel');
+    } finally {
+      setLoading(false);
     }
   };
 
