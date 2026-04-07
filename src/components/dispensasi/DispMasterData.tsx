@@ -79,24 +79,37 @@ const DispMasterData: React.FC = () => {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
+        const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
         const excelData = XLSX.utils.sheet_to_json(ws) as any[];
+        console.log('Excel Data Raw:', excelData);
 
-        const formattedData = excelData.map(row => ({
-          nama_jenis: row.nama_jenis || row.Nama || row.Jenis,
-          keterangan: row.keterangan || row.Keterangan || ''
-        })).filter(row => row.nama_jenis);
+        const formattedData = excelData.map(row => {
+          // Map based on various possible header names (case insensitive-ish)
+          const namaJenis = row['NAMA JENIS DISPENSASI'] || row['nama_jenis'] || row['Nama'] || row['Jenis'] || row['NAMA'];
+          const keterangan = row['KETERANGAN'] || row['keterangan'] || row['Keterangan'] || '';
+          
+          return {
+            nama_jenis: namaJenis,
+            keterangan: keterangan
+          };
+        }).filter(row => row.nama_jenis);
+
+        console.log('Formatted Data:', formattedData);
 
         if (formattedData.length === 0) {
-          alert('Format Excel tidak sesuai atau data kosong');
+          alert('Format Excel tidak sesuai atau data kosong. Pastikan kolom bernama "NAMA JENIS DISPENSASI" atau "nama_jenis"');
           return;
         }
 
         const { error } = await supabase.from('disp_master_jenis').insert(formattedData);
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase Insert Error:', error);
+          alert(`Gagal menyimpan ke database: ${error.message}`);
+          return;
+        }
         
         alert(`Berhasil mengimpor ${formattedData.length} data`);
         fetchData();
@@ -105,7 +118,7 @@ const DispMasterData: React.FC = () => {
         alert('Gagal mengimpor data Excel');
       }
     };
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file);
   };
 
   const filteredData = data.filter(item => 
