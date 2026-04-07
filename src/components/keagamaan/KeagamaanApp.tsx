@@ -20,9 +20,9 @@ const KeagamaanApp: React.FC<KeagamaanAppProps> = ({ onBack }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex animate-in fade-in duration-500">
+    <div className="h-full bg-[#f8fafc] flex animate-in fade-in duration-500">
       {/* Sidebar */}
-      <div className="w-80 bg-[#001529] text-white flex flex-col shadow-2xl">
+      <div className="w-80 bg-[#001529] text-white flex flex-col shadow-2xl shrink-0">
         <div className="p-10 border-b border-white/5">
           <div className="flex items-center gap-4 mb-8">
             <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
