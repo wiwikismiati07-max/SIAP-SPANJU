@@ -3,8 +3,9 @@ import { Search, Calendar, Download, Filter, User, FileText, Clock } from 'lucid
 import { supabase } from '../../lib/supabase';
 import { TransaksiDispensasi } from '../../types/dispensasi';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { id as idLocale } from 'date-fns/locale';
 
 const DispLaporan: React.FC = () => {
   const [data, setData] = useState<TransaksiDispensasi[]>([]);
@@ -70,36 +71,178 @@ const DispLaporan: React.FC = () => {
     }
   };
 
-  const downloadExcel = () => {
+  const downloadExcel = async () => {
     if (data.length === 0) {
       alert('Tidak ada data untuk diunduh');
       return;
     }
 
-    const excelData = data.map((d, i) => ({
-      'No': i + 1,
-      'Tanggal': format(new Date(d.tanggal), 'dd/MM/yyyy'),
-      'Jam': d.jam,
-      'Nama Siswa': d.siswa?.nama,
-      'Kelas': d.kelas,
-      'Jenis Dispensasi': d.jenis?.nama_jenis,
-      'Alasan': d.alasan || '-',
-      'Tindak Lanjut': d.tindak_lanjut || '-'
-    }));
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Laporan Dispensasi');
 
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Laporan Dispensasi');
-    
-    // Auto-size columns
-    const wscols = [
-      { wch: 5 }, { wch: 15 }, { wch: 10 }, { wch: 30 }, { wch: 10 }, { wch: 30 }, { wch: 40 }, { wch: 40 }
-    ];
-    worksheet['!cols'] = wscols;
+      // Set Column Widths
+      worksheet.columns = [
+        { width: 5 },   // No
+        { width: 15 },  // Tanggal
+        { width: 10 },  // Jam
+        { width: 30 },  // Nama Siswa
+        { width: 10 },  // Kelas
+        { width: 30 },  // Jenis Dispensasi
+        { width: 40 },  // Alasan
+        { width: 40 },  // Tindak Lanjut
+      ];
 
-    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
-    saveAs(blob, `Laporan_Dispensasi_${filters.startDate}_sd_${filters.endDate}.xlsx`);
+      // --- HEADER SECTION ---
+      try {
+        const response = await fetch('https://iili.io/KDFk4fI.png');
+        const buffer = await response.arrayBuffer();
+        const logoId = workbook.addImage({
+          buffer: buffer,
+          extension: 'png',
+        });
+        worksheet.addImage(logoId, {
+          tl: { col: 0.2, row: 0.2 },
+          ext: { width: 80, height: 90 }
+        });
+      } catch (e) {
+        console.error('Failed to load logo:', e);
+      }
+
+      const headerRows = [
+        ['PEMERINTAH KOTA PASURUAN'],
+        ['SMP NEGERI 7'],
+        ['Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139'],
+        ['Telepon (0343) 426845'],
+        ['Pos-el smp7pas@yahoo.co.id, Laman www.smpn7pasuruan.sch.id']
+      ];
+
+      headerRows.forEach((text, i) => {
+        const row = worksheet.getRow(i + 1);
+        row.getCell(4).value = text[0];
+        worksheet.mergeCells(i + 1, 4, i + 1, 8);
+        const cell = row.getCell(4);
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.font = { 
+          name: 'Arial', 
+          bold: i === 1, 
+          size: i === 1 ? 16 : 11 
+        };
+      });
+
+      // Separator Line
+      worksheet.getRow(6).height = 5;
+      worksheet.mergeCells(6, 1, 6, 8);
+      worksheet.getRow(6).getCell(1).border = { bottom: { style: 'double', color: { argb: 'FF000000' } } };
+
+      // Title
+      worksheet.mergeCells(8, 1, 8, 8);
+      const titleCell = worksheet.getCell(8, 1);
+      titleCell.value = 'Laporan Dispensasi Siswa';
+      titleCell.font = { name: 'Arial', bold: true, size: 20 };
+      titleCell.alignment = { horizontal: 'center' };
+
+      // --- TABLE SECTION ---
+      const headerRow = worksheet.getRow(10);
+      const headers = ['NO', 'TANGGAL', 'JAM', 'NAMA SISWA', 'KELAS', 'JENIS DISPENSASI', 'ALASAN', 'TINDAK LANJUT'];
+      
+      headers.forEach((h, i) => {
+        const cell = headerRow.getCell(i + 1);
+        cell.value = h;
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF4F81BD' }
+        };
+        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+
+      // Data Rows
+      data.forEach((item, index) => {
+        const row = worksheet.getRow(11 + index);
+        const values = [
+          index + 1,
+          format(new Date(item.tanggal), 'dd/MM/yyyy'),
+          item.jam,
+          item.siswa?.nama || '-',
+          item.kelas,
+          item.jenis?.nama_jenis || '-',
+          item.alasan || '-',
+          item.tindak_lanjut || '-'
+        ];
+
+        values.forEach((v, i) => {
+          const cell = row.getCell(i + 1);
+          cell.value = v;
+          cell.alignment = { horizontal: i === 0 || i === 2 || i === 4 ? 'center' : 'left', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+        });
+      });
+
+      // --- FOOTER SECTION ---
+      const lastDataRow = 11 + data.length;
+      const footerStartRow = lastDataRow + 3;
+
+      // Left Signature
+      worksheet.mergeCells(footerStartRow, 2, footerStartRow, 3);
+      worksheet.getCell(footerStartRow, 2).value = 'Mengetahui';
+      worksheet.getCell(footerStartRow, 2).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 1, 2, footerStartRow + 1, 3);
+      worksheet.getCell(footerStartRow + 1, 2).value = 'Kepala Sekolah';
+      worksheet.getCell(footerStartRow + 1, 2).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 6, 2, footerStartRow + 6, 3);
+      const kasekName = worksheet.getCell(footerStartRow + 6, 2);
+      kasekName.value = 'NUR FADILAH, S.Pd';
+      kasekName.font = { bold: true, underline: true };
+      kasekName.alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 7, 2, footerStartRow + 7, 3);
+      worksheet.getCell(footerStartRow + 7, 2).value = 'NIP. 19860410 201001 2 030';
+      worksheet.getCell(footerStartRow + 7, 2).alignment = { horizontal: 'center' };
+
+      // Right Signature
+      const today = format(new Date(), 'd MMMM yyyy', { locale: idLocale });
+      worksheet.mergeCells(footerStartRow, 6, footerStartRow, 8);
+      worksheet.getCell(footerStartRow, 6).value = `Pasuruan, ${today}`;
+      worksheet.getCell(footerStartRow, 6).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 1, 6, footerStartRow + 1, 8);
+      worksheet.getCell(footerStartRow + 1, 6).value = 'Guru BK';
+      worksheet.getCell(footerStartRow + 1, 6).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 6, 6, footerStartRow + 6, 8);
+      const bkName = worksheet.getCell(footerStartRow + 6, 6);
+      bkName.value = 'WIWIK ISMIATI, S.Pd';
+      bkName.font = { bold: true, underline: true };
+      bkName.alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 7, 6, footerStartRow + 7, 8);
+      worksheet.getCell(footerStartRow + 7, 6).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(footerStartRow + 7, 6).alignment = { horizontal: 'center' };
+
+      // Generate and Save
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `Laporan_Dispensasi_${filters.startDate}_sd_${filters.endDate}.xlsx`);
+
+    } catch (error) {
+      console.error('Excel Export Error:', error);
+      alert('Gagal mengekspor Excel');
+    }
   };
 
   return (
