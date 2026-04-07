@@ -22,10 +22,15 @@ const UksMaster: React.FC = () => {
         .select('*')
         .order('nama_keluhan', { ascending: true });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching keluhan:', error);
+        setMessage({ type: 'error', text: `Gagal mengambil data: ${error.message}` });
+        return;
+      }
       setKeluhan(data || []);
-    } catch (error) {
-      console.error('Error fetching keluhan:', error);
+    } catch (error: any) {
+      console.error('Exception fetching keluhan:', error);
+      setMessage({ type: 'error', text: 'Terjadi kesalahan koneksi ke database.' });
     } finally {
       setLoading(false);
     }
