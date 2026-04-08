@@ -33,7 +33,8 @@ import {
   Clock,
   UserCheck,
   Trophy,
-  HeartPulse
+  HeartPulse,
+  Library
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from './lib/supabase';
@@ -83,6 +84,7 @@ import PrestasiApp from './components/siprestasi/PrestasiApp';
 import KeagamaanApp from './components/keagamaan/KeagamaanApp';
 import UksApp from './components/uks/UksApp';
 import PengaduanWaliApp from './components/pengaduan/PengaduanWaliApp';
+import SipenaApp from './components/sipena/SipenaApp';
 
 // --- Components ---
 
@@ -91,7 +93,7 @@ export default function App() {
   const [userLinks, setUserLinks] = useState<AppLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | null>(null);
+  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -274,6 +276,7 @@ export default function App() {
           {[
             { id: 'sitelat', title: 'Si-Telat', subtitle: 'Sistem Keterlambatan Siswa', icon: Clock, color: 'from-blue-500 to-blue-700' },
             { id: 'izinsiswa', title: 'Izin Siswa', subtitle: 'Sistem Perizinan Siswa', icon: UserCheck, color: 'from-emerald-500 to-emerald-700' },
+            { id: 'sipena', title: 'SIPENA', subtitle: 'Perpustakaan Siswa (Baru)', icon: Library, color: 'from-slate-800 to-black', prominent: true, extraLarge: true },
             { id: 'pengaduan', title: 'PENGADUAN WALI MURID', subtitle: 'Layanan Pengaduan (Baru)', icon: MessageSquare, color: 'from-pink-500 to-rose-600', prominent: true, extraLarge: true },
             { id: 'dispensasi', title: 'Si-DISPENSASI', subtitle: 'Dispensasi Siswa (Baru)', icon: FileCheck, color: 'from-pink-600 to-blue-600', prominent: true, extraLarge: true },
             { id: 'prestasi', title: 'Si-PRESTASI', subtitle: 'Prestasi Siswa (Baru)', icon: Trophy, color: 'from-purple-600 to-indigo-600', prominent: true },
@@ -462,6 +465,11 @@ export default function App() {
         {activeSection === 'pengaduan' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
             <PengaduanWaliApp onBack={() => setActiveSection(null)} />
+          </div>
+        )}
+        {activeSection === 'sipena' && (
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            <SipenaApp onBack={() => setActiveSection(null)} />
           </div>
         )}
         <AnimatePresence mode="wait">
