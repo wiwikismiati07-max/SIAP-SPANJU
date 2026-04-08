@@ -462,25 +462,37 @@ const SipenaMaster = () => {
         const data = XLSX.utils.sheet_to_json(ws);
         
         // Map Excel columns to DB columns
-        const mappedData = data.map((row: any) => ({
-          judul_buku: row['Judul Buku'] || '',
-          jenis_buku: row['Jenis Buku'] || '',
-          edisi: row['Edisi'] || '',
-          isbn_issn: row['ISBN/ISSN'] || '',
-          penerbit: row['Penerbit'] || '',
-          tahun: row['Tahun'] || '',
-          kolasi: row['Kolasi'] || '',
-          judul_seri: row['Judul Seri'] || '',
-          nomor_panggil: row['Nomor Panggil'] || '',
-          bahasa_buku: row['Bahasa'] || 'Indonesia',
-          kota_terbit: row['Kota Terbit'] || '',
-          nomor_kelas: row['Nomor Kelas'] || '',
-          catatan: row['Catatan'] || '',
-          pengarang: row['Pengarang'] || '',
-          subjek: row['Subjek'] || '',
-          kode_eksemplar: row['Kode Eksemplar'] || '',
-          stok_eksemplar: parseInt(row['Stok Eksemplar']) || 0
-        }));
+        const mappedData = data.map((row: any) => {
+          // Helper to find value by case-insensitive key or common variations
+          const getValue = (keys: string[]) => {
+            const rowKeys = Object.keys(row);
+            for (const key of keys) {
+              const foundKey = rowKeys.find(rk => rk.toLowerCase().trim() === key.toLowerCase().trim());
+              if (foundKey) return row[foundKey];
+            }
+            return '';
+          };
+
+          return {
+            judul_buku: getValue(['judul', 'Judul Buku', 'Title']),
+            jenis_buku: getValue(['jenis', 'Jenis Buku', 'Type']),
+            edisi: getValue(['edisi', 'Edisi', 'Edition']),
+            isbn_issn: getValue(['isbn-issn', 'ISBN/ISSN', 'ISBN']),
+            penerbit: getValue(['penerbit', 'Penerbit', 'Publisher']),
+            tahun: getValue(['tahun terbit', 'Tahun', 'Year']),
+            kolasi: getValue(['kolasi', 'Kolasi', 'Collation']),
+            judul_seri: getValue(['judul seri', 'Judul Seri', 'Series']),
+            nomor_panggil: getValue(['Nomor Panggil', 'Call Number']),
+            bahasa_buku: getValue(['Bahasa Buku', 'Bahasa', 'Language']) || 'Indonesia',
+            kota_terbit: getValue(['Kota Terbit', 'City']),
+            nomor_kelas: getValue(['Nomor Kelas', 'Class Number']),
+            catatan: getValue(['catatan', 'Catatan', 'Notes']),
+            pengarang: getValue(['pengarang', 'Author']),
+            subjek: getValue(['subjek', 'Subject']),
+            kode_eksemplar: getValue(['kode eksemplar', 'Kode', 'Barcode']),
+            stok_eksemplar: parseInt(getValue(['stok', 'Stok Eksemplar', 'Stock'])) || 1
+          };
+        });
 
         const { error } = await supabase.from('sipena_buku').insert(mappedData);
         if (error) throw error;
