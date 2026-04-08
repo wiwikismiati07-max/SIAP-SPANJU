@@ -1214,6 +1214,8 @@ const SipenaPeminjaman = () => {
   });
 
   const [selectedBooks, setSelectedBooks] = useState<any[]>([]);
+  const [currentBookId, setCurrentBookId] = useState('');
+  const [currentQty, setCurrentQty] = useState(1);
 
   useEffect(() => {
     fetchLoans();
@@ -1245,9 +1247,35 @@ const SipenaPeminjaman = () => {
     setBooks(b.data || []);
   };
 
+  const handleAddBook = () => {
+    if (!currentBookId) return;
+    const book = books.find(b => b.id === currentBookId);
+    if (book) {
+      // Check if already added
+      if (selectedBooks.find(sb => sb.id === book.id)) {
+        alert('Buku ini sudah ditambahkan ke daftar');
+        return;
+      }
+      setSelectedBooks([...selectedBooks, { ...book, jumlah: currentQty }]);
+      setCurrentBookId('');
+      setCurrentQty(1);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedBooks.length === 0) return alert('Pilih minimal satu buku');
+    
+    let finalBooks = [...selectedBooks];
+    
+    // If no books in list, but one is selected in dropdown, add it automatically
+    if (finalBooks.length === 0 && currentBookId) {
+      const book = books.find(b => b.id === currentBookId);
+      if (book) {
+        finalBooks = [{ ...book, jumlah: currentQty }];
+      }
+    }
+
+    if (finalBooks.length === 0) return alert('Pilih minimal satu buku');
 
     try {
       setLoading(true);
@@ -1259,7 +1287,7 @@ const SipenaPeminjaman = () => {
       
       if (loanError) throw loanError;
 
-      const items = selectedBooks.map(b => ({
+      const items = finalBooks.map(b => ({
         peminjaman_id: loan.id,
         buku_id: b.id,
         jumlah: b.jumlah
@@ -1270,6 +1298,7 @@ const SipenaPeminjaman = () => {
 
       setIsModalOpen(false);
       setSelectedBooks([]);
+      setCurrentBookId('');
       fetchLoans();
     } catch (error: any) {
       alert(error.message);
@@ -1286,7 +1315,18 @@ const SipenaPeminjaman = () => {
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Kelola peminjaman buku oleh siswa</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setFormData({
+              tanggal_pinjam: format(new Date(), 'yyyy-MM-dd'),
+              jam_pinjam: format(new Date(), 'HH:mm'),
+              kelas: '',
+              siswa_id: '',
+              tanggal_kembali_rencana: format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
+            });
+            setSelectedBooks([]);
+            setCurrentBookId('');
+            setIsModalOpen(true);
+          }}
           className="p-3 bg-pink-600 text-white rounded-2xl hover:bg-pink-700 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-pink-200"
         >
           <Plus size={18} />
@@ -1346,12 +1386,12 @@ const SipenaPeminjaman = () => {
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl p-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
-              <h4 className="text-xl font-black text-slate-800 uppercase mb-6">Form Peminjaman</h4>
+              <h4 className="text-xl font-black text-slate-800 uppercase mb-6 tracking-tight">Form Peminjaman</h4>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Kelas</label>
-                    <select required value={formData.kelas} onChange={(e) => setFormData({...formData, kelas: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none">
+                    <select required value={formData.kelas} onChange={(e) => setFormData({...formData, kelas: e.target.value, siswa_id: ''})} className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none">
                       <option value="">Pilih Kelas</option>
                       {['7A','7B','7C','7D','7E','7F','7G','7H','8A','8B','8C','8D','8E','8F','8G','8H','9A','9B','9C','9D','9E','9F','9G','9H'].map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
@@ -1368,23 +1408,26 @@ const SipenaPeminjaman = () => {
                 <div className="space-y-4">
                   <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Pilih Buku</label>
                   <div className="flex gap-2">
-                    <select id="book-select" className="flex-1 px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none">
+                    <select 
+                      value={currentBookId}
+                      onChange={(e) => setCurrentBookId(e.target.value)}
+                      className="flex-1 px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none"
+                    >
                       <option value="">Pilih Buku...</option>
                       {books.map(b => <option key={b.id} value={b.id}>{b.judul_buku} (Stok: {b.stok_eksemplar})</option>)}
                     </select>
-                    <input id="book-qty" type="number" defaultValue="1" min="1" max="50" className="w-20 px-4 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none" />
+                    <input 
+                      type="number" 
+                      value={currentQty}
+                      onChange={(e) => setCurrentQty(parseInt(e.target.value) || 1)}
+                      min="1" 
+                      max="50" 
+                      className="w-20 px-4 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none" 
+                    />
                     <button 
                       type="button"
-                      onClick={() => {
-                        const select = document.getElementById('book-select') as HTMLSelectElement;
-                        const qty = document.getElementById('book-qty') as HTMLInputElement;
-                        if (!select.value) return;
-                        const book = books.find(b => b.id === select.value);
-                        if (book) {
-                          setSelectedBooks([...selectedBooks, { ...book, jumlah: parseInt(qty.value) }]);
-                        }
-                      }}
-                      className="p-4 bg-slate-800 text-white rounded-2xl"
+                      onClick={handleAddBook}
+                      className="p-4 bg-slate-800 text-white rounded-2xl hover:bg-black transition-colors"
                     >
                       <Plus size={20} />
                     </button>
@@ -1392,9 +1435,9 @@ const SipenaPeminjaman = () => {
 
                   <div className="space-y-2">
                     {selectedBooks.map((b, i) => (
-                      <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                      <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                         <span className="text-xs font-bold text-slate-800">{b.judul_buku} ({b.jumlah} eks)</span>
-                        <button type="button" onClick={() => setSelectedBooks(selectedBooks.filter((_, idx) => idx !== i))} className="text-rose-500">
+                        <button type="button" onClick={() => setSelectedBooks(selectedBooks.filter((_, idx) => idx !== i))} className="text-rose-500 hover:bg-rose-50 p-2 rounded-lg transition-colors">
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -1407,8 +1450,12 @@ const SipenaPeminjaman = () => {
                   <input type="date" required value={formData.tanggal_kembali_rencana} onChange={(e) => setFormData({...formData, tanggal_kembali_rencana: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none" />
                 </div>
 
-                <button type="submit" className="w-full py-4 bg-pink-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-pink-200">
-                  Proses Peminjaman
+                <button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full py-4 bg-pink-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-pink-200 hover:bg-pink-700 transition-all disabled:opacity-50"
+                >
+                  {loading ? 'Memproses...' : 'Proses Peminjaman'}
                 </button>
               </form>
             </motion.div>
