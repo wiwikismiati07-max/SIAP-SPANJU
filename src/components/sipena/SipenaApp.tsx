@@ -44,6 +44,17 @@ import {
   Cell 
 } from 'recharts';
 
+const safeFormatDate = (dateStr: string | null | undefined, formatStr: string = 'dd/MM/yyyy') => {
+  if (!dateStr) return '-';
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '-';
+    return format(date, formatStr);
+  } catch (error) {
+    return '-';
+  }
+};
+
 interface SipenaAppProps {
   onBack?: () => void;
 }
@@ -934,7 +945,7 @@ const SipenaKunjunganSiswa = () => {
                         <Calendar size={16} />
                       </div>
                       <div>
-                        <p className="text-xs font-black text-slate-800">{format(new Date(v.tanggal), 'dd MMM yyyy')}</p>
+                        <p className="text-xs font-black text-slate-800">{safeFormatDate(v.tanggal, 'dd MMM yyyy')}</p>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{v.jam.substring(0, 5)} WIB</p>
                       </div>
                     </div>
@@ -1120,7 +1131,7 @@ const SipenaKunjunganWarta = () => {
               {visits.map((v) => (
                 <tr key={v.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-8 py-6">
-                    <p className="text-xs font-black text-slate-800">{format(new Date(v.tanggal), 'dd MMM yyyy')}</p>
+                    <p className="text-xs font-black text-slate-800">{safeFormatDate(v.tanggal, 'dd MMM yyyy')}</p>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{v.jam.substring(0, 5)} WIB</p>
                   </td>
                   <td className="px-8 py-6">
@@ -1361,10 +1372,10 @@ const SipenaPeminjaman = () => {
                     </div>
                   </td>
                   <td className="px-8 py-6">
-                    <p className="text-xs font-black text-slate-800">{format(new Date(l.tanggal_pinjam), 'dd MMM yyyy')}</p>
+                    <p className="text-xs font-black text-slate-800">{safeFormatDate(l.tanggal_pinjam, 'dd MMM yyyy')}</p>
                   </td>
                   <td className="px-8 py-6">
-                    <p className="text-xs font-black text-slate-800">{format(new Date(l.tanggal_kembali_rencana), 'dd MMM yyyy')}</p>
+                    <p className="text-xs font-black text-slate-800">{safeFormatDate(l.tanggal_kembali_rencana, 'dd MMM yyyy')}</p>
                   </td>
                   <td className="px-8 py-6">
                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
@@ -1549,11 +1560,11 @@ const SipenaPengembalian = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
                 <span className="text-slate-400">Tgl Pinjam:</span>
-                <span className="text-slate-600">{format(new Date(l.tanggal_pinjam), 'dd/MM/yyyy')}</span>
+                <span className="text-slate-600">{safeFormatDate(l.tanggal_pinjam, 'dd/MM/yyyy')}</span>
               </div>
               <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
                 <span className="text-slate-400">Jatuh Tempo:</span>
-                <span className="text-rose-500">{format(new Date(l.tanggal_kembali_rencana), 'dd/MM/yyyy')}</span>
+                <span className="text-rose-500">{safeFormatDate(l.tanggal_kembali_rencana, 'dd/MM/yyyy')}</span>
               </div>
               <button 
                 onClick={() => handleReturn(l.id)}
@@ -1581,6 +1592,7 @@ const SipenaLaporan = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    setData([]);
     fetchData();
   }, [reportType]);
 
@@ -1595,8 +1607,12 @@ const SipenaLaporan = () => {
       } else {
         query = supabase.from('sipena_peminjaman').select('*, master_siswa(nama, kelas), sipena_peminjaman_item(*, sipena_buku(judul_buku))').order('tanggal_pinjam', { ascending: false });
       }
-      const { data: res } = await query;
+      const { data: res, error } = await query;
+      if (error) throw error;
       setData(res || []);
+    } catch (error) {
+      console.error('Error fetching report data:', error);
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -1709,14 +1725,14 @@ const SipenaLaporan = () => {
                   )}
                   {reportType === 'kunjungan' && (
                     <>
-                      <td className="px-8 py-6 text-xs font-bold text-slate-800">{format(new Date(item.tanggal), 'dd/MM/yyyy')}</td>
+                      <td className="px-8 py-6 text-xs font-bold text-slate-800">{safeFormatDate(item.tanggal)}</td>
                       <td className="px-8 py-6 text-xs text-slate-500">{item.master_siswa?.nama} ({item.kelas})</td>
                       <td className="px-8 py-6 text-xs text-slate-500">{item.keperluan}</td>
                     </>
                   )}
                   {reportType === 'peminjaman' && (
                     <>
-                      <td className="px-8 py-6 text-xs font-bold text-slate-800">{format(new Date(item.tanggal_pinjam), 'dd/MM/yyyy')}</td>
+                      <td className="px-8 py-6 text-xs font-bold text-slate-800">{safeFormatDate(item.tanggal_pinjam)}</td>
                       <td className="px-8 py-6 text-xs text-slate-500">{item.master_siswa?.nama} ({item.kelas})</td>
                       <td className="px-8 py-6">
                         <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
