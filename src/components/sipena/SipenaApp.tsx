@@ -24,6 +24,7 @@ import {
   Calendar,
   Clock,
   User,
+  RotateCcw,
   GraduationCap,
   Briefcase,
   FileSpreadsheet
@@ -1479,11 +1480,13 @@ const SipenaPeminjaman = () => {
 
 const SipenaPengembalian = () => {
   const [loans, setLoans] = useState<any[]>([]);
+  const [returnedLoans, setReturnedLoans] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<any>(null);
 
   useEffect(() => {
     fetchActiveLoans();
+    fetchReturnedLoans();
   }, []);
 
   const fetchActiveLoans = async () => {
@@ -1503,6 +1506,21 @@ const SipenaPengembalian = () => {
     }
   };
 
+  const fetchReturnedLoans = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sipena_peminjaman')
+        .select('*, master_siswa(nama, kelas), sipena_peminjaman_item(*, sipena_buku(judul_buku))')
+        .eq('status', 'Kembali')
+        .order('id', { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      setReturnedLoans(data || []);
+    } catch (error) {
+      console.error('Error fetching returned loans:', error);
+    }
+  };
+
   const handleReturn = async (loanId: string) => {
     if (!confirm('Konfirmasi pengembalian buku?')) return;
     try {
@@ -1517,7 +1535,27 @@ const SipenaPengembalian = () => {
       // Update loan status
       await supabase.from('sipena_peminjaman').update({ status: 'Kembali' }).eq('id', loanId);
       fetchActiveLoans();
+      fetchReturnedLoans();
       alert('Buku berhasil dikembalikan!');
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelReturn = async (loanId: string) => {
+    if (!confirm('Batalkan pengembalian ini? Status akan kembali menjadi "Dipinjam".')) return;
+    try {
+      setLoading(true);
+      // Update items
+      await supabase.from('sipena_peminjaman_item').update({ tanggal_kembali_aktual: null }).eq('peminjaman_id', loanId);
+      // Update loan status
+      await supabase.from('sipena_peminjaman').update({ status: 'Dipinjam' }).eq('id', loanId);
+      
+      fetchActiveLoans();
+      fetchReturnedLoans();
+      alert('Pengembalian berhasil dibatalkan!');
     } catch (error: any) {
       alert(error.message);
     } finally {
@@ -1582,6 +1620,76 @@ const SipenaPengembalian = () => {
           </div>
         )}
       </div>
+
+      <div className="pt-12 border-t border-slate-100">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h3 className="text-xl font-black text-slate-800 tracking-tight uppercase">Histori Pengembalian</h3>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">10 transaksi terakhir yang sudah kembali</p>
+          </div>
+          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl">
+            <History size={20} />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50 border-b border-slate-100">
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Siswa</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Buku</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tgl Pinjam</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {returnedLoans.map((l) => (
+                  <tr key={l.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-8 py-6">
+                      <p className="text-sm font-black text-slate-800">{l.master_siswa?.nama || '-'}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kelas {l.kelas}</p>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="space-y-1">
+                        {l.sipena_peminjaman_item?.map((item: any, i: number) => (
+                          <p key={i} className="text-[10px] font-bold text-slate-600">• {item.sipena_buku?.judul_buku}</p>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-8 py-6 text-xs font-bold text-slate-600">
+                      {safeFormatDate(l.tanggal_pinjam)}
+                    </td>
+                    <td className="px-8 py-6">
+                      <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[9px] font-black uppercase tracking-widest">
+                        Sudah Kembali
+                      </span>
+                    </td>
+                    <td className="px-8 py-6 text-right">
+                      <button 
+                        onClick={() => handleCancelReturn(l.id)}
+                        className="p-3 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-100 transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ml-auto"
+                        title="Batalkan Pengembalian"
+                      >
+                        <RotateCcw size={14} />
+                        Batal
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {returnedLoans.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-8 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+                      Belum ada histori pengembalian
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </motion.div>
   );
 };
@@ -1590,6 +1698,7 @@ const SipenaLaporan = () => {
   const [reportType, setReportType] = useState<'buku' | 'kunjungan' | 'peminjaman'>('buku');
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     setData([]);
@@ -1655,20 +1764,183 @@ const SipenaLaporan = () => {
     saveAs(dataBlob, `Laporan_${reportType}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  if (showPreview) {
+    return (
+      <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh]"
+        >
+          <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+                <Printer size={24} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Pratinjau Laporan</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Siap untuk dicetak</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={handlePrint}
+                className="px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-200"
+              >
+                <Printer size={18} />
+                Cetak
+              </button>
+              <button 
+                onClick={() => setShowPreview(false)}
+                className="p-3 bg-slate-100 text-slate-400 rounded-2xl hover:bg-slate-200 transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-12 bg-slate-50">
+            <div className="bg-white shadow-xl p-12 mx-auto w-full max-w-[210mm] min-h-[297mm] print:shadow-none print:p-0" id="printable-report">
+              {/* Kop Surat */}
+              <div className="flex items-center gap-6 border-b-4 border-blue-600 pb-4 mb-8">
+                <img 
+                  src="https://iili.io/KDFk4fI.png" 
+                  alt="Logo" 
+                  className="w-24 h-24 object-contain"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="flex-1 text-center">
+                  <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight leading-tight">Pemerintah Kota Pasuruan</h2>
+                  <h1 className="text-3xl font-black text-blue-600 uppercase tracking-tighter leading-tight">SMP Negeri 7</h1>
+                  <p className="text-[10px] font-bold text-slate-600 mt-1">Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139</p>
+                  <p className="text-[10px] font-bold text-slate-600">Telepon (0343) 426845</p>
+                  <p className="text-[10px] font-bold text-blue-500 italic">Pos-el smp7pas@yahoo.co.id , Laman www.smpn7pasuruan.sch.id</p>
+                </div>
+              </div>
+
+              {/* Judul Laporan */}
+              <div className="text-center mb-10">
+                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-widest underline decoration-blue-600 decoration-4 underline-offset-8">
+                  Laporan {reportType === 'buku' ? 'Data Buku' : reportType === 'kunjungan' ? 'Kunjungan Siswa' : 'Peminjaman Buku'}
+                </h3>
+                <p className="text-xs font-bold text-slate-400 mt-4 uppercase tracking-widest">Per Tanggal: {format(new Date(), 'dd MMMM yyyy')}</p>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-hidden rounded-xl border border-slate-200">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-blue-600 text-white">
+                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">No</th>
+                      {reportType === 'buku' && (
+                        <>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Judul Buku</th>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Penerbit</th>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700 text-center">Stok</th>
+                        </>
+                      )}
+                      {reportType === 'kunjungan' && (
+                        <>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Tanggal</th>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Nama Siswa</th>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Keperluan</th>
+                        </>
+                      )}
+                      {reportType === 'peminjaman' && (
+                        <>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Tanggal</th>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Peminjam</th>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Buku</th>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700 text-center">Status</th>
+                        </>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.map((item, i) => (
+                      <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-blue-50/30'}>
+                        <td className="px-4 py-3 text-[10px] font-bold text-slate-700 border border-slate-200 text-center">{i + 1}</td>
+                        {reportType === 'buku' && (
+                          <>
+                            <td className="px-4 py-3 text-[10px] font-bold text-slate-800 border border-slate-200">{item.judul_buku}</td>
+                            <td className="px-4 py-3 text-[10px] text-slate-600 border border-slate-200">{item.penerbit}</td>
+                            <td className="px-4 py-3 text-[10px] font-black text-slate-800 border border-slate-200 text-center">{item.stok_eksemplar}</td>
+                          </>
+                        )}
+                        {reportType === 'kunjungan' && (
+                          <>
+                            <td className="px-4 py-3 text-[10px] font-bold text-slate-800 border border-slate-200">{safeFormatDate(item.tanggal)}</td>
+                            <td className="px-4 py-3 text-[10px] text-slate-600 border border-slate-200">{item.master_siswa?.nama} ({item.kelas})</td>
+                            <td className="px-4 py-3 text-[10px] text-slate-600 border border-slate-200">{item.keperluan}</td>
+                          </>
+                        )}
+                        {reportType === 'peminjaman' && (
+                          <>
+                            <td className="px-4 py-3 text-[10px] font-bold text-slate-800 border border-slate-200">{safeFormatDate(item.tanggal_pinjam)}</td>
+                            <td className="px-4 py-3 text-[10px] text-slate-600 border border-slate-200">{item.master_siswa?.nama} ({item.kelas})</td>
+                            <td className="px-4 py-3 text-[10px] text-slate-600 border border-slate-200">
+                              {item.sipena_peminjaman_item?.map((b: any) => b.sipena_buku?.judul_buku).join(', ')}
+                            </td>
+                            <td className="px-4 py-3 text-[10px] font-black border border-slate-200 text-center">
+                              <span className={item.status === 'Dipinjam' ? 'text-blue-600' : 'text-emerald-600'}>
+                                {item.status}
+                              </span>
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Footer / Tanda Tangan */}
+              <div className="mt-16 grid grid-cols-2 gap-20">
+                <div className="text-center">
+                  <p className="text-xs font-bold text-slate-800 mb-20">Mengetahui,<br/>Kepala Sekolah</p>
+                  <p className="text-xs font-black text-slate-900 underline">NUR FADILAH, S.Pd</p>
+                  <p className="text-[10px] font-bold text-slate-500">NIP. 19860410 201001 2 030</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-bold text-slate-800 mb-20">Pasuruan, {format(new Date(), 'd MMMM yyyy')}<br/>Petugas Perpustakaan</p>
+                  <p className="text-xs font-black text-slate-900 underline">WIWIK ISMIATI, S.Pd</p>
+                  <p className="text-[10px] font-bold text-slate-500">NIP. 19831116 200904 2 003</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Laporan Perpustakaan</h3>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Unduh data dalam format Excel</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Unduh atau cetak laporan resmi</p>
         </div>
-        <button 
-          onClick={exportToExcel}
-          className="p-3 bg-slate-800 text-white rounded-2xl hover:bg-slate-900 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-slate-200"
-        >
-          <Download size={18} />
-          Export Excel
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setShowPreview(true)}
+            className="p-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-200"
+          >
+            <Printer size={18} />
+            Pratinjau Cetak
+          </button>
+          <button 
+            onClick={exportToExcel}
+            className="p-3 bg-slate-800 text-white rounded-2xl hover:bg-slate-900 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-slate-200"
+          >
+            <Download size={18} />
+            Export Excel
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl w-fit">
