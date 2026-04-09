@@ -94,7 +94,7 @@ export default function App() {
   const [userLinks, setUserLinks] = useState<AppLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | 'survey' | null>(null);
+  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'menu_aplikasi' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | 'survey' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -678,9 +678,92 @@ export default function App() {
                 </div>
 
                 <div className="text-center pt-8">
-                  <button onClick={() => setIsSidebarOpen(true)} className="px-10 py-4 bg-white/80 text-slate-800 rounded-2xl font-black shadow-xl hover:scale-105 hover:bg-white transition-all border border-white/80">
+                  <button onClick={() => setActiveSection('menu_aplikasi')} className="px-10 py-4 bg-white/80 text-slate-800 rounded-2xl font-black shadow-xl hover:scale-105 hover:bg-white transition-all border border-white/80">
                     Buka Menu Aplikasi
                   </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeSection === 'menu_aplikasi' && (
+            <motion.div
+              key="menu_aplikasi"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="flex-1 min-h-0 flex flex-col bg-slate-50/80 backdrop-blur-3xl rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto shadow-2xl border border-white/50 p-6 md:p-12"
+            >
+              <div className="max-w-6xl mx-auto w-full space-y-10">
+                <div className="text-center space-y-4">
+                  <div className="w-20 h-20 rounded-3xl bg-white flex items-center justify-center shadow-xl mx-auto overflow-hidden p-2 mb-4 border border-slate-100">
+                    <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                  </div>
+                  <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight font-display">Pilih Aplikasi</h2>
+                  <p className="text-sm font-medium text-slate-500">Silakan pilih aplikasi yang ingin Anda buka dari daftar di bawah ini.</p>
+                </div>
+
+                {/* Survey Banner */}
+                <div className="bg-gradient-to-r from-pink-50 via-purple-50 to-indigo-50 p-8 md:p-12 rounded-[2.5rem] border border-white shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8 group hover:shadow-2xl transition-all duration-500">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-300/40 to-pink-300/40 rounded-full blur-3xl -mr-20 -mt-20" />
+                  <div className="relative z-10 flex-1 space-y-4 text-center md:text-left">
+                    <span className="inline-block px-4 py-1.5 bg-purple-100 text-purple-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-2">PENTING</span>
+                    <h3 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600 tracking-tight">Survey Kepuasan Layanan</h3>
+                    <p className="text-slate-600 font-medium max-w-xl mx-auto md:mx-0 text-sm md:text-base">Suara Anda sangat berarti! Bantu kami meningkatkan kualitas layanan dengan mengisi survey singkat ini.</p>
+                  </div>
+                  <div className="relative z-10 shrink-0 flex flex-col items-center gap-6">
+                    <div className="w-28 h-28 rounded-full bg-white shadow-lg flex items-center justify-center text-purple-500 border-[6px] border-purple-100 group-hover:scale-110 transition-transform duration-500">
+                      <MessageSquare size={48} />
+                    </div>
+                    <button 
+                      onClick={() => setActiveSection('survey')}
+                      className="px-8 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-black shadow-lg shadow-purple-200 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-2 text-sm uppercase tracking-widest"
+                    >
+                      Mulai Survey <ExternalLink size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Grid of Apps */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {sidebarItems.filter(item => !['kilas', 'program', 'spip', 'korelasi_program', 'korelasi_sra', 'survey'].includes(item.id)).map(app => (
+                    <button
+                      key={app.id}
+                      onClick={() => setActiveSection(app.id as any)}
+                      className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-lg hover:shadow-xl hover:-translate-y-2 transition-all duration-300 flex flex-col items-center text-center group"
+                    >
+                      <div className={`w-20 h-20 rounded-[1.5rem] bg-gradient-to-br ${app.color} flex items-center justify-center text-white shadow-lg mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500`}>
+                        <app.icon size={32} />
+                      </div>
+                      <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-2">{app.title}</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">{app.subtitle}</p>
+                      <div className="px-6 py-2.5 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold flex items-center gap-2 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors border border-slate-100">
+                        <ExternalLink size={14} /> Buka Aplikasi
+                      </div>
+                    </button>
+                  ))}
+                  
+                  {EXTERNAL_APPS.map(app => {
+                    const Icon = ICON_MAP[app.icon] || Globe;
+                    return (
+                      <a
+                        key={app.id}
+                        href={app.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-lg hover:shadow-xl hover:-translate-y-2 transition-all duration-300 flex flex-col items-center text-center group"
+                      >
+                        <div className={`w-20 h-20 rounded-[1.5rem] bg-gradient-to-br ${app.color} flex items-center justify-center text-white shadow-lg mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500`}>
+                          <Icon size={32} />
+                        </div>
+                        <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-2">{app.title}</h4>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">APLIKASI EKSTERNAL</p>
+                        <div className="px-6 py-2.5 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold flex items-center gap-2 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors border border-slate-100">
+                          <ExternalLink size={14} /> Buka Aplikasi
+                        </div>
+                      </a>
+                    )
+                  })}
                 </div>
               </div>
             </motion.div>
