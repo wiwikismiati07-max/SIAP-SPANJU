@@ -85,6 +85,7 @@ import KeagamaanApp from './components/keagamaan/KeagamaanApp';
 import UksApp from './components/uks/UksApp';
 import PengaduanWaliApp from './components/pengaduan/PengaduanWaliApp';
 import SipenaApp from './components/sipena/SipenaApp';
+import SurveyApp from './components/survey/SurveyApp';
 
 // --- Components ---
 
@@ -93,7 +94,7 @@ export default function App() {
   const [userLinks, setUserLinks] = useState<AppLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | null>(null);
+  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | 'survey' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -182,6 +183,7 @@ export default function App() {
   };
 
   const sidebarItems = [
+    { id: 'survey', title: 'SURVEY APLIKASI', subtitle: 'SURVEY KEPUASAN PENGGUNA', icon: ClipboardList, color: 'from-slate-800 to-black', shadow: 'shadow-slate-400', prominent: true, extraLarge: true },
     { id: 'sitelat', title: 'SI-TELAT', subtitle: 'SISTEM KETERLAMBATAN SISWA', icon: Clock, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200' },
     { id: 'izinsiswa', title: 'IZIN SISWA', subtitle: 'SISTEM PERIZINAN SISWA', icon: UserCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200' },
     { id: 'sipena', title: 'SIPENA', subtitle: 'PERPUSTAKAAN SISWA (BARU)', icon: Library, color: 'from-slate-800 to-black', shadow: 'shadow-slate-300' },
@@ -309,7 +311,7 @@ export default function App() {
                 <section.icon size={24} />
               </div>
               <div className="flex-1 min-w-0 relative">
-                <p className={`font-black tracking-tight truncate uppercase leading-tight text-[16px] ${activeSection === section.id ? 'text-slate-900' : 'text-slate-700 group-hover:text-slate-900'}`}>
+                <p className={`font-black tracking-tight truncate uppercase leading-tight ${section.extraLarge ? 'text-[20px]' : 'text-[16px]'} ${activeSection === section.id ? 'text-slate-900' : 'text-slate-700 group-hover:text-slate-900'}`}>
                   {section.title}
                 </p>
                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">{section.subtitle}</p>
@@ -482,6 +484,11 @@ export default function App() {
         {activeSection === 'sipena' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
             <SipenaApp onBack={() => setActiveSection(null)} />
+          </div>
+        )}
+        {activeSection === 'survey' && (
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            <SurveyApp onBack={() => setActiveSection(null)} />
           </div>
         )}
         <AnimatePresence mode="wait">
