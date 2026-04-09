@@ -238,7 +238,7 @@ export default function Dashboard() {
               <span className="bg-rose-600 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">Penting</span>
             </div>
             
-            <div className="space-y-3 mt-4">
+            <div className="space-y-3 mt-4 overflow-y-auto max-h-[350px] pr-2 custom-scrollbar">
               {frequentLatecomers.length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-4">Tidak ada siswa yang perlu dipanggil.</p>
               ) : (
