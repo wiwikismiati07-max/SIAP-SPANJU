@@ -8,6 +8,7 @@ import { format, subDays, parseISO, isAfter, isBefore, startOfDay, endOfDay } fr
 export default function Dashboard() {
   const [transaksi, setTransaksi] = useState<TransaksiWithSiswa[]>([]);
   const [totalSiswa, setTotalSiswa] = useState(0);
+  const [terlambatHariIni, setTerlambatHariIni] = useState(0);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
     start: format(new Date(), 'yyyy-MM-dd'),
@@ -21,6 +22,8 @@ export default function Dashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      
       // Fetch total students
       if (supabase) {
         const { count: siswaCount } = await supabase
@@ -28,7 +31,14 @@ export default function Dashboard() {
           .select('*', { count: 'exact', head: true });
         setTotalSiswa(siswaCount || 0);
 
-        // Fetch transactions
+        // Fetch today's latecomers
+        const { count: todayCount } = await supabase
+          .from('transaksi_terlambat')
+          .select('*', { count: 'exact', head: true })
+          .eq('tanggal', today);
+        setTerlambatHariIni(todayCount || 0);
+
+        // Fetch transactions for range
         const { data: transData } = await supabase
           .from('transaksi_terlambat')
           .select(`*`)
@@ -51,6 +61,10 @@ export default function Dashboard() {
         setTotalSiswa(localSiswa.length);
 
         const localTrans = JSON.parse(localStorage.getItem('sitelat_transaksi') || '[]');
+        
+        const todayCount = localTrans.filter((t: any) => t.tanggal === today).length;
+        setTerlambatHariIni(todayCount);
+
         const filteredTrans = localTrans.filter((t: any) => 
           t.tanggal >= dateRange.start && t.tanggal <= dateRange.end
         ).map((t: any) => ({
@@ -145,7 +159,7 @@ export default function Dashboard() {
           </div>
           <div>
             <p className="text-sm font-medium text-slate-500">Tepat Waktu</p>
-            <p className="text-2xl font-bold text-slate-800">{totalSiswa - transaksi.length}</p>
+            <p className="text-2xl font-bold text-slate-800">{totalSiswa - terlambatHariIni}</p>
           </div>
         </div>
         <div className="bg-orange-50/50 border border-orange-100 p-6 rounded-2xl flex items-center gap-4">
@@ -155,6 +169,66 @@ export default function Dashboard() {
           <div>
             <p className="text-sm font-medium text-slate-500">Panggilan Ortu</p>
             <p className="text-2xl font-bold text-slate-800">{frequentLatecomers.length}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+        <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600">
+              <PhoneCall size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-800">Panggilan Orang Tua</h3>
+              <p className="text-sm font-medium text-slate-500">Siswa dengan keterlambatan lebih dari 2 kali.</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="overflow-hidden rounded-2xl border border-slate-100">
+            <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 bg-slate-50 z-10">
+                  <tr>
+                    <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">Nama Siswa</th>
+                    <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">Kelas</th>
+                    <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest text-center">Total Terlambat</th>
+                    <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {frequentLatecomers.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-10 text-center text-slate-400 font-medium italic">
+                        Tidak ada siswa yang memenuhi kriteria panggilan orang tua.
+                      </td>
+                    </tr>
+                  ) : (
+                    frequentLatecomers.map((s) => (
+                      <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-slate-800 uppercase">{s.nama}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase">
+                            {s.kelas}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="text-lg font-black text-rose-600">{s.count}x</span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="px-3 py-1 bg-rose-100 text-rose-700 text-[10px] font-black rounded-full uppercase tracking-wider">
+                            Butuh Panggilan
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

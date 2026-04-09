@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Database, ClipboardList, FileText, ChevronLeft, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Database, ClipboardList, FileText, ChevronLeft, Menu, X, MoreVertical } from 'lucide-react';
 import KeagamaanDashboard from './KeagamaanDashboard';
 import KeagamaanMaster from './KeagamaanMaster';
 import KeagamaanAbsensi from './KeagamaanAbsensi';
@@ -21,24 +21,24 @@ const KeagamaanApp: React.FC<KeagamaanAppProps> = ({ onBack }) => {
   ];
 
   return (
-    <div className="h-full bg-[#f8fafc] flex flex-col animate-in fade-in duration-500 relative">
+    <div className="h-full bg-[#f8fafc] flex flex-col animate-in fade-in duration-500 relative overflow-hidden">
       {/* Top Navigation Bar */}
       <div className="bg-[#001529] text-white sticky top-0 z-30 shadow-xl">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-center justify-between h-20">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 min-w-0">
               <button 
                 onClick={onBack}
-                className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all group"
+                className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all group shrink-0"
               >
                 <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
               </button>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 shrink-0 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
                   <ClipboardList size={20} className="text-white" />
                 </div>
-                <div>
-                  <h1 className="text-lg font-black tracking-tighter leading-none">SIM-AGAMA</h1>
+                <div className="min-w-0">
+                  <h1 className="text-sm md:text-lg font-black tracking-tighter leading-none truncate">SIM-AGAMA</h1>
                   <p className="text-[8px] font-bold text-emerald-400 uppercase tracking-widest leading-none mt-1 hidden sm:block">Panel Admin</p>
                 </div>
               </div>
@@ -64,40 +64,62 @@ const KeagamaanApp: React.FC<KeagamaanAppProps> = ({ onBack }) => {
 
             {/* Mobile Menu Toggle */}
             <button 
-              className="md:hidden p-2 text-slate-400 hover:bg-white/10 rounded-xl transition-colors"
+              className="p-2 text-slate-400 hover:bg-white/10 rounded-xl transition-colors"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
-              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Menu Overlay */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="absolute top-20 left-0 right-0 bg-[#001529] text-white p-4 space-y-2 shadow-xl animate-in slide-in-from-top duration-300">
-            {menuItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id as any);
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold transition-all duration-300 ${
-                  activeTab === item.id 
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' 
-                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                }`}
-              >
-                <item.icon size={20} />
-                {item.label}
+      {/* Mobile Menu Sidebar/Drawer */}
+      <div 
+        className={`fixed inset-0 z-50 md:hidden transition-opacity duration-300 ${
+          isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+        <div 
+          className={`absolute top-0 right-0 bottom-0 w-72 bg-[#001529] text-white shadow-2xl transition-transform duration-300 transform ${
+            isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          <div className="p-6 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center text-white">
+                  <ClipboardList size={18} />
+                </div>
+                <span className="font-bold text-white">Menu SIM-AGAMA</span>
+              </div>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-slate-400 hover:text-white">
+                <X size={24} />
               </button>
-            ))}
+            </div>
+
+            <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveTab(item.id as any);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-bold ${
+                    activeTab === item.id 
+                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' 
+                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <item.icon size={20} />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </nav>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Content Area */}
       <main className="flex-1 overflow-y-auto p-4 md:p-12 custom-scrollbar">

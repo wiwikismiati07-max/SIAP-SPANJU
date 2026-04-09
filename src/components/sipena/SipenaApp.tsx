@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   Menu,
   X,
+  MoreVertical,
   LayoutDashboard,
   BarChart3,
   CheckCircle2,
@@ -132,40 +133,62 @@ const SipenaApp: React.FC<SipenaAppProps> = ({ onBack }) => {
 
             {/* Mobile Menu Toggle */}
             <button 
-              className="xl:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+              className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
-              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Menu Overlay */}
-      {isMobileMenuOpen && (
-        <div className="xl:hidden fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="absolute top-20 left-0 right-0 bg-white border-b border-slate-100 p-4 space-y-2 shadow-xl animate-in slide-in-from-top duration-300 max-h-[70vh] overflow-y-auto">
-            {menuItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveSection(item.id as SipenaSection);
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center space-x-3 px-6 py-4 rounded-2xl transition-all font-black uppercase tracking-widest text-[10px] ${
-                  activeSection === item.id 
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                    : 'text-slate-500 hover:bg-slate-50'
-                }`}
-              >
-                <item.icon size={18} />
-                <span>{item.title}</span>
+      {/* Mobile Menu Sidebar/Drawer */}
+      <div 
+        className={`fixed inset-0 z-50 xl:hidden transition-opacity duration-300 ${
+          isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+        <div 
+          className={`absolute top-0 right-0 bottom-0 w-72 bg-white shadow-2xl transition-transform duration-300 transform ${
+            isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          <div className="p-6 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
+                  <Library size={18} />
+                </div>
+                <span className="font-bold text-slate-800">Menu SIPENA</span>
+              </div>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-slate-400 hover:text-slate-600">
+                <X size={24} />
               </button>
-            ))}
+            </div>
+
+            <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveSection(item.id as SipenaSection);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
+                    activeSection === item.id 
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' 
+                      : 'text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  <item.icon size={18} />
+                  <span>{item.title}</span>
+                </button>
+              ))}
+            </nav>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">

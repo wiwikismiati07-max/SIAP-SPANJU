@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Database, ClipboardList, FileText, ChevronLeft, HeartPulse, Activity, Pill, Search } from 'lucide-react';
+import { LayoutDashboard, Database, ClipboardList, FileText, ChevronLeft, HeartPulse, Activity, Pill, Search, MoreVertical, X } from 'lucide-react';
 import UksDashboard from './UksDashboard';
 import UksMaster from './UksMaster';
 import UksStokObat from './UksStokObat';
@@ -13,6 +13,7 @@ interface UksAppProps {
 
 const UksApp: React.FC<UksAppProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'stok' | 'periksa' | 'screening' | 'laporan'>('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -24,92 +25,123 @@ const UksApp: React.FC<UksAppProps> = ({ onBack }) => {
   ];
 
   return (
-    <div className="h-full bg-[#f8fafc] flex animate-in fade-in duration-500">
-      {/* Sidebar */}
-      <div className="w-80 bg-[#001529] text-white flex flex-col shadow-2xl shrink-0">
-        <div className="p-10 border-b border-white/5">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-12 h-12 bg-rose-500 rounded-2xl flex items-center justify-center shadow-lg shadow-rose-500/20">
-              <HeartPulse size={24} className="text-white" />
+    <div className="h-full bg-[#f8fafc] flex flex-col animate-in fade-in duration-500 relative overflow-hidden">
+      {/* Top Navigation Bar */}
+      <div className="bg-[#001529] text-white sticky top-0 z-30 shadow-xl">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center gap-4 min-w-0">
+              <button 
+                onClick={onBack}
+                className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all group shrink-0"
+              >
+                <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
+              </button>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 shrink-0 bg-rose-500 rounded-xl flex items-center justify-center shadow-lg shadow-rose-500/20">
+                  <HeartPulse size={20} className="text-white" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-sm md:text-lg font-black tracking-tighter leading-none truncate">UKS SMPN7</h1>
+                  <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest leading-none mt-1 hidden sm:block">Unit Kesehatan Sekolah</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-black tracking-tighter">UKS SMPN7</h1>
-              <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Unit Kesehatan Sekolah</p>
-            </div>
-          </div>
-          
-          <button 
-            onClick={onBack}
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-bold group"
-          >
-            <ChevronLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
-            Kembali ke Menu Utama
-          </button>
-        </div>
 
-        <nav className="flex-1 p-6 space-y-2 mt-8">
-          <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Menu Utama</p>
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id as any)}
-              className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold transition-all duration-300 ${
-                activeTab === item.id 
-                  ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20 translate-x-2' 
-                  : 'text-slate-400 hover:bg-white/5 hover:text-white'
-              }`}
+            {/* Desktop Menu */}
+            <nav className="hidden xl:flex items-center space-x-1">
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as any)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm ${
+                    activeTab === item.id 
+                      ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' 
+                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <item.icon size={18} />
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+
+            {/* Mobile Menu Toggle */}
+            <button 
+              className="p-2 text-slate-400 hover:bg-white/10 rounded-xl transition-colors"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
-              <item.icon size={20} />
-              {item.label}
+              {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
             </button>
-          ))}
-        </nav>
-
-        <div className="p-8 border-t border-white/5">
-          <div className="bg-white/5 p-6 rounded-2xl border border-white/5">
-            <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2">Status Sistem</p>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></div>
-              <p className="text-xs font-bold text-slate-300 tracking-wide">Terhubung ke Supabase</p>
-            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="bg-white border-b border-slate-100 px-12 py-8 flex items-center justify-between">
-          <div>
+      {/* Mobile Menu Sidebar/Drawer */}
+      <div 
+        className={`fixed inset-0 z-50 transition-opacity duration-300 ${
+          isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+        <div 
+          className={`absolute top-0 right-0 bottom-0 w-72 bg-[#001529] text-white shadow-2xl transition-transform duration-300 transform ${
+            isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          <div className="p-6 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-lg bg-rose-500 flex items-center justify-center text-white">
+                  <HeartPulse size={18} />
+                </div>
+                <span className="font-bold text-white">Menu UKS</span>
+              </div>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-slate-400 hover:text-white">
+                <X size={24} />
+              </button>
+            </div>
+
+            <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveTab(item.id as any);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-bold ${
+                    activeTab === item.id 
+                      ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' 
+                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  <item.icon size={20} />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto p-4 md:p-12 custom-scrollbar">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8 hidden md:block">
             <h2 className="text-3xl font-black text-slate-800 tracking-tight">
               {menuItems.find(i => i.id === activeTab)?.label}
             </h2>
             <p className="text-sm text-slate-400 font-medium mt-1">Sistem Informasi Unit Kesehatan Sekolah SMPN 7 Pasuruan</p>
           </div>
-          
-          <div className="flex items-center gap-6">
-            <div className="text-right">
-              <p className="text-sm font-black text-slate-800">Administrator</p>
-              <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Online</p>
-            </div>
-            <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 border border-slate-200">
-              <Activity size={24} />
-            </div>
-          </div>
-        </header>
-
-        {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-12 custom-scrollbar">
-          <div className="max-w-7xl mx-auto">
-            {activeTab === 'dashboard' && <UksDashboard />}
-            {activeTab === 'master' && <UksMaster />}
-            {activeTab === 'stok' && <UksStokObat />}
-            {activeTab === 'periksa' && <UksPeriksa />}
-            {activeTab === 'screening' && <UksScreening />}
-            {activeTab === 'laporan' && <UksLaporan />}
-          </div>
-        </main>
-      </div>
+          {activeTab === 'dashboard' && <UksDashboard />}
+          {activeTab === 'master' && <UksMaster />}
+          {activeTab === 'stok' && <UksStokObat />}
+          {activeTab === 'periksa' && <UksPeriksa />}
+          {activeTab === 'screening' && <UksScreening />}
+          {activeTab === 'laporan' && <UksLaporan />}
+        </div>
+      </main>
     </div>
   );
 };

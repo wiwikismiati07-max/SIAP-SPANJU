@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import { 
   ClipboardList, LayoutDashboard, Send, User, MessageSquare, CheckCircle2, AlertCircle, ChevronLeft,
-  Star, Users, Activity
+  Star, Users, Activity, MoreVertical, X
 } from 'lucide-react';
 
 interface SurveyAppProps {
@@ -33,6 +33,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 export default function SurveyApp({ onBack }: SurveyAppProps) {
   const [activeTab, setActiveTab] = useState<'form' | 'dashboard'>('form');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Form State
   const [namaLengkap, setNamaLengkap] = useState('');
@@ -184,51 +185,113 @@ export default function SurveyApp({ onBack }: SurveyAppProps) {
   const kritikList = responses.filter(r => r.kritik_saran && r.kritik_saran.trim() !== '');
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 font-sans">
+    <div className="h-full flex flex-col bg-slate-50 font-sans relative overflow-hidden">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 z-10 shadow-sm">
-        <div className="flex items-center gap-4">
-          {onBack && (
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center gap-4 min-w-0">
+              {onBack && (
+                <button 
+                  onClick={onBack}
+                  className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500 shrink-0"
+                >
+                  <ChevronLeft size={24} />
+                </button>
+              )}
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-slate-800 to-black flex items-center justify-center text-white shadow-lg shadow-slate-300">
+                  <ClipboardList size={20} />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-sm md:text-xl font-black text-slate-800 tracking-tight uppercase truncate">Survey Aplikasi</h1>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hidden sm:block">SIAP SPANJU</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop Menu */}
+            <div className="hidden md:flex bg-slate-100 p-1 rounded-xl">
+              <button
+                onClick={() => setActiveTab('form')}
+                className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                  activeTab === 'form' 
+                    ? 'bg-white text-slate-800 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Isi Survey
+              </button>
+              <button
+                onClick={() => setActiveTab('dashboard')}
+                className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                  activeTab === 'dashboard' 
+                    ? 'bg-white text-slate-800 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <LayoutDashboard size={14} />
+                Dashboard
+              </button>
+            </div>
+
+            {/* Mobile Menu Toggle */}
             <button 
-              onClick={onBack}
-              className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500"
+              className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
-              <ChevronLeft size={24} />
+              {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
             </button>
-          )}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-800 to-black flex items-center justify-center text-white shadow-lg shadow-slate-300">
-              <ClipboardList size={20} />
-            </div>
-            <div>
-              <h1 className="text-xl font-black text-slate-800 tracking-tight uppercase">Survey Aplikasi</h1>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">SIAP SPANJU</p>
-            </div>
           </div>
         </div>
+      </div>
 
-        <div className="flex bg-slate-100 p-1 rounded-xl">
-          <button
-            onClick={() => setActiveTab('form')}
-            className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
-              activeTab === 'form' 
-                ? 'bg-white text-slate-800 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            Isi Survey
-          </button>
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
-              activeTab === 'dashboard' 
-                ? 'bg-white text-slate-800 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <LayoutDashboard size={14} />
-            Dashboard
-          </button>
+      {/* Mobile Menu Sidebar/Drawer */}
+      <div 
+        className={`fixed inset-0 z-50 md:hidden transition-opacity duration-300 ${
+          isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+        <div 
+          className={`absolute top-0 right-0 bottom-0 w-72 bg-white shadow-2xl transition-transform duration-300 transform ${
+            isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          <div className="p-6 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-white">
+                  <ClipboardList size={18} />
+                </div>
+                <span className="font-bold text-slate-800">Menu Survey</span>
+              </div>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-slate-400 hover:text-slate-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
+              <button
+                onClick={() => { setActiveTab('form'); setIsMobileMenuOpen(false); }}
+                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
+                  activeTab === 'form' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                <Send size={20} />
+                <span>Isi Survey</span>
+              </button>
+              <button
+                onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }}
+                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
+                  activeTab === 'dashboard' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                <LayoutDashboard size={20} />
+                <span>Dashboard</span>
+              </button>
+            </nav>
+          </div>
         </div>
       </div>
 

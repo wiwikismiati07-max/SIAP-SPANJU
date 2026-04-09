@@ -21,6 +21,7 @@ export default function Laporan() {
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'perKelas'>('list');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   
@@ -459,6 +460,24 @@ export default function Laporan() {
           <p className="text-slate-500 text-sm">Kelola dan unduh laporan transaksi keterlambatan</p>
         </div>
         <div className="flex gap-2">
+          <div className="flex bg-slate-100 p-1 rounded-xl mr-2">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                viewMode === 'list' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Daftar
+            </button>
+            <button
+              onClick={() => setViewMode('perKelas')}
+              className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                viewMode === 'perKelas' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Per Kelas
+            </button>
+          </div>
           <input 
             type="file" 
             ref={fileInputRef} 
@@ -557,51 +576,89 @@ export default function Laporan() {
         </div>
         
         <div className="flex-1 overflow-y-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-white border-b border-slate-100 sticky top-0 z-10 shadow-sm">
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Tanggal & Waktu</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Siswa</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Alasan</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={4} className="p-8 text-center text-slate-500">Loading data...</td></tr>
-              ) : filteredTransaksi.length === 0 ? (
-                <tr><td colSpan={4} className="p-8 text-center text-slate-500">Belum ada data.</td></tr>
-              ) : (
-                filteredTransaksi.map((t) => (
-                  <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                    <td className="p-4">
-                      <p className="text-sm font-semibold text-slate-800">{t.tanggal}</p>
-                      <p className="text-xs text-slate-500">{t.jam}</p>
-                    </td>
-                    <td className="p-4">
-                      <p className="text-sm font-semibold text-slate-800">{t.siswa?.nama || 'Unknown'}</p>
-                      <p className="text-xs text-slate-500">Kelas {t.siswa?.kelas || '-'}</p>
-                    </td>
-                    <td className="p-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800">
-                        {t.alasan}
+          {viewMode === 'list' ? (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-white border-b border-slate-100 sticky top-0 z-10 shadow-sm">
+                  <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Tanggal & Waktu</th>
+                  <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Siswa</th>
+                  <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Alasan</th>
+                  <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={4} className="p-8 text-center text-slate-500">Loading data...</td></tr>
+                ) : filteredTransaksi.length === 0 ? (
+                  <tr><td colSpan={4} className="p-8 text-center text-slate-500">Belum ada data.</td></tr>
+                ) : (
+                  filteredTransaksi.map((t) => (
+                    <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                      <td className="p-4">
+                        <p className="text-sm font-semibold text-slate-800">{t.tanggal}</p>
+                        <p className="text-xs text-slate-500">{t.jam}</p>
+                      </td>
+                      <td className="p-4">
+                        <p className="text-sm font-semibold text-slate-800">{t.siswa?.nama || 'Unknown'}</p>
+                        <p className="text-xs text-slate-500">Kelas {t.siswa?.kelas || '-'}</p>
+                      </td>
+                      <td className="p-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800">
+                          {t.alasan}
+                        </span>
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => handleEdit(t)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                            <Edit2 size={16} />
+                          </button>
+                          <button onClick={() => handleDelete(t.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          ) : (
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from(new Set(siswaList.map(s => s.kelas))).sort().map(kelas => {
+                const dataKelas = filteredTransaksi.filter(t => t.siswa?.kelas === kelas);
+                if (dataKelas.length === 0) return null;
+                return (
+                  <div key={kelas} className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col h-[400px]">
+                    <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                      <h4 className="font-black text-slate-800 uppercase tracking-tight">Kelas {kelas}</h4>
+                      <span className="px-3 py-1 bg-blue-600 text-white text-[10px] font-black rounded-full uppercase tracking-wider shadow-sm">
+                        {dataKelas.length} Terlambat
                       </span>
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => handleEdit(t)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                          <Edit2 size={16} />
-                        </button>
-                        <button onClick={() => handleDelete(t.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
-                          <Trash2 size={16} />
-                        </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+                      <div className="space-y-1">
+                        {dataKelas.map((t) => (
+                          <div key={t.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors group border border-transparent hover:border-slate-100">
+                            <div className="flex-1 min-w-0 mr-3">
+                              <p className="text-xs font-bold text-slate-700 truncate group-hover:text-blue-600 transition-colors uppercase">
+                                {t.siswa?.nama}
+                              </p>
+                              <p className="text-[9px] text-slate-400 font-medium">{t.tanggal} • {t.jam}</p>
+                            </div>
+                            <div className="shrink-0">
+                              <span className="px-2 py-0.5 bg-rose-50 text-rose-600 text-[9px] font-black rounded uppercase">
+                                {t.alasan}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

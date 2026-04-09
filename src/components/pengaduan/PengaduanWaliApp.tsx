@@ -21,7 +21,9 @@ import {
   Eye,
   Filter,
   Download,
-  ClipboardList
+  ClipboardList,
+  MoreVertical,
+  X
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
@@ -36,6 +38,7 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps> = ({ onBack }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [pengaduanList, setPengaduanList] = useState<any[]>([]);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSiswaId, setSelectedSiswaId] = useState('');
@@ -161,38 +164,101 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps> = ({ onBack }) => {
   const filteredSiswa = siswa.filter(s => s.kelas === selectedClass);
 
   return (
-    <div className="h-full bg-slate-50 flex flex-col">
+    <div className="h-full bg-slate-50 flex flex-col relative overflow-hidden">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-20">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={onBack}
-            className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 transition-colors"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <div>
-            <h1 className="text-xl font-black text-slate-800 tracking-tight uppercase">Pengaduan Wali Murid</h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">SIAP SPANJU - Layanan Pengaduan</p>
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center gap-4 min-w-0">
+              <button 
+                onClick={onBack}
+                className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 transition-all group shrink-0"
+              >
+                <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
+              </button>
+              <div className="min-w-0">
+                <h1 className="text-sm md:text-xl font-black text-slate-800 tracking-tight uppercase truncate">Pengaduan Wali Murid</h1>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">SIAP SPANJU - Layanan Pengaduan</p>
+              </div>
+            </div>
+
+            {/* Desktop Menu */}
+            <div className="hidden md:flex items-center gap-2">
+              <button
+                onClick={() => setView('form')}
+                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                  view === 'form' ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                Form Laporan
+              </button>
+              <button
+                onClick={() => setView('list')}
+                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                  view === 'list' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                List Pengaduan (Admin)
+              </button>
+            </div>
+
+            {/* Mobile Menu Toggle */}
+            <button 
+              className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setView('form')}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-              view === 'form' ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-            }`}
-          >
-            Form Laporan
-          </button>
-          <button
-            onClick={() => setView('list')}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-              view === 'list' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-            }`}
-          >
-            List Pengaduan (Admin)
-          </button>
+      </div>
+
+      {/* Mobile Menu Sidebar/Drawer */}
+      <div 
+        className={`fixed inset-0 z-50 md:hidden transition-opacity duration-300 ${
+          isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+        <div 
+          className={`absolute top-0 right-0 bottom-0 w-72 bg-white shadow-2xl transition-transform duration-300 transform ${
+            isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          <div className="p-6 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-lg bg-pink-600 flex items-center justify-center text-white">
+                  <MessageSquare size={18} />
+                </div>
+                <span className="font-bold text-slate-800">Menu Pengaduan</span>
+              </div>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-slate-400 hover:text-slate-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
+              <button
+                onClick={() => { setView('form'); setIsMobileMenuOpen(false); }}
+                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
+                  view === 'form' ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                <Plus size={20} />
+                <span>Form Laporan</span>
+              </button>
+              <button
+                onClick={() => { setView('list'); setIsMobileMenuOpen(false); }}
+                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
+                  view === 'list' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                <ClipboardList size={20} />
+                <span>List Pengaduan</span>
+              </button>
+            </nav>
+          </div>
         </div>
       </div>
 
