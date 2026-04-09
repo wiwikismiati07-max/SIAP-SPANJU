@@ -19,6 +19,8 @@ export default function Laporan() {
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   
@@ -438,11 +440,16 @@ export default function Laporan() {
     saveAs(blob, `Laporan_Keterlambatan_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
   };
 
-  const filteredTransaksi = transaksi.filter(t => 
-    t.siswa?.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.siswa?.kelas.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.tanggal.includes(searchTerm)
-  );
+  const filteredTransaksi = transaksi.filter(t => {
+    const matchSearch = t.siswa?.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.siswa?.kelas.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.tanggal.includes(searchTerm);
+    
+    const matchStartDate = startDate ? t.tanggal >= startDate : true;
+    const matchEndDate = endDate ? t.tanggal <= endDate : true;
+
+    return matchSearch && matchStartDate && matchEndDate;
+  });
 
   return (
     <div className="space-y-6">
@@ -516,18 +523,35 @@ export default function Laporan() {
       )}
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[600px]">
-        <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-          <div className="relative w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Cari nama, kelas, tanggal..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
-            />
+        <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+            <div className="relative w-full md:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Cari nama, kelas, tanggal..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
+              />
+            </div>
+            <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm w-full md:w-auto">
+              <input 
+                type="date" 
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="px-2 py-1 outline-none text-sm font-medium text-slate-700 bg-transparent w-full md:w-auto"
+              />
+              <span className="text-slate-400">-</span>
+              <input 
+                type="date" 
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="px-2 py-1 outline-none text-sm font-medium text-slate-700 bg-transparent w-full md:w-auto"
+              />
+            </div>
           </div>
-          <div className="text-sm text-slate-500 font-medium">
+          <div className="text-sm text-slate-500 font-medium whitespace-nowrap">
             Total: {filteredTransaksi.length} Data
           </div>
         </div>

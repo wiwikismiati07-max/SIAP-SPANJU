@@ -400,12 +400,12 @@ export default function App() {
       {/* Sidebar Toggle for Desktop/Mobile when closed */}
       {!isSidebarOpen && (
         <motion.button
-          initial={{ x: -20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
           onClick={() => setIsSidebarOpen(true)}
-          className="fixed left-6 top-6 z-30 p-2 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-3xl text-slate-600 hover:scale-110 transition-all active:scale-90 shadow-[0_8px_32_0_rgba(0,0,0,0.05)] overflow-hidden"
+          className="fixed right-4 top-4 md:left-6 md:top-6 md:right-auto z-30 p-2 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-3xl text-slate-600 hover:scale-110 transition-all active:scale-90 shadow-[0_8px_32_0_rgba(0,0,0,0.05)] overflow-hidden"
         >
-          <img src={LOGO_URL} alt="Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
+          <img src={LOGO_URL} alt="Logo" className="w-10 h-10 md:w-12 md:h-12 object-contain" referrerPolicy="no-referrer" />
         </motion.button>
       )}
 

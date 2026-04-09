@@ -168,10 +168,10 @@ export default function Dashboard() {
               <p className="text-xs text-slate-500 uppercase tracking-wider mt-1">Terakhir Update: {new Date().toLocaleTimeString()}</p>
             </div>
           </div>
-          <div className="overflow-x-auto flex-1">
+          <div className="overflow-auto flex-1 max-h-[500px]">
             <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-100">
+              <thead className="sticky top-0 bg-slate-50 z-10 shadow-sm">
+                <tr className="border-b border-slate-100">
                   <th className="p-4 text-sm font-semibold text-slate-600">Tanggal</th>
                   <th className="p-4 text-sm font-semibold text-slate-600">Waktu</th>
                   <th className="p-4 text-sm font-semibold text-slate-600">Nama Siswa</th>
