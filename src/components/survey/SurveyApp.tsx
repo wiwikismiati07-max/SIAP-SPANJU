@@ -7,11 +7,12 @@ import {
 } from 'recharts';
 import { 
   ClipboardList, LayoutDashboard, Send, User, MessageSquare, CheckCircle2, AlertCircle, ChevronLeft,
-  Star, Users, Activity, MoreVertical, X
+  Star, Users, Activity, MoreVertical, Menu, X
 } from 'lucide-react';
 
 interface SurveyAppProps {
   onBack?: () => void;
+  onOpenSidebar?: () => void;
 }
 
 const STATUS_OPTIONS = ['Siswa', 'Guru', 'Orang Tua Murid', 'Tamu'];
@@ -31,9 +32,10 @@ const QUESTIONS = [
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
-export default function SurveyApp({ onBack }: SurveyAppProps) {
+export default function SurveyApp({ onBack, onOpenSidebar }: SurveyAppProps) {
   const [activeTab, setActiveTab] = useState<'form' | 'dashboard'>('form');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const LOGO_URL = "https://iili.io/KDFk4fI.png";
   
   // Form State
   const [namaLengkap, setNamaLengkap] = useState('');
@@ -191,14 +193,6 @@ export default function SurveyApp({ onBack }: SurveyAppProps) {
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4 min-w-0">
-              {onBack && (
-                <button 
-                  onClick={onBack}
-                  className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500 shrink-0"
-                >
-                  <ChevronLeft size={24} />
-                </button>
-              )}
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-slate-800 to-black flex items-center justify-center text-white shadow-lg shadow-slate-300">
                   <ClipboardList size={20} />
@@ -236,12 +230,25 @@ export default function SurveyApp({ onBack }: SurveyAppProps) {
             </div>
 
             {/* Mobile Menu Toggle */}
-            <button 
-              className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Hamburger Menu for Sidebar */}
+              <button 
+                className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+                onClick={onOpenSidebar}
+                title="Menu Utama Aplikasi"
+              >
+                <Menu size={24} />
+              </button>
+
+              {/* More Menu for App Internal Menu */}
+              <button 
+                className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                title="Menu Aplikasi"
+              >
+                {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
+              </button>
+            </div>
           </div>
         </div>
       </div>

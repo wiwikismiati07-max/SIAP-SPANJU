@@ -60,15 +60,17 @@ const safeFormatDate = (dateStr: string | null | undefined, formatStr: string = 
 
 interface SipenaAppProps {
   onBack?: () => void;
+  onOpenSidebar?: () => void;
 }
 
 type SipenaSection = 'dashboard' | 'master' | 'kunjungan_siswa' | 'kunjungan_warta' | 'peminjaman' | 'pengembalian' | 'laporan';
 
-const SipenaApp: React.FC<SipenaAppProps> = ({ onBack }) => {
+const SipenaApp: React.FC<SipenaAppProps> = ({ onBack, onOpenSidebar }) => {
   const [activeSection, setActiveSection] = useState<SipenaSection>('dashboard');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
   // --- Dashboard Stats ---
   const [stats, setStats] = useState({
@@ -96,12 +98,6 @@ const SipenaApp: React.FC<SipenaAppProps> = ({ onBack }) => {
         <div className="max-w-[1600px] mx-auto px-4 md:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4">
-              <button 
-                onClick={onBack}
-                className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-500 transition-all group"
-              >
-                <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-              </button>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-indigo-800 flex items-center justify-center text-white shadow-lg shadow-indigo-100 rotate-3">
                   <Library size={20} />
@@ -132,12 +128,25 @@ const SipenaApp: React.FC<SipenaAppProps> = ({ onBack }) => {
             </nav>
 
             {/* Mobile Menu Toggle */}
-            <button 
-              className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Hamburger Menu for Sidebar */}
+              <button 
+                className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+                onClick={onOpenSidebar}
+                title="Menu Utama Aplikasi"
+              >
+                <Menu size={24} />
+              </button>
+
+              {/* More Menu for App Internal Menu */}
+              <button 
+                className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                title="Menu Aplikasi"
+              >
+                {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
+              </button>
+            </div>
           </div>
         </div>
       </div>

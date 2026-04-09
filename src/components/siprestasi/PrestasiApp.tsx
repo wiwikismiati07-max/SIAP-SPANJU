@@ -6,11 +6,13 @@ import PrestasiLaporan from './PrestasiLaporan';
 
 interface PrestasiAppProps {
   onBack: () => void;
+  onOpenSidebar?: () => void;
 }
 
-const PrestasiApp: React.FC<PrestasiAppProps> = ({ onBack }) => {
+const PrestasiApp: React.FC<PrestasiAppProps> = ({ onBack, onOpenSidebar }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'input' | 'laporan'>('dashboard');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -25,13 +27,6 @@ const PrestasiApp: React.FC<PrestasiAppProps> = ({ onBack }) => {
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center space-x-3 min-w-0">
-              <button 
-                onClick={onBack}
-                className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition-all group shrink-0"
-                title="Kembali ke Menu"
-              >
-                <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
-              </button>
               <div className="flex items-center space-x-3 min-w-0">
                 <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-100 shrink-0">
                   <Trophy className="text-white" size={20} />
@@ -62,12 +57,25 @@ const PrestasiApp: React.FC<PrestasiAppProps> = ({ onBack }) => {
             </nav>
 
             {/* Mobile Menu Toggle */}
-            <button 
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 text-slate-500 hover:bg-purple-50 rounded-xl transition-colors"
-            >
-              {isMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Hamburger Menu for Sidebar */}
+              <button 
+                className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+                onClick={onOpenSidebar}
+                title="Menu Utama Aplikasi"
+              >
+                <Menu size={24} />
+              </button>
+
+              {/* More Menu for App Internal Menu */}
+              <button 
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="p-2 text-slate-500 hover:bg-purple-50 rounded-xl transition-colors"
+                title="Menu Aplikasi"
+              >
+                {isMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
+              </button>
+            </div>
           </div>
         </div>
       </div>

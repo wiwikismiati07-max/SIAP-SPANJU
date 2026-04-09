@@ -7,9 +7,11 @@ import Pencatatan from './Pencatatan';
 import Laporan from './Laporan';
 import { LayoutDashboard, Users, Clock, Settings, Menu, X, FileText, MoreVertical } from 'lucide-react';
 
-export default function SiTelatApp() {
+export default function SiTelatApp({ onBack, onOpenSidebar }: { onBack?: () => void, onOpenSidebar?: () => void }) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'pencatatan' | 'master' | 'laporan'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
   const menuItems = [
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
@@ -58,9 +60,21 @@ export default function SiTelatApp() {
                 <Clock size={14} />
                 {new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
               </div>
+              
+              {/* Hamburger Menu for Sidebar */}
+              <button 
+                className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+                onClick={onOpenSidebar}
+                title="Menu Utama Aplikasi"
+              >
+                <Menu size={24} />
+              </button>
+
+              {/* More Menu for App Internal Menu */}
               <button 
                 className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                title="Menu Aplikasi"
               >
                 {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
               </button>

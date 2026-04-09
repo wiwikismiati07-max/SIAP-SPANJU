@@ -7,11 +7,12 @@ import BKLaporan from './BKLaporan';
 import Login from '../izinsiswa/Login';
 import { supabase } from '../../lib/supabase';
 
-export default function BKPeduliSiswaApp() {
+export default function BKPeduliSiswaApp({ onBack, onOpenSidebar }: { onBack?: () => void, onOpenSidebar?: () => void }) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'transaksi' | 'laporan' | 'users'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [user, setUser] = useState<any>(null);
+  const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
   useEffect(() => {
     const savedUser = localStorage.getItem('app_user');
@@ -118,9 +119,21 @@ export default function BKPeduliSiswaApp() {
               >
                 <LogOut size={20} />
               </button>
+
+              {/* Hamburger Menu for Sidebar */}
+              <button 
+                className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+                onClick={onOpenSidebar}
+                title="Menu Utama Aplikasi"
+              >
+                <Menu size={24} />
+              </button>
+
+              {/* More Menu for App Internal Menu */}
               <button 
                 className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                title="Menu Aplikasi"
               >
                 {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
               </button>

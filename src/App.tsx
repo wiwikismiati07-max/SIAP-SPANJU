@@ -184,6 +184,7 @@ export default function App() {
   };
 
   const sidebarItems = [
+    { id: 'menu_aplikasi', title: 'MENU APLIKASI', subtitle: 'DAFTAR SEMUA APLIKASI', icon: LayoutDashboard, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200', prominent: true, extraLarge: true },
     { id: 'survey', title: 'SURVEY APLIKASI', subtitle: 'SURVEY KEPUASAN PENGGUNA', icon: ClipboardList, color: 'from-slate-800 to-black', shadow: 'shadow-slate-400', prominent: true, extraLarge: true },
     { id: 'sitelat', title: 'SI-TELAT', subtitle: 'SISTEM KETERLAMBATAN SISWA', icon: Clock, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200' },
     { id: 'izinsiswa', title: 'IZIN SISWA', subtitle: 'SISTEM PERIZINAN SISWA', icon: UserCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200' },
@@ -276,7 +277,13 @@ export default function App() {
         className="bg-white/60 backdrop-blur-2xl border-r border-white/50 flex flex-col z-50 fixed md:relative h-[calc(100vh-2rem)] md:h-auto overflow-hidden rounded-[2rem] shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] md:shadow-none"
       >
         <div className="p-6 flex items-center justify-between border-b border-white/50 min-w-[280px]">
-          <div className="flex flex-col gap-0.5 font-display">
+          <button 
+            onClick={() => {
+              setIsDashboard(false);
+              setActiveSection(null);
+            }}
+            className="flex flex-col gap-0.5 font-display text-left hover:opacity-80 transition-opacity"
+          >
             <div className="flex items-center gap-2">
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-pink-100 rotate-3 overflow-hidden p-1 border border-slate-100">
                 <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
@@ -286,7 +293,7 @@ export default function App() {
             <span className="text-[9px] font-black text-slate-600 uppercase tracking-[0.15em] leading-none ml-12">
               Sistem Integrasi Aplikasi Pembinaan Siswa
             </span>
-          </div>
+          </button>
           <button onClick={() => setIsSidebarOpen(false)} className="p-1.5 hover:bg-white/50 rounded-lg transition-colors text-slate-500 hover:text-slate-800">
             <ChevronLeft size={20} />
           </button>
@@ -419,12 +426,18 @@ export default function App() {
       <main className="flex-1 min-h-0 min-w-0 flex flex-col relative p-1.5 md:p-3 md:pl-0">
         {activeSection === 'sitelat' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-            <SiTelatApp />
+            <SiTelatApp 
+              onBack={() => setActiveSection('menu_aplikasi')} 
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+            />
           </div>
         )}
         {activeSection === 'izinsiswa' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-            <IzinSiswaApp />
+            <IzinSiswaApp 
+              onBack={() => setActiveSection('menu_aplikasi')} 
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+            />
           </div>
         )}
         {activeSection === 'disiplinsiswa' && (
@@ -432,6 +445,12 @@ export default function App() {
             <div className="h-full flex flex-col">
               <div className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
                 <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => setActiveSection('menu_aplikasi')}
+                    className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-500"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
                   <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
                     <ClipboardList size={18} />
                   </div>
@@ -459,44 +478,87 @@ export default function App() {
         )}
         {activeSection === 'bkpedulisiswa' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-            <BKPeduliSiswaApp />
+            <BKPeduliSiswaApp 
+              onBack={() => setActiveSection('menu_aplikasi')} 
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+            />
           </div>
         )}
         {activeSection === 'dispensasi' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-            <DispensasiApp onBack={() => setActiveSection(null)} />
+            <DispensasiApp 
+              onBack={() => setActiveSection('menu_aplikasi')} 
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+            />
           </div>
         )}
         {activeSection === 'prestasi' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-            <PrestasiApp onBack={() => setActiveSection(null)} />
+            <PrestasiApp 
+              onBack={() => setActiveSection('menu_aplikasi')} 
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+            />
           </div>
         )}
         {activeSection === 'keagamaan' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-            <KeagamaanApp onBack={() => setActiveSection(null)} />
+            <KeagamaanApp 
+              onBack={() => setActiveSection('menu_aplikasi')} 
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+            />
           </div>
         )}
         {activeSection === 'uks' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-            <UksApp onBack={() => setActiveSection(null)} />
+            <UksApp 
+              onBack={() => setActiveSection('menu_aplikasi')} 
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+            />
           </div>
         )}
         {activeSection === 'pengaduan' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-            <PengaduanWaliApp onBack={() => setActiveSection(null)} />
+            <PengaduanWaliApp 
+              onBack={() => setActiveSection('menu_aplikasi')} 
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+            />
           </div>
         )}
         {activeSection === 'sipena' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-            <SipenaApp onBack={() => setActiveSection(null)} />
+            <SipenaApp 
+              onBack={() => setActiveSection('menu_aplikasi')} 
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+            />
           </div>
         )}
         {activeSection === 'survey' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-            <SurveyApp onBack={() => setActiveSection(null)} />
+            <SurveyApp 
+              onBack={() => setActiveSection('menu_aplikasi')} 
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+            />
           </div>
         )}
+
+        {/* Floating Back to Menu Logo */}
+        {activeSection && !['kilas', 'program', 'spip', 'korelasi_program', 'korelasi_sra', 'menu_aplikasi'].includes(activeSection) && (
+          <motion.button
+            initial={{ scale: 0, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setActiveSection('menu_aplikasi')}
+            className="fixed bottom-6 right-6 z-[100] w-14 h-14 md:w-16 md:h-16 bg-white/90 backdrop-blur-md rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-white flex items-center justify-center p-2.5 hover:shadow-pink-200/50 transition-all group"
+            title="Kembali ke Menu Aplikasi"
+          >
+            <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain drop-shadow-sm" referrerPolicy="no-referrer" />
+            <div className="absolute -top-2 -right-2 bg-pink-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+              <ChevronLeft size={14} />
+            </div>
+          </motion.button>
+        )}
+
         <AnimatePresence mode="wait">
           {activeSection === 'kilas' && (
             <motion.div
@@ -785,6 +847,12 @@ export default function App() {
             >
               <div className="h-16 bg-white/40 border-b border-white/50 flex items-center justify-between px-4 md:px-8 z-10 backdrop-blur-md">
                 <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => setActiveSection('menu_aplikasi')}
+                    className="p-1.5 hover:bg-white/50 rounded-lg transition-colors text-slate-500"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
                   <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${selectedLink.color} flex items-center justify-center text-white shadow-sm`}>
                     {React.createElement(ICON_MAP[selectedLink.icon] || Globe, { size: 20 })}
                   </div>

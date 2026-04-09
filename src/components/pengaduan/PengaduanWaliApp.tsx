@@ -23,6 +23,7 @@ import {
   Download,
   ClipboardList,
   MoreVertical,
+  Menu,
   X
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -30,15 +31,17 @@ import { format } from 'date-fns';
 
 interface PengaduanWaliAppProps {
   onBack?: () => void;
+  onOpenSidebar?: () => void;
 }
 
-const PengaduanWaliApp: React.FC<PengaduanWaliAppProps> = ({ onBack }) => {
+const PengaduanWaliApp: React.FC<PengaduanWaliAppProps> = ({ onBack, onOpenSidebar }) => {
   const [view, setView] = useState<'form' | 'list'>('form');
   const [siswa, setSiswa] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [pengaduanList, setPengaduanList] = useState<any[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const LOGO_URL = "https://iili.io/KDFk4fI.png";
   
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSiswaId, setSelectedSiswaId] = useState('');
@@ -170,12 +173,6 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps> = ({ onBack }) => {
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4 min-w-0">
-              <button 
-                onClick={onBack}
-                className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 transition-all group shrink-0"
-              >
-                <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
-              </button>
               <div className="min-w-0">
                 <h1 className="text-sm md:text-xl font-black text-slate-800 tracking-tight uppercase truncate">Pengaduan Wali Murid</h1>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">SIAP SPANJU - Layanan Pengaduan</p>
@@ -203,12 +200,25 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps> = ({ onBack }) => {
             </div>
 
             {/* Mobile Menu Toggle */}
-            <button 
-              className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Hamburger Menu for Sidebar */}
+              <button 
+                className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+                onClick={onOpenSidebar}
+                title="Menu Utama Aplikasi"
+              >
+                <Menu size={24} />
+              </button>
+
+              {/* More Menu for App Internal Menu */}
+              <button 
+                className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                title="Menu Aplikasi"
+              >
+                {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
+              </button>
+            </div>
           </div>
         </div>
       </div>

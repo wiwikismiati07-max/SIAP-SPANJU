@@ -7,11 +7,13 @@ import KeagamaanLaporan from './KeagamaanLaporan';
 
 interface KeagamaanAppProps {
   onBack: () => void;
+  onOpenSidebar?: () => void;
 }
 
-const KeagamaanApp: React.FC<KeagamaanAppProps> = ({ onBack }) => {
+const KeagamaanApp: React.FC<KeagamaanAppProps> = ({ onBack, onOpenSidebar }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'absensi' | 'laporan'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -27,12 +29,6 @@ const KeagamaanApp: React.FC<KeagamaanAppProps> = ({ onBack }) => {
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4 min-w-0">
-              <button 
-                onClick={onBack}
-                className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all group shrink-0"
-              >
-                <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
-              </button>
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 shrink-0 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
                   <ClipboardList size={20} className="text-white" />
@@ -63,12 +59,25 @@ const KeagamaanApp: React.FC<KeagamaanAppProps> = ({ onBack }) => {
             </nav>
 
             {/* Mobile Menu Toggle */}
-            <button 
-              className="p-2 text-slate-400 hover:bg-white/10 rounded-xl transition-colors"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Hamburger Menu for Sidebar */}
+              <button 
+                className="p-2 text-slate-400 hover:bg-white/10 rounded-xl transition-colors"
+                onClick={onOpenSidebar}
+                title="Menu Utama Aplikasi"
+              >
+                <Menu size={24} />
+              </button>
+
+              {/* More Menu for App Internal Menu */}
+              <button 
+                className="p-2 text-slate-400 hover:bg-white/10 rounded-xl transition-colors"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                title="Menu Aplikasi"
+              >
+                {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
+              </button>
+            </div>
           </div>
         </div>
       </div>

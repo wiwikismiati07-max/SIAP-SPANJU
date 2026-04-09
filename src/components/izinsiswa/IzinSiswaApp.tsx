@@ -11,12 +11,13 @@ import UserManagement from './UserManagement';
 import Login from './Login';
 import { supabase } from '../../lib/supabase';
 
-export default function IzinSiswaApp() {
+export default function IzinSiswaApp({ onBack, onOpenSidebar }: { onBack?: () => void, onOpenSidebar?: () => void }) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'wali' | 'operator' | 'laporan' | 'panggilan' | 'kalender' | 'users'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [user, setUser] = useState<any>(null);
   const [isPublicMode, setIsPublicMode] = useState(true); // Default public mode for Dashboard & Wali Murid
+  const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
   useEffect(() => {
     const savedUser = localStorage.getItem('app_user');
@@ -138,9 +139,20 @@ export default function IzinSiswaApp() {
                 </button>
               )}
 
+              {/* Hamburger Menu for Sidebar */}
+              <button 
+                className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+                onClick={onOpenSidebar}
+                title="Menu Utama Aplikasi"
+              >
+                <Menu size={24} />
+              </button>
+
+              {/* More Menu for App Internal Menu */}
               <button 
                 className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                title="Menu Aplikasi"
               >
                 {isMobileMenuOpen ? <X size={24} /> : <MoreVertical size={24} />}
               </button>
