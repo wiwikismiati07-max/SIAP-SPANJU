@@ -145,7 +145,7 @@ export default function Dashboard() {
           </div>
           <div>
             <p className="text-sm font-medium text-slate-500">Tepat Waktu</p>
-            <p className="text-2xl font-bold text-slate-800">-</p>
+            <p className="text-2xl font-bold text-slate-800">{totalSiswa - transaksi.length}</p>
           </div>
         </div>
         <div className="bg-orange-50/50 border border-orange-100 p-6 rounded-2xl flex items-center gap-4">

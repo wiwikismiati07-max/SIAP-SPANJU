@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Database, PlusCircle, FileBarChart, ArrowLeft } from 'lucide-react';
+import { LayoutDashboard, Database, PlusCircle, FileBarChart, ArrowLeft, Menu, X } from 'lucide-react';
 import DispDashboard from './DispDashboard';
 import DispMasterData from './DispMasterData';
 import DispInputData from './DispInputData';
@@ -11,6 +11,7 @@ interface DispensasiAppProps {
 
 const DispensasiApp: React.FC<DispensasiAppProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'input' | 'laporan'>('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -20,9 +21,36 @@ const DispensasiApp: React.FC<DispensasiAppProps> = ({ onBack }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col md:flex-row relative">
+      {/* Mobile Header */}
+      <div className="md:hidden bg-white border-b border-slate-100 p-4 flex items-center justify-between sticky top-0 z-30">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-blue-600 rounded-lg flex items-center justify-center shadow-md">
+            <span className="text-white font-black text-sm">S</span>
+          </div>
+          <h1 className="text-sm font-black text-slate-800 uppercase tracking-tight">Si-DISPENSASI</h1>
+        </div>
+        <button 
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="p-2 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors"
+        >
+          {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
+      {/* Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-slate-100 flex flex-col fixed h-full z-20">
+      <div className={`
+        fixed md:sticky top-0 left-0 h-screen w-64 bg-white border-r border-slate-100 flex flex-col z-50 transition-transform duration-300 md:translate-x-0
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
         <div className="p-6 border-b border-slate-50">
           <button 
             onClick={onBack}
@@ -46,7 +74,10 @@ const DispensasiApp: React.FC<DispensasiAppProps> = ({ onBack }) => {
           {menuItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id as any)}
+              onClick={() => {
+                setActiveTab(item.id as any);
+                setIsSidebarOpen(false);
+              }}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all duration-300 group ${
                 activeTab === item.id 
                   ? `${item.bg} ${item.color} shadow-sm ring-1 ring-slate-100` 
@@ -77,7 +108,7 @@ const DispensasiApp: React.FC<DispensasiAppProps> = ({ onBack }) => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 ml-64 p-8 overflow-y-auto h-screen">
+      <div className="flex-1 p-4 md:p-8 overflow-y-auto h-screen">
         <div className="max-w-6xl mx-auto pb-12">
           {activeTab === 'dashboard' && <DispDashboard />}
           {activeTab === 'master' && <DispMasterData />}
