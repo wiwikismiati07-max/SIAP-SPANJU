@@ -28,6 +28,7 @@ import {
   Award,
   ChevronLeft,
   ChevronRight,
+  Menu,
   Settings,
   Sparkles,
   Clock,
@@ -403,9 +404,14 @@ export default function App() {
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           onClick={() => setIsSidebarOpen(true)}
-          className="fixed right-4 top-4 md:left-6 md:top-6 md:right-auto z-30 p-2 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-3xl text-slate-600 hover:scale-110 transition-all active:scale-90 shadow-[0_8px_32_0_rgba(0,0,0,0.05)] overflow-hidden"
+          className="fixed right-4 top-4 md:left-6 md:top-6 md:right-auto z-30 p-2 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-2xl md:rounded-3xl text-slate-600 hover:scale-110 transition-all active:scale-90 shadow-[0_8px_32_0_rgba(0,0,0,0.05)] overflow-hidden flex items-center gap-2"
         >
-          <img src={LOGO_URL} alt="Logo" className="w-10 h-10 md:w-12 md:h-12 object-contain" referrerPolicy="no-referrer" />
+          <div className="flex flex-col items-end md:hidden">
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">SIAP</span>
+            <span className="text-xs font-black text-slate-800 tracking-tighter leading-none">SPANJU</span>
+          </div>
+          <img src={LOGO_URL} alt="Logo" className="w-8 h-8 md:w-12 md:h-12 object-contain" referrerPolicy="no-referrer" />
+          <Menu size={18} className="md:hidden text-slate-400" />
         </motion.button>
       )}
 
@@ -725,20 +731,20 @@ export default function App() {
                 </div>
 
                 {/* Grid of Apps */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
                   {sidebarItems.filter(item => !['kilas', 'program', 'spip', 'korelasi_program', 'korelasi_sra', 'survey'].includes(item.id)).map(app => (
                     <button
                       key={app.id}
                       onClick={() => setActiveSection(app.id as any)}
-                      className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-lg hover:shadow-xl hover:-translate-y-2 transition-all duration-300 flex flex-col items-center text-center group"
+                      className="bg-white p-4 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-md hover:shadow-xl hover:-translate-y-2 transition-all duration-300 flex flex-col items-center text-center group"
                     >
-                      <div className={`w-20 h-20 rounded-[1.5rem] bg-gradient-to-br ${app.color} flex items-center justify-center text-white shadow-lg mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500`}>
-                        <app.icon size={32} />
+                      <div className={`w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-[1.5rem] bg-gradient-to-br ${app.color} flex items-center justify-center text-white shadow-lg mb-3 md:mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500`}>
+                        <app.icon size={isMobile ? 20 : 32} />
                       </div>
-                      <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-2">{app.title}</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">{app.subtitle}</p>
-                      <div className="px-6 py-2.5 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold flex items-center gap-2 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors border border-slate-100">
-                        <ExternalLink size={14} /> Buka Aplikasi
+                      <h4 className="text-xs md:text-lg font-black text-slate-800 uppercase tracking-tight mb-1 md:mb-2 line-clamp-1">{app.title}</h4>
+                      <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-6 hidden sm:block">{app.subtitle}</p>
+                      <div className="px-3 md:px-6 py-1.5 md:py-2.5 bg-slate-50 text-slate-600 rounded-lg md:rounded-xl text-[8px] md:text-xs font-bold flex items-center gap-2 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors border border-slate-100">
+                        <ExternalLink size={isMobile ? 10 : 14} /> <span className="hidden sm:inline">Buka Aplikasi</span><span className="sm:hidden">BUKA</span>
                       </div>
                     </button>
                   ))}
@@ -751,15 +757,15 @@ export default function App() {
                         href={app.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-lg hover:shadow-xl hover:-translate-y-2 transition-all duration-300 flex flex-col items-center text-center group"
+                        className="bg-white p-4 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-md hover:shadow-xl hover:-translate-y-2 transition-all duration-300 flex flex-col items-center text-center group"
                       >
-                        <div className={`w-20 h-20 rounded-[1.5rem] bg-gradient-to-br ${app.color} flex items-center justify-center text-white shadow-lg mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500`}>
-                          <Icon size={32} />
+                        <div className={`w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-[1.5rem] bg-gradient-to-br ${app.color} flex items-center justify-center text-white shadow-lg mb-3 md:mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500`}>
+                          <Icon size={isMobile ? 20 : 32} />
                         </div>
-                        <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-2">{app.title}</h4>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">APLIKASI EKSTERNAL</p>
-                        <div className="px-6 py-2.5 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold flex items-center gap-2 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors border border-slate-100">
-                          <ExternalLink size={14} /> Buka Aplikasi
+                        <h4 className="text-xs md:text-lg font-black text-slate-800 uppercase tracking-tight mb-1 md:mb-2 line-clamp-1">{app.title}</h4>
+                        <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-6 hidden sm:block">APLIKASI EKSTERNAL</p>
+                        <div className="px-3 md:px-6 py-1.5 md:py-2.5 bg-slate-50 text-slate-600 rounded-lg md:rounded-xl text-[8px] md:text-xs font-bold flex items-center gap-2 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors border border-slate-100">
+                          <ExternalLink size={isMobile ? 10 : 14} /> <span className="hidden sm:inline">Buka Aplikasi</span><span className="sm:hidden">BUKA</span>
                         </div>
                       </a>
                     )

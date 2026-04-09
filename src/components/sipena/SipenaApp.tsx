@@ -7,6 +7,8 @@ import {
   ArrowLeftRight, 
   History, 
   FileText, 
+  FileSpreadsheet,
+  Briefcase,
   Plus, 
   Search, 
   Download, 
@@ -14,20 +16,19 @@ import {
   Trash2, 
   Edit, 
   ChevronLeft,
+  Menu,
+  X,
   LayoutDashboard,
   BarChart3,
   CheckCircle2,
   AlertCircle,
   Save,
-  X,
   Printer,
   Calendar,
   Clock,
   User,
   RotateCcw,
-  GraduationCap,
-  Briefcase,
-  FileSpreadsheet
+  GraduationCap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
@@ -66,6 +67,7 @@ const SipenaApp: React.FC<SipenaAppProps> = ({ onBack }) => {
   const [activeSection, setActiveSection] = useState<SipenaSection>('dashboard');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // --- Dashboard Stats ---
   const [stats, setStats] = useState({
@@ -87,57 +89,83 @@ const SipenaApp: React.FC<SipenaAppProps> = ({ onBack }) => {
   ];
 
   return (
-    <div className="h-full flex flex-col bg-[#F8FAFC] overflow-hidden font-sans selection:bg-indigo-100 selection:text-indigo-900">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-md border-b border-slate-100 px-8 py-5 flex items-center justify-between shrink-0 z-20 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-        <div className="flex items-center gap-6">
-          <button 
-            onClick={onBack}
-            className="w-12 h-12 flex items-center justify-center bg-slate-50 hover:bg-white hover:shadow-md rounded-2xl text-slate-500 transition-all duration-300 group"
-          >
-            <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
-          </button>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 flex items-center justify-center text-white shadow-lg shadow-indigo-100 rotate-3">
-              <Library size={24} />
+    <div className="h-full flex flex-col bg-[#F8FAFC] overflow-hidden font-sans selection:bg-indigo-100 selection:text-indigo-900 relative">
+      {/* Top Navigation Bar */}
+      <div className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-30 shadow-sm">
+        <div className="max-w-[1600px] mx-auto px-4 md:px-8">
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={onBack}
+                className="w-10 h-10 flex items-center justify-center bg-slate-50 hover:bg-white hover:shadow-md rounded-xl text-slate-500 transition-all group"
+              >
+                <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-indigo-800 flex items-center justify-center text-white shadow-lg shadow-indigo-100 rotate-3">
+                  <Library size={20} />
+                </div>
+                <div className="flex flex-col">
+                  <h1 className="text-lg font-black text-slate-900 tracking-tight uppercase leading-none">SIPENA</h1>
+                  <p className="text-[8px] font-bold text-indigo-600 uppercase tracking-[0.3em] mt-1 hidden sm:block">Sistem Informasi Perpustakaan</p>
+                </div>
+              </div>
             </div>
-            <div className="flex flex-col">
-              <h1 className="text-xl font-black text-slate-900 tracking-tight uppercase leading-none">SIPENA</h1>
-              <p className="text-[9px] font-bold text-indigo-600 uppercase tracking-[0.3em] mt-1">Sistem Informasi Perpustakaan</p>
-            </div>
+
+            {/* Desktop Menu */}
+            <nav className="hidden xl:flex items-center space-x-1">
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveSection(item.id as SipenaSection)}
+                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${
+                    activeSection === item.id 
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                  }`}
+                >
+                  <item.icon size={14} />
+                  {item.title}
+                </button>
+              ))}
+            </nav>
+
+            {/* Mobile Menu Toggle */}
+            <button 
+              className="xl:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
           </div>
         </div>
-        
-        <div className="hidden lg:flex items-center gap-2 bg-slate-100/50 p-1.5 rounded-2xl border border-slate-200/50">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveSection(item.id as SipenaSection)}
-              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${
-                activeSection === item.id 
-                  ? 'bg-white text-indigo-600 shadow-[0_10px_20px_-5px_rgba(0,0,0,0.05)] translate-y-[-1px]' 
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
-              }`}
-            >
-              <item.icon size={14} className={activeSection === item.id ? 'text-indigo-600' : 'text-slate-400'} />
-              {item.title}
-            </button>
-          ))}
-        </div>
-
-        {/* Mobile Menu Trigger Placeholder */}
-        <div className="lg:hidden">
-          <select 
-            value={activeSection}
-            onChange={(e) => setActiveSection(e.target.value as SipenaSection)}
-            className="bg-slate-100 border-none rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest outline-none"
-          >
-            {menuItems.map(item => (
-              <option key={item.id} value={item.id}>{item.title}</option>
-            ))}
-          </select>
-        </div>
       </div>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div className="xl:hidden fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+          <div className="absolute top-20 left-0 right-0 bg-white border-b border-slate-100 p-4 space-y-2 shadow-xl animate-in slide-in-from-top duration-300 max-h-[70vh] overflow-y-auto">
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveSection(item.id as SipenaSection);
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center space-x-3 px-6 py-4 rounded-2xl transition-all font-black uppercase tracking-widest text-[10px] ${
+                  activeSection === item.id 
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                    : 'text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                <item.icon size={18} />
+                <span>{item.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">

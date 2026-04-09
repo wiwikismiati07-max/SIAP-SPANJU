@@ -63,167 +63,121 @@ export default function IzinSiswaApp() {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
-  return (
-    <div className="flex flex-col h-full bg-slate-50">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 p-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            className="md:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-          <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 hidden md:flex">
-            <UserCheck size={24} />
-          </div>
-          <div>
-            <h1 className="text-lg md:text-xl font-bold text-slate-800 leading-tight">Izin Siswa <span className="text-[10px] font-normal text-slate-400">v1.2</span></h1>
-            <p className="text-[10px] md:text-xs text-slate-500">
-              {isLoggedIn ? `Halo, ${user.nama_lengkap || user.username} (${user.role})` : 'Sistem Informasi Perizinan Siswa'}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden lg:flex items-center gap-2 text-xs md:text-sm text-slate-500 font-medium mr-4">
-            <Calendar size={16} />
-            {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-          </div>
-          
-          {isLoggedIn ? (
-            <button 
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl text-xs font-bold border border-rose-100 transition-colors"
-            >
-              <LogOut size={14} />
-              <span className="hidden sm:inline">Keluar</span>
-            </button>
-          ) : (
-            <button 
-              onClick={() => setActiveTab('operator')}
-              className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-xl text-xs font-bold border border-emerald-100 transition-colors"
-            >
-              <UserCheck size={14} />
-              <span className="hidden sm:inline">Login Staff</span>
-            </button>
-          )}
+  const menuItems = [
+    { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
+    { id: 'wali', label: 'Form Wali Murid', icon: Users },
+    { id: 'operator', label: 'Absensi Siswa', icon: UserCheck, staff: true },
+    { id: 'kalender', label: 'Kalender Belajar', icon: Calendar, staff: true },
+    { id: 'laporan', label: 'Laporan Detail', icon: FileText, staff: true },
+    { id: 'panggilan', label: 'Panggilan Orang Tua', icon: AlertTriangle, staff: true },
+  ];
 
-          {supabase ? (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold border border-emerald-200 shadow-sm">
-              <Database size={14} />
-              <span className="hidden sm:inline">Supabase</span>
+  if (isAdmin) {
+    menuItems.push({ id: 'master', label: 'Master Data', icon: Database, staff: true });
+    menuItems.push({ id: 'users', label: 'Setup Login', icon: ShieldCheck, staff: true });
+  }
+
+  return (
+    <div className="flex flex-col h-full bg-slate-50 relative">
+      {/* Top Navigation Bar */}
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
+                <UserCheck size={24} />
+              </div>
+              <div>
+                <h1 className="text-base md:text-lg font-bold text-slate-800 leading-tight">Izin Siswa <span className="text-[10px] font-normal text-slate-400 hidden sm:inline">v1.2</span></h1>
+                <p className="text-[10px] text-slate-500 font-medium hidden sm:block">
+                  {isLoggedIn ? `Halo, ${user.nama_lengkap || user.username}` : 'Sistem Informasi Perizinan Siswa'}
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 rounded-full text-xs font-bold border border-amber-200 shadow-sm">
-              <Database size={14} />
-              Local
+
+            {/* Desktop Menu */}
+            <nav className="hidden xl:flex items-center space-x-1">
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as any)}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-xl transition-all duration-300 font-semibold text-xs ${
+                    activeTab === item.id 
+                      ? 'bg-emerald-600 text-white shadow-md' 
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <item.icon size={16} />
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </nav>
+
+            {/* Mobile Menu Toggle & Actions */}
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-2 text-[10px] text-slate-500 font-bold bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+                <Calendar size={12} />
+                {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+              </div>
+              
+              {isLoggedIn ? (
+                <button 
+                  onClick={handleLogout}
+                  className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl transition-colors border border-rose-100"
+                  title="Keluar"
+                >
+                  <LogOut size={18} />
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setActiveTab('operator')}
+                  className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-xl transition-colors border border-emerald-100"
+                  title="Login Staff"
+                >
+                  <UserCheck size={18} />
+                </button>
+              )}
+
+              <button 
+                className="xl:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              >
+                {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Sidebar */}
-        <div className={`
-          absolute md:relative z-20 h-full w-64 bg-white border-r border-slate-200 flex flex-col p-4 gap-2 shrink-0 transition-transform duration-300 overflow-y-auto
-          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-        `}>
-          <button
-            onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-              activeTab === 'dashboard' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <LayoutDashboard size={20} />
-            <span className="font-semibold">Beranda</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('wali'); setIsMobileMenuOpen(false); }}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-              activeTab === 'wali' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <Users size={20} />
-            <span className="font-semibold">Form Wali Murid</span>
-          </button>
-          
-          <div className="h-px bg-slate-100 my-2" />
-          <p className="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Menu Staff</p>
-
-          <button
-            onClick={() => { setActiveTab('operator'); setIsMobileMenuOpen(false); }}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-              activeTab === 'operator' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <UserCheck size={20} />
-            <span className="font-semibold">Absensi Siswa</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('kalender'); setIsMobileMenuOpen(false); }}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-              activeTab === 'kalender' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <Calendar size={20} />
-            <span className="font-semibold">Kalender Belajar</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('laporan'); setIsMobileMenuOpen(false); }}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-              activeTab === 'laporan' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <FileText size={20} />
-            <span className="font-semibold">Laporan Detail</span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('panggilan'); setIsMobileMenuOpen(false); }}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-              activeTab === 'panggilan' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <AlertTriangle size={20} />
-            <span className="font-semibold">Panggilan Orang Tua</span>
-          </button>
-
-          {isAdmin && (
-            <>
-              <div className="h-px bg-slate-100 my-2" />
-              <p className="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Administrator</p>
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div className="xl:hidden fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+          <div className="absolute top-20 left-0 right-0 bg-white border-b border-slate-200 p-4 space-y-2 shadow-xl animate-in slide-in-from-top duration-300 max-h-[70vh] overflow-y-auto">
+            {menuItems.map((item) => (
               <button
-                onClick={() => { setActiveTab('master'); setIsMobileMenuOpen(false); }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-                  activeTab === 'master' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id as any);
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center space-x-3 px-4 py-3.5 rounded-2xl transition-all font-semibold ${
+                  activeTab === item.id 
+                    ? 'bg-emerald-600 text-white shadow-md' 
+                    : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                <Database size={20} />
-                <span className="font-semibold">Master Data</span>
+                <item.icon size={20} />
+                <span>{item.label}</span>
               </button>
-              <button
-                onClick={() => { setActiveTab('users'); setIsMobileMenuOpen(false); }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
-                  activeTab === 'users' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <ShieldCheck size={20} />
-                <span className="font-semibold">Setup Login</span>
-              </button>
-            </>
-          )}
+            ))}
+          </div>
         </div>
+      )}
 
-        {/* Overlay for mobile */}
-        {isMobileMenuOpen && (
-          <div 
-            className="absolute inset-0 bg-black/20 z-10 md:hidden"
-            onClick={() => setIsMobileMenuOpen(false)}
-          />
-        )}
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 w-full">
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-4 md:p-8">
+        <div className="max-w-7xl mx-auto pb-12">
           {activeTab === 'dashboard' && <DashboardIzin />}
           {activeTab === 'wali' && <FormWaliMurid />}
           {activeTab === 'operator' && <FormOperatorIzin />}

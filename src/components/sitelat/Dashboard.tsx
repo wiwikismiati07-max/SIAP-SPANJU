@@ -159,103 +159,72 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Table Section */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+        <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+              <Clock size={24} />
+            </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-800">Laporan Hadir Terlambat Siswa</h3>
-              <p className="text-xs text-slate-500 uppercase tracking-wider mt-1">Terakhir Update: {new Date().toLocaleTimeString()}</p>
+              <h3 className="text-xl font-black text-slate-800">Laporan Mingguan Terlambat</h3>
+              <p className="text-sm font-medium text-slate-500">Rekap siswa terlambat minggu ini (Kelas 7, 8, 9).</p>
             </div>
           </div>
-          <div className="overflow-auto flex-1 max-h-[500px]">
-            <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 bg-slate-50 z-10 shadow-sm">
-                <tr className="border-b border-slate-100">
-                  <th className="p-4 text-sm font-semibold text-slate-600">Tanggal</th>
-                  <th className="p-4 text-sm font-semibold text-slate-600">Waktu</th>
-                  <th className="p-4 text-sm font-semibold text-slate-600">Nama Siswa</th>
-                  <th className="p-4 text-sm font-semibold text-slate-600">Kelas</th>
-                  <th className="p-4 text-sm font-semibold text-slate-600">Status</th>
-                  <th className="p-4 text-sm font-semibold text-slate-600">Alasan</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={6} className="p-8 text-center text-slate-500">Loading data...</td></tr>
-                ) : transaksi.length === 0 ? (
-                  <tr><td colSpan={6} className="p-8 text-center text-slate-500">Belum ada data absensi untuk tanggal ini.</td></tr>
-                ) : (
-                  transaksi.map((t) => (
-                    <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                      <td className="p-4 text-sm text-slate-600">{t.tanggal}</td>
-                      <td className="p-4 text-sm text-slate-600">{t.jam}</td>
-                      <td className="p-4 text-sm font-medium text-slate-800">{t.siswa?.nama || 'Unknown'}</td>
-                      <td className="p-4 text-sm text-slate-600">{t.siswa?.kelas || '-'}</td>
-                      <td className="p-4 text-sm text-rose-600 font-medium">Terlambat</td>
-                      <td className="p-4 text-sm text-slate-600">{t.alasan}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <input 
+                type="date" 
+                value={dateRange.start}
+                onChange={(e) => setDateRange({ start: e.target.value, end: e.target.value })}
+                className="pl-4 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm font-bold focus:ring-2 focus:ring-blue-500/20 outline-none bg-slate-50/50"
+              />
+            </div>
+            <button className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
+              <Download size={18} />
+              <span>Download Excel</span>
+            </button>
           </div>
         </div>
 
-        {/* Right Column: Chart & Alerts */}
-        <div className="space-y-6">
-          {/* Chart */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-            <h3 className="text-lg font-bold text-slate-800 mb-4">Tren Keterlambatan (7 Hari)</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dx={-10} />
-                  <Tooltip 
-                    cursor={{ fill: '#f1f5f9' }}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  />
-                  <Bar dataKey="Terlambat" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Alerts */}
-          <div className="bg-rose-50 border border-rose-100 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-rose-600 shadow-sm">
-                  <PhoneCall size={20} />
+        <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50/30">
+          {[7, 8, 9].map((grade) => {
+            const gradeData = transaksi.filter(t => t.siswa?.kelas.startsWith(grade.toString()));
+            return (
+              <div key={grade} className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col h-[400px]">
+                <div className="p-4 border-b border-slate-50 flex items-center justify-between">
+                  <h4 className="font-black text-slate-800 uppercase tracking-tight">Kelas {grade}</h4>
+                  <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full uppercase tracking-wider">
+                    {gradeData.length} Terlambat
+                  </span>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-800">Report Panggilan Orang Tua</h3>
-                  <p className="text-xs text-slate-500">Siswa terlambat lebih dari 2 kali</p>
+                <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+                  {gradeData.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-slate-400 text-xs font-medium italic">
+                      Tidak ada data
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {gradeData.map((t) => (
+                        <div key={t.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors group">
+                          <div className="flex-1 min-w-0 mr-3">
+                            <p className="text-sm font-bold text-slate-700 truncate group-hover:text-blue-600 transition-colors uppercase">
+                              {t.siswa?.nama}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[10px] font-mono text-slate-400 font-bold">{t.jam}</span>
+                            <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-black rounded uppercase">
+                              {t.siswa?.kelas}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-              <span className="bg-rose-600 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">Penting</span>
-            </div>
-            
-            <div className="space-y-3 mt-4 overflow-y-auto max-h-[350px] pr-2 custom-scrollbar">
-              {frequentLatecomers.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center py-4">Tidak ada siswa yang perlu dipanggil.</p>
-              ) : (
-                frequentLatecomers.map((s, i) => (
-                  <div key={i} className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border border-rose-100/50">
-                    <div>
-                      <p className="text-sm font-bold text-slate-800">{s.nama}</p>
-                      <p className="text-xs text-slate-500">Kelas {s.kelas}</p>
-                    </div>
-                    <div className="bg-rose-100 text-rose-700 font-bold text-sm px-3 py-1 rounded-lg">
-                      {s.count}x
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -21,95 +21,88 @@ const DispensasiApp: React.FC<DispensasiAppProps> = ({ onBack }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col md:flex-row relative">
-      {/* Mobile Header */}
-      <div className="md:hidden bg-white border-b border-slate-100 p-4 flex items-center justify-between sticky top-0 z-30">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-blue-600 rounded-lg flex items-center justify-center shadow-md">
-            <span className="text-white font-black text-sm">S</span>
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col relative">
+      {/* Top Navigation Bar */}
+      <div className="bg-white border-b border-slate-100 sticky top-0 z-30 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center space-x-6">
+              <button 
+                onClick={onBack}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-all group"
+                title="Kembali ke Menu"
+              >
+                <ArrowLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
+              </button>
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-100">
+                  <span className="text-white font-black text-xl">S</span>
+                </div>
+                <div className="hidden sm:block">
+                  <h1 className="text-lg font-black text-slate-800 leading-tight">Si-DISPENSASI</h1>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Siswa SMPN 7</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop Menu */}
+            <nav className="hidden md:flex items-center space-x-2">
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as any)}
+                  className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 ${
+                    activeTab === item.id 
+                      ? `${item.bg} ${item.color} shadow-sm ring-1 ring-slate-100` 
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                  }`}
+                >
+                  <item.icon size={18} />
+                  <span className="text-sm font-bold">{item.label}</span>
+                </button>
+              ))}
+            </nav>
+
+            {/* Mobile Menu Toggle */}
+            <button 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="md:hidden p-2 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors"
+            >
+              {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
           </div>
-          <h1 className="text-sm font-black text-slate-800 uppercase tracking-tight">Si-DISPENSASI</h1>
         </div>
-        <button 
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="p-2 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors"
-        >
-          {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
       </div>
 
-      {/* Sidebar Overlay */}
+      {/* Mobile Menu Overlay */}
       {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 md:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
+        <div className="md:hidden fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
+          <div className="absolute top-20 left-0 right-0 bg-white border-b border-slate-100 p-4 space-y-2 shadow-xl animate-in slide-in-from-top duration-300">
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id as any);
+                  setIsSidebarOpen(false);
+                }}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all ${
+                  activeTab === item.id 
+                    ? `${item.bg} ${item.color}` 
+                    : 'text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                <item.icon size={20} />
+                <span className="text-sm font-bold">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
-      {/* Sidebar */}
-      <div className={`
-        fixed md:sticky top-0 left-0 h-screen w-64 bg-white border-r border-slate-100 flex flex-col z-50 transition-transform duration-300 md:translate-x-0
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
-        <div className="p-6 border-b border-slate-50">
-          <button 
-            onClick={onBack}
-            className="flex items-center space-x-2 text-slate-400 hover:text-slate-600 transition-colors mb-6 group"
-          >
-            <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-bold uppercase tracking-widest">Kembali ke Menu</span>
-          </button>
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-100">
-              <span className="text-white font-black text-xl">S</span>
-            </div>
-            <div>
-              <h1 className="text-lg font-black text-slate-800 leading-tight">Si-DISPENSASI</h1>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Siswa SMPN 7</p>
-            </div>
-          </div>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveTab(item.id as any);
-                setIsSidebarOpen(false);
-              }}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all duration-300 group ${
-                activeTab === item.id 
-                  ? `${item.bg} ${item.color} shadow-sm ring-1 ring-slate-100` 
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
-              }`}
-            >
-              <item.icon size={20} className={activeTab === item.id ? item.color : 'text-slate-400 group-hover:text-slate-600'} />
-              <span className={`text-sm font-bold ${activeTab === item.id ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'}`}>
-                {item.label}
-              </span>
-              {activeTab === item.id && (
-                <div className={`ml-auto w-1.5 h-1.5 rounded-full ${item.color.replace('text', 'bg')}`} />
-              )}
-            </button>
-          ))}
-        </nav>
-
-        <div className="p-6 border-t border-slate-50">
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-2xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-150 duration-700" />
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status Sistem</p>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-xs font-bold text-white">Terhubung Supabase</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
-      <div className="flex-1 p-4 md:p-8 overflow-y-auto h-screen">
-        <div className="max-w-6xl mx-auto pb-12">
+      <div className="flex-1 p-4 md:p-8 overflow-y-auto">
+        <div className="max-w-7xl mx-auto pb-12">
           {activeTab === 'dashboard' && <DispDashboard />}
           {activeTab === 'master' && <DispMasterData />}
           {activeTab === 'input' && <DispInputData />}
