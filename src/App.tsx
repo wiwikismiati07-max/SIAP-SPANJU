@@ -181,6 +181,24 @@ export default function App() {
     })
   };
 
+  const sidebarItems = [
+    { id: 'sitelat', title: 'SI-TELAT', subtitle: 'SISTEM KETERLAMBATAN SISWA', icon: Clock, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200' },
+    { id: 'izinsiswa', title: 'IZIN SISWA', subtitle: 'SISTEM PERIZINAN SISWA', icon: UserCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200' },
+    { id: 'sipena', title: 'SIPENA', subtitle: 'PERPUSTAKAAN SISWA (BARU)', icon: Library, color: 'from-slate-800 to-black', shadow: 'shadow-slate-300' },
+    { id: 'pengaduan', title: 'PENGADUAN WALI MURID', subtitle: 'LAYANAN PENGADUAN (BARU)', icon: MessageSquare, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200' },
+    { id: 'dispensasi', title: 'SI-DISPENSASI', subtitle: 'DISPENSASI SISWA (BARU)', icon: FileCheck, color: 'from-indigo-500 to-indigo-600', shadow: 'shadow-indigo-200' },
+    { id: 'prestasi', title: 'SI-PRESTASI', subtitle: 'PRESTASI SISWA (BARU)', icon: Trophy, color: 'from-purple-500 to-purple-600', shadow: 'shadow-purple-200' },
+    { id: 'keagamaan', title: 'KEAGAMAAN', subtitle: 'KEGIATAN KEAGAMAAN (BARU)', icon: Book, color: 'from-teal-500 to-teal-600', shadow: 'shadow-teal-200' },
+    { id: 'uks', title: 'UKS SMPN7', subtitle: 'UNIT KESEHATAN SEKOLAH (BARU)', icon: HeartPulse, color: 'from-rose-500 to-rose-600', shadow: 'shadow-rose-200' },
+    { id: 'disiplinsiswa', title: 'DISIPLIN SISWA', subtitle: 'KASUS RINGAN (GURU)', icon: ClipboardList, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200' },
+    { id: 'bkpedulisiswa', title: 'BK PEDULI SISWA', subtitle: 'KASUS BERAT (GURU BK)', icon: Users, color: 'from-pink-500 to-pink-600', shadow: 'shadow-pink-200' },
+    { id: 'kilas', title: 'KILAS APLIKASI', subtitle: 'REFERENSI DASAR', icon: Book, color: 'from-amber-500 to-amber-600', shadow: 'shadow-amber-200' },
+    { id: 'program', title: '8 PROGRAM PRIORITAS', subtitle: 'SMPN 7 PASURUAN', icon: LayoutDashboard, color: 'from-cyan-500 to-cyan-600', shadow: 'shadow-cyan-200' },
+    { id: 'spip', title: '15 INDIKATOR SPIP', subtitle: 'ANTI KORUPSI', icon: Shield, color: 'from-violet-500 to-violet-600', shadow: 'shadow-violet-200' },
+    { id: 'korelasi_program', title: 'KORELASI PROGRAM', subtitle: 'SPIP & SIAP SPANJU', icon: ClipboardList, color: 'from-orange-500 to-orange-600', shadow: 'shadow-orange-200' },
+    { id: 'korelasi_sra', title: 'KORELASI SRA', subtitle: 'SEKOLAH RAMAH ANAK', icon: Activity, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200' },
+  ];
+
   if (!isDashboard) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-blue-50 flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
@@ -271,25 +289,9 @@ export default function App() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-2 min-w-[280px]">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 min-w-[280px] custom-scrollbar">
           {/* Static Sections */}
-          {[
-            { id: 'sitelat', title: 'Si-Telat', subtitle: 'Sistem Keterlambatan Siswa', icon: Clock, color: 'from-blue-500 to-blue-700' },
-            { id: 'izinsiswa', title: 'Izin Siswa', subtitle: 'Sistem Perizinan Siswa', icon: UserCheck, color: 'from-emerald-500 to-emerald-700' },
-            { id: 'sipena', title: 'SIPENA', subtitle: 'Perpustakaan Siswa (Baru)', icon: Library, color: 'from-slate-800 to-black', prominent: true, extraLarge: true },
-            { id: 'pengaduan', title: 'PENGADUAN WALI MURID', subtitle: 'Layanan Pengaduan (Baru)', icon: MessageSquare, color: 'from-pink-500 to-rose-600', prominent: true, extraLarge: true },
-            { id: 'dispensasi', title: 'Si-DISPENSASI', subtitle: 'Dispensasi Siswa (Baru)', icon: FileCheck, color: 'from-pink-600 to-blue-600', prominent: true, extraLarge: true },
-            { id: 'prestasi', title: 'Si-PRESTASI', subtitle: 'Prestasi Siswa (Baru)', icon: Trophy, color: 'from-purple-600 to-indigo-600', prominent: true },
-            { id: 'keagamaan', title: 'KEAGAMAAN', subtitle: 'Kegiatan Keagamaan (Baru)', icon: Book, color: 'from-emerald-600 to-teal-600', prominent: true },
-            { id: 'uks', title: 'UKS SMPN7', subtitle: 'Unit Kesehatan Sekolah (Baru)', icon: HeartPulse, color: 'from-rose-500 to-red-700', prominent: true },
-            { id: 'disiplinsiswa', title: 'Disiplin Siswa', subtitle: 'Kasus Ringan (Guru)', icon: ClipboardList, color: 'from-blue-500 to-blue-700' },
-            { id: 'bkpedulisiswa', title: 'BK_PEDULI SISWA SMPN7', subtitle: 'Kasus Berat (Guru BK)', icon: Users, color: 'from-pink-500 to-pink-700' },
-            { id: 'kilas', title: 'Kilas Aplikasi', subtitle: 'Referensi Dasar', icon: Book, color: 'from-pink-500 to-pink-600' },
-            { id: 'program', title: '8 Program Prioritas', subtitle: 'SMPN 7 Pasuruan', icon: LayoutDashboard, color: 'from-blue-400 to-blue-600' },
-            { id: 'spip', title: '15 Indikator SPIP', subtitle: 'Anti Korupsi', icon: Shield, color: 'from-purple-400 to-purple-600' },
-            { id: 'korelasi_program', title: 'Korelasi Program', subtitle: 'SPIP & SIAP SPANJU', icon: ClipboardList, color: 'from-orange-400 to-orange-600' },
-            { id: 'korelasi_sra', title: 'Korelasi SRA', subtitle: 'Sekolah Ramah Anak', icon: Activity, color: 'from-emerald-400 to-emerald-600' },
-          ].map((section) => (
+          {sidebarItems.map((section) => (
             <button
               key={section.id}
               onClick={() => {
@@ -297,16 +299,22 @@ export default function App() {
                 setSelectedLinkId(null);
                 if (isMobile) setIsSidebarOpen(false);
               }}
-              className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition-all duration-300 ${
-                activeSection === section.id ? 'bg-white/80 shadow-sm translate-y-[-1px] ring-1 ring-white/50' : 'hover:bg-white/50 text-slate-600'
+              className={`w-full text-left p-4 mb-3 rounded-[1.5rem] flex items-center gap-4 transition-all duration-300 group relative border-b-[6px] border-r-[2px] ${
+                activeSection === section.id 
+                  ? 'bg-white border-slate-200 shadow-[0_5px_15px_rgba(0,0,0,0.05)] translate-y-[4px]' 
+                  : 'bg-white/80 border-slate-100 hover:bg-white hover:border-slate-200 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-1'
               }`}
             >
-              <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${section.color} flex items-center justify-center text-white shadow-sm shrink-0 transition-all duration-500 ${activeSection === section.id ? 'scale-110 rotate-3' : ''}`}>
-                <section.icon size={20} />
+              <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${section.color} flex items-center justify-center text-white shadow-lg ${section.shadow} shrink-0 transition-all duration-500 group-hover:scale-110`}>
+                <section.icon size={24} />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className={`font-black tracking-tight truncate uppercase ${section.prominent ? (section.extraLarge ? 'text-[20px] text-black' : 'text-[16px] text-black') : 'text-[14px]'} ${activeSection === section.id && !section.prominent ? 'text-slate-800' : (section.prominent ? '' : 'text-slate-600')}`}>{section.title}</p>
-                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{section.subtitle}</p>
+              <div className="flex-1 min-w-0 relative">
+                <p className={`font-black tracking-tight truncate uppercase leading-tight text-[16px] ${activeSection === section.id ? 'text-slate-900' : 'text-slate-700 group-hover:text-slate-900'}`}>
+                  {section.title}
+                </p>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">{section.subtitle}</p>
+                
+                <div className={`h-1.5 bg-red-600 rounded-full mt-2 transition-all duration-500 ${activeSection === section.id ? 'w-3/4' : 'w-12 group-hover:w-3/4'}`} />
               </div>
             </button>
           ))}
@@ -323,16 +331,17 @@ export default function App() {
                 href={app.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full text-left p-3 rounded-xl flex items-center gap-3 transition-all duration-300 hover:bg-white/50 text-slate-600 group"
+                className="w-full text-left p-4 mb-3 rounded-[1.5rem] flex items-center gap-4 transition-all duration-300 group relative border-b-[6px] border-r-[2px] bg-white/80 border-slate-100 hover:bg-white hover:border-slate-200 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-1"
               >
-                <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${app.color} flex items-center justify-center text-white shadow-sm shrink-0 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3`}>
+                <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${app.color} flex items-center justify-center text-white shadow-lg shrink-0 transition-all duration-500 group-hover:scale-110`}>
                   <Icon size={20} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-black tracking-tight truncate text-[14px] uppercase text-slate-600 group-hover:text-slate-800 transition-colors">{app.title}</p>
-                  <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Direct Link</p>
+                  <p className="font-black tracking-tight truncate text-[14px] uppercase text-slate-700 group-hover:text-slate-900 transition-colors">{app.title}</p>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">DIRECT LINK</p>
+                  <div className="h-1.5 bg-blue-500 rounded-full mt-2 transition-all duration-500 w-8 group-hover:w-1/2" />
                 </div>
-                <ExternalLink size={14} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+                <ExternalLink size={16} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
               </a>
             );
           })}
@@ -343,19 +352,22 @@ export default function App() {
           {userLinks.map((link) => {
             const Icon = ICON_MAP[link.icon] || Globe;
             return (
-              <div key={link.id} className="relative group">
+              <div key={link.id} className="relative group mb-3">
                 <button
                   onClick={() => handleAppSelect(link)}
-                  className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition-all duration-300 ${
-                    selectedLinkId === link.id ? 'bg-white/80 shadow-sm translate-y-[-1px] ring-1 ring-white/50' : 'hover:bg-white/50 text-slate-600'
+                  className={`w-full text-left p-4 rounded-[1.5rem] flex items-center gap-4 transition-all duration-300 border-b-[6px] border-r-[2px] ${
+                    selectedLinkId === link.id 
+                      ? 'bg-white border-slate-200 shadow-[0_5px_15px_rgba(0,0,0,0.05)] translate-y-[4px]' 
+                      : 'bg-white/80 border-slate-100 hover:bg-white hover:border-slate-200 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-1'
                   }`}
                 >
-                  <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${link.color} flex items-center justify-center text-white shadow-sm shrink-0 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3`}>
-                    <Icon size={20} />
+                  <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${link.color} flex items-center justify-center text-white shadow-lg shrink-0 transition-all duration-500 group-hover:scale-110`}>
+                    <Icon size={24} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`font-black tracking-tight truncate text-[14px] uppercase ${selectedLinkId === link.id ? 'text-slate-800' : 'text-slate-600'}`}>{link.title}</p>
-                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{link.displayMode === 'iframe' ? 'Dashboard' : 'New Tab'}</p>
+                    <p className={`font-black tracking-tight truncate text-[14px] uppercase ${selectedLinkId === link.id ? 'text-slate-900' : 'text-slate-700 group-hover:text-slate-900'}`}>{link.title}</p>
+                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">{link.displayMode === 'iframe' ? 'DASHBOARD' : 'NEW TAB'}</p>
+                    <div className={`h-1.5 bg-indigo-500 rounded-full mt-2 transition-all duration-500 ${selectedLinkId === link.id ? 'w-3/4' : 'w-8 group-hover:w-1/2'}`} />
                   </div>
                 </button>
                 <button
@@ -373,9 +385,9 @@ export default function App() {
                       }
                     }
                   }}
-                  className="absolute -right-1 -top-1 opacity-0 group-hover:opacity-100 p-1 text-rose-500 hover:text-white bg-white hover:bg-rose-500 rounded-lg shadow-lg border border-slate-100 transition-all z-10"
+                  className="absolute -right-2 -top-2 opacity-0 group-hover:opacity-100 p-2 text-rose-500 hover:text-white bg-white hover:bg-rose-500 rounded-full shadow-lg border border-slate-100 transition-all z-10"
                 >
-                  <Trash2 size={12} />
+                  <Trash2 size={14} />
                 </button>
               </div>
             );

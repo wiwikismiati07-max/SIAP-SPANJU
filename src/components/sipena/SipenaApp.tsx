@@ -87,34 +87,39 @@ const SipenaApp: React.FC<SipenaAppProps> = ({ onBack }) => {
   ];
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 overflow-hidden font-sans">
+    <div className="h-full flex flex-col bg-[#F8FAFC] overflow-hidden font-sans selection:bg-indigo-100 selection:text-indigo-900">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 z-20">
-        <div className="flex items-center gap-4">
+      <div className="bg-white/80 backdrop-blur-md border-b border-slate-100 px-8 py-5 flex items-center justify-between shrink-0 z-20 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+        <div className="flex items-center gap-6">
           <button 
             onClick={onBack}
-            className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 transition-colors"
+            className="w-12 h-12 flex items-center justify-center bg-slate-50 hover:bg-white hover:shadow-md rounded-2xl text-slate-500 transition-all duration-300 group"
           >
-            <ChevronLeft size={24} />
+            <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
           </button>
-          <div className="flex flex-col">
-            <h1 className="text-2xl md:text-3xl font-black text-black tracking-tighter uppercase leading-none">SIPENA</h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Sistem Informasi Perpustakaan Siswa</p>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-800 flex items-center justify-center text-white shadow-lg shadow-indigo-100 rotate-3">
+              <Library size={24} />
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-xl font-black text-slate-900 tracking-tight uppercase leading-none">SIPENA</h1>
+              <p className="text-[9px] font-bold text-indigo-600 uppercase tracking-[0.3em] mt-1">Sistem Informasi Perpustakaan</p>
+            </div>
           </div>
         </div>
         
-        <div className="hidden lg:flex items-center gap-2">
+        <div className="hidden lg:flex items-center gap-2 bg-slate-100/50 p-1.5 rounded-2xl border border-slate-200/50">
           {menuItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setActiveSection(item.id as SipenaSection)}
-              className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${
                 activeSection === item.id 
-                  ? `bg-gradient-to-r ${item.color} text-white shadow-lg` 
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  ? 'bg-white text-indigo-600 shadow-[0_10px_20px_-5px_rgba(0,0,0,0.05)] translate-y-[-1px]' 
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
               }`}
             >
-              <item.icon size={14} />
+              <item.icon size={14} className={activeSection === item.id ? 'text-indigo-600' : 'text-slate-400'} />
               {item.title}
             </button>
           ))}
@@ -251,15 +256,15 @@ const SipenaDashboard = () => {
   };
 
   const statCards = [
-    { label: 'Total Kunjungan', value: stats.totalKunjungan, icon: Users, color: 'emerald' },
-    { label: 'Kunjungan Kelas', value: stats.kunjunganKelas, icon: GraduationCap, color: 'blue' },
-    { label: 'Total Jenis Buku', value: stats.totalJenisBuku, icon: BookOpen, color: 'amber' },
-    { label: 'Buku Koleksi', value: stats.bukuKoleksi, icon: Library, color: 'indigo' },
-    { label: 'Buku Dipinjam', value: stats.bukuDipinjam, icon: ArrowLeftRight, color: 'pink' },
+    { label: 'Total Kunjungan', value: stats.totalKunjungan, icon: Users, color: 'from-emerald-500 to-emerald-700', shadow: 'shadow-emerald-100' },
+    { label: 'Kunjungan Kelas', value: stats.kunjunganKelas, icon: GraduationCap, color: 'from-blue-500 to-blue-700', shadow: 'shadow-blue-100' },
+    { label: 'Total Jenis Buku', value: stats.totalJenisBuku, icon: BookOpen, color: 'from-amber-500 to-amber-700', shadow: 'shadow-amber-100' },
+    { label: 'Buku Koleksi', value: stats.bukuKoleksi, icon: Library, color: 'from-indigo-500 to-indigo-700', shadow: 'shadow-indigo-100' },
+    { label: 'Buku Dipinjam', value: stats.bukuDipinjam, icon: ArrowLeftRight, color: 'from-pink-500 to-rose-700', shadow: 'shadow-rose-100' },
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
         {statCards.map((card, i) => (
           <motion.div 
@@ -267,40 +272,62 @@ const SipenaDashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
-            className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 hover:shadow-md transition-all group"
+            whileHover={{ y: -5 }}
+            className="bg-white p-8 rounded-[2.5rem] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.1)] border border-slate-100 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.15)] transition-all group relative overflow-hidden"
           >
-            <div className={`w-12 h-12 rounded-2xl bg-${card.color}-50 text-${card.color}-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-              <card.icon size={24} />
+            <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${card.color} opacity-[0.03] rounded-full -mr-12 -mt-12 blur-2xl`} />
+            <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${card.color} text-white flex items-center justify-center mb-6 shadow-lg ${card.shadow} rotate-3 group-hover:rotate-0 transition-transform`}>
+              <card.icon size={28} />
             </div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{card.label}</p>
-            <h4 className="text-2xl font-black text-slate-800">{card.value}</h4>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{card.label}</p>
+            <h4 className="text-3xl font-black text-slate-900">{card.value}</h4>
           </motion.div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100"
+          className="bg-white p-10 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden group"
         >
-          <div className="flex items-center justify-between mb-8">
-            <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight">Grafik Stok Buku</h4>
-            <div className="p-2 bg-slate-50 rounded-xl text-slate-400">
-              <BarChart3 size={20} />
+          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-600" />
+          <div className="flex items-center justify-between mb-10">
+            <div>
+              <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Grafik Stok Buku</h4>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Top 5 Buku dengan Stok Terbanyak</p>
+            </div>
+            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:text-blue-600 transition-colors">
+              <BarChart3 size={24} />
             </div>
           </div>
-          <div className="h-[300px] w-full">
+          <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                  cursor={{ fill: '#f8fafc' }}
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 700 }} 
+                  dy={10}
                 />
-                <Bar dataKey="stok" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={40} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 700 }} />
+                <Tooltip 
+                  cursor={{ fill: '#F8FAFC' }}
+                  contentStyle={{ 
+                    borderRadius: '1rem', 
+                    border: 'none', 
+                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+                    fontSize: '12px',
+                    fontWeight: 'bold'
+                  }}
+                />
+                <Bar dataKey="stok" radius={[8, 8, 0, 0]} barSize={40}>
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={['#4F46E5', '#3B82F6', '#6366F1', '#818CF8', '#A5B4FC'][index % 5]} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -310,21 +337,29 @@ const SipenaDashboard = () => {
           <motion.div 
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100"
+            className="bg-white p-10 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden"
           >
-            <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-6">Siswa Sering Berkunjung</h4>
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-emerald-500 to-teal-600" />
+            <div className="flex items-center justify-between mb-8">
+              <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Top Pengunjung</h4>
+              <Users size={24} className="text-emerald-500" />
+            </div>
             <div className="space-y-4">
               {topVisitors.map((v, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors">
+                <div key={i} className="flex items-center justify-between p-5 bg-slate-50/50 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-md transition-all group">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-black text-sm">
-                      {i + 1}
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-black text-sm group-hover:scale-110 transition-transform">
+                      {v.name[0]}
                     </div>
-                    <span className="text-sm font-bold text-slate-700">{v.name}</span>
+                    <div>
+                      <p className="text-sm font-black text-slate-800">{v.name}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Siswa Aktif</p>
+                    </div>
                   </div>
-                  <span className="px-3 py-1 bg-white rounded-full text-[10px] font-black text-emerald-600 uppercase shadow-sm">
-                    {v.count} Kali
-                  </span>
+                  <div className="text-right">
+                    <p className="text-lg font-black text-emerald-600">{v.count}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Kunjungan</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -333,22 +368,30 @@ const SipenaDashboard = () => {
           <motion.div 
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100"
+            transition={{ delay: 0.1 }}
+            className="bg-white p-10 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden"
           >
-            <h4 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-6">Siswa Sering Pinjam</h4>
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-pink-500 to-rose-600" />
+            <div className="flex items-center justify-between mb-8">
+              <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Top Peminjam</h4>
+              <ArrowLeftRight size={24} className="text-pink-500" />
+            </div>
             <div className="space-y-4">
-              {topBorrowers.map((v, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors">
+              {topBorrowers.map((b, i) => (
+                <div key={i} className="flex items-center justify-between p-5 bg-slate-50/50 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-md transition-all group">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center font-black text-sm">
-                      {i + 1}
+                    <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center font-black text-sm group-hover:scale-110 transition-transform">
+                      {b.name[0]}
                     </div>
-                    <span className="text-sm font-bold text-slate-700">{v.name}</span>
+                    <div>
+                      <p className="text-sm font-black text-slate-800">{b.name}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Siswa Aktif</p>
+                    </div>
                   </div>
-                  <span className="px-3 py-1 bg-white rounded-full text-[10px] font-black text-pink-600 uppercase shadow-sm">
-                    {v.count} Buku
-                  </span>
+                  <div className="text-right">
+                    <p className="text-lg font-black text-pink-600">{b.count}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Pinjaman</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1572,46 +1615,51 @@ const SipenaPengembalian = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loans.map((l) => (
-          <div key={l.id} className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col justify-between">
-            <div>
+          <motion.div 
+            key={l.id} 
+            whileHover={{ y: -5 }}
+            className="bg-white p-8 rounded-[2.5rem] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.1),0_4px_6px_-2px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col justify-between transition-all hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15)] relative overflow-hidden group"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/50 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-indigo-100/50 transition-colors" />
+            <div className="relative z-10">
               <div className="flex items-center justify-between mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <User size={24} />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center shadow-lg shadow-indigo-100 rotate-3 group-hover:rotate-0 transition-transform">
+                  <User size={28} />
                 </div>
-                <span className="px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-[9px] font-black uppercase tracking-widest">
+                <span className="px-4 py-1.5 bg-rose-50 text-rose-600 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm">
                   Belum Kembali
                 </span>
               </div>
-              <h4 className="text-lg font-black text-slate-800 leading-tight mb-1">{l.master_siswa?.nama}</h4>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">Kelas {l.kelas}</p>
+              <h4 className="text-xl font-black text-slate-900 leading-tight mb-1">{l.master_siswa?.nama}</h4>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-6">Kelas {l.kelas}</p>
               
               <div className="space-y-3 mb-8">
                 {l.sipena_peminjaman_item?.map((item: any, i: number) => (
-                  <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl">
-                    <Book size={14} className="text-slate-400" />
-                    <span className="text-xs font-bold text-slate-600">{item.sipena_buku?.judul_buku}</span>
+                  <div key={i} className="flex items-center gap-3 p-4 bg-slate-50/80 rounded-2xl border border-slate-100/50 group-hover:bg-white transition-colors">
+                    <Book size={16} className="text-indigo-400" />
+                    <span className="text-xs font-bold text-slate-700">{item.sipena_buku?.judul_buku}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
+            <div className="space-y-4 relative z-10">
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest">
                 <span className="text-slate-400">Tgl Pinjam:</span>
-                <span className="text-slate-600">{safeFormatDate(l.tanggal_pinjam, 'dd/MM/yyyy')}</span>
+                <span className="text-slate-700">{safeFormatDate(l.tanggal_pinjam, 'dd/MM/yyyy')}</span>
               </div>
-              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest">
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest">
                 <span className="text-slate-400">Jatuh Tempo:</span>
                 <span className="text-rose-500">{safeFormatDate(l.tanggal_kembali_rencana, 'dd/MM/yyyy')}</span>
               </div>
               <button 
                 onClick={() => handleReturn(l.id)}
-                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
+                className="w-full py-5 bg-gradient-to-r from-indigo-600 to-indigo-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-[0_10px_20px_-5px_rgba(79,70,229,0.4)] hover:shadow-[0_15px_30px_-5px_rgba(79,70,229,0.5)] hover:translate-y-[-2px] active:translate-y-[0px] transition-all"
               >
                 Proses Kembali
               </button>
             </div>
-          </div>
+          </motion.div>
         ))}
         {loans.length === 0 && (
           <div className="col-span-full py-20 text-center bg-white rounded-[2.5rem] border border-dashed border-slate-200">
@@ -1919,23 +1967,23 @@ const SipenaLaporan = () => {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-      <div className="flex items-center justify-between">
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h3 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Laporan Perpustakaan</h3>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Unduh atau cetak laporan resmi</p>
+          <h3 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Laporan Perpustakaan</h3>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Rekapitulasi data koleksi dan aktivitas</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
             onClick={() => setShowPreview(true)}
-            className="p-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-200"
+            className="px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-2xl hover:shadow-[0_15px_30px_-5px_rgba(37,99,235,0.4)] transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-[0_10px_20px_-5px_rgba(37,99,235,0.3)] translate-y-[-2px]"
           >
             <Printer size={18} />
             Pratinjau Cetak
           </button>
           <button 
             onClick={exportToExcel}
-            className="p-3 bg-slate-800 text-white rounded-2xl hover:bg-slate-900 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-slate-200"
+            className="px-6 py-4 bg-slate-800 text-white rounded-2xl hover:bg-black transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-[0_10px_20px_-5px_rgba(0,0,0,0.2)] translate-y-[-2px]"
           >
             <Download size={18} />
             Export Excel
@@ -1943,13 +1991,15 @@ const SipenaLaporan = () => {
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl w-fit">
+      <div className="flex gap-2 p-2 bg-slate-100/50 rounded-2xl w-fit border border-slate-200/50">
         {(['buku', 'kunjungan', 'peminjaman'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setReportType(t)}
-            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-              reportType === t ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+            className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
+              reportType === t 
+                ? 'bg-white text-indigo-600 shadow-[0_10px_20px_-5px_rgba(0,0,0,0.05)] translate-y-[-1px]' 
+                : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'
             }`}
           >
             {t}
