@@ -138,6 +138,38 @@ export default function SurveyApp({ onBack }: SurveyAppProps) {
     value: statusCount[key]
   }));
 
+  const BAR_COLORS = [
+    '#ef4444', // red-500
+    '#f97316', // orange-500
+    '#eab308', // yellow-500
+    '#22c55e', // green-500
+    '#06b6d4', // cyan-500
+    '#3b82f6', // blue-500
+    '#6366f1', // indigo-500
+    '#a855f7', // purple-500
+    '#ec4899', // pink-500
+    '#f43f5e'  // rose-500
+  ];
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white p-4 rounded-2xl shadow-xl border border-slate-100 max-w-xs">
+          <p className="font-black text-slate-800 mb-2">{label}</p>
+          <p className="text-xs font-medium text-slate-600 mb-3 leading-relaxed">{data.fullText}</p>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: payload[0].fill }} />
+            <p className="font-bold text-slate-800">
+              Rata-rata: <span className="text-indigo-600">{data.RataRata}</span> / 5.0
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   const averageScores = QUESTIONS.map((q, index) => {
     const key = `q${index + 1}`;
     const sum = responses.reduce((acc, curr) => acc + (curr[key] || 0), 0);
@@ -419,13 +451,12 @@ export default function SurveyApp({ onBack }: SurveyAppProps) {
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 'bold' }} />
                               <YAxis domain={[0, 5]} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 'bold' }} />
-                              <RechartsTooltip 
-                                cursor={{ fill: '#f8fafc' }}
-                                contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                                labelStyle={{ fontWeight: 'bold', color: '#1e293b', marginBottom: '0.5rem' }}
-                                formatter={(value: number) => [`${value} / 5.0`, 'Rata-rata']}
-                              />
-                              <Bar dataKey="RataRata" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={40} />
+                              <RechartsTooltip content={<CustomTooltip />} />
+                              <Bar dataKey="RataRata" radius={[6, 6, 0, 0]} barSize={40}>
+                                {averageScores.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={BAR_COLORS[index % BAR_COLORS.length]} />
+                                ))}
+                              </Bar>
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
