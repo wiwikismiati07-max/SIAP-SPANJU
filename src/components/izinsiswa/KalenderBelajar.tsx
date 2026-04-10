@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { KalenderBelajar as KalenderType } from '../../types/izinsiswa';
-import { Calendar, Plus, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Calendar, Plus, Trash2, ChevronLeft, ChevronRight, X, Info } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOfWeek, endOfWeek, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
 
@@ -325,7 +325,32 @@ export default function KalenderBelajar() {
               <p className="text-slate-400 font-bold animate-pulse">Menyusun Kalender...</p>
             </div>
           ) : (
-            renderCells()
+            <>
+              {renderCells()}
+              
+              {/* Keterangan Bulan Ini */}
+              <div className="mt-8 bg-white p-8 rounded-[32px] border border-slate-100 flex items-start gap-4">
+                <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
+                  <Info className="text-indigo-600" size={20} />
+                </div>
+                <div>
+                  <h4 className="text-lg font-black text-slate-800 mb-2">Keterangan Bulan Ini</h4>
+                  {events.filter(e => e.libur).length > 0 ? (
+                    <ul className="space-y-2">
+                      {events.filter(e => e.libur).map(e => (
+                        <li key={e.id} className="text-sm font-bold text-slate-500 flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 bg-rose-400 rounded-full"></span>
+                          <span className="font-black text-slate-700">{format(new Date(e.tanggal), 'd MMMM', { locale: id })}:</span>
+                          {e.keterangan}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm font-bold text-slate-400 italic">Tidak ada hari libur khusus di bulan ini.</p>
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -365,6 +390,14 @@ export default function KalenderBelajar() {
                   <span className="text-5xl font-black text-slate-500">{summary.semester}</span>
                 </div>
                 <p className="text-[10px] font-bold text-slate-400 mt-2 leading-relaxed">Masa libur pergantian semester</p>
+              </div>
+
+              {/* Catatan Box */}
+              <div className="p-8 bg-indigo-600 rounded-[40px] shadow-xl shadow-indigo-100/50 text-white">
+                <h4 className="text-xs font-black uppercase tracking-[0.2em] mb-4 opacity-80">Catatan</h4>
+                <p className="text-sm font-bold leading-relaxed">
+                  Kalender ini merupakan acuan kegiatan belajar mengajar. Jadwal sewaktu-waktu dapat berubah sesuai dengan kebijakan Dinas Pendidikan setempat.
+                </p>
               </div>
             </div>
 
