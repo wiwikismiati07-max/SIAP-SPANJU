@@ -9,6 +9,10 @@ export default function DashboardIzin() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [data, setData] = useState<IzinWithSiswa[]>([]);
+  const [dateRange, setDateRange] = useState({
+    start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+    end: format(endOfMonth(new Date()), 'yyyy-MM-dd')
+  });
   const [stats, setStats] = useState({
     totalIzin: 0,
     menunggu: 0,
@@ -24,15 +28,16 @@ export default function DashboardIzin() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [dateRange]);
 
   const fetchData = async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      // Fetch data for the last 6 months to show trends
-      const start = format(subMonths(new Date(), 6), 'yyyy-MM-dd');
-      const end = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+      // Fetch data for the trend (last 6 months from end date)
+      const trendStart = format(subMonths(parseISO(dateRange.end), 5), 'yyyy-MM-dd');
+      const fetchStart = trendStart < dateRange.start ? trendStart : dateRange.start;
+      const end = dateRange.end;
 
       let allData: any[] = [];
 
@@ -46,27 +51,26 @@ export default function DashboardIzin() {
               kelas
             )
           `)
-          .gte('tanggal_mulai', start)
+          .gte('tanggal_mulai', fetchStart)
           .lte('tanggal_mulai', end);
 
         if (error) throw error;
         allData = fetchedData || [];
       } else {
         const localData = JSON.parse(localStorage.getItem('izinsiswa_data') || '[]');
-        allData = localData.filter((d: any) => d.tanggal_mulai >= start && d.tanggal_mulai <= end);
+        allData = localData.filter((d: any) => d.tanggal_mulai >= fetchStart && d.tanggal_mulai <= end);
       }
 
       setData(allData);
 
-      // Current month stats
-      const currentMonthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
-      const currentMonthData = allData.filter(d => d.tanggal_mulai >= currentMonthStart);
+      // Selected range stats
+      const filteredData = allData.filter(d => d.tanggal_mulai >= dateRange.start && d.tanggal_mulai <= dateRange.end);
 
       setStats({
-        totalIzin: currentMonthData.length,
-        menunggu: currentMonthData.filter((d: any) => d.status === 'Menunggu').length,
-        disetujui: currentMonthData.filter((d: any) => d.status === 'Disetujui').length,
-        ditolak: currentMonthData.filter((d: any) => d.status === 'Ditolak').length
+        totalIzin: filteredData.length,
+        menunggu: filteredData.filter((d: any) => d.status === 'Menunggu').length,
+        disetujui: filteredData.filter((d: any) => d.status === 'Disetujui').length,
+        ditolak: filteredData.filter((d: any) => d.status === 'Ditolak').length
       });
 
     } catch (error: any) {
@@ -78,16 +82,15 @@ export default function DashboardIzin() {
   };
 
   // Chart Data Calculations
-  const currentMonthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
-  const currentMonthData = data.filter(d => d.tanggal_mulai >= currentMonthStart && d.status === 'Disetujui');
+  const filteredData = data.filter(d => d.tanggal_mulai >= dateRange.start && d.tanggal_mulai <= dateRange.end && d.status === 'Disetujui');
 
   const statsPerKelas = KELAS_OPTIONS.map(kelas => ({
     name: kelas,
-    count: currentMonthData.filter(i => i.siswa?.kelas === kelas).length
+    count: filteredData.filter(i => i.siswa?.kelas === kelas).length
   })).filter(s => s.count > 0);
 
   const last6Months = Array.from({ length: 6 }).map((_, i) => {
-    const d = subMonths(new Date(), 5 - i);
+    const d = subMonths(parseISO(dateRange.end), 5 - i);
     return {
       month: d.getMonth(),
       year: d.getFullYear(),
@@ -103,10 +106,10 @@ export default function DashboardIzin() {
     return { name: m.name, count };
   });
 
-  const topAbsentees = Array.from(new Set(currentMonthData.map(i => i.siswa_id)))
+  const topAbsentees = Array.from(new Set(filteredData.map(i => i.siswa_id)))
     .map(id => {
-      const student = currentMonthData.find(i => i.siswa_id === id)?.siswa;
-      const count = currentMonthData.filter(i => i.siswa_id === id).length;
+      const student = filteredData.find(i => i.siswa_id === id)?.siswa;
+      const count = filteredData.filter(i => i.siswa_id === id).length;
       return { ...student, id, count };
     })
     .filter(s => s.count >= 3)
@@ -125,14 +128,39 @@ export default function DashboardIzin() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-slate-800">Dashboard Izin Siswa</h2>
-        <button 
-          onClick={fetchData}
-          className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-200"
-        >
-          Refresh
-        </button>
+        
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Tgl Awal</span>
+              <input 
+                type="date" 
+                value={dateRange.start}
+                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                className="text-sm font-bold text-slate-700 outline-none bg-transparent"
+              />
+            </div>
+            <div className="w-px h-8 bg-slate-100 mx-1" />
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Tgl Akhir</span>
+              <input 
+                type="date" 
+                value={dateRange.end}
+                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                className="text-sm font-bold text-slate-700 outline-none bg-transparent"
+              />
+            </div>
+          </div>
+
+          <button 
+            onClick={fetchData}
+            className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {errorMsg && (
@@ -148,7 +176,7 @@ export default function DashboardIzin() {
             <Users size={24} />
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-500">Total Pengajuan (Bulan Ini)</p>
+            <p className="text-sm font-medium text-slate-500">Total Pengajuan (Periode)</p>
             <p className="text-2xl font-bold text-slate-800">{stats.totalIzin}</p>
           </div>
         </div>
@@ -194,7 +222,7 @@ export default function DashboardIzin() {
             </div>
             <div>
               <h3 className="font-bold text-slate-800">Izin Per Kelas</h3>
-              <p className="text-xs text-slate-500">Data bulan ini yang disetujui</p>
+              <p className="text-xs text-slate-500">Data periode terpilih yang disetujui</p>
             </div>
           </div>
           
@@ -254,14 +282,14 @@ export default function DashboardIzin() {
             <AlertTriangle size={20} />
           </div>
           <div>
-            <h3 className="font-bold text-rose-800">Siswa Sering Izin (≥ 3x Bulan Ini)</h3>
+            <h3 className="font-bold text-rose-800">Siswa Sering Izin (≥ 3x Periode)</h3>
             <p className="text-xs text-rose-600/70">Daftar siswa dengan frekuensi izin tinggi</p>
           </div>
         </div>
 
         {topAbsentees.length === 0 ? (
           <div className="bg-white/50 p-8 rounded-xl text-center text-rose-600/70 italic border border-dashed border-rose-200">
-            Tidak ada siswa dengan frekuensi izin tinggi bulan ini.
+            Tidak ada siswa dengan frekuensi izin tinggi pada periode ini.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

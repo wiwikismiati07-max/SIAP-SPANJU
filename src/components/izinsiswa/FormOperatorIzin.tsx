@@ -52,6 +52,11 @@ export default function FormOperatorIzin() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (siswaList.length === 0) {
+      alert('Data siswa belum dimuat. Mohon tunggu sebentar atau refresh halaman.');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
@@ -62,22 +67,22 @@ export default function FormOperatorIzin() {
         const data = XLSX.utils.sheet_to_json(ws);
 
         if (data.length === 0) {
-          alert('File Excel kosong');
+          alert('File Excel kosong atau format tidak didukung');
           return;
         }
 
         // Validate and map data
         const processed = data.map((row: any) => {
-          const nama = row['Nama Siswa'] || row['nama_siswa'] || '';
-          const kelas = row['Kelas'] || row['kelas'] || '';
-          const tglMulai = row['Tanggal Mulai'] || row['tanggal_mulai'] || '';
-          const tglSelesai = row['Tanggal Selesai'] || row['tanggal_selesai'] || tglMulai;
-          const alasanRow = row['Alasan'] || row['alasan'] || '';
-          const namaGuru = row['Nama Guru'] || row['nama_guru'] || '';
+          const nama = (row['Nama Siswa'] || row['nama_siswa'] || '').toString().trim();
+          const kelas = (row['Kelas'] || row['kelas'] || '').toString().trim();
+          const tglMulai = (row['Tanggal Mulai'] || row['tanggal_mulai'] || '').toString().trim();
+          const tglSelesai = (row['Tanggal Selesai'] || row['tanggal_selesai'] || tglMulai).toString().trim();
+          const alasanRow = (row['Alasan'] || row['alasan'] || '').toString().trim();
+          const namaGuru = (row['Nama Guru'] || row['nama_guru'] || '').toString().trim();
 
           const student = siswaList.find(s => 
             s.nama.toLowerCase() === nama.toLowerCase() && 
-            s.kelas.toString().toUpperCase() === kelas.toString().toUpperCase()
+            s.kelas.toString().toUpperCase() === kelas.toUpperCase()
           );
 
           const teacher = guruList.find(g => 
@@ -85,7 +90,9 @@ export default function FormOperatorIzin() {
           );
 
           let error = '';
-          if (!student) error = 'Siswa tidak ditemukan';
+          if (!nama) error = 'Nama siswa kosong';
+          else if (!kelas) error = 'Kelas kosong';
+          else if (!student) error = 'Siswa tidak ditemukan di data master';
           else if (!tglMulai) error = 'Tanggal mulai kosong';
           else if (!alasanRow) error = 'Alasan kosong';
 
@@ -139,36 +146,51 @@ export default function FormOperatorIzin() {
     const validData = uploadData.filter(d => !d.error);
     if (validData.length === 0) return;
 
+    if (!supabase) {
+      const confirmOffline = confirm('Koneksi database (Supabase) tidak terdeteksi. Data akan disimpan di penyimpanan lokal browser saja. Lanjutkan?');
+      if (!confirmOffline) return;
+    }
+
     setIsUploading(true);
     try {
       const records = validData.map(d => ({
-        id: crypto.randomUUID(),
         siswa_id: d.siswa_id,
         guru_id: d.guru_id,
         tanggal_mulai: d.tanggal_mulai,
         tanggal_selesai: d.tanggal_selesai,
         alasan: d.alasan,
-        status: 'Disetujui',
+        status: 'Menunggu',
         diajukan_oleh: 'Operator',
         created_at: new Date().toISOString()
       }));
 
+      console.log(`Starting import of ${records.length} records...`);
+
       if (supabase) {
-        const { error } = await supabase.from('izin_siswa').insert(records);
-        if (error) throw error;
+        const chunkSize = 50; // Smaller chunk size for better reliability
+        for (let i = 0; i < records.length; i += chunkSize) {
+          const chunk = records.slice(i, i + chunkSize);
+          console.log(`Inserting chunk ${i / chunkSize + 1} of ${Math.ceil(records.length / chunkSize)}...`);
+          const { error } = await supabase.from('izin_siswa').insert(chunk);
+          if (error) {
+            console.error(`Error inserting chunk:`, error);
+            throw new Error(`Gagal menyimpan data pada baris ${i + 1}: ${error.message}`);
+          }
+        }
       } else {
         const localData = JSON.parse(localStorage.getItem('izinsiswa_data') || '[]');
-        const updated = [...localData, ...records];
+        const recordsWithId = records.map(r => ({ ...r, id: crypto.randomUUID() }));
+        const updated = [...localData, ...recordsWithId];
         localStorage.setItem('izinsiswa_data', JSON.stringify(updated));
       }
 
-      alert(`Berhasil mengimport ${validData.length} data.`);
+      alert(`Berhasil mengimport ${validData.length} data. Data sekarang muncul di daftar "Menunggu Persetujuan".`);
       setShowUploadModal(false);
       setUploadData([]);
       fetchPending();
     } catch (error: any) {
       console.error('Error importing:', error);
-      alert(`Gagal import data: ${error.message}`);
+      alert(`Gagal import data: ${error.message || 'Terjadi kesalahan jaringan atau database'}`);
     } finally {
       setIsUploading(false);
     }

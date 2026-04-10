@@ -411,7 +411,7 @@ export default function App() {
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           onClick={() => setIsSidebarOpen(true)}
-          className="fixed right-4 top-4 md:left-6 md:top-6 md:right-auto z-30 p-2 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-2xl md:rounded-3xl text-slate-600 hover:scale-110 transition-all active:scale-90 shadow-[0_8px_32_0_rgba(0,0,0,0.05)] overflow-hidden flex items-center gap-2"
+          className="fixed max-md:left-1/2 max-md:-translate-x-1/2 max-md:top-4 md:left-6 md:top-6 z-40 p-2 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-2xl md:rounded-3xl text-slate-600 hover:scale-110 transition-all active:scale-90 shadow-[0_8px_32_0_rgba(0,0,0,0.05)] overflow-hidden flex items-center gap-2"
         >
           <div className="flex flex-col items-end md:hidden">
             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">SIAP</span>
