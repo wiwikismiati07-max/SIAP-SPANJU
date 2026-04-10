@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Users, AlertCircle, TrendingUp, BarChart3, UserX, CheckCircle2, Clock, PieChart as PieChartIcon } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 
-export default function BKDashboard() {
+export default function DisiplinDashboard() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [stats, setStats] = useState({
@@ -35,8 +35,8 @@ export default function BKDashboard() {
         
         // Fetch all cases
         const { data: allKasus, error: pError } = await supabase
-          .from('bk_transaksi_kasus')
-          .select('*, siswa:master_siswa(nama, kelas)');
+          .from('transaksi_pelanggaran')
+          .select('*, siswa:master_siswa(nama, kelas), pelanggaran:master_pelanggaran(nama_pelanggaran, kategori, poin)');
         
         if (pError) throw pError;
 
@@ -56,7 +56,7 @@ export default function BKDashboard() {
 
         // Chart Data (Per Kelas)
         const perKelas = KELAS_OPTIONS.map(kelas => {
-          const count = safeKasus.filter(p => p.kelas === kelas || p.siswa?.kelas === kelas).length;
+          const count = safeKasus.filter(p => p.siswa?.kelas === kelas).length;
           return {
             name: kelas,
             value: count,
@@ -68,7 +68,7 @@ export default function BKDashboard() {
         // Category Data (Most frequent cases)
         const categories: Record<string, number> = {};
         safeKasus.forEach(k => {
-          const cat = k.kasus_kategori || 'Lain-Lain';
+          const cat = k.pelanggaran?.kategori || 'Lain-Lain';
           categories[cat] = (categories[cat] || 0) + 1;
         });
 
@@ -81,20 +81,20 @@ export default function BKDashboard() {
         throw new Error('Supabase client is not initialized');
       }
     } catch (error: any) {
-      console.error('Error fetching BK dashboard data:', error);
+      console.error('Error fetching Disiplin dashboard data:', error);
       setErrorMsg(error.message || 'Terjadi kesalahan saat memuat data dashboard.');
     } finally {
       setLoading(false);
     }
   };
 
-  const COLORS = ['#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316'];
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <div className="w-10 h-10 border-4 border-pink-200 border-t-pink-600 rounded-full animate-spin"></div>
-        <p className="text-slate-500 font-medium">Memuat dashboard BK...</p>
+        <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+        <p className="text-slate-500 font-medium">Memuat dashboard Disiplin Siswa...</p>
       </div>
     );
   }
@@ -134,7 +134,7 @@ export default function BKDashboard() {
         </div>
 
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-pink-100 flex items-center justify-center text-pink-600">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600">
             <Clock size={24} />
           </div>
           <div>
@@ -168,7 +168,7 @@ export default function BKDashboard() {
         {/* Chart Per Kelas */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center text-pink-600">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
               <PieChartIcon size={20} />
             </div>
             <div>
@@ -209,12 +209,12 @@ export default function BKDashboard() {
         {/* Most Frequent Cases */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
               <BarChart3 size={20} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-800">Grafik Kasus Terbanyak</h3>
-              <p className="text-xs text-slate-500">Kategori kasus yang paling sering terjadi</p>
+              <h3 className="font-bold text-slate-800">Grafik Kategori Pelanggaran</h3>
+              <p className="text-xs text-slate-500">Kategori pelanggaran yang paling sering terjadi</p>
             </div>
           </div>
 

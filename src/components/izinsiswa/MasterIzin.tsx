@@ -322,6 +322,17 @@ export default function MasterIzin() {
           </div>
         </div>
       )}
+
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl p-8 flex flex-col items-center animate-in fade-in zoom-in duration-200">
+            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4" />
+            <h3 className="text-lg font-bold text-slate-800">Memproses Update...</h3>
+            <p className="text-sm text-slate-500 mt-1">Mohon tunggu sebentar, sedang memperbarui data.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

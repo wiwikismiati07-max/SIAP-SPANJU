@@ -87,6 +87,7 @@ import UksApp from './components/uks/UksApp';
 import PengaduanWaliApp from './components/pengaduan/PengaduanWaliApp';
 import SipenaApp from './components/sipena/SipenaApp';
 import SurveyApp from './components/survey/SurveyApp';
+import DisiplinSiswaApp from './components/disiplinsiswa/DisiplinSiswaApp';
 
 // --- Components ---
 
@@ -442,38 +443,10 @@ export default function App() {
         )}
         {activeSection === 'disiplinsiswa' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-            <div className="h-full flex flex-col">
-              <div className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
-                <div className="flex items-center gap-3">
-                  <button 
-                    onClick={() => setActiveSection('menu_aplikasi')}
-                    className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors text-slate-500"
-                  >
-                    <ChevronLeft size={20} />
-                  </button>
-                  <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
-                    <ClipboardList size={18} />
-                  </div>
-                  <h2 className="font-bold text-slate-800">Disiplin Siswa (Kasus Ringan)</h2>
-                </div>
-                <a 
-                  href="https://bk-peduli-siswa.vercel.app/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
-                >
-                  Buka Penuh <ExternalLink size={12} />
-                </a>
-              </div>
-              <div className="flex-1">
-                <iframe
-                  src="https://bk-peduli-siswa.vercel.app/"
-                  className="w-full h-full border-none"
-                  title="Disiplin Siswa"
-                  sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-scripts allow-same-origin allow-storage-access-by-user-activation"
-                />
-              </div>
-            </div>
+            <DisiplinSiswaApp 
+              onBack={() => setActiveSection('menu_aplikasi')} 
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+            />
           </div>
         )}
         {activeSection === 'bkpedulisiswa' && (
