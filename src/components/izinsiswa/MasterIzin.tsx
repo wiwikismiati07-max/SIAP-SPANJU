@@ -6,7 +6,74 @@ import * as XLSX from 'xlsx';
 export default function MasterIzin() {
   const [loading, setLoading] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicates, setDuplicates] = useState<any[]>([]);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+
+  const checkDuplicates = async () => {
+    setLoading(true);
+    setNotification(null);
+    try {
+      let allData: any[] = [];
+      if (supabase) {
+        const { data, error } = await supabase.from('izin_siswa').select('*');
+        if (error) throw error;
+        allData = data || [];
+      } else {
+        allData = JSON.parse(localStorage.getItem('izinsiswa_data') || '[]');
+      }
+
+      // Group by identifying fields
+      const groups: { [key: string]: any[] } = {};
+      allData.forEach(item => {
+        const key = `${item.siswa_id}-${item.tanggal}-${item.jam_mulai}-${item.jam_selesai}-${item.keterangan}`;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(item);
+      });
+
+      // Find groups with more than 1 item
+      const duplicateGroups = Object.values(groups).filter(g => g.length > 1);
+      
+      if (duplicateGroups.length === 0) {
+        setNotification({ type: 'success', message: 'Tidak ditemukan data double!' });
+      } else {
+        setDuplicates(duplicateGroups);
+        setShowDuplicateModal(true);
+      }
+    } catch (error: any) {
+      setNotification({ type: 'error', message: `Gagal mengecek data: ${error.message}` });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCleanDuplicates = async () => {
+    setLoading(true);
+    try {
+      const idsToDelete: string[] = [];
+      duplicates.forEach(group => {
+        // Keep the first one, delete the rest
+        const toDelete = group.slice(1).map((item: any) => item.id);
+        idsToDelete.push(...toDelete);
+      });
+
+      if (supabase) {
+        const { error } = await supabase.from('izin_siswa').delete().in('id', idsToDelete);
+        if (error) throw error;
+      } else {
+        const localData = JSON.parse(localStorage.getItem('izinsiswa_data') || '[]');
+        const updated = localData.filter((item: any) => !idsToDelete.includes(item.id));
+        localStorage.setItem('izinsiswa_data', JSON.stringify(updated));
+      }
+
+      setShowDuplicateModal(false);
+      setNotification({ type: 'success', message: `Berhasil menghapus ${idsToDelete.length} data double!` });
+    } catch (error: any) {
+      alert(`Gagal menghapus data double: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleBulkUpdate = async () => {
     setShowConfirmModal(false);
@@ -287,13 +354,23 @@ export default function MasterIzin() {
             </div>
           )}
 
-          <button
-            onClick={() => setShowConfirmModal(true)}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-rose-100 text-rose-700 hover:bg-rose-200 rounded-xl font-medium transition-colors disabled:opacity-50"
-          >
-            <Save size={18} /> {loading ? 'Memproses...' : 'Update Seluruh Pengaju ke Wiwik Ismiati'}
-          </button>
+          <div className="space-y-3">
+            <button
+              onClick={() => setShowConfirmModal(true)}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-rose-100 text-rose-700 hover:bg-rose-200 rounded-xl font-medium transition-colors disabled:opacity-50"
+            >
+              <Save size={18} /> {loading ? 'Memproses...' : 'Update Seluruh Pengaju ke Wiwik Ismiati'}
+            </button>
+
+            <button
+              onClick={checkDuplicates}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-100 text-amber-700 hover:bg-amber-200 rounded-xl font-medium transition-colors disabled:opacity-50"
+            >
+              <Users size={18} /> {loading ? 'Mengecek...' : 'Cek & Hapus Data Double'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -317,6 +394,51 @@ export default function MasterIzin() {
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-medium transition-colors shadow-sm"
               >
                 Ya, Perbarui Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Modal */}
+      {showDuplicateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
+            <h3 className="text-xl font-bold text-slate-800 mb-2">Data Double Ditemukan</h3>
+            <p className="text-slate-600 mb-4">
+              Ditemukan <strong>{duplicates.length} grup</strong> data double. Sistem akan menghapus duplikat dan menyisakan 1 data yang benar untuk setiap grup.
+            </p>
+            
+            <div className="flex-1 overflow-y-auto mb-6 space-y-4 pr-2">
+              {duplicates.map((group, idx) => (
+                <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <p className="font-bold text-slate-800 text-sm">{group[0].nama_siswa} ({group[0].kelas})</p>
+                  <p className="text-xs text-slate-500">{group[0].tanggal} | {group[0].jam_mulai} - {group[0].jam_selesai}</p>
+                  <p className="text-xs text-slate-600 mt-1 italic">"{group[0].keterangan}"</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-full">
+                      {group.length} Data
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      Akan dihapus: {group.length - 1}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+              <button
+                onClick={() => setShowDuplicateModal(false)}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleCleanDuplicates}
+                className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition-colors shadow-lg shadow-amber-100"
+              >
+                Hapus Data Double
               </button>
             </div>
           </div>
