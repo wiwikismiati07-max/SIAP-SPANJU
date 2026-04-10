@@ -2,49 +2,49 @@ import ExcelJS from 'exceljs';
 
 export const addExcelHeaderAndLogos = async (worksheet: ExcelJS.Worksheet, workbook: ExcelJS.Workbook, title: string, colCount: number) => {
   // Fetch logo images
-  let logo1Id;
-  const logoUrl = 'https://iili.io/KDFk4fI.png';
-  const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(logoUrl)}&output=png`;
-
-  try {
-    // Try reliable image proxy first
-    const res1 = await fetch(proxyUrl);
-    if (!res1.ok) throw new Error(`Proxy fetch failed with status: ${res1.status}`);
-    
-    const blob1 = await res1.blob();
-    const buffer1 = await blob1.arrayBuffer();
-    
-    logo1Id = workbook.addImage({
-      buffer: buffer1,
-      extension: 'png',
-    });
-  } catch (error) {
-    console.error('Failed to load logo images via proxy, trying direct:', error);
+  let logoLeftId;
+  let logoRightId;
+  
+  const logoLeftUrl = 'https://i.ibb.co/677QPVHY/logo.png'; // Direct link for Pasuruan Logo
+  const logoRightUrl = 'https://iili.io/KDFk4fI.png'; // School Logo
+  
+  const fetchLogo = async (url: string) => {
+    const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url)}&output=png`;
     try {
-      // Fallback to direct fetch (might fail due to CORS but worth a try)
-      const resDirect = await fetch(logoUrl);
-      if (resDirect.ok) {
-        const blobDirect = await resDirect.blob();
-        const bufferDirect = await blobDirect.arrayBuffer();
-        logo1Id = workbook.addImage({
-          buffer: bufferDirect,
-          extension: 'png',
-        });
+      const res = await fetch(proxyUrl);
+      if (!res.ok) throw new Error(`Proxy fetch failed`);
+      const blob = await res.blob();
+      const buffer = await blob.arrayBuffer();
+      return workbook.addImage({ buffer, extension: 'png' });
+    } catch (e) {
+      try {
+        const resDirect = await fetch(url);
+        if (resDirect.ok) {
+          const blobDirect = await resDirect.blob();
+          const bufferDirect = await blobDirect.arrayBuffer();
+          return workbook.addImage({ buffer: bufferDirect, extension: 'png' });
+        }
+      } catch (de) {
+        console.error('Failed to fetch logo:', url, de);
       }
-    } catch (directError) {
-      console.error('Direct fetch also failed:', directError);
     }
-  }
+    return undefined;
+  };
 
-  // Add Image 1 to Worksheet (Top Left)
-  if (logo1Id !== undefined) {
-    worksheet.addImage(logo1Id, {
+  logoLeftId = await fetchLogo(logoLeftUrl);
+  logoRightId = await fetchLogo(logoRightUrl);
+
+  // Add Left Logo (Top Left)
+  if (logoLeftId !== undefined) {
+    worksheet.addImage(logoLeftId, {
       tl: { col: 0, row: 0 },
       ext: { width: 80, height: 90 }
     });
-    
-    // Add same logo to Top Right
-    worksheet.addImage(logo1Id, {
+  }
+  
+  // Add Right Logo (Top Right)
+  if (logoRightId !== undefined) {
+    worksheet.addImage(logoRightId, {
       tl: { col: colCount - 1, row: 0 },
       ext: { width: 80, height: 90 }
     });
