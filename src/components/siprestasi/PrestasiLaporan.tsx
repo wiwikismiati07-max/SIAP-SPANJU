@@ -1,3 +1,4 @@
+import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import React, { useState } from 'react';
 import { Calendar, Search, Download, FileText, Filter, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -46,93 +47,13 @@ const PrestasiLaporan: React.FC = () => {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Laporan Prestasi');
 
-      // Set Column Widths
-      worksheet.columns = [
-        { width: 5 },   // No
-        { width: 15 },  // Tanggal
-        { width: 10 },  // Jam
-        { width: 30 },  // Nama Siswa
-        { width: 10 },  // Kelas
-        { width: 15 },  // Jenis
-        { width: 35 },  // Nama Lomba
-        { width: 15 },  // Juara
-        { width: 15 },  // Tingkat
-        { width: 25 },  // Wali Kelas
-        { width: 25 },  // Guru BK
-      ];
-
       // --- HEADER SECTION ---
-      // Add Logo
-      try {
-        const response = await fetch('https://iili.io/KDFk4fI.png');
-        const buffer = await response.arrayBuffer();
-        const logoId = workbook.addImage({
-          buffer: buffer,
-          extension: 'png',
-        });
-        worksheet.addImage(logoId, {
-          tl: { col: 0.2, row: 0.2 },
-          ext: { width: 80, height: 90 }
-        });
-      } catch (e) {
-        console.error('Failed to load logo:', e);
-      }
-
-      // Header Text
-      const headerRows = [
-        ['PEMERINTAH KOTA PASURUAN'],
-        ['SMP NEGERI 7'],
-        ['Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139'],
-        ['Telepon (0343) 426845'],
-        ['Pos-el smp7pas@yahoo.co.id, Laman www.smpn7pasuruan.sch.id']
-      ];
-
-      headerRows.forEach((text, i) => {
-        const row = worksheet.getRow(i + 1);
-        row.getCell(4).value = text[0];
-        worksheet.mergeCells(i + 1, 4, i + 1, 11);
-        const cell = row.getCell(4);
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.font = { 
-          name: 'Arial', 
-          bold: i === 1, 
-          size: i === 1 ? 16 : 11 
-        };
-      });
-
-      // Separator Line
-      worksheet.getRow(6).height = 5;
-      worksheet.mergeCells(6, 1, 6, 11);
-      worksheet.getRow(6).getCell(1).border = { bottom: { style: 'double', color: { argb: 'FF000000' } } };
-
-      // Title
-      worksheet.mergeCells(8, 1, 8, 11);
-      const titleCell = worksheet.getCell(8, 1);
-      titleCell.value = 'Laporan Prestasi Siswa';
-      titleCell.font = { name: 'Arial', bold: true, size: 20 };
-      titleCell.alignment = { horizontal: 'center' };
+      await addExcelHeaderAndLogos(worksheet, workbook, 'Laporan Prestasi Siswa', 11);
 
       // --- TABLE SECTION ---
       const headerRow = worksheet.getRow(10);
       const headers = ['NO', 'TANGGAL', 'JAM', 'NAMA SISWA', 'KELAS', 'JENIS', 'NAMA LOMBA', 'JUARA', 'TINGKAT', 'WALI KELAS', 'GURU BK'];
-      
-      headers.forEach((h, i) => {
-        const cell = headerRow.getCell(i + 1);
-        cell.value = h;
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FF4F81BD' }
-        };
-        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.border = {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' }
-        };
-      });
+      headerRow.values = headers;
 
       // Data Rows
       reportData.forEach((item, index) => {
@@ -155,14 +76,23 @@ const PrestasiLaporan: React.FC = () => {
           const cell = row.getCell(i + 1);
           cell.value = v;
           cell.alignment = { horizontal: i === 0 || i === 2 || i === 4 ? 'center' : 'left', vertical: 'middle' };
-          cell.border = {
-            top: { style: 'thin' },
-            left: { style: 'thin' },
-            bottom: { style: 'thin' },
-            right: { style: 'thin' }
-          };
         });
       });
+
+      applyColorfulTableStyle(worksheet, 10, reportData.length, 11);
+
+      // Column Widths
+      worksheet.getColumn(1).width = 5;
+      worksheet.getColumn(2).width = 15;
+      worksheet.getColumn(3).width = 10;
+      worksheet.getColumn(4).width = 30;
+      worksheet.getColumn(5).width = 10;
+      worksheet.getColumn(6).width = 15;
+      worksheet.getColumn(7).width = 35;
+      worksheet.getColumn(8).width = 15;
+      worksheet.getColumn(9).width = 15;
+      worksheet.getColumn(10).width = 25;
+      worksheet.getColumn(11).width = 25;
 
       // --- FOOTER SECTION ---
       const lastDataRow = 11 + reportData.length;

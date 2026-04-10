@@ -1,3 +1,4 @@
+import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { IzinWithSiswa } from '../../types/izinsiswa';
@@ -148,60 +149,14 @@ export default function LaporanIzin() {
       }
 
       // --- HEADER SECTION ---
-      try {
-        const response = await fetch('https://iili.io/KDFk4fI.png');
-        const buffer = await response.arrayBuffer();
-        const logoId = workbook.addImage({
-          buffer: buffer,
-          extension: 'png',
-        });
-        worksheet.addImage(logoId, {
-          tl: { col: 0.2, row: 0.2 },
-          ext: { width: 80, height: 90 }
-        });
-      } catch (e) {
-        console.error('Failed to load logo:', e);
-      }
-
-      const headerRows = [
-        ['PEMERINTAH KOTA PASURUAN'],
-        ['SMP NEGERI 7'],
-        ['Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139'],
-        ['Telepon (0343) 426845'],
-        ['Pos-el smp7pas@yahoo.co.id, Laman www.smpn7pasuruan.sch.id']
-      ];
-
       const totalCols = reportType === 'detail' ? 8 : 6;
-
-      headerRows.forEach((text, i) => {
-        const row = worksheet.getRow(i + 1);
-        const startCol = Math.floor(totalCols / 2);
-        row.getCell(startCol).value = text[0];
-        worksheet.mergeCells(i + 1, startCol, i + 1, totalCols);
-        const cell = row.getCell(startCol);
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.font = { 
-          name: 'Arial', 
-          bold: i === 1, 
-          size: i === 1 ? 16 : 11 
-        };
-      });
-
-      // Separator Line
-      worksheet.getRow(6).height = 5;
-      worksheet.mergeCells(6, 1, 6, totalCols);
-      worksheet.getRow(6).getCell(1).border = { bottom: { style: 'double', color: { argb: 'FF000000' } } };
-
-      // Title
-      worksheet.mergeCells(8, 1, 8, totalCols);
-      const titleCell = worksheet.getCell(8, 1);
-      titleCell.value = reportType === 'detail' ? 'Laporan Dispensasi Siswa' : `Laporan Absensi Harian - Kelas ${selectedKelas}`;
-      titleCell.font = { name: 'Arial', bold: true, size: 20 };
-      titleCell.alignment = { horizontal: 'center' };
+      const title = reportType === 'detail' ? 'Laporan Dispensasi Siswa' : `Laporan Absensi Harian - Kelas ${selectedKelas || 'Semua'}`;
+      
+      await addExcelHeaderAndLogos(worksheet, workbook, title, totalCols);
 
       // Subtitle for period
-      worksheet.mergeCells(9, 1, 9, totalCols);
-      const subTitleCell = worksheet.getCell(9, 1);
+      worksheet.mergeCells(`A9:${String.fromCharCode(64 + totalCols)}9`);
+      const subTitleCell = worksheet.getCell('A9');
       subTitleCell.value = `Periode: ${dateRange.start} s/d ${dateRange.end}`;
       subTitleCell.alignment = { horizontal: 'center' };
 
@@ -214,24 +169,9 @@ export default function LaporanIzin() {
         headers = ['NO', 'NAMA SISWA', 'MASUK (X)', 'IZIN (V)', 'SAKIT (V)', 'ALPHA (V)'];
       }
       
-      headers.forEach((h, i) => {
-        const cell = headerRow.getCell(i + 1);
-        cell.value = h;
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FF4F81BD' }
-        };
-        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.border = {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' }
-        };
-      });
+      headerRow.values = headers;
 
+      let dataRowCount = 0;
       // Data Rows
       if (reportType === 'detail') {
         filteredData.forEach((item, index) => {
@@ -255,13 +195,8 @@ export default function LaporanIzin() {
             const cell = row.getCell(i + 1);
             cell.value = v;
             cell.alignment = { horizontal: i === 0 || i === 2 || i === 5 ? 'center' : 'left', vertical: 'middle' };
-            cell.border = {
-              top: { style: 'thin' },
-              left: { style: 'thin' },
-              bottom: { style: 'thin' },
-              right: { style: 'thin' }
-            };
           });
+          dataRowCount++;
         });
       } else {
         // Absensi Logic
@@ -301,21 +236,14 @@ export default function LaporanIzin() {
             const cell = row.getCell(i + 1);
             cell.value = v;
             cell.alignment = { horizontal: i === 1 ? 'left' : 'center', vertical: 'middle' };
-            cell.border = {
-              top: { style: 'thin' },
-              left: { style: 'thin' },
-              bottom: { style: 'thin' },
-              right: { style: 'thin' }
-            };
-            if (index % 2 !== 0) {
-              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-            }
           });
         });
       }
 
-      // --- FOOTER SECTION ---
       const dataCount = reportType === 'detail' ? filteredData.length : (worksheet.lastRow?.number ? worksheet.lastRow.number - 11 : 0);
+      applyColorfulTableStyle(worksheet, 11, dataCount, totalCols);
+
+      // --- FOOTER SECTION ---
       const footerStartRow = 12 + dataCount + 3;
 
       // Left Signature

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import { FileText, Download, Calendar, Search, Filter, HeartPulse, Pill, ClipboardList } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
@@ -82,63 +83,21 @@ const UksLaporan: React.FC = () => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Laporan UKS');
 
-    // Add Logo
-    try {
-      const response = await fetch(LOGO_URL);
-      const blob = await response.blob();
-      const arrayBuffer = await blob.arrayBuffer();
-      const imageId = workbook.addImage({
-        buffer: arrayBuffer,
-        extension: 'png',
-      });
-      worksheet.addImage(imageId, {
-        tl: { col: 0.5, row: 0.5 },
-        ext: { width: 60, height: 60 }
-      });
-    } catch (e) {
-      console.error('Failed to load logo for excel', e);
-    }
-
-    // Header
-    worksheet.mergeCells('B1:H1');
-    worksheet.getCell('B1').value = 'PEMERINTAH KOTA PASURUAN';
-    worksheet.getCell('B1').font = { size: 14, bold: true };
-    worksheet.getCell('B1').alignment = { horizontal: 'center' };
-
-    worksheet.mergeCells('B2:H2');
-    worksheet.getCell('B2').value = 'DINAS PENDIDIKAN DAN KEBUDAYAAN';
-    worksheet.getCell('B2').font = { size: 16, bold: true };
-    worksheet.getCell('B2').alignment = { horizontal: 'center' };
-
-    worksheet.mergeCells('B3:H3');
-    worksheet.getCell('B3').value = 'SMP NEGERI 7 PASURUAN';
-    worksheet.getCell('B3').font = { size: 18, bold: true };
-    worksheet.getCell('B3').alignment = { horizontal: 'center' };
-
-    worksheet.mergeCells('B4:H4');
-    worksheet.getCell('B4').value = 'Jl. Ki Hajar Dewantara No. 27 Pasuruan, Telp. (0343) 421270';
-    worksheet.getCell('B4').font = { size: 10, italic: true };
-    worksheet.getCell('B4').alignment = { horizontal: 'center' };
-
-    worksheet.addRow([]);
-    worksheet.addRow([]);
-
+    const totalCols = reportType === 'kunjungan' ? 8 : 7;
     const title = reportType === 'kunjungan' ? 'LAPORAN KUNJUNGAN & PEMERIKSAAN SISWA' : 
                   reportType === 'screening' ? 'LAPORAN SCREENING KESEHATAN SISWA' : 
                   'LAPORAN PEMAKAIAN OBAT UKS';
     
-    worksheet.mergeCells('A7:H7');
-    worksheet.getCell('A7').value = title;
-    worksheet.getCell('A7').font = { size: 14, bold: true, underline: true };
-    worksheet.getCell('A7').alignment = { horizontal: 'center' };
+    await addExcelHeaderAndLogos(worksheet, workbook, title, totalCols);
 
-    worksheet.mergeCells('A8:H8');
-    worksheet.getCell('A8').value = `Periode: ${format(new Date(dateRange.from), 'dd MMMM yyyy', { locale: id })} s/d ${format(new Date(dateRange.to), 'dd MMMM yyyy', { locale: id })}`;
-    worksheet.getCell('A8').alignment = { horizontal: 'center' };
-
-    worksheet.addRow([]);
+    // Subtitle for period
+    worksheet.mergeCells(`A9:${String.fromCharCode(64 + totalCols)}9`);
+    const subTitleCell = worksheet.getCell('A9');
+    subTitleCell.value = `Periode: ${format(new Date(dateRange.from), 'dd MMMM yyyy', { locale: id })} s/d ${format(new Date(dateRange.to), 'dd MMMM yyyy', { locale: id })}`;
+    subTitleCell.alignment = { horizontal: 'center' };
 
     // Table Header
+    const headerRow = worksheet.getRow(11);
     let headers: string[] = [];
     if (reportType === 'kunjungan') {
       headers = ['NO', 'TANGGAL', 'JAM', 'NAMA SISWA', 'KELAS', 'KELUHAN', 'PENANGANAN', 'OBAT'];
@@ -147,14 +106,7 @@ const UksLaporan: React.FC = () => {
     } else {
       headers = ['NO', 'TANGGAL', 'NAMA SISWA', 'KELAS', 'NAMA OBAT', 'JUMLAH', 'SATUAN'];
     }
-
-    const headerRow = worksheet.addRow(headers);
-    headerRow.eachCell((cell) => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE11D48' } };
-      cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
-      cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-      cell.alignment = { horizontal: 'center' };
-    });
+    headerRow.values = headers;
 
     // Data Rows
     data.forEach((item: any, index: number) => {
@@ -192,38 +144,32 @@ const UksLaporan: React.FC = () => {
           item.obat?.satuan
         ];
       }
-      const row = worksheet.addRow(rowData);
-      row.eachCell((cell) => {
-        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-        cell.alignment = { vertical: 'middle', wrapText: true };
-      });
+      worksheet.addRow(rowData);
     });
 
-    worksheet.addRow([]);
-    worksheet.addRow([]);
+    applyColorfulTableStyle(worksheet, 11, data.length, totalCols);
 
     // Signature
-    const lastRow = worksheet.lastRow?.number || 0;
-    worksheet.mergeCells(`F${lastRow + 1}:H${lastRow + 1}`);
-    worksheet.getCell(`F${lastRow + 1}`).value = `Pasuruan, ${format(new Date(), 'dd MMMM yyyy', { locale: id })}`;
-    worksheet.getCell(`F${lastRow + 1}`).alignment = { horizontal: 'center' };
+    const footerStartRow = 12 + data.length + 3;
+    const rightColStart = totalCols - 2;
+    const rightColEnd = totalCols;
 
-    worksheet.mergeCells(`F${lastRow + 2}:H${lastRow + 2}`);
-    worksheet.getCell(`F${lastRow + 2}`).value = 'Kepala SMP Negeri 7 Pasuruan';
-    worksheet.getCell(`F${lastRow + 2}`).alignment = { horizontal: 'center' };
+    worksheet.mergeCells(footerStartRow, rightColStart, footerStartRow, rightColEnd);
+    worksheet.getCell(footerStartRow, rightColStart).value = `Pasuruan, ${format(new Date(), 'dd MMMM yyyy', { locale: id })}`;
+    worksheet.getCell(footerStartRow, rightColStart).alignment = { horizontal: 'center' };
 
-    worksheet.addRow([]);
-    worksheet.addRow([]);
-    worksheet.addRow([]);
+    worksheet.mergeCells(footerStartRow + 1, rightColStart, footerStartRow + 1, rightColEnd);
+    worksheet.getCell(footerStartRow + 1, rightColStart).value = 'Kepala SMP Negeri 7 Pasuruan';
+    worksheet.getCell(footerStartRow + 1, rightColStart).alignment = { horizontal: 'center' };
 
-    worksheet.mergeCells(`F${lastRow + 6}:H${lastRow + 6}`);
-    worksheet.getCell(`F${lastRow + 6}`).value = '................................................';
-    worksheet.getCell(`F${lastRow + 6}`).font = { bold: true };
-    worksheet.getCell(`F${lastRow + 6}`).alignment = { horizontal: 'center' };
+    worksheet.mergeCells(footerStartRow + 5, rightColStart, footerStartRow + 5, rightColEnd);
+    worksheet.getCell(footerStartRow + 5, rightColStart).value = '................................................';
+    worksheet.getCell(footerStartRow + 5, rightColStart).font = { bold: true };
+    worksheet.getCell(footerStartRow + 5, rightColStart).alignment = { horizontal: 'center' };
 
-    worksheet.mergeCells(`F${lastRow + 7}:H${lastRow + 7}`);
-    worksheet.getCell(`F${lastRow + 7}`).value = 'NIP. ........................................';
-    worksheet.getCell(`F${lastRow + 7}`).alignment = { horizontal: 'center' };
+    worksheet.mergeCells(footerStartRow + 6, rightColStart, footerStartRow + 6, rightColEnd);
+    worksheet.getCell(footerStartRow + 6, rightColStart).value = 'NIP. ........................................';
+    worksheet.getCell(footerStartRow + 6, rightColStart).alignment = { horizontal: 'center' };
 
     // Column Widths
     worksheet.columns.forEach(column => {

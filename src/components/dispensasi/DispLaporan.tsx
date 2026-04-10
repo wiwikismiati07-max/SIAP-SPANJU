@@ -1,3 +1,4 @@
+import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import React, { useState, useEffect } from 'react';
 import { Search, Calendar, Download, Filter, User, FileText, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -81,88 +82,13 @@ const DispLaporan: React.FC = () => {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Laporan Dispensasi');
 
-      // Set Column Widths
-      worksheet.columns = [
-        { width: 5 },   // No
-        { width: 15 },  // Tanggal
-        { width: 10 },  // Jam
-        { width: 30 },  // Nama Siswa
-        { width: 10 },  // Kelas
-        { width: 30 },  // Jenis Dispensasi
-        { width: 40 },  // Alasan
-        { width: 40 },  // Tindak Lanjut
-      ];
-
       // --- HEADER SECTION ---
-      try {
-        const response = await fetch('https://iili.io/KDFk4fI.png');
-        const buffer = await response.arrayBuffer();
-        const logoId = workbook.addImage({
-          buffer: buffer,
-          extension: 'png',
-        });
-        worksheet.addImage(logoId, {
-          tl: { col: 0.2, row: 0.2 },
-          ext: { width: 80, height: 90 }
-        });
-      } catch (e) {
-        console.error('Failed to load logo:', e);
-      }
-
-      const headerRows = [
-        ['PEMERINTAH KOTA PASURUAN'],
-        ['SMP NEGERI 7'],
-        ['Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139'],
-        ['Telepon (0343) 426845'],
-        ['Pos-el smp7pas@yahoo.co.id, Laman www.smpn7pasuruan.sch.id']
-      ];
-
-      headerRows.forEach((text, i) => {
-        const row = worksheet.getRow(i + 1);
-        row.getCell(4).value = text[0];
-        worksheet.mergeCells(i + 1, 4, i + 1, 8);
-        const cell = row.getCell(4);
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.font = { 
-          name: 'Arial', 
-          bold: i === 1, 
-          size: i === 1 ? 16 : 11 
-        };
-      });
-
-      // Separator Line
-      worksheet.getRow(6).height = 5;
-      worksheet.mergeCells(6, 1, 6, 8);
-      worksheet.getRow(6).getCell(1).border = { bottom: { style: 'double', color: { argb: 'FF000000' } } };
-
-      // Title
-      worksheet.mergeCells(8, 1, 8, 8);
-      const titleCell = worksheet.getCell(8, 1);
-      titleCell.value = 'Laporan Dispensasi Siswa';
-      titleCell.font = { name: 'Arial', bold: true, size: 20 };
-      titleCell.alignment = { horizontal: 'center' };
+      await addExcelHeaderAndLogos(worksheet, workbook, 'Laporan Dispensasi Siswa', 8);
 
       // --- TABLE SECTION ---
       const headerRow = worksheet.getRow(10);
       const headers = ['NO', 'TANGGAL', 'JAM', 'NAMA SISWA', 'KELAS', 'JENIS DISPENSASI', 'ALASAN', 'TINDAK LANJUT'];
-      
-      headers.forEach((h, i) => {
-        const cell = headerRow.getCell(i + 1);
-        cell.value = h;
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FF4F81BD' }
-        };
-        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.border = {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' }
-        };
-      });
+      headerRow.values = headers;
 
       // Data Rows
       data.forEach((item, index) => {
@@ -182,14 +108,20 @@ const DispLaporan: React.FC = () => {
           const cell = row.getCell(i + 1);
           cell.value = v;
           cell.alignment = { horizontal: i === 0 || i === 2 || i === 4 ? 'center' : 'left', vertical: 'middle' };
-          cell.border = {
-            top: { style: 'thin' },
-            left: { style: 'thin' },
-            bottom: { style: 'thin' },
-            right: { style: 'thin' }
-          };
         });
       });
+
+      applyColorfulTableStyle(worksheet, 10, data.length, 8);
+
+      // Column Widths
+      worksheet.getColumn(1).width = 5;
+      worksheet.getColumn(2).width = 15;
+      worksheet.getColumn(3).width = 10;
+      worksheet.getColumn(4).width = 30;
+      worksheet.getColumn(5).width = 10;
+      worksheet.getColumn(6).width = 30;
+      worksheet.getColumn(7).width = 40;
+      worksheet.getColumn(8).width = 40;
 
       // --- FOOTER SECTION ---
       const lastDataRow = 11 + data.length;

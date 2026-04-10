@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import { Calendar, Search, Download, FileText, Filter, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AgamaAbsensi } from '../../types/keagamaan';
@@ -78,6 +79,7 @@ const KeagamaanLaporan: React.FC = () => {
       return;
     }
 
+    setLoading(true);
     try {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Laporan Keagamaan');
@@ -94,76 +96,14 @@ const KeagamaanLaporan: React.FC = () => {
         { width: 30 },  // Wali Kelas
       ];
 
-      // --- HEADER SECTION ---
-      try {
-        const response = await fetch('https://iili.io/KDFk4fI.png');
-        const buffer = await response.arrayBuffer();
-        const logoId = workbook.addImage({
-          buffer: buffer,
-          extension: 'png',
-        });
-        worksheet.addImage(logoId, {
-          tl: { col: 0.2, row: 0.2 },
-          ext: { width: 80, height: 90 }
-        });
-      } catch (e) {
-        console.error('Failed to load logo:', e);
-      }
-
-      const headerRows = [
-        ['PEMERINTAH KOTA PASURUAN'],
-        ['SMP NEGERI 7'],
-        ['Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139'],
-        ['Telepon (0343) 426845'],
-        ['Pos-el smp7pas@yahoo.co.id, Laman www.smpn7pasuruan.sch.id']
-      ];
-
-      headerRows.forEach((text, i) => {
-        const row = worksheet.getRow(i + 1);
-        row.getCell(4).value = text[0];
-        worksheet.mergeCells(i + 1, 4, i + 1, 8);
-        const cell = row.getCell(4);
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.font = { 
-          name: 'Arial', 
-          bold: i === 1, 
-          size: i === 1 ? 16 : 11 
-        };
-      });
-
-      // Separator Line
-      worksheet.getRow(6).height = 5;
-      worksheet.mergeCells(6, 1, 6, 8);
-      worksheet.getRow(6).getCell(1).border = { bottom: { style: 'double', color: { argb: 'FF000000' } } };
-
-      // Title
-      worksheet.mergeCells(8, 1, 8, 8);
-      const titleCell = worksheet.getCell(8, 1);
-      titleCell.value = 'Laporan Kegiatan Keagamaan Siswa';
-      titleCell.font = { name: 'Arial', bold: true, size: 20 };
-      titleCell.alignment = { horizontal: 'center' };
+      const totalCols = 8;
+      await addExcelHeaderAndLogos(worksheet, workbook, 'Laporan Kegiatan Keagamaan Siswa', totalCols);
 
       // --- TABLE SECTION ---
       const headerRow = worksheet.getRow(10);
       const headers = ['NO', 'TANGGAL', 'JAM', 'NAMA SISWA', 'KELAS', 'KEGIATAN', 'KETERANGAN', 'WALI KELAS'];
       
-      headers.forEach((h, i) => {
-        const cell = headerRow.getCell(i + 1);
-        cell.value = h;
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FF4F81BD' }
-        };
-        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
-        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        cell.border = {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' }
-        };
-      });
+      headerRow.values = headers;
 
       // Data Rows
       data.forEach((item, index) => {
@@ -183,14 +123,10 @@ const KeagamaanLaporan: React.FC = () => {
           const cell = row.getCell(i + 1);
           cell.value = v;
           cell.alignment = { horizontal: i === 0 || i === 2 || i === 4 ? 'center' : 'left', vertical: 'middle' };
-          cell.border = {
-            top: { style: 'thin' },
-            left: { style: 'thin' },
-            bottom: { style: 'thin' },
-            right: { style: 'thin' }
-          };
         });
       });
+
+      applyColorfulTableStyle(worksheet, 10, data.length, totalCols);
 
       // --- FOOTER SECTION ---
       const lastDataRow = 11 + data.length;
@@ -239,10 +175,11 @@ const KeagamaanLaporan: React.FC = () => {
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       saveAs(blob, `Laporan_Keagamaan_${filters.startDate}_sd_${filters.endDate}.xlsx`);
-
     } catch (error) {
       console.error('Excel Export Error:', error);
-      alert('Gagal mengekspor Excel');
+      alert('Gagal mengekspor Excel. Silakan coba lagi.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -257,9 +194,10 @@ const KeagamaanLaporan: React.FC = () => {
           </h3>
           <button
             onClick={downloadExcel}
-            className="px-6 py-3 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all flex items-center gap-2"
+            disabled={loading}
+            className="px-6 py-3 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download size={18} /> Download Excel
+            <Download size={18} /> {loading ? 'Memproses...' : 'Download Excel'}
           </button>
         </div>
 

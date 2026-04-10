@@ -1,3 +1,4 @@
+import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { FileText, Download, Search, Filter, Calendar, CheckCircle2, Clock } from 'lucide-react';
@@ -67,76 +68,10 @@ export default function BKLaporan() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet(reportType === 'kasus' ? 'Laporan Kasus' : 'Laporan Tindak Lanjut');
 
-    // Fetch logo image
-    let logoId;
-    try {
-      // Using a proxy to avoid CORS issues if needed, or direct if allowed
-      const response = await fetch('https://api.allorigins.win/raw?url=https://iili.io/KDFk4fI.png');
-      const blob = await response.blob();
-      const arrayBuffer = await blob.arrayBuffer();
-      logoId = workbook.addImage({
-        buffer: arrayBuffer,
-        extension: 'png',
-      });
-    } catch (error) {
-      console.error('Failed to load logo image:', error);
-    }
-
-    // Add Image to Worksheet
-    if (logoId !== undefined) {
-      worksheet.addImage(logoId, {
-        tl: { col: 0, row: 0 },
-        ext: { width: 80, height: 80 }
-      });
-    }
-
-    // Header text
-    const headerColCount = reportType === 'kasus' ? 10 : 9;
-    const headerRange = `B1:${String.fromCharCode(65 + headerColCount)}1`;
-    const headerRange2 = `B2:${String.fromCharCode(65 + headerColCount)}2`;
-    const headerRange3 = `B3:${String.fromCharCode(65 + headerColCount)}3`;
-    const headerRange4 = `B4:${String.fromCharCode(65 + headerColCount)}4`;
-    const headerRange5 = `B5:${String.fromCharCode(65 + headerColCount)}5`;
-
-    worksheet.mergeCells(headerRange);
-    worksheet.getCell('B1').value = 'PEMERINTAH KOTA PASURUAN';
-    worksheet.getCell('B1').font = { bold: true, size: 14, name: 'Times New Roman' };
-    worksheet.getCell('B1').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    worksheet.mergeCells(headerRange2);
-    worksheet.getCell('B2').value = 'SMP NEGERI 7';
-    worksheet.getCell('B2').font = { bold: true, size: 16, name: 'Times New Roman' };
-    worksheet.getCell('B2').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    worksheet.mergeCells(headerRange3);
-    worksheet.getCell('B3').value = 'Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139';
-    worksheet.getCell('B3').font = { size: 11, name: 'Times New Roman' };
-    worksheet.getCell('B3').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    worksheet.mergeCells(headerRange4);
-    worksheet.getCell('B4').value = 'Telepon (0343) 426845';
-    worksheet.getCell('B4').font = { size: 11, name: 'Times New Roman' };
-    worksheet.getCell('B4').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    worksheet.mergeCells(headerRange5);
-    worksheet.getCell('B5').value = 'Pos-el smp7pas@yahoo.co.id , Laman www.smpn7pasuruan.sch.id';
-    worksheet.getCell('B5').font = { size: 11, name: 'Times New Roman' };
-    worksheet.getCell('B5').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    // Double border under header
-    for (let i = 1; i <= headerColCount + 1; i++) {
-      worksheet.getCell(6, i).border = {
-        bottom: { style: 'double' },
-        top: { style: 'thin' }
-      };
-    }
-
-    // Report Title
-    const titleRange = `B8:${String.fromCharCode(65 + headerColCount)}8`;
-    worksheet.mergeCells(titleRange);
-    worksheet.getCell('B8').value = reportType === 'kasus' ? 'LAPORAN KASUS SISWA' : 'LAPORAN TINDAK LANJUT KASUS';
-    worksheet.getCell('B8').font = { bold: true, size: 12, name: 'Times New Roman' };
-    worksheet.getCell('B8').alignment = { horizontal: 'center', vertical: 'middle' };
+    const totalCols = reportType === 'kasus' ? 9 : 9;
+    const title = reportType === 'kasus' ? 'LAPORAN KASUS SISWA' : 'LAPORAN TINDAK LANJUT KASUS';
+    
+    await addExcelHeaderAndLogos(worksheet, workbook, title, totalCols);
 
     // Table Headers
     let headers: string[] = [];
@@ -148,20 +83,12 @@ export default function BKLaporan() {
 
     const headerRow = worksheet.getRow(10);
     headerRow.values = headers;
-    headerRow.eachCell((cell) => {
-      cell.font = { bold: true, name: 'Calibri', color: { argb: 'FFFFFFFF' } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5B9BD5' } };
-      cell.alignment = { horizontal: 'center', vertical: 'middle' };
-      cell.border = {
-        top: { style: 'thin' }, left: { style: 'thin' },
-        bottom: { style: 'thin' }, right: { style: 'thin' }
-      };
-    });
 
+    let dataRowCount = 0;
     // Table Data
     if (reportType === 'kasus') {
       filteredData.forEach((d, index) => {
-        const row = worksheet.addRow([
+        worksheet.addRow([
           index + 1,
           d.tanggal,
           d.kelas || d.siswa?.kelas || '-',
@@ -172,17 +99,14 @@ export default function BKLaporan() {
           d.wali_kelas || '-',
           d.status
         ]);
-        row.eachCell((cell) => {
-          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-          cell.alignment = { vertical: 'middle', wrapText: true };
-        });
+        dataRowCount++;
       });
     } else {
       let rowIndex = 1;
       filteredData.forEach((d) => {
         if (d.tindak_lanjuts && d.tindak_lanjuts.length > 0) {
           d.tindak_lanjuts.forEach((tl) => {
-            const row = worksheet.addRow([
+            worksheet.addRow([
               rowIndex++,
               d.tanggal,
               d.siswa?.nama || '-',
@@ -193,14 +117,13 @@ export default function BKLaporan() {
               tl.keterangan || '-',
               d.guru_bk || '-'
             ]);
-            row.eachCell((cell) => {
-              cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-              cell.alignment = { vertical: 'middle', wrapText: true };
-            });
+            dataRowCount++;
           });
         }
       });
     }
+
+    applyColorfulTableStyle(worksheet, 10, dataRowCount, totalCols);
 
     // Column Widths
     worksheet.getColumn(1).width = 5;
@@ -214,8 +137,7 @@ export default function BKLaporan() {
     worksheet.getColumn(9).width = 15;
 
     // Footer
-    const lastDataRow = worksheet.lastRow?.number || 10;
-    const footerRow = lastDataRow + 2;
+    const footerRow = 11 + dataRowCount + 2;
     
     worksheet.getCell(`B${footerRow}`).value = 'Mengetahui';
     worksheet.getCell(`G${footerRow}`).value = `Pasuruan, ${format(new Date(), 'd MMMM yyyy')}`;

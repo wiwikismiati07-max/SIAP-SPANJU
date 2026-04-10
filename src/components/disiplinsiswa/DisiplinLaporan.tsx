@@ -1,3 +1,4 @@
+import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { FileText, Download, Search, Filter, Calendar, CheckCircle2, Clock } from 'lucide-react';
@@ -61,132 +62,67 @@ export default function DisiplinLaporan() {
   );
 
   const handleDownloadExcel = async () => {
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Laporan Pelanggaran');
+    if (filteredData.length === 0) {
+      alert('Tidak ada data untuk diunduh.');
+      return;
+    }
 
-    // Fetch logo image
-    let logoId;
+    setLoading(true);
     try {
-      const response = await fetch('https://api.allorigins.win/raw?url=https://iili.io/KDFk4fI.png');
-      const blob = await response.blob();
-      const arrayBuffer = await blob.arrayBuffer();
-      logoId = workbook.addImage({
-        buffer: arrayBuffer,
-        extension: 'png',
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Laporan Pelanggaran');
+
+      const totalCols = 10;
+      await addExcelHeaderAndLogos(worksheet, workbook, 'LAPORAN PELANGGARAN SISWA', totalCols);
+
+      // Table Headers
+      const headers = ['NO', 'TANGGAL', 'JAM', 'KELAS', 'NAMA SISWA', 'PELANGGARAN', 'ALASAN', 'PENANGANAN', 'KONSEKUENSI', 'STATUS'];
+
+      const headerRow = worksheet.getRow(10);
+      headerRow.values = headers;
+
+      // Table Data
+      filteredData.forEach((d, index) => {
+        worksheet.addRow([
+          index + 1,
+          d.tanggal,
+          d.jam || '-',
+          d.siswa?.kelas || '-',
+          d.siswa?.nama || '-',
+          d.pelanggaran?.nama_pelanggaran || '-',
+          d.alasan || '-',
+          d.penanganan || '-',
+          d.konsekuensi || '-',
+          d.status
+        ]);
       });
+
+      applyColorfulTableStyle(worksheet, 10, filteredData.length, totalCols);
+
+      // Set column widths
+      worksheet.columns = [
+        { width: 5 },  // NO
+        { width: 12 }, // TANGGAL
+        { width: 10 }, // JAM
+        { width: 10 }, // KELAS
+        { width: 25 }, // NAMA SISWA
+        { width: 30 }, // PELANGGARAN
+        { width: 30 }, // ALASAN
+        { width: 20 }, // PENANGANAN
+        { width: 25 }, // KONSEKUENSI
+        { width: 15 }  // STATUS
+      ];
+
+      // Generate Excel File
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `Laporan_Pelanggaran_${filter.startDate}_${filter.endDate}.xlsx`);
     } catch (error) {
-      console.error('Failed to load logo image:', error);
+      console.error('Export Excel Error:', error);
+      alert('Gagal mengunduh Excel. Silakan coba lagi.');
+    } finally {
+      setLoading(false);
     }
-
-    // Add Image to Worksheet
-    if (logoId !== undefined) {
-      worksheet.addImage(logoId, {
-        tl: { col: 0, row: 0 },
-        ext: { width: 80, height: 80 }
-      });
-    }
-
-    // Header text
-    const headerColCount = 10;
-    const headerRange = `B1:${String.fromCharCode(65 + headerColCount)}1`;
-    const headerRange2 = `B2:${String.fromCharCode(65 + headerColCount)}2`;
-    const headerRange3 = `B3:${String.fromCharCode(65 + headerColCount)}3`;
-    const headerRange4 = `B4:${String.fromCharCode(65 + headerColCount)}4`;
-    const headerRange5 = `B5:${String.fromCharCode(65 + headerColCount)}5`;
-
-    worksheet.mergeCells(headerRange);
-    worksheet.getCell('B1').value = 'PEMERINTAH KOTA PASURUAN';
-    worksheet.getCell('B1').font = { bold: true, size: 14, name: 'Times New Roman' };
-    worksheet.getCell('B1').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    worksheet.mergeCells(headerRange2);
-    worksheet.getCell('B2').value = 'SMP NEGERI 7';
-    worksheet.getCell('B2').font = { bold: true, size: 16, name: 'Times New Roman' };
-    worksheet.getCell('B2').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    worksheet.mergeCells(headerRange3);
-    worksheet.getCell('B3').value = 'Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139';
-    worksheet.getCell('B3').font = { size: 11, name: 'Times New Roman' };
-    worksheet.getCell('B3').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    worksheet.mergeCells(headerRange4);
-    worksheet.getCell('B4').value = 'Telepon (0343) 426845';
-    worksheet.getCell('B4').font = { size: 11, name: 'Times New Roman' };
-    worksheet.getCell('B4').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    worksheet.mergeCells(headerRange5);
-    worksheet.getCell('B5').value = 'Pos-el smp7pas@yahoo.co.id , Laman www.smpn7pasuruan.sch.id';
-    worksheet.getCell('B5').font = { size: 11, name: 'Times New Roman' };
-    worksheet.getCell('B5').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    // Double border under header
-    for (let i = 1; i <= headerColCount + 1; i++) {
-      worksheet.getCell(6, i).border = {
-        bottom: { style: 'double' },
-        top: { style: 'thin' }
-      };
-    }
-
-    // Report Title
-    const titleRange = `B8:${String.fromCharCode(65 + headerColCount)}8`;
-    worksheet.mergeCells(titleRange);
-    worksheet.getCell('B8').value = 'LAPORAN PELANGGARAN SISWA';
-    worksheet.getCell('B8').font = { bold: true, size: 12, name: 'Times New Roman' };
-    worksheet.getCell('B8').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    // Table Headers
-    const headers = ['NO', 'TANGGAL', 'JAM', 'KELAS', 'NAMA SISWA', 'PELANGGARAN', 'ALASAN', 'PENANGANAN', 'KONSEKUENSI', 'STATUS'];
-
-    const headerRow = worksheet.getRow(10);
-    headerRow.values = headers;
-    headerRow.eachCell((cell) => {
-      cell.font = { bold: true, name: 'Calibri', color: { argb: 'FFFFFFFF' } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5B9BD5' } };
-      cell.alignment = { horizontal: 'center', vertical: 'middle' };
-      cell.border = {
-        top: { style: 'thin' }, left: { style: 'thin' },
-        bottom: { style: 'thin' }, right: { style: 'thin' }
-      };
-    });
-
-    // Table Data
-    filteredData.forEach((d, index) => {
-      const row = worksheet.addRow([
-        index + 1,
-        d.tanggal,
-        d.jam || '-',
-        d.siswa?.kelas || '-',
-        d.siswa?.nama || '-',
-        d.pelanggaran?.nama_pelanggaran || '-',
-        d.alasan || '-',
-        d.penanganan || '-',
-        d.konsekuensi || '-',
-        d.status
-      ]);
-      row.eachCell((cell) => {
-        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-        cell.alignment = { vertical: 'middle', wrapText: true };
-      });
-    });
-
-    // Set column widths
-    worksheet.columns = [
-      { width: 5 },  // NO
-      { width: 12 }, // TANGGAL
-      { width: 10 }, // JAM
-      { width: 10 }, // KELAS
-      { width: 25 }, // NAMA SISWA
-      { width: 30 }, // PELANGGARAN
-      { width: 30 }, // ALASAN
-      { width: 20 }, // PENANGANAN
-      { width: 25 }, // KONSEKUENSI
-      { width: 15 }  // STATUS
-    ];
-
-    // Generate Excel File
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    saveAs(blob, `Laporan_Pelanggaran_${filter.startDate}_${filter.endDate}.xlsx`);
   };
 
   return (
@@ -198,10 +134,11 @@ export default function DisiplinLaporan() {
         </div>
         <button 
           onClick={handleDownloadExcel}
-          className="flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all active:scale-95"
+          disabled={loading}
+          className="flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Download size={18} />
-          <span>Download Excel</span>
+          <span>{loading ? 'Memproses...' : 'Download Excel'}</span>
         </button>
       </div>
 

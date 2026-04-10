@@ -1,3 +1,5 @@
+import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
+import ExcelJS from 'exceljs';
 import React, { useState, useEffect } from 'react';
 import { 
   Library, 
@@ -34,6 +36,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { 
@@ -1849,41 +1852,154 @@ const SipenaLaporan = () => {
     }
   };
 
-  const exportToExcel = () => {
-    let exportData = [];
-    if (reportType === 'buku') {
-      exportData = data.map(b => ({
-        'Judul Buku': b.judul_buku,
-        'Jenis Buku': b.jenis_buku,
-        'Penerbit': b.penerbit,
-        'Tahun': b.tahun,
-        'Stok': b.stok_eksemplar
-      }));
-    } else if (reportType === 'kunjungan') {
-      exportData = data.map(v => ({
-        'Tanggal': v.tanggal,
-        'Jam': v.jam,
-        'Nama Siswa': v.master_siswa?.nama,
-        'Kelas': v.kelas,
-        'Keperluan': v.keperluan
-      }));
-    } else {
-      exportData = data.flatMap(l => l.sipena_peminjaman_item.map((item: any) => ({
-        'Tanggal Pinjam': l.tanggal_pinjam,
-        'Nama Siswa': l.master_siswa?.nama,
-        'Kelas': l.kelas,
-        'Judul Buku': item.sipena_buku?.judul_buku,
-        'Jumlah': item.jumlah,
-        'Status': l.status
-      })));
-    }
+  const exportToExcel = async () => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Laporan Perpustakaan');
 
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan");
-    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-    const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
-    saveAs(dataBlob, `Laporan_${reportType}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+      let title = '';
+      let headers: string[] = [];
+      let totalCols = 0;
+
+      if (reportType === 'buku') {
+        title = 'Laporan Data Buku';
+        headers = ['NO', 'JUDUL BUKU', 'JENIS BUKU', 'PENERBIT', 'TAHUN', 'STOK'];
+        totalCols = 6;
+      } else if (reportType === 'kunjungan') {
+        title = 'Laporan Kunjungan Siswa';
+        headers = ['NO', 'TANGGAL', 'JAM', 'NAMA SISWA', 'KELAS', 'KEPERLUAN'];
+        totalCols = 6;
+      } else {
+        title = 'Laporan Peminjaman Buku';
+        headers = ['NO', 'TANGGAL PINJAM', 'NAMA SISWA', 'KELAS', 'JUDUL BUKU', 'JUMLAH', 'STATUS'];
+        totalCols = 7;
+      }
+
+      await addExcelHeaderAndLogos(worksheet, workbook, title, totalCols);
+
+      // Table Headers
+      const headerRow = worksheet.getRow(10);
+      headerRow.values = headers;
+
+      // Data Rows
+      let rowCount = 0;
+      if (reportType === 'buku') {
+        data.forEach((b, index) => {
+          worksheet.addRow([
+            index + 1,
+            b.judul_buku,
+            b.jenis_buku,
+            b.penerbit,
+            b.tahun,
+            b.stok_eksemplar
+          ]);
+          rowCount++;
+        });
+      } else if (reportType === 'kunjungan') {
+        data.forEach((v, index) => {
+          worksheet.addRow([
+            index + 1,
+            safeFormatDate(v.tanggal),
+            v.jam,
+            v.master_siswa?.nama,
+            v.kelas,
+            v.keperluan
+          ]);
+          rowCount++;
+        });
+      } else {
+        data.forEach((l, index) => {
+          l.sipena_peminjaman_item.forEach((item: any) => {
+            worksheet.addRow([
+              rowCount + 1,
+              safeFormatDate(l.tanggal_pinjam),
+              l.master_siswa?.nama,
+              l.kelas,
+              item.sipena_buku?.judul_buku,
+              item.jumlah,
+              l.status
+            ]);
+            rowCount++;
+          });
+        });
+      }
+
+      applyColorfulTableStyle(worksheet, 10, rowCount, totalCols);
+
+      // Column Widths
+      if (reportType === 'buku') {
+        worksheet.getColumn(1).width = 5;
+        worksheet.getColumn(2).width = 40;
+        worksheet.getColumn(3).width = 20;
+        worksheet.getColumn(4).width = 25;
+        worksheet.getColumn(5).width = 10;
+        worksheet.getColumn(6).width = 10;
+      } else if (reportType === 'kunjungan') {
+        worksheet.getColumn(1).width = 5;
+        worksheet.getColumn(2).width = 15;
+        worksheet.getColumn(3).width = 10;
+        worksheet.getColumn(4).width = 30;
+        worksheet.getColumn(5).width = 10;
+        worksheet.getColumn(6).width = 40;
+      } else {
+        worksheet.getColumn(1).width = 5;
+        worksheet.getColumn(2).width = 15;
+        worksheet.getColumn(3).width = 30;
+        worksheet.getColumn(4).width = 10;
+        worksheet.getColumn(5).width = 40;
+        worksheet.getColumn(6).width = 10;
+        worksheet.getColumn(7).width = 15;
+      }
+
+      // Footer
+      const footerStartRow = 11 + rowCount + 2;
+      
+      // Left Signature
+      worksheet.mergeCells(footerStartRow, 2, footerStartRow, 3);
+      worksheet.getCell(footerStartRow, 2).value = 'Mengetahui';
+      worksheet.getCell(footerStartRow, 2).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 1, 2, footerStartRow + 1, 3);
+      worksheet.getCell(footerStartRow + 1, 2).value = 'Kepala Sekolah';
+      worksheet.getCell(footerStartRow + 1, 2).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 6, 2, footerStartRow + 6, 3);
+      const kasekName = worksheet.getCell(footerStartRow + 6, 2);
+      kasekName.value = 'NUR FADILAH, S.Pd';
+      kasekName.font = { bold: true, underline: true };
+      kasekName.alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 7, 2, footerStartRow + 7, 3);
+      worksheet.getCell(footerStartRow + 7, 2).value = 'NIP. 19860410 201001 2 030';
+      worksheet.getCell(footerStartRow + 7, 2).alignment = { horizontal: 'center' };
+
+      // Right Signature
+      const today = format(new Date(), 'd MMMM yyyy', { locale: idLocale });
+      worksheet.mergeCells(footerStartRow, totalCols - 2, footerStartRow, totalCols);
+      worksheet.getCell(footerStartRow, totalCols - 2).value = `Pasuruan, ${today}`;
+      worksheet.getCell(footerStartRow, totalCols - 2).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 1, totalCols - 2, footerStartRow + 1, totalCols);
+      worksheet.getCell(footerStartRow + 1, totalCols - 2).value = 'Petugas Perpustakaan';
+      worksheet.getCell(footerStartRow + 1, totalCols - 2).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 6, totalCols - 2, footerStartRow + 6, totalCols);
+      const petugasName = worksheet.getCell(footerStartRow + 6, totalCols - 2);
+      petugasName.value = 'WIWIK ISMIATI, S.Pd';
+      petugasName.font = { bold: true, underline: true };
+      petugasName.alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 7, totalCols - 2, footerStartRow + 7, totalCols);
+      worksheet.getCell(footerStartRow + 7, totalCols - 2).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(footerStartRow + 7, totalCols - 2).alignment = { horizontal: 'center' };
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const dataBlob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(dataBlob, `Laporan_${reportType}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    } catch (error) {
+      console.error('Excel Export Error:', error);
+      alert('Gagal mengekspor Excel');
+    }
   };
 
   const handlePrint = () => {

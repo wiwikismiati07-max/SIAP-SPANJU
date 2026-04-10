@@ -1,3 +1,6 @@
+import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { IzinWithSiswa } from '../../types/izinsiswa';
@@ -52,17 +55,50 @@ export default function LaporanPanggilan() {
     }
   };
 
-  const handleDownloadExcel = () => {
-    const exportData = data.map(d => ({
-      'NAMA': d.siswa?.nama,
-      'KELAS': d.siswa?.kelas,
-      'TOTAL IZIN': d.totalIzin
-    }));
+  const handleDownloadExcel = async () => {
+    if (data.length === 0) {
+      alert('Tidak ada data untuk diunduh.');
+      return;
+    }
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Panggilan Orang Tua");
-    XLSX.writeFile(wb, `Laporan_Panggilan_Orang_Tua.xlsx`);
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Panggilan Orang Tua');
+
+      const totalCols = 3;
+      await addExcelHeaderAndLogos(worksheet, workbook, 'Laporan Panggilan Orang Tua', totalCols);
+
+      // Table Headers
+      const headerRow = worksheet.getRow(10);
+      headerRow.values = ['NO', 'NAMA SISWA', 'KELAS', 'TOTAL IZIN'];
+      
+      // Data Rows
+      data.forEach((item, index) => {
+        worksheet.addRow([
+          index + 1,
+          item.siswa?.nama || '-',
+          item.siswa?.kelas || '-',
+          item.totalIzin
+        ]);
+      });
+
+      applyColorfulTableStyle(worksheet, 10, data.length, 4); // 4 columns actually
+
+      // Column Widths
+      worksheet.columns = [
+        { width: 5 },
+        { width: 40 },
+        { width: 15 },
+        { width: 15 }
+      ];
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `Laporan_Panggilan_Orang_Tua.xlsx`);
+    } catch (error) {
+      console.error('Error generating Excel:', error);
+      alert('Gagal membuat file Excel');
+    }
   };
 
   return (

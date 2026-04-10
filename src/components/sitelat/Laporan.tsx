@@ -1,4 +1,6 @@
+import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { TransaksiWithSiswa, Siswa } from '../../types/sitelat';
 import { Search, Trash2, Edit2, Save, X, Download, Upload } from 'lucide-react';
@@ -24,6 +26,7 @@ export default function Laporan() {
   const [viewMode, setViewMode] = useState<'list' | 'perKelas'>('list');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [showDownloadSuccess, setShowDownloadSuccess] = useState(false);
   
   // Form State for Edit
   const [showForm, setShowForm] = useState(false);
@@ -294,151 +297,91 @@ export default function Laporan() {
   };
 
   const exportToExcel = async () => {
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Laporan Keterlambatan');
+    if (filteredTransaksi.length === 0) {
+      alert('Tidak ada data untuk diunduh.');
+      return;
+    }
 
-    // Fetch logo image
-    let logoId;
+    setLoading(true);
     try {
-      // Using a CORS proxy just in case, but the main issue was likely the falsy check (logoId = 0)
-      const response = await fetch('https://api.allorigins.win/raw?url=https://iili.io/KDFk4fI.png');
-      const blob = await response.blob();
-      const arrayBuffer = await blob.arrayBuffer();
-      logoId = workbook.addImage({
-        buffer: arrayBuffer,
-        extension: 'png',
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Laporan Keterlambatan');
+
+      const colCount = 7;
+      await addExcelHeaderAndLogos(worksheet, workbook, 'Laporan Siswa Terlambat Hadir', colCount);
+
+      // Table Headers
+      const headers = ['NO', 'NAMA SISWA', 'KELAS', 'TANGGAL', 'JAM', 'STATUS', 'ALASAN'];
+      const headerRow = worksheet.getRow(10);
+      headerRow.values = headers;
+
+      // Table Data
+      filteredTransaksi.forEach((t, index) => {
+        const row = worksheet.addRow([
+          index + 1,
+          t.siswa?.nama || 'Unknown',
+          t.siswa?.kelas || '-',
+          t.tanggal,
+          t.jam,
+          'Terlambat',
+          t.alasan
+        ]);
+        
+        row.eachCell((cell, colNumber) => {
+          cell.font = { name: 'Calibri' };
+          if ([1, 3, 4, 5].includes(colNumber)) {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          }
+        });
       });
+
+      applyColorfulTableStyle(worksheet, 10, filteredTransaksi.length, colCount);
+
+      // Column Widths
+      worksheet.getColumn(1).width = 5;
+      worksheet.getColumn(2).width = 35;
+      worksheet.getColumn(3).width = 10;
+      worksheet.getColumn(4).width = 15;
+      worksheet.getColumn(5).width = 10;
+      worksheet.getColumn(6).width = 15;
+      worksheet.getColumn(7).width = 35;
+
+      // Footer
+      const lastRow = 11 + filteredTransaksi.length + 2;
+      
+      worksheet.getCell(`B${lastRow}`).value = 'Mengetahui';
+      worksheet.getCell(`B${lastRow}`).font = { name: 'Times New Roman' };
+      worksheet.getCell(`F${lastRow}`).value = `Pasuruan, ${format(new Date(), 'd MMMM yyyy')}`;
+      worksheet.getCell(`F${lastRow}`).font = { name: 'Times New Roman' };
+      
+      worksheet.getCell(`B${lastRow + 1}`).value = 'Kepala Sekolah';
+      worksheet.getCell(`B${lastRow + 1}`).font = { name: 'Times New Roman' };
+      worksheet.getCell(`F${lastRow + 1}`).value = 'Guru BK';
+      worksheet.getCell(`F${lastRow + 1}`).font = { name: 'Times New Roman' };
+      
+      worksheet.getCell(`B${lastRow + 5}`).value = 'NUR FADILAH, S.Pd';
+      worksheet.getCell(`B${lastRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
+      worksheet.getCell(`F${lastRow + 5}`).value = 'WIWIK ISMIATI, S.Pd';
+      worksheet.getCell(`F${lastRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
+      
+      worksheet.getCell(`B${lastRow + 6}`).value = 'NIP. 19860410 201001 2 030';
+      worksheet.getCell(`B${lastRow + 6}`).font = { name: 'Times New Roman' };
+      worksheet.getCell(`F${lastRow + 6}`).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(`F${lastRow + 6}`).font = { name: 'Times New Roman' };
+
+      // Save File
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `Laporan_Keterlambatan_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      
+      setShowDownloadSuccess(true);
+      setTimeout(() => setShowDownloadSuccess(false), 3000);
     } catch (error) {
-      console.error('Failed to load logo image:', error);
+      console.error('Export Excel Error:', error);
+      alert('Gagal mengunduh Excel. Silakan coba lagi.');
+    } finally {
+      setLoading(false);
     }
-
-    // Add Image to Worksheet
-    if (logoId !== undefined) {
-      worksheet.addImage(logoId, {
-        tl: { col: 0, row: 0 },
-        ext: { width: 90, height: 90 }
-      });
-    }
-
-    // Header text
-    worksheet.mergeCells('B1:G1');
-    worksheet.getCell('B1').value = 'PEMERINTAH KOTA PASURUAN';
-    worksheet.getCell('B1').font = { bold: true, size: 14, name: 'Times New Roman' };
-    worksheet.getCell('B1').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    worksheet.mergeCells('B2:G2');
-    worksheet.getCell('B2').value = 'SMP NEGERI 7';
-    worksheet.getCell('B2').font = { bold: true, size: 16, name: 'Times New Roman' };
-    worksheet.getCell('B2').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    worksheet.mergeCells('B3:G3');
-    worksheet.getCell('B3').value = 'Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139';
-    worksheet.getCell('B3').font = { size: 11, name: 'Times New Roman' };
-    worksheet.getCell('B3').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    worksheet.mergeCells('B4:G4');
-    worksheet.getCell('B4').value = 'Telepon (0343) 426845';
-    worksheet.getCell('B4').font = { size: 11, name: 'Times New Roman' };
-    worksheet.getCell('B4').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    worksheet.mergeCells('B5:G5');
-    worksheet.getCell('B5').value = 'Pos-el smp7pas@yahoo.co.id , Laman www.smpn7pasuruan.sch.id';
-    worksheet.getCell('B5').font = { size: 11, name: 'Times New Roman' };
-    worksheet.getCell('B5').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    // Double border under header
-    for (let i = 1; i <= 7; i++) {
-      worksheet.getCell(6, i).border = {
-        bottom: { style: 'double' },
-        top: { style: 'thin' }
-      };
-    }
-
-    // Report Title
-    worksheet.mergeCells('B8:G8');
-    worksheet.getCell('B8').value = 'Laporan Siswa Terlambat Hadir';
-    worksheet.getCell('B8').font = { bold: true, size: 12, name: 'Times New Roman' };
-    worksheet.getCell('B8').alignment = { horizontal: 'center', vertical: 'middle' };
-
-    // Table Headers
-    const headers = ['NO', 'NAMA SISWA', 'KELAS', 'TANGGAL', 'JAM', 'STATUS', 'ALASAN'];
-    const headerRow = worksheet.getRow(10);
-    headerRow.values = headers;
-    headerRow.eachCell((cell) => {
-      cell.font = { bold: true, name: 'Calibri', color: { argb: 'FFFFFFFF' } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF5B9BD5' } };
-      cell.alignment = { horizontal: 'center', vertical: 'middle' };
-      cell.border = {
-        top: { style: 'thin' }, left: { style: 'thin' },
-        bottom: { style: 'thin' }, right: { style: 'thin' }
-      };
-    });
-
-    // Table Data
-    filteredTransaksi.forEach((t, index) => {
-      const row = worksheet.addRow([
-        index + 1,
-        t.siswa?.nama || 'Unknown',
-        t.siswa?.kelas || '-',
-        t.tanggal,
-        t.jam,
-        'Terlambat',
-        t.alasan
-      ]);
-      
-      const isAlt = index % 2 !== 0;
-      
-      row.eachCell((cell, colNumber) => {
-        cell.font = { name: 'Calibri' };
-        if (isAlt) {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-        }
-        cell.border = {
-          top: { style: 'thin' }, left: { style: 'thin' },
-          bottom: { style: 'thin' }, right: { style: 'thin' }
-        };
-        if ([1, 3, 4, 5].includes(colNumber)) {
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        }
-      });
-    });
-
-    // Column Widths
-    worksheet.getColumn(1).width = 5;
-    worksheet.getColumn(2).width = 35;
-    worksheet.getColumn(3).width = 10;
-    worksheet.getColumn(4).width = 15;
-    worksheet.getColumn(5).width = 10;
-    worksheet.getColumn(6).width = 15;
-    worksheet.getColumn(7).width = 35;
-
-    // Footer
-    const lastRow = 11 + filteredTransaksi.length + 2;
-    
-    worksheet.getCell(`B${lastRow}`).value = 'Mengetahui';
-    worksheet.getCell(`B${lastRow}`).font = { name: 'Times New Roman' };
-    worksheet.getCell(`F${lastRow}`).value = `Pasuruan, ${format(new Date(), 'd MMMM yyyy')}`;
-    worksheet.getCell(`F${lastRow}`).font = { name: 'Times New Roman' };
-    
-    worksheet.getCell(`B${lastRow + 1}`).value = 'Kepala Sekolah';
-    worksheet.getCell(`B${lastRow + 1}`).font = { name: 'Times New Roman' };
-    worksheet.getCell(`F${lastRow + 1}`).value = 'Guru BK';
-    worksheet.getCell(`F${lastRow + 1}`).font = { name: 'Times New Roman' };
-    
-    worksheet.getCell(`B${lastRow + 5}`).value = 'NUR FADILAH, S.Pd';
-    worksheet.getCell(`B${lastRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
-    worksheet.getCell(`F${lastRow + 5}`).value = 'WIWIK ISMIATI, S.Pd';
-    worksheet.getCell(`F${lastRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
-    
-    worksheet.getCell(`B${lastRow + 6}`).value = 'NIP. 19860410 201001 2 030';
-    worksheet.getCell(`B${lastRow + 6}`).font = { name: 'Times New Roman' };
-    worksheet.getCell(`F${lastRow + 6}`).value = 'NIP. 19831116 200904 2 003';
-    worksheet.getCell(`F${lastRow + 6}`).font = { name: 'Times New Roman' };
-
-    // Save File
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    saveAs(blob, `Laporan_Keterlambatan_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
   };
 
   const filteredTransaksi = transaksi.filter(t => {
@@ -459,7 +402,20 @@ export default function Laporan() {
           <h2 className="text-2xl font-bold text-slate-800">Laporan Keterlambatan</h2>
           <p className="text-slate-500 text-sm">Kelola dan unduh laporan transaksi keterlambatan</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 relative">
+          <AnimatePresence>
+            {showDownloadSuccess && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="absolute -top-12 right-0 bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 z-50"
+              >
+                <div className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center">✓</div>
+                Download Berhasil!
+              </motion.div>
+            )}
+          </AnimatePresence>
           <div className="flex bg-slate-100 p-1 rounded-xl mr-2">
             <button
               onClick={() => setViewMode('list')}
@@ -494,9 +450,10 @@ export default function Laporan() {
           </button>
           <button 
             onClick={exportToExcel}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
+            disabled={loading}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download size={16} /> Download Excel
+            <Download size={16} /> {loading ? 'Memproses...' : 'Download Excel'}
           </button>
         </div>
       </div>
