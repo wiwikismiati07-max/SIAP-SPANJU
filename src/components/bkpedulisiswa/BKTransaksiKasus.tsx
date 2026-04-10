@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Siswa } from '../../types/izinsiswa';
 import { MasterKasus, TransaksiKasus, TindakLanjutKasus } from '../../types/bkpedulisiswa';
-import { Save, Search, User, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, CheckCircle2, Trash2, Edit2, X, ClipboardList, Plus, Paperclip, FileText as FileIcon } from 'lucide-react';
+import { Save, Search, User, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, CheckCircle2, Trash2, Edit2, X, ClipboardList, Plus, Paperclip, FileText as FileIcon, Upload, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 export default function BKTransaksiKasus() {
   const [loading, setLoading] = useState(false);
@@ -15,6 +16,12 @@ export default function BKTransaksiKasus() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showOtherKasus, setShowOtherKasus] = useState(false);
+  const [uploadResult, setUploadResult] = useState<{
+    show: boolean;
+    type: 'success' | 'error' | 'warning';
+    message: string;
+    details?: string[];
+  }>({ show: false, type: 'success', message: '' });
 
   const initialFormData = {
     tanggal: new Date().toISOString().split('T')[0],
@@ -219,6 +226,134 @@ export default function BKTransaksiKasus() {
       }
     } catch (error: any) {
       alert('Error: ' + error.message);
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const ws = XLSX.utils.json_to_sheet([
+      {
+        'Nama Siswa': 'Budi Santoso',
+        'Kelas': '7A',
+        'Nama Kasus': 'Terlambat',
+        'Tanggal': '2023-10-25',
+        'Jam': '07:15',
+        'Kategori Kasus': 'Kedisiplinan',
+        'Kronologi': 'Siswa datang terlambat 15 menit karena macet.',
+        'Wali Kelas': 'Nama Wali Kelas',
+        'Guru BK': 'Wiwik Ismiati S.pd',
+        'Status': 'Selesai'
+      }
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Template_Kasus');
+    XLSX.writeFile(wb, 'Template_Upload_Kasus_Lama.xlsx');
+  };
+
+  const handleUploadOldData = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const bstr = event.target?.result;
+          const wb = XLSX.read(bstr, { type: 'binary' });
+          const wsname = wb.SheetNames[0];
+          const ws = wb.Sheets[wsname];
+          const data = XLSX.utils.sheet_to_json(ws);
+
+          if (data.length === 0) {
+            setUploadResult({ show: true, type: 'error', message: 'File Excel kosong!' });
+            return;
+          }
+
+          const newTransactions: any[] = [];
+          const errors: string[] = [];
+          
+          for (let i = 0; i < data.length; i++) {
+            const row = data[i] as any;
+            const namaSiswa = String(row['Nama Siswa'] || '').trim();
+            const kelas = String(row['Kelas'] || '').trim();
+            const namaKasus = String(row['Nama Kasus'] || '').trim();
+            
+            if (!namaSiswa || !kelas || !namaKasus) {
+              errors.push(`Baris ${i + 2}: Data tidak lengkap (Nama, Kelas, atau Kasus kosong)`);
+              continue;
+            }
+
+            // Find Siswa
+            const s = siswa.find(item => 
+              item.nama.toLowerCase() === namaSiswa.toLowerCase() && 
+              item.kelas === kelas
+            );
+
+            // Find Kasus
+            const k = kasus.find(item => 
+              item.nama_kasus.toLowerCase() === namaKasus.toLowerCase()
+            );
+
+            if (!s) {
+              errors.push(`Baris ${i + 2}: Siswa "${namaSiswa}" di kelas "${kelas}" tidak ditemukan di Master Siswa.`);
+            } else if (!k) {
+              errors.push(`Baris ${i + 2}: Kasus "${namaKasus}" tidak ditemukan di Master Kasus.`);
+            } else {
+              newTransactions.push({
+                tanggal: row['Tanggal'] || new Date().toISOString().split('T')[0],
+                jam: row['Jam'] || '00:00',
+                kelas: kelas,
+                siswa_id: s.id,
+                kasus_id: k.id,
+                kasus_kategori: row['Kategori Kasus'] || k.kategori || 'Kedisiplinan',
+                kronologi: row['Kronologi'] || '',
+                wali_kelas: row['Wali Kelas'] || '',
+                guru_bk: row['Guru BK'] || 'Wiwik Ismiati S.pd',
+                status: row['Status'] || 'Selesai'
+              });
+            }
+          }
+
+          if (newTransactions.length > 0) {
+            if (supabase) {
+              const { error } = await supabase.from('bk_transaksi_kasus').insert(newTransactions);
+              if (error) throw error;
+              
+              fetchTransaksi();
+              
+              if (errors.length > 0) {
+                setUploadResult({ 
+                  show: true, 
+                  type: 'warning', 
+                  message: `Berhasil mengupload ${newTransactions.length} data, namun ada ${errors.length} baris yang gagal:`,
+                  details: errors
+                });
+              } else {
+                setUploadResult({ 
+                  show: true, 
+                  type: 'success', 
+                  message: `Berhasil mengupload seluruh ${newTransactions.length} data kasus lama!` 
+                });
+              }
+            }
+          } else {
+            setUploadResult({ 
+              show: true, 
+              type: 'error', 
+              message: 'Tidak ada data yang berhasil diproses. Periksa detail error berikut:',
+              details: errors
+            });
+          }
+        } catch (err: any) {
+          setUploadResult({ show: true, type: 'error', message: 'Error parsing Excel: ' + err.message });
+        }
+      };
+      reader.readAsBinaryString(file);
+    } catch (error: any) {
+      setUploadResult({ show: true, type: 'error', message: 'Error: ' + error.message });
+    } finally {
+      setLoading(false);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -580,11 +715,30 @@ export default function BKTransaksiKasus() {
       </form>
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden mt-8">
-        <div className="p-6 border-b border-slate-100">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <h3 className="font-bold text-slate-800 flex items-center gap-2">
             <ClipboardList className="text-pink-600" size={20} />
             Riwayat Kasus Terakhir
           </h3>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadTemplate}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold border border-slate-200 hover:bg-slate-100 transition-all"
+            >
+              <Download size={14} />
+              Download Template
+            </button>
+            <label className="flex items-center gap-2 px-4 py-2 bg-pink-50 text-pink-600 rounded-xl text-xs font-bold border border-pink-100 hover:bg-pink-100 transition-all cursor-pointer">
+              <Upload size={14} />
+              Upload Data Lama
+              <input 
+                type="file" 
+                className="hidden" 
+                accept=".xlsx, .xls"
+                onChange={handleUploadOldData}
+              />
+            </label>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -641,6 +795,47 @@ export default function BKTransaksiKasus() {
           </table>
         </div>
       </div>
+
+      {/* Upload Result Modal */}
+      {uploadResult.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
+            <div className="flex items-center gap-3 mb-4">
+              {uploadResult.type === 'success' && <CheckCircle2 className="text-emerald-500" size={28} />}
+              {uploadResult.type === 'error' && <AlertCircle className="text-rose-500" size={28} />}
+              {uploadResult.type === 'warning' && <AlertCircle className="text-amber-500" size={28} />}
+              <h3 className="text-xl font-bold text-slate-800">Hasil Upload Data</h3>
+            </div>
+            
+            <p className={`font-medium text-lg ${
+              uploadResult.type === 'success' ? 'text-emerald-700' : 
+              uploadResult.type === 'error' ? 'text-rose-700' : 'text-amber-700'
+            }`}>
+              {uploadResult.message}
+            </p>
+
+            {uploadResult.details && uploadResult.details.length > 0 && (
+              <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4 overflow-y-auto flex-1">
+                <p className="text-sm font-bold text-slate-700 mb-2">Detail Error:</p>
+                <ul className="list-disc pl-5 space-y-1 text-sm text-slate-600">
+                  {uploadResult.details.map((err, idx) => (
+                    <li key={idx}>{err}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="flex justify-end mt-6 pt-4 border-t border-slate-100">
+              <button
+                onClick={() => setUploadResult({ ...uploadResult, show: false })}
+                className="px-6 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-medium transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

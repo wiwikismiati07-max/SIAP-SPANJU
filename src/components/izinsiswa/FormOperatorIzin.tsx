@@ -160,7 +160,7 @@ export default function FormOperatorIzin() {
         tanggal_selesai: d.tanggal_selesai,
         alasan: d.alasan,
         status: 'Menunggu',
-        diajukan_oleh: 'Operator',
+        diajukan_oleh: 'Wiwik Ismiati, S.Pd',
         created_at: new Date().toISOString()
       }));
 
@@ -350,7 +350,7 @@ export default function FormOperatorIzin() {
         alasan: finalAlasan,
         lampiran_url: lampiranUrl,
         status: 'Disetujui',
-        diajukan_oleh: 'Guru',
+        diajukan_oleh: 'Wiwik Ismiati, S.Pd',
         created_at: new Date().toISOString()
       };
 

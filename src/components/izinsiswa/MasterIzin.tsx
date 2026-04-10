@@ -5,6 +5,33 @@ import * as XLSX from 'xlsx';
 
 export default function MasterIzin() {
   const [loading, setLoading] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
+
+  const handleBulkUpdate = async () => {
+    setShowConfirmModal(false);
+    setLoading(true);
+    setNotification(null);
+    try {
+      if (supabase) {
+        const { error } = await supabase
+          .from('izin_siswa')
+          .update({ diajukan_oleh: 'Wiwik Ismiati, S.Pd' })
+          .neq('diajukan_oleh', 'Wali Murid');
+        if (error) throw error;
+      } else {
+        const localData = JSON.parse(localStorage.getItem('izinsiswa_data') || '[]');
+        const updated = localData.map((d: any) => d.diajukan_oleh !== 'Wali Murid' ? { ...d, diajukan_oleh: 'Wiwik Ismiati, S.Pd' } : d);
+        localStorage.setItem('izinsiswa_data', JSON.stringify(updated));
+      }
+      setNotification({ type: 'success', message: 'Berhasil memperbarui seluruh data pengaju!' });
+    } catch (error: any) {
+      setNotification({ type: 'error', message: `Gagal memperbarui data: ${error.message}` });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setNotification(null), 5000);
+    }
+  };
 
   const backupData = async () => {
     try {
@@ -247,7 +274,54 @@ export default function MasterIzin() {
             />
           </label>
         </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Pemeliharaan Data</h3>
+          <p className="text-sm text-slate-600 mb-4">
+            Gunakan fitur ini untuk memperbarui nama pengaju pada seluruh data izin yang ada menjadi <strong>Wiwik Ismiati, S.Pd</strong>.
+          </p>
+          
+          {notification && (
+            <div className={`mb-4 p-3 rounded-xl text-sm font-medium ${notification.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+              {notification.message}
+            </div>
+          )}
+
+          <button
+            onClick={() => setShowConfirmModal(true)}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-rose-100 text-rose-700 hover:bg-rose-200 rounded-xl font-medium transition-colors disabled:opacity-50"
+          >
+            <Save size={18} /> {loading ? 'Memproses...' : 'Update Seluruh Pengaju ke Wiwik Ismiati'}
+          </button>
+        </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <h3 className="text-xl font-bold text-slate-800 mb-2">Konfirmasi Pembaruan</h3>
+            <p className="text-slate-600 mb-6">
+              Apakah Anda yakin ingin memperbarui seluruh data pengaju menjadi <strong>Wiwik Ismiati, S.Pd</strong>? Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleBulkUpdate}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-medium transition-colors shadow-sm"
+              >
+                Ya, Perbarui Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

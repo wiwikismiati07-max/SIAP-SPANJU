@@ -331,12 +331,12 @@ export default function LaporanIzin() {
 
       worksheet.mergeCells(footerStartRow + 6, leftColStart, footerStartRow + 6, leftColEnd);
       const kasekName = worksheet.getCell(footerStartRow + 6, leftColStart);
-      kasekName.value = 'NUR FADILAH, S.Pd';
+      kasekName.value = 'WIWIK ISMIATI, S.Pd';
       kasekName.font = { bold: true, underline: true };
       kasekName.alignment = { horizontal: 'center' };
 
       worksheet.mergeCells(footerStartRow + 7, leftColStart, footerStartRow + 7, leftColEnd);
-      worksheet.getCell(footerStartRow + 7, leftColStart).value = 'NIP. 19860410 201001 2 030';
+      worksheet.getCell(footerStartRow + 7, leftColStart).value = 'NIP. 19831116 200904 2 003';
       worksheet.getCell(footerStartRow + 7, leftColStart).alignment = { horizontal: 'center' };
 
       // Right Signature
@@ -353,12 +353,12 @@ export default function LaporanIzin() {
 
       worksheet.mergeCells(footerStartRow + 6, rightColStart, footerStartRow + 6, rightColEnd);
       const bkName = worksheet.getCell(footerStartRow + 6, rightColStart);
-      bkName.value = 'WIWIK ISMIATI, S.Pd';
+      bkName.value = '........................................';
       bkName.font = { bold: true, underline: true };
       bkName.alignment = { horizontal: 'center' };
 
       worksheet.mergeCells(footerStartRow + 7, rightColStart, footerStartRow + 7, rightColEnd);
-      worksheet.getCell(footerStartRow + 7, rightColStart).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(footerStartRow + 7, rightColStart).value = 'NIP. ........................................';
       worksheet.getCell(footerStartRow + 7, rightColStart).alignment = { horizontal: 'center' };
 
       // Generate and Save
@@ -706,15 +706,15 @@ export default function LaporanIzin() {
 
       {/* Edit Modal */}
       {editingId && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md my-auto flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
               <h3 className="text-lg font-bold text-slate-800">Edit Data Izin</h3>
               <button onClick={() => setEditingId(null)} className="text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal Mulai</label>
                 <input
@@ -755,7 +755,7 @@ export default function LaporanIzin() {
                 </select>
               </div>
             </div>
-            <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
               <button
                 onClick={() => setEditingId(null)}
                 className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-xl transition-colors"
