@@ -150,7 +150,7 @@ export default function LaporanIzin() {
 
       // --- HEADER SECTION ---
       const totalCols = reportType === 'detail' ? 8 : 6;
-      const title = reportType === 'detail' ? 'Laporan Dispensasi Siswa' : `Laporan Absensi Harian - Kelas ${selectedKelas || 'Semua'}`;
+      const title = reportType === 'detail' ? 'Laporan Izin Siswa' : `Laporan Absensi Harian - Kelas ${selectedKelas || 'Semua'}`;
       
       await addExcelHeaderAndLogos(worksheet, workbook, title, totalCols);
 
@@ -259,12 +259,12 @@ export default function LaporanIzin() {
 
       worksheet.mergeCells(footerStartRow + 6, leftColStart, footerStartRow + 6, leftColEnd);
       const kasekName = worksheet.getCell(footerStartRow + 6, leftColStart);
-      kasekName.value = 'WIWIK ISMIATI, S.Pd';
+      kasekName.value = '........................................';
       kasekName.font = { bold: true, underline: true };
       kasekName.alignment = { horizontal: 'center' };
 
       worksheet.mergeCells(footerStartRow + 7, leftColStart, footerStartRow + 7, leftColEnd);
-      worksheet.getCell(footerStartRow + 7, leftColStart).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(footerStartRow + 7, leftColStart).value = 'NIP. ........................................';
       worksheet.getCell(footerStartRow + 7, leftColStart).alignment = { horizontal: 'center' };
 
       // Right Signature
@@ -292,7 +292,7 @@ export default function LaporanIzin() {
       // Generate and Save
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      saveAs(blob, `Laporan_Dispensasi_${dateRange.start}_sd_${dateRange.end}.xlsx`);
+      saveAs(blob, `Laporan_Izin_${dateRange.start}_sd_${dateRange.end}.xlsx`);
 
     } catch (error) {
       console.error('Excel Export Error:', error);
