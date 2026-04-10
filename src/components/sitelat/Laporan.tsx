@@ -430,16 +430,35 @@ export default function Laporan() {
       // Sort Kelas
       const sortedKelas = Object.keys(groupedData).sort();
 
+      const levelColors = {
+        kelas: 'FFDBEAFE',   // Soft Blue
+        student: 'FFD1FAE5', // Soft Green
+        date: 'FFFEF3C7',    // Soft Yellow
+        reason: 'FFFCE7F3'   // Soft Pink
+      };
+
+      const applyRowStyle = (row: ExcelJS.Row, color: string) => {
+        row.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: color }
+        };
+        for (let i = 1; i <= colCount; i++) {
+          row.getCell(i).border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+        }
+      };
+
       sortedKelas.forEach(kelas => {
         // Kelas Row
         const kelasRow = worksheet.getRow(currentRow);
         kelasRow.getCell(1).value = `[-] ${kelas}`;
         kelasRow.getCell(1).font = { bold: true, name: 'Calibri' };
-        kelasRow.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFF2DCDB' } // Light pinkish from image
-        };
+        applyRowStyle(kelasRow, levelColors.kelas);
         worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
         currentRow++;
 
@@ -451,6 +470,8 @@ export default function Laporan() {
           const studentRow = worksheet.getRow(currentRow);
           studentRow.getCell(1).value = `    [-] ${nama}`;
           studentRow.getCell(1).font = { bold: true, name: 'Calibri' };
+          applyRowStyle(studentRow, levelColors.student);
+          worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
           currentRow++;
 
           // Transactions for Student
@@ -458,11 +479,15 @@ export default function Laporan() {
             // Date Row
             const dateRow = worksheet.getRow(currentRow);
             dateRow.getCell(1).value = `        [-] ${t.tanggal}`;
+            applyRowStyle(dateRow, levelColors.date);
+            worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
             currentRow++;
 
             // Reason Row
             const reasonRow = worksheet.getRow(currentRow);
             reasonRow.getCell(1).value = `            ${t.alasan}`;
+            applyRowStyle(reasonRow, levelColors.reason);
+            worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
             currentRow++;
           });
         });
