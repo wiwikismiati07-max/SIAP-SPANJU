@@ -26,14 +26,28 @@ const PrestasiApp: React.FC<PrestasiAppProps> = ({ onBack, onOpenSidebar }) => {
       <div className="bg-white border-b border-slate-100 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-center justify-between h-20">
-            <div className="flex items-center space-x-3 min-w-0">
-              <div className="flex items-center space-x-3 min-w-0">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-100 shrink-0">
-                  <Trophy className="text-white" size={20} />
+            <div className="flex items-center gap-3 md:gap-4 min-w-0">
+              <button 
+                onClick={onBack}
+                className="flex items-center gap-2 group transition-all active:scale-95 shrink-0"
+                title="Kembali ke Menu Aplikasi"
+              >
+                <img src={LOGO_URL} alt="Logo" className="w-8 h-8 md:w-10 md:h-10 object-contain" referrerPolicy="no-referrer" />
+                <div className="text-left">
+                  <div className="text-[8px] md:text-[10px] font-black text-slate-400 leading-none">SIAP</div>
+                  <div className="text-xs md:text-sm font-black text-slate-800 leading-none">SPANJU</div>
+                </div>
+              </button>
+              
+              <div className="h-8 w-px bg-slate-200 shrink-0" />
+
+              <div className="flex items-center space-x-2 md:space-x-3 min-w-0">
+                <div className="w-8 h-8 md:w-10 md:h-10 shrink-0 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white shadow-sm">
+                  <Trophy size={18} />
                 </div>
                 <div className="min-w-0">
-                  <h1 className="text-sm md:text-lg font-black text-slate-800 leading-tight truncate">Si-PRESTASI</h1>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter hidden sm:block">Prestasi Siswa</p>
+                  <h1 className="text-xs md:text-lg font-black text-slate-800 leading-tight truncate">Si-PRESTASI</h1>
+                  <p className="text-[8px] md:text-[10px] text-slate-400 font-bold uppercase tracking-tighter hidden sm:block">Prestasi Siswa</p>
                 </div>
               </div>
             </div>

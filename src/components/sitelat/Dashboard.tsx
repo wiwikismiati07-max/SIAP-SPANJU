@@ -260,40 +260,49 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50/30">
+        <div className="p-6 flex flex-col gap-6 bg-slate-50/30">
           {[7, 8, 9].map((grade) => {
             const gradeData = transaksi.filter(t => t.siswa?.kelas.startsWith(grade.toString()));
             return (
-              <div key={grade} className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col h-[400px]">
-                <div className="p-4 border-b border-slate-50 flex items-center justify-between">
+              <div key={grade} className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
+                <div className="p-4 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
                   <h4 className="font-black text-slate-800 uppercase tracking-tight">Kelas {grade}</h4>
                   <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full uppercase tracking-wider">
                     {gradeData.length} Terlambat
                   </span>
                 </div>
-                <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+                <div className="max-h-[280px] overflow-y-auto custom-scrollbar">
                   {gradeData.length === 0 ? (
-                    <div className="h-full flex items-center justify-center text-slate-400 text-xs font-medium italic">
-                      Tidak ada data
+                    <div className="p-10 text-center text-slate-400 text-xs font-medium italic">
+                      Tidak ada data keterlambatan untuk kelas {grade}
                     </div>
                   ) : (
-                    <div className="space-y-1">
-                      {gradeData.map((t) => (
-                        <div key={t.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors group">
-                          <div className="flex-1 min-w-0 mr-3">
-                            <p className="text-sm font-bold text-slate-700 truncate group-hover:text-blue-600 transition-colors uppercase">
-                              {t.siswa?.nama}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[10px] font-mono text-slate-400 font-bold">{t.jam}</span>
-                            <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-black rounded uppercase">
-                              {t.siswa?.kelas}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <table className="w-full text-left border-collapse">
+                      <thead className="sticky top-0 bg-white z-10 border-b border-slate-50">
+                        <tr>
+                          <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-24">Jam</th>
+                          <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-24">Kelas</th>
+                          <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Siswa</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {gradeData.map((t) => (
+                          <tr key={t.id} className="hover:bg-slate-50 transition-colors group">
+                            <td className="px-6 py-3 text-[10px] font-mono text-slate-400 font-bold">{t.jam}</td>
+                            <td className="px-6 py-3">
+                              <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-black rounded uppercase">
+                                {t.siswa?.kelas}
+                              </span>
+                            </td>
+                            <td className="px-6 py-3">
+                              <p className="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors uppercase">
+                                {t.siswa?.nama}
+                              </p>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   )}
                 </div>
               </div>

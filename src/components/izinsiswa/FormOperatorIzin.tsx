@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { IzinWithSiswa, Siswa, Guru } from '../../types/izinsiswa';
-import { Check, X, Clock, Plus, Search, Calendar, User, BookOpen } from 'lucide-react';
+import { Check, X, Clock, Plus, Search, Calendar, User, BookOpen, Upload, FileDown, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 const ALASAN_OPTIONS = [
   "Sakit",
@@ -39,6 +41,138 @@ export default function FormOperatorIzin() {
   const [lampiranPreview, setLampiranPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  // Upload State
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadData, setUploadData] = useState<any[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStats, setUploadStats] = useState({ total: 0, valid: 0, invalid: 0 });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        if (data.length === 0) {
+          alert('File Excel kosong');
+          return;
+        }
+
+        // Validate and map data
+        const processed = data.map((row: any) => {
+          const nama = row['Nama Siswa'] || row['nama_siswa'] || '';
+          const kelas = row['Kelas'] || row['kelas'] || '';
+          const tglMulai = row['Tanggal Mulai'] || row['tanggal_mulai'] || '';
+          const tglSelesai = row['Tanggal Selesai'] || row['tanggal_selesai'] || tglMulai;
+          const alasanRow = row['Alasan'] || row['alasan'] || '';
+          const namaGuru = row['Nama Guru'] || row['nama_guru'] || '';
+
+          const student = siswaList.find(s => 
+            s.nama.toLowerCase() === nama.toLowerCase() && 
+            s.kelas.toString().toUpperCase() === kelas.toString().toUpperCase()
+          );
+
+          const teacher = guruList.find(g => 
+            g.nama_guru.toLowerCase().includes(namaGuru.toLowerCase())
+          );
+
+          let error = '';
+          if (!student) error = 'Siswa tidak ditemukan';
+          else if (!tglMulai) error = 'Tanggal mulai kosong';
+          else if (!alasanRow) error = 'Alasan kosong';
+
+          return {
+            nama_siswa: nama,
+            kelas: kelas,
+            siswa_id: student?.id,
+            guru_id: teacher?.id || guruList[0]?.id, // Default to first guru if not found
+            tanggal_mulai: tglMulai,
+            tanggal_selesai: tglSelesai,
+            alasan: alasanRow,
+            error
+          };
+        });
+
+        setUploadData(processed);
+        setUploadStats({
+          total: processed.length,
+          valid: processed.filter(p => !p.error).length,
+          invalid: processed.filter(p => p.error).length
+        });
+      } catch (err) {
+        console.error('Error parsing excel:', err);
+        alert('Gagal membaca file Excel. Pastikan format benar.');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const downloadTemplate = () => {
+    const template = [
+      {
+        'Nama Siswa': 'Contoh Nama Siswa',
+        'Kelas': '7A',
+        'Tanggal Mulai': format(new Date(), 'yyyy-MM-dd'),
+        'Tanggal Selesai': format(new Date(), 'yyyy-MM-dd'),
+        'Alasan': 'Sakit',
+        'Nama Guru': guruList[0]?.nama_guru || 'Nama Guru'
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(template);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Template');
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+    saveAs(data, 'Template_Upload_Izin.xlsx');
+  };
+
+  const processImport = async () => {
+    const validData = uploadData.filter(d => !d.error);
+    if (validData.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const records = validData.map(d => ({
+        id: crypto.randomUUID(),
+        siswa_id: d.siswa_id,
+        guru_id: d.guru_id,
+        tanggal_mulai: d.tanggal_mulai,
+        tanggal_selesai: d.tanggal_selesai,
+        alasan: d.alasan,
+        status: 'Disetujui',
+        diajukan_oleh: 'Operator',
+        created_at: new Date().toISOString()
+      }));
+
+      if (supabase) {
+        const { error } = await supabase.from('izin_siswa').insert(records);
+        if (error) throw error;
+      } else {
+        const localData = JSON.parse(localStorage.getItem('izinsiswa_data') || '[]');
+        const updated = [...localData, ...records];
+        localStorage.setItem('izinsiswa_data', JSON.stringify(updated));
+      }
+
+      alert(`Berhasil mengimport ${validData.length} data.`);
+      setShowUploadModal(false);
+      setUploadData([]);
+      fetchPending();
+    } catch (error: any) {
+      console.error('Error importing:', error);
+      alert(`Gagal import data: ${error.message}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   useEffect(() => {
     fetchPending();
@@ -237,6 +371,14 @@ export default function FormOperatorIzin() {
         <h2 className="text-2xl font-bold text-slate-800">Absensi Siswa</h2>
         <div className="flex gap-2">
           <button 
+            onClick={() => setShowUploadModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
+          >
+            <Upload size={18} />
+            <span className="hidden sm:inline">Upload Data Lama</span>
+            <span className="sm:hidden">Upload</span>
+          </button>
+          <button 
             onClick={() => setShowManualInput(!showManualInput)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
           >
@@ -251,6 +393,150 @@ export default function FormOperatorIzin() {
           </button>
         </div>
       </div>
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => !isUploading && setShowUploadModal(false)} />
+          <div className="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-emerald-600 text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Upload size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Upload Data Izin Lama</h3>
+                  <p className="text-xs text-emerald-100">Import data dari file Excel (.xlsx, .xls)</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowUploadModal(false)}
+                disabled={isUploading}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {!uploadData.length ? (
+                <div className="space-y-4">
+                  <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl flex items-start gap-3">
+                    <AlertCircle className="text-blue-600 shrink-0" size={20} />
+                    <div className="text-sm text-blue-800">
+                      <p className="font-bold mb-1">Petunjuk Penggunaan:</p>
+                      <ul className="list-disc list-inside space-y-1 opacity-90">
+                        <li>Gunakan format file Excel (.xlsx atau .xls)</li>
+                        <li>Pastikan kolom sesuai dengan template</li>
+                        <li>Nama siswa dan kelas harus sesuai dengan data master</li>
+                        <li>Format tanggal: YYYY-MM-DD (contoh: 2024-04-10)</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-3xl p-10 bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer relative group">
+                    <input 
+                      type="file" 
+                      accept=".xlsx, .xls"
+                      onChange={handleFileUpload}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                    <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-4 group-hover:scale-110 transition-transform">
+                      <Upload size={32} />
+                    </div>
+                    <p className="font-bold text-slate-800">Klik atau seret file ke sini</p>
+                    <p className="text-sm text-slate-500 mt-1">Maksimal ukuran file 5MB</p>
+                  </div>
+
+                  <button 
+                    onClick={downloadTemplate}
+                    className="w-full flex items-center justify-center gap-2 py-3 border-2 border-slate-200 text-slate-600 rounded-2xl font-bold hover:bg-slate-50 transition-all"
+                  >
+                    <FileDown size={20} />
+                    Download Template Excel
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Baris</p>
+                      <p className="text-2xl font-black text-slate-800">{uploadStats.total}</p>
+                    </div>
+                    <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 text-center">
+                      <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Valid</p>
+                      <p className="text-2xl font-black text-emerald-700">{uploadStats.valid}</p>
+                    </div>
+                    <div className="bg-rose-50 p-4 rounded-2xl border border-rose-100 text-center">
+                      <p className="text-xs font-bold text-rose-600 uppercase tracking-wider">Invalid</p>
+                      <p className="text-2xl font-black text-rose-700">{uploadStats.invalid}</p>
+                    </div>
+                  </div>
+
+                  <div className="max-h-60 overflow-y-auto border border-slate-100 rounded-2xl">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 sticky top-0">
+                        <tr>
+                          <th className="p-3 font-bold text-slate-600">Siswa</th>
+                          <th className="p-3 font-bold text-slate-600">Tanggal</th>
+                          <th className="p-3 font-bold text-slate-600">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {uploadData.slice(0, 50).map((row, idx) => (
+                          <tr key={idx}>
+                            <td className="p-3">
+                              <div className="font-bold text-slate-800">{row.nama_siswa}</div>
+                              <div className="text-[10px] text-slate-500">Kelas {row.kelas}</div>
+                            </td>
+                            <td className="p-3 text-slate-600">{row.tanggal_mulai}</td>
+                            <td className="p-3">
+                              {row.error ? (
+                                <span className="text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-bold">{row.error}</span>
+                              ) : (
+                                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">Siap Import</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {uploadData.length > 50 && (
+                      <div className="p-3 text-center text-xs text-slate-500 bg-slate-50">
+                        Menampilkan 50 dari {uploadData.length} baris...
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button 
+                      onClick={() => { setUploadData([]); setUploadStats({ total: 0, valid: 0, invalid: 0 }); }}
+                      disabled={isUploading}
+                      className="flex-1 py-3 border-2 border-slate-200 text-slate-600 rounded-2xl font-bold hover:bg-slate-50 transition-all"
+                    >
+                      Ganti File
+                    </button>
+                    <button 
+                      onClick={processImport}
+                      disabled={isUploading || uploadStats.valid === 0}
+                      className="flex-[2] py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold shadow-lg shadow-emerald-200 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isUploading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Mengimport...
+                        </>
+                      ) : (
+                        `Import ${uploadStats.valid} Data`
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showManualInput && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">

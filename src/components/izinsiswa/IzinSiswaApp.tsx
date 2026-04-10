@@ -84,15 +84,31 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar }: { onBack?: () =>
       <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="flex items-center justify-between h-20">
-            <div className="flex items-center space-x-3 min-w-0">
-              <div className="w-10 h-10 shrink-0 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
-                <UserCheck size={24} />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-sm md:text-lg font-bold text-slate-800 leading-tight truncate">Izin SWA <span className="text-[10px] font-normal text-slate-400 hidden sm:inline">v1.2</span></h1>
-                <p className="text-[10px] text-slate-500 font-medium hidden sm:block truncate">
-                  {isLoggedIn ? `Halo, ${user.nama_lengkap || user.username}` : 'Sistem Informasi Perizinan Siswa'}
-                </p>
+            <div className="flex items-center gap-3 md:gap-4 min-w-0">
+              <button 
+                onClick={onBack}
+                className="flex items-center gap-2 group transition-all active:scale-95 shrink-0"
+                title="Kembali ke Menu Aplikasi"
+              >
+                <img src={LOGO_URL} alt="Logo" className="w-8 h-8 md:w-10 md:h-10 object-contain" referrerPolicy="no-referrer" />
+                <div className="text-left">
+                  <div className="text-[8px] md:text-[10px] font-black text-slate-400 leading-none">SIAP</div>
+                  <div className="text-xs md:text-sm font-black text-slate-800 leading-none">SPANJU</div>
+                </div>
+              </button>
+              
+              <div className="h-8 w-px bg-slate-200 shrink-0" />
+
+              <div className="flex items-center space-x-2 md:space-x-3 min-w-0">
+                <div className="w-8 h-8 md:w-10 md:h-10 shrink-0 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
+                  <UserCheck size={20} />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-xs md:text-lg font-bold text-slate-800 leading-tight truncate">Izin SWA</h1>
+                  <p className="text-[8px] md:text-[10px] text-slate-500 font-medium hidden sm:block truncate">
+                    {isLoggedIn ? `Halo, ${user.nama_lengkap || user.username}` : 'Sistem Perizinan'}
+                  </p>
+                </div>
               </div>
             </div>
 

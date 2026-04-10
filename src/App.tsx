@@ -541,24 +541,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Floating Back to Menu Logo */}
-        {activeSection && !['kilas', 'program', 'spip', 'korelasi_program', 'korelasi_sra', 'menu_aplikasi'].includes(activeSection) && (
-          <motion.button
-            initial={{ scale: 0, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            whileHover={{ scale: 1.1, rotate: 5 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setActiveSection('menu_aplikasi')}
-            className="fixed bottom-6 right-6 z-[100] w-14 h-14 md:w-16 md:h-16 bg-white/90 backdrop-blur-md rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-white flex items-center justify-center p-2.5 hover:shadow-pink-200/50 transition-all group"
-            title="Kembali ke Menu Aplikasi"
-          >
-            <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain drop-shadow-sm" referrerPolicy="no-referrer" />
-            <div className="absolute -top-2 -right-2 bg-pink-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
-              <ChevronLeft size={14} />
-            </div>
-          </motion.button>
-        )}
-
         <AnimatePresence mode="wait">
           {activeSection === 'kilas' && (
             <motion.div

@@ -623,36 +623,47 @@ export default function Laporan() {
               </tbody>
             </table>
           ) : (
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="p-6 flex flex-col gap-6">
               {Array.from(new Set(siswaList.map(s => s.kelas))).sort().map(kelas => {
                 const dataKelas = filteredTransaksi.filter(t => t.siswa?.kelas === kelas);
                 if (dataKelas.length === 0) return null;
                 return (
-                  <div key={kelas} className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col h-[400px]">
+                  <div key={kelas} className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
                     <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
                       <h4 className="font-black text-slate-800 uppercase tracking-tight">Kelas {kelas}</h4>
                       <span className="px-3 py-1 bg-blue-600 text-white text-[10px] font-black rounded-full uppercase tracking-wider shadow-sm">
                         {dataKelas.length} Terlambat
                       </span>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
-                      <div className="space-y-1">
-                        {dataKelas.map((t) => (
-                          <div key={t.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors group border border-transparent hover:border-slate-100">
-                            <div className="flex-1 min-w-0 mr-3">
-                              <p className="text-xs font-bold text-slate-700 truncate group-hover:text-blue-600 transition-colors uppercase">
-                                {t.siswa?.nama}
-                              </p>
-                              <p className="text-[9px] text-slate-400 font-medium">{t.tanggal} • {t.jam}</p>
-                            </div>
-                            <div className="shrink-0">
-                              <span className="px-2 py-0.5 bg-rose-50 text-rose-600 text-[9px] font-black rounded uppercase">
-                                {t.alasan}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="max-h-[280px] overflow-y-auto custom-scrollbar">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="sticky top-0 bg-white z-10 border-b border-slate-50">
+                          <tr>
+                            <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-32">Tanggal</th>
+                            <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest w-24">Jam</th>
+                            <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Siswa</th>
+                            <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Alasan</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {dataKelas.map((t) => (
+                            <tr key={t.id} className="hover:bg-slate-50 transition-colors group">
+                              <td className="px-6 py-3 text-sm font-medium text-slate-600">{t.tanggal}</td>
+                              <td className="px-6 py-3 text-[10px] font-mono text-slate-400 font-bold">{t.jam}</td>
+                              <td className="px-6 py-3">
+                                <p className="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors uppercase">
+                                  {t.siswa?.nama}
+                                </p>
+                              </td>
+                              <td className="px-6 py-3">
+                                <span className="px-2 py-0.5 bg-rose-50 text-rose-600 text-[9px] font-black rounded uppercase">
+                                  {t.alasan}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 );
