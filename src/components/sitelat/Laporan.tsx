@@ -395,82 +395,109 @@ export default function Laporan() {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Pivot Keterlambatan');
 
-      const colCount = 4;
+      const colCount = 6;
       await addExcelHeaderAndLogos(worksheet, workbook, 'Rekapitulasi Keterlambatan Siswa', colCount);
 
-      // Grouping data
-      const pivotData: { [key: string]: { nama: string, kelas: string, total: number } } = {};
+      // Grouping data: Kelas -> Nama -> Transaksi
+      const groupedData: { [kelas: string]: { [nama: string]: TransaksiWithSiswa[] } } = {};
+      
       filteredTransaksi.forEach(t => {
-        const key = t.siswa_id;
-        if (!pivotData[key]) {
-          pivotData[key] = {
-            nama: t.siswa?.nama || 'Unknown',
-            kelas: t.siswa?.kelas || '-',
-            total: 0
-          };
-        }
-        pivotData[key].total += 1;
+        const kelas = t.siswa?.kelas || 'Tanpa Kelas';
+        const nama = t.siswa?.nama || 'Unknown';
+        
+        if (!groupedData[kelas]) groupedData[kelas] = {};
+        if (!groupedData[kelas][nama]) groupedData[kelas][nama] = [];
+        
+        groupedData[kelas][nama].push(t);
       });
 
-      const sortedPivot = Object.values(pivotData).sort((a, b) => b.total - a.total);
+      // Pivot Title Row
+      const pivotTitleRow = worksheet.getRow(9);
+      pivotTitleRow.height = 30;
+      worksheet.mergeCells(`A9:F9`);
+      const titleCell = worksheet.getCell('A9');
+      titleCell.value = 'Pivot Siswa Terlambat Hadir Per Kelas';
+      titleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFC0504D' } // Reddish color from image
+      };
+      titleCell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 14, name: 'Calibri' };
+      titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
-      // Table Headers
-      const headers = ['NO', 'NAMA SISWA', 'KELAS', 'TOTAL TERLAMBAT'];
-      const headerRow = worksheet.getRow(10);
-      headerRow.values = headers;
+      let currentRow = 10;
 
-      // Table Data
-      sortedPivot.forEach((item, index) => {
-        const row = worksheet.addRow([
-          index + 1,
-          item.nama,
-          item.kelas,
-          item.total
-        ]);
-        
-        row.eachCell((cell, colNumber) => {
-          cell.font = { name: 'Calibri' };
-          if ([1, 3, 4].includes(colNumber)) {
-            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-          }
+      // Sort Kelas
+      const sortedKelas = Object.keys(groupedData).sort();
+
+      sortedKelas.forEach(kelas => {
+        // Kelas Row
+        const kelasRow = worksheet.getRow(currentRow);
+        kelasRow.getCell(1).value = `[-] ${kelas}`;
+        kelasRow.getCell(1).font = { bold: true, name: 'Calibri' };
+        kelasRow.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF2DCDB' } // Light pinkish from image
+        };
+        worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
+        currentRow++;
+
+        // Sort Students in Kelas
+        const sortedStudents = Object.keys(groupedData[kelas]).sort();
+
+        sortedStudents.forEach(nama => {
+          // Student Row
+          const studentRow = worksheet.getRow(currentRow);
+          studentRow.getCell(1).value = `    [-] ${nama}`;
+          studentRow.getCell(1).font = { bold: true, name: 'Calibri' };
+          currentRow++;
+
+          // Transactions for Student
+          groupedData[kelas][nama].forEach(t => {
+            // Date Row
+            const dateRow = worksheet.getRow(currentRow);
+            dateRow.getCell(1).value = `        [-] ${t.tanggal}`;
+            currentRow++;
+
+            // Reason Row
+            const reasonRow = worksheet.getRow(currentRow);
+            reasonRow.getCell(1).value = `            ${t.alasan}`;
+            currentRow++;
+          });
         });
       });
 
-      applyColorfulTableStyle(worksheet, 10, sortedPivot.length, colCount);
-
       // Column Widths
-      worksheet.getColumn(1).width = 5;
-      worksheet.getColumn(2).width = 40;
-      worksheet.getColumn(3).width = 15;
-      worksheet.getColumn(4).width = 20;
+      worksheet.getColumn(1).width = 80;
 
       // Footer
-      const lastRow = 11 + sortedPivot.length + 2;
+      const footerStartRow = currentRow + 2;
       
-      worksheet.getCell(`B${lastRow}`).value = 'Mengetahui';
-      worksheet.getCell(`B${lastRow}`).font = { name: 'Times New Roman' };
-      worksheet.getCell(`C${lastRow}`).value = `Pasuruan, ${format(new Date(), 'd MMMM yyyy')}`;
-      worksheet.getCell(`C${lastRow}`).font = { name: 'Times New Roman' };
+      worksheet.getCell(`B${footerStartRow}`).value = 'Mengetahui';
+      worksheet.getCell(`B${footerStartRow}`).font = { name: 'Times New Roman' };
+      worksheet.getCell(`E${footerStartRow}`).value = `Pasuruan, ${format(new Date(), 'd MMMM yyyy')}`;
+      worksheet.getCell(`E${footerStartRow}`).font = { name: 'Times New Roman' };
       
-      worksheet.getCell(`B${lastRow + 1}`).value = 'Kepala Sekolah';
-      worksheet.getCell(`B${lastRow + 1}`).font = { name: 'Times New Roman' };
-      worksheet.getCell(`C${lastRow + 1}`).value = 'Guru BK';
-      worksheet.getCell(`C${lastRow + 1}`).font = { name: 'Times New Roman' };
+      worksheet.getCell(`B${footerStartRow + 1}`).value = 'Kepala Sekolah';
+      worksheet.getCell(`B${footerStartRow + 1}`).font = { name: 'Times New Roman' };
+      worksheet.getCell(`E${footerStartRow + 1}`).value = 'Guru BK';
+      worksheet.getCell(`E${footerStartRow + 1}`).font = { name: 'Times New Roman' };
       
-      worksheet.getCell(`B${lastRow + 5}`).value = 'NUR FADILAH, S.Pd';
-      worksheet.getCell(`B${lastRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
-      worksheet.getCell(`C${lastRow + 5}`).value = 'WIWIK ISMIATI, S.Pd';
-      worksheet.getCell(`C${lastRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
+      worksheet.getCell(`B${footerStartRow + 5}`).value = 'NUR FADILAH, S.Pd';
+      worksheet.getCell(`B${footerStartRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
+      worksheet.getCell(`E${footerStartRow + 5}`).value = 'WIWIK ISMIATI, S.Pd';
+      worksheet.getCell(`E${footerStartRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
       
-      worksheet.getCell(`B${lastRow + 6}`).value = 'NIP. 19860410 201001 2 030';
-      worksheet.getCell(`B${lastRow + 6}`).font = { name: 'Times New Roman' };
-      worksheet.getCell(`C${lastRow + 6}`).value = 'NIP. 19831116 200904 2 003';
-      worksheet.getCell(`C${lastRow + 6}`).font = { name: 'Times New Roman' };
+      worksheet.getCell(`B${footerStartRow + 6}`).value = 'NIP. 19860410 201001 2 030';
+      worksheet.getCell(`B${footerStartRow + 6}`).font = { name: 'Times New Roman' };
+      worksheet.getCell(`E${footerStartRow + 6}`).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(`E${footerStartRow + 6}`).font = { name: 'Times New Roman' };
 
       // Save File
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      saveAs(blob, `Pivot_Keterlambatan_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      saveAs(blob, `Pivot_Keterlambatan_Per_Kelas_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
       
       setShowDownloadSuccess(true);
       setTimeout(() => setShowDownloadSuccess(false), 3000);
