@@ -384,6 +384,104 @@ export default function Laporan() {
     }
   };
 
+  const exportPivotToExcel = async () => {
+    if (filteredTransaksi.length === 0) {
+      alert('Tidak ada data untuk diunduh.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Pivot Keterlambatan');
+
+      const colCount = 4;
+      await addExcelHeaderAndLogos(worksheet, workbook, 'Rekapitulasi Keterlambatan Siswa', colCount);
+
+      // Grouping data
+      const pivotData: { [key: string]: { nama: string, kelas: string, total: number } } = {};
+      filteredTransaksi.forEach(t => {
+        const key = t.siswa_id;
+        if (!pivotData[key]) {
+          pivotData[key] = {
+            nama: t.siswa?.nama || 'Unknown',
+            kelas: t.siswa?.kelas || '-',
+            total: 0
+          };
+        }
+        pivotData[key].total += 1;
+      });
+
+      const sortedPivot = Object.values(pivotData).sort((a, b) => b.total - a.total);
+
+      // Table Headers
+      const headers = ['NO', 'NAMA SISWA', 'KELAS', 'TOTAL TERLAMBAT'];
+      const headerRow = worksheet.getRow(10);
+      headerRow.values = headers;
+
+      // Table Data
+      sortedPivot.forEach((item, index) => {
+        const row = worksheet.addRow([
+          index + 1,
+          item.nama,
+          item.kelas,
+          item.total
+        ]);
+        
+        row.eachCell((cell, colNumber) => {
+          cell.font = { name: 'Calibri' };
+          if ([1, 3, 4].includes(colNumber)) {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          }
+        });
+      });
+
+      applyColorfulTableStyle(worksheet, 10, sortedPivot.length, colCount);
+
+      // Column Widths
+      worksheet.getColumn(1).width = 5;
+      worksheet.getColumn(2).width = 40;
+      worksheet.getColumn(3).width = 15;
+      worksheet.getColumn(4).width = 20;
+
+      // Footer
+      const lastRow = 11 + sortedPivot.length + 2;
+      
+      worksheet.getCell(`B${lastRow}`).value = 'Mengetahui';
+      worksheet.getCell(`B${lastRow}`).font = { name: 'Times New Roman' };
+      worksheet.getCell(`C${lastRow}`).value = `Pasuruan, ${format(new Date(), 'd MMMM yyyy')}`;
+      worksheet.getCell(`C${lastRow}`).font = { name: 'Times New Roman' };
+      
+      worksheet.getCell(`B${lastRow + 1}`).value = 'Kepala Sekolah';
+      worksheet.getCell(`B${lastRow + 1}`).font = { name: 'Times New Roman' };
+      worksheet.getCell(`C${lastRow + 1}`).value = 'Guru BK';
+      worksheet.getCell(`C${lastRow + 1}`).font = { name: 'Times New Roman' };
+      
+      worksheet.getCell(`B${lastRow + 5}`).value = 'NUR FADILAH, S.Pd';
+      worksheet.getCell(`B${lastRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
+      worksheet.getCell(`C${lastRow + 5}`).value = 'WIWIK ISMIATI, S.Pd';
+      worksheet.getCell(`C${lastRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
+      
+      worksheet.getCell(`B${lastRow + 6}`).value = 'NIP. 19860410 201001 2 030';
+      worksheet.getCell(`B${lastRow + 6}`).font = { name: 'Times New Roman' };
+      worksheet.getCell(`C${lastRow + 6}`).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(`C${lastRow + 6}`).font = { name: 'Times New Roman' };
+
+      // Save File
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `Pivot_Keterlambatan_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      
+      setShowDownloadSuccess(true);
+      setTimeout(() => setShowDownloadSuccess(false), 3000);
+    } catch (error) {
+      console.error('Export Pivot Error:', error);
+      alert('Gagal mengunduh Pivot Excel.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredTransaksi = transaksi.filter(t => {
     const matchSearch = t.siswa?.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.siswa?.kelas.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -454,6 +552,13 @@ export default function Laporan() {
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download size={16} /> {loading ? 'Memproses...' : 'Download Excel'}
+          </button>
+          <button 
+            onClick={exportPivotToExcel}
+            disabled={loading}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download size={16} /> {loading ? 'Memproses...' : 'Download Pivot'}
           </button>
         </div>
       </div>
