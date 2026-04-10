@@ -138,12 +138,12 @@ const DispLaporan: React.FC = () => {
 
       worksheet.mergeCells(footerStartRow + 6, 2, footerStartRow + 6, 3);
       const kasekName = worksheet.getCell(footerStartRow + 6, 2);
-      kasekName.value = 'NUR FADILAH, S.Pd';
+      kasekName.value = '........................................';
       kasekName.font = { bold: true, underline: true };
       kasekName.alignment = { horizontal: 'center' };
 
       worksheet.mergeCells(footerStartRow + 7, 2, footerStartRow + 7, 3);
-      worksheet.getCell(footerStartRow + 7, 2).value = 'NIP. 19860410 201001 2 030';
+      worksheet.getCell(footerStartRow + 7, 2).value = 'NIP. ........................................';
       worksheet.getCell(footerStartRow + 7, 2).alignment = { horizontal: 'center' };
 
       // Right Signature
@@ -158,12 +158,12 @@ const DispLaporan: React.FC = () => {
 
       worksheet.mergeCells(footerStartRow + 6, 6, footerStartRow + 6, 8);
       const bkName = worksheet.getCell(footerStartRow + 6, 6);
-      bkName.value = 'WIWIK ISMIATI, S.Pd';
+      bkName.value = '........................................';
       bkName.font = { bold: true, underline: true };
       bkName.alignment = { horizontal: 'center' };
 
       worksheet.mergeCells(footerStartRow + 7, 6, footerStartRow + 7, 8);
-      worksheet.getCell(footerStartRow + 7, 6).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(footerStartRow + 7, 6).value = 'NIP. ........................................';
       worksheet.getCell(footerStartRow + 7, 6).alignment = { horizontal: 'center' };
 
       // Generate and Save
