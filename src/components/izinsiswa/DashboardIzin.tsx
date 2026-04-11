@@ -17,7 +17,9 @@ export default function DashboardIzin() {
     totalIzin: 0,
     menunggu: 0,
     disetujui: 0,
-    ditolak: 0
+    ditolak: 0,
+    totalSiswa: 0,
+    siswaMasuk: 0
   });
 
   const KELAS_OPTIONS = [
@@ -63,14 +65,36 @@ export default function DashboardIzin() {
 
       setData(allData);
 
+      // Fetch Total Siswa
+      let totalSiswaCount = 0;
+      if (supabase) {
+        const { count } = await supabase.from('master_siswa').select('*', { count: 'exact', head: true });
+        totalSiswaCount = count || 0;
+      } else {
+        const localSiswa = JSON.parse(localStorage.getItem('master_siswa') || '[]');
+        totalSiswaCount = localSiswa.length;
+      }
+
       // Selected range stats
       const filteredData = allData.filter(d => d.tanggal_mulai >= dateRange.start && d.tanggal_mulai <= dateRange.end);
+
+      // Calculate Siswa Masuk (Today)
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const todayAbsent = allData.filter(d => 
+        d.status === 'Disetujui' && 
+        today >= d.tanggal_mulai && 
+        today <= d.tanggal_selesai
+      );
+      const uniqueTodayAbsent = new Set(todayAbsent.map(d => d.siswa_id)).size;
+      const siswaMasuk = totalSiswaCount - uniqueTodayAbsent;
 
       setStats({
         totalIzin: filteredData.length,
         menunggu: filteredData.filter((d: any) => d.status === 'Menunggu').length,
         disetujui: filteredData.filter((d: any) => d.status === 'Disetujui').length,
-        ditolak: filteredData.filter((d: any) => d.status === 'Ditolak').length
+        ditolak: filteredData.filter((d: any) => d.status === 'Ditolak').length,
+        totalSiswa: totalSiswaCount,
+        siswaMasuk: siswaMasuk
       });
 
     } catch (error: any) {
@@ -105,6 +129,13 @@ export default function DashboardIzin() {
     }).length;
     return { name: m.name, count };
   });
+
+  const statsPerAlasan = Array.from(new Set(filteredData.map(i => i.alasan)))
+    .map(alasan => ({
+      name: alasan,
+      count: filteredData.filter(i => i.alasan === alasan).length
+    }))
+    .sort((a, b) => b.count - a.count);
 
   const topAbsentees = Array.from(new Set(filteredData.map(i => i.siswa_id)))
     .map(id => {
@@ -172,12 +203,32 @@ export default function DashboardIzin() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
+          <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
             <Users size={24} />
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-500">Total Pengajuan (Periode)</p>
-            <p className="text-2xl font-bold text-slate-800">{stats.totalIzin}</p>
+            <p className="text-sm font-medium text-slate-500">Total Siswa</p>
+            <p className="text-2xl font-bold text-slate-800">{stats.totalSiswa}</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
+            <UserCheck size={24} />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-500">Siswa Masuk (Hari Ini)</p>
+            <p className="text-2xl font-bold text-slate-800">{stats.siswaMasuk}</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
+            <TrendingUp size={24} />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-slate-500">Izin Disetujui (Periode)</p>
+            <p className="text-2xl font-bold text-slate-800">{stats.disetujui}</p>
           </div>
         </div>
 
@@ -186,28 +237,8 @@ export default function DashboardIzin() {
             <Clock size={24} />
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-500">Menunggu</p>
+            <p className="text-sm font-medium text-slate-500">Menunggu Persetujuan</p>
             <p className="text-2xl font-bold text-slate-800">{stats.menunggu}</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
-            <UserCheck size={24} />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500">Disetujui</p>
-            <p className="text-2xl font-bold text-slate-800">{stats.disetujui}</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600">
-            <AlertTriangle size={24} />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500">Ditolak</p>
-            <p className="text-2xl font-bold text-slate-800">{stats.ditolak}</p>
           </div>
         </div>
       </div>
@@ -269,6 +300,38 @@ export default function DashboardIzin() {
                   cursor={{ fill: '#f8fafc' }}
                 />
                 <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Chart Berdasarkan Alasan */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
+              <BarChart3 size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800">Alasan Izin</h3>
+              <p className="text-xs text-slate-500">Distribusi alasan izin yang disetujui (Periode)</p>
+            </div>
+          </div>
+          
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={statsPerAlasan} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} width={100} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  cursor={{ fill: '#f8fafc' }}
+                />
+                <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
+                  {statsPerAlasan.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -31,12 +31,14 @@ export default function Dashboard() {
           .select('*', { count: 'exact', head: true });
         setTotalSiswa(siswaCount || 0);
 
-        // Fetch today's latecomers
-        const { count: todayCount } = await supabase
+        // Fetch today's latecomers (unique students)
+        const { data: todayData } = await supabase
           .from('transaksi_terlambat')
-          .select('*', { count: 'exact', head: true })
+          .select('siswa_id')
           .eq('tanggal', today);
-        setTerlambatHariIni(todayCount || 0);
+        
+        const uniqueToday = new Set(todayData?.map(t => t.siswa_id)).size;
+        setTerlambatHariIni(uniqueToday);
 
         // Fetch transactions for range
         const { data: transData } = await supabase
@@ -62,8 +64,9 @@ export default function Dashboard() {
 
         const localTrans = JSON.parse(localStorage.getItem('sitelat_transaksi') || '[]');
         
-        const todayCount = localTrans.filter((t: any) => t.tanggal === today).length;
-        setTerlambatHariIni(todayCount);
+        const todayTrans = localTrans.filter((t: any) => t.tanggal === today);
+        const uniqueToday = new Set(todayTrans.map((t: any) => t.siswa_id)).size;
+        setTerlambatHariIni(uniqueToday);
 
         const filteredTrans = localTrans.filter((t: any) => 
           t.tanggal >= dateRange.start && t.tanggal <= dateRange.end
@@ -108,6 +111,8 @@ export default function Dashboard() {
     })
     .sort((a, b) => b.count - a.count);
 
+  const uniqueTerlambatCount = new Set(transaksi.map(t => t.siswa_id)).size;
+
   return (
     <div className="space-y-6">
       {/* Header & Date Filter */}
@@ -150,7 +155,7 @@ export default function Dashboard() {
           </div>
           <div>
             <p className="text-sm font-medium text-slate-500">Terlambat</p>
-            <p className="text-2xl font-bold text-slate-800">{transaksi.length}</p>
+            <p className="text-2xl font-bold text-slate-800">{uniqueTerlambatCount}</p>
           </div>
         </div>
         <div className="bg-emerald-50/50 border border-emerald-100 p-6 rounded-2xl flex items-center gap-4">
@@ -159,7 +164,7 @@ export default function Dashboard() {
           </div>
           <div>
             <p className="text-sm font-medium text-slate-500">Tepat Waktu</p>
-            <p className="text-2xl font-bold text-slate-800">{totalSiswa - terlambatHariIni}</p>
+            <p className="text-2xl font-bold text-slate-800">{totalSiswa - uniqueTerlambatCount}</p>
           </div>
         </div>
         <div className="bg-orange-50/50 border border-orange-100 p-6 rounded-2xl flex items-center gap-4">
