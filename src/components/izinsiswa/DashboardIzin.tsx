@@ -10,8 +10,8 @@ export default function DashboardIzin() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [data, setData] = useState<IzinWithSiswa[]>([]);
   const [dateRange, setDateRange] = useState({
-    start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
-    end: format(endOfMonth(new Date()), 'yyyy-MM-dd')
+    start: format(new Date(), 'yyyy-MM-dd'),
+    end: format(new Date(), 'yyyy-MM-dd')
   });
   const [stats, setStats] = useState({
     totalIzin: 0,
@@ -137,6 +137,24 @@ export default function DashboardIzin() {
     }))
     .sort((a, b) => b.count - a.count);
 
+  // Group today's absentees by class and reason
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const todayAbsentees = data.filter(d => 
+    d.status === 'Disetujui' && 
+    today >= d.tanggal_mulai && 
+    today <= d.tanggal_selesai
+  );
+
+  const groupedTodayAbsentees = todayAbsentees.reduce((acc: any, curr) => {
+    const kelas = curr.siswa?.kelas || 'Tanpa Kelas';
+    if (!acc[kelas]) acc[kelas] = {};
+    if (!acc[kelas][curr.alasan]) acc[kelas][curr.alasan] = [];
+    acc[kelas][curr.alasan].push(curr);
+    return acc;
+  }, {});
+
+  const sortedClasses = Object.keys(groupedTodayAbsentees).sort();
+
   const topAbsentees = Array.from(new Set(filteredData.map(i => i.siswa_id)))
     .map(id => {
       const student = filteredData.find(i => i.siswa_id === id)?.siswa;
@@ -146,7 +164,7 @@ export default function DashboardIzin() {
     .filter(s => s.count >= 3)
     .sort((a, b) => b.count - a.count);
 
-  const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+  const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
 
   if (loading) {
     return (
@@ -202,43 +220,51 @@ export default function DashboardIzin() {
       )}
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
-            <Users size={24} />
+        {/* Total Siswa - Violet Soft */}
+        <div className="bg-violet-50 p-6 rounded-[2rem] shadow-sm border border-violet-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-violet-200/30 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
+          <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-violet-600 shadow-sm z-10 border border-violet-100">
+            <Users size={28} />
           </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500">Total Siswa</p>
-            <p className="text-2xl font-bold text-slate-800">{stats.totalSiswa}</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
-            <UserCheck size={24} />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500">Siswa Masuk (Hari Ini)</p>
-            <p className="text-2xl font-bold text-slate-800">{stats.siswaMasuk}</p>
+          <div className="z-10">
+            <p className="text-[10px] font-black text-violet-400 uppercase tracking-[0.15em] mb-1">Total Siswa</p>
+            <p className="text-3xl font-black text-violet-900 leading-none">{stats.totalSiswa}</p>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
-            <TrendingUp size={24} />
+        {/* Siswa Masuk - Blue Soft */}
+        <div className="bg-blue-50 p-6 rounded-[2rem] shadow-sm border border-blue-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-200/30 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
+          <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-blue-600 shadow-sm z-10 border border-blue-100">
+            <UserCheck size={28} />
           </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500">Izin Disetujui (Periode)</p>
-            <p className="text-2xl font-bold text-slate-800">{stats.disetujui}</p>
+          <div className="z-10">
+            <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.15em] mb-1">Siswa Masuk</p>
+            <p className="text-3xl font-black text-blue-900 leading-none">{stats.siswaMasuk}</p>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
-            <Clock size={24} />
+        {/* Izin Disetujui - Emerald Soft */}
+        <div className="bg-emerald-50 p-6 rounded-[2rem] shadow-sm border border-emerald-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-200/30 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
+          <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-emerald-600 shadow-sm z-10 border border-emerald-100">
+            <TrendingUp size={28} />
           </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500">Menunggu Persetujuan</p>
-            <p className="text-2xl font-bold text-slate-800">{stats.menunggu}</p>
+          <div className="z-10">
+            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.15em] mb-1">Izin Disetujui</p>
+            <p className="text-3xl font-black text-emerald-900 leading-none">{stats.disetujui}</p>
+          </div>
+        </div>
+
+        {/* Menunggu - Amber Soft */}
+        <div className="bg-amber-50 p-6 rounded-[2rem] shadow-sm border border-amber-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-amber-200/30 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
+          <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-amber-600 shadow-sm z-10 border border-amber-100">
+            <Clock size={28} />
+          </div>
+          <div className="z-10">
+            <p className="text-[10px] font-black text-amber-400 uppercase tracking-[0.15em] mb-1">Menunggu</p>
+            <p className="text-3xl font-black text-amber-900 leading-none">{stats.menunggu}</p>
           </div>
         </div>
       </div>
@@ -246,30 +272,30 @@ export default function DashboardIzin() {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Chart Per Kelas */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
-              <BarChart3 size={20} />
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-sm">
+              <BarChart3 size={24} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-800">Izin Per Kelas</h3>
-              <p className="text-xs text-slate-500">Data periode terpilih yang disetujui</p>
+              <h3 className="text-xl font-black text-slate-800">Izin Per Kelas</h3>
+              <p className="text-sm text-slate-500 font-medium">Data periode terpilih yang disetujui</p>
             </div>
           </div>
           
-          <div className="h-64">
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={statsPerKelas}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 700 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 700 }} />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px 16px' }}
                   cursor={{ fill: '#f8fafc' }}
                 />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={30}>
+                <Bar dataKey="count" radius={[8, 8, 0, 0]} barSize={24}>
                   {statsPerKelas.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} fillOpacity={0.8} />
                   ))}
                 </Bar>
               </BarChart>
@@ -278,64 +304,135 @@ export default function DashboardIzin() {
         </div>
 
         {/* Chart Tren Bulanan */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
-              <TrendingUp size={20} />
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100 shadow-sm">
+              <TrendingUp size={24} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-800">Tren Bulanan</h3>
-              <p className="text-xs text-slate-500">Total izin disetujui 6 bulan terakhir</p>
+              <h3 className="text-xl font-black text-slate-800">Tren Bulanan</h3>
+              <p className="text-sm text-slate-500 font-medium">Total izin disetujui 6 bulan terakhir</p>
             </div>
           </div>
           
-          <div className="h-64">
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={statsPerBulan}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 700 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 700 }} />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px 16px' }}
                   cursor={{ fill: '#f8fafc' }}
                 />
-                <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
+                <Bar dataKey="count" fill="#3b82f6" fillOpacity={0.8} radius={[8, 8, 0, 0]} barSize={32} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Chart Berdasarkan Alasan */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
-              <BarChart3 size={20} />
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200 lg:col-span-2">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 border border-amber-100 shadow-sm">
+              <BarChart3 size={24} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-800">Alasan Izin</h3>
-              <p className="text-xs text-slate-500">Distribusi alasan izin yang disetujui (Periode)</p>
+              <h3 className="text-xl font-black text-slate-800">Analisis Alasan Izin</h3>
+              <p className="text-sm text-slate-500 font-medium">Distribusi alasan izin yang disetujui (Periode)</p>
             </div>
           </div>
           
-          <div className="h-64">
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={statsPerAlasan} layout="vertical">
+              <BarChart data={statsPerAlasan} layout="vertical" margin={{ left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
-                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} width={100} />
+                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 700 }} />
+                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 800 }} width={120} />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px 16px' }}
                   cursor={{ fill: '#f8fafc' }}
                 />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
+                <Bar dataKey="count" radius={[0, 8, 8, 0]} barSize={20}>
                   {statsPerAlasan.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} fillOpacity={0.8} />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
+      </div>
+
+      {/* Today's Absentees List */}
+      <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -mr-32 -mt-32 z-0" />
+        
+        <div className="flex items-center gap-4 mb-8 relative z-10">
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100 shadow-sm">
+            <Users size={24} />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-slate-800">Siswa Tidak Masuk Hari Ini</h3>
+            <p className="text-sm text-slate-500 font-medium">Monitoring kehadiran real-time (Status: Disetujui)</p>
+          </div>
+        </div>
+
+        {sortedClasses.length === 0 ? (
+          <div className="py-16 text-center bg-slate-50/50 rounded-[2rem] border border-dashed border-slate-200 relative z-10">
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-emerald-500 mx-auto mb-4 shadow-sm border border-emerald-50">
+              <UserCheck size={32} />
+            </div>
+            <p className="text-slate-500 font-bold text-lg">Luar Biasa!</p>
+            <p className="text-slate-400">Semua siswa hadir di sekolah hari ini.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 relative z-10">
+            {sortedClasses.map(kelas => (
+              <div key={kelas} className="bg-slate-50/30 rounded-[2rem] border border-slate-100 overflow-hidden hover:bg-white hover:shadow-md transition-all duration-300 group">
+                <div className="bg-white px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                  <h4 className="font-black text-slate-700 tracking-tight">KELAS {kelas}</h4>
+                  <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-3 py-1 rounded-full uppercase">
+                    {Object.values(groupedTodayAbsentees[kelas]).flat().length} Siswa
+                  </span>
+                </div>
+                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {Object.keys(groupedTodayAbsentees[kelas]).map((alasan, idx) => {
+                    const softColors = [
+                      { bg: 'bg-rose-50', text: 'text-rose-600', dot: 'bg-rose-400', badge: 'bg-rose-100' },
+                      { bg: 'bg-amber-50', text: 'text-amber-600', dot: 'bg-amber-400', badge: 'bg-amber-100' },
+                      { bg: 'bg-blue-50', text: 'text-blue-600', dot: 'bg-blue-400', badge: 'bg-blue-100' },
+                      { bg: 'bg-violet-50', text: 'text-violet-600', dot: 'bg-violet-400', badge: 'bg-violet-100' },
+                    ];
+                    const color = softColors[idx % softColors.length];
+                    
+                    return (
+                      <div key={alasan} className={`p-4 rounded-2xl ${color.bg} border border-white shadow-sm`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full ${color.dot}`}></span>
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${color.text}`}>{alasan}</span>
+                          </div>
+                          <span className={`text-[10px] ${color.badge} ${color.text} px-2 py-0.5 rounded-lg font-black`}>
+                            {groupedTodayAbsentees[kelas][alasan].length}
+                          </span>
+                        </div>
+                        <ul className="space-y-2">
+                          {groupedTodayAbsentees[kelas][alasan].map((item: any) => (
+                            <li key={item.id} className="text-xs font-bold text-slate-600 flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+                              {item.siswa?.nama}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Top Absentees List */}
