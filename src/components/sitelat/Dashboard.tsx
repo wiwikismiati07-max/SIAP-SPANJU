@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { TransaksiWithSiswa } from '../../types/sitelat';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Users, UserX, Clock, PhoneCall, Download, BarChart as BarChartIcon } from 'lucide-react';
 import { format, subDays, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 
@@ -126,9 +126,9 @@ export default function Dashboard() {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const softColors = [
-    '#FCA5A5', '#FDBA74', '#FDE047', '#BEF264', '#6EE7B7', 
-    '#67E8F9', '#7DD3FC', '#93C5FD', '#A5B4FC', '#C4B5FD', 
-    '#F0ABFC', '#F472B6', '#FB7185'
+    '#FFADAD', '#FFD6A5', '#FDFFB6', '#CAFFBF', '#9BF6FF', 
+    '#A0C4FF', '#BDB2FF', '#FFC6FF', '#FFFFFC', '#FFD1DC',
+    '#E2F0CB', '#B5EAD7', '#C7CEEA'
   ];
 
   return (
@@ -257,7 +257,7 @@ export default function Dashboard() {
                 barSize={30}
               >
                 {barChartData.map((entry, index) => (
-                  <Bar key={`cell-${index}`} fill={softColors[index % softColors.length]} />
+                  <Cell key={`cell-${index}`} fill={softColors[index % softColors.length]} />
                 ))}
               </Bar>
             </BarChart>
