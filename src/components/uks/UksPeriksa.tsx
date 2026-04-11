@@ -219,12 +219,12 @@ const UksPeriksa: React.FC = () => {
         const ws = wb.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws);
         
-        const mappedData = data.map((row: any) => {
+        const mappedData = data.map((row: any, index: number) => {
           const getValue = (keys: string[]) => {
             const rowKeys = Object.keys(row);
             for (const key of keys) {
               const foundKey = rowKeys.find(rk => rk.toLowerCase().trim() === key.toLowerCase().trim());
-              if (foundKey) return row[foundKey];
+              if (foundKey) return String(row[foundKey]).trim();
             }
             return '';
           };
@@ -237,11 +237,14 @@ const UksPeriksa: React.FC = () => {
           const jam = getValue(['jam']);
           const catatan = getValue(['catatan', 'keterangan']) || '';
 
-          const student = siswa.find(s => s.nama.toLowerCase() === String(namaSiswa).toLowerCase() && s.kelas === String(kelasSiswa));
-          const keluhanItem = keluhan.find(k => k.nama_keluhan.toLowerCase() === String(namaKeluhan).toLowerCase());
+          const student = siswa.find(s => 
+            s.nama.toLowerCase().trim() === namaSiswa.toLowerCase() && 
+            String(s.kelas).toLowerCase().trim() === kelasSiswa.toLowerCase()
+          );
+          const keluhanItem = keluhan.find(k => k.nama_keluhan.toLowerCase().trim() === namaKeluhan.toLowerCase());
 
           if (!student || !keluhanItem) {
-            console.warn('Missing data for row:', row);
+            console.warn(`Row ${index + 2}: Missing data match`, { namaSiswa, kelasSiswa, namaKeluhan });
             return null;
           }
 
@@ -251,6 +254,9 @@ const UksPeriksa: React.FC = () => {
               const d = new Date(tanggal);
               if (!isNaN(d.getTime())) {
                 formattedDate = format(d, 'yyyy-MM-dd');
+              } else if (typeof tanggal === 'number') {
+                const excelDate = new Date((tanggal - 25569) * 86400 * 1000);
+                formattedDate = format(excelDate, 'yyyy-MM-dd');
               }
             } catch (e) {}
           }
@@ -270,12 +276,41 @@ const UksPeriksa: React.FC = () => {
           return;
         }
 
-        const { error } = await supabase.from('uks_kunjungan').insert(mappedData);
-        if (error) throw error;
-        alert(`${mappedData.length} data berhasil diupload!`);
+        setLoading(true);
+        // Fetch existing records to handle "Tindih" (Overwrite)
+        const studentIds = [...new Set(mappedData.map(d => d.siswa_id))];
+        const dates = [...new Set(mappedData.map(d => d.tanggal))];
+
+        const { data: existingRecords } = await supabase
+          .from('uks_kunjungan')
+          .select('id, siswa_id, tanggal, keluhan_id')
+          .in('siswa_id', studentIds)
+          .in('tanggal', dates);
+
+        const toUpsert = mappedData.map(newItem => {
+          const existing = existingRecords?.find(ex => 
+            ex.siswa_id === newItem.siswa_id && 
+            ex.tanggal === newItem.tanggal && 
+            ex.keluhan_id === newItem.keluhan_id
+          );
+          if (existing) {
+            return { ...newItem, id: existing.id };
+          }
+          return newItem;
+        });
+
+        const { error: upsertError } = await supabase
+          .from('uks_kunjungan')
+          .upsert(toUpsert);
+
+        if (upsertError) throw upsertError;
+        alert(`Berhasil memproses ${toUpsert.length} data UKS (Termasuk update data yang sudah ada).`);
         fetchInitialData();
       } catch (error: any) {
+        console.error('UKS Upload error:', error);
         alert('Error reading Excel: ' + error.message);
+      } finally {
+        setLoading(false);
       }
     };
     reader.readAsBinaryString(file);

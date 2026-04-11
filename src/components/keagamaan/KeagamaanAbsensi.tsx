@@ -182,12 +182,12 @@ const KeagamaanAbsensi: React.FC = () => {
         const ws = wb.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws);
         
-        const mappedData = data.map((row: any) => {
+        const mappedData = data.map((row: any, index: number) => {
           const getValue = (keys: string[]) => {
             const rowKeys = Object.keys(row);
             for (const key of keys) {
               const foundKey = rowKeys.find(rk => rk.toLowerCase().trim() === key.toLowerCase().trim());
-              if (foundKey) return row[foundKey];
+              if (foundKey) return String(row[foundKey]).trim();
             }
             return '';
           };
@@ -198,23 +198,34 @@ const KeagamaanAbsensi: React.FC = () => {
           const namaGuru = getValue(['wali kelas', 'guru', 'wali']);
           const tanggal = getValue(['tanggal']);
           const jam = getValue(['jam']);
-          const alasan = getValue(['alasan', 'keterangan']) || 'Hadir';
+          let alasan = getValue(['alasan', 'keterangan']) || 'Hadir';
 
-          const student = students.find(s => s.nama.toLowerCase() === String(namaSiswa).toLowerCase() && s.kelas === String(kelasSiswa));
-          const program = programs.find(p => p.nama_kegiatan.toLowerCase() === String(namaKegiatan).toLowerCase());
-          const teacher = teachers.find(t => t.nama_guru.toLowerCase() === String(namaGuru).toLowerCase());
+          // Handle common variations/typos
+          if (alasan.toLowerCase() === 'alpha') alasan = 'Alpa';
+
+          const student = students.find(s => 
+            s.nama.toLowerCase().trim() === namaSiswa.toLowerCase() && 
+            String(s.kelas).toLowerCase().trim() === kelasSiswa.toLowerCase()
+          );
+          const program = programs.find(p => p.nama_kegiatan.toLowerCase().trim() === namaKegiatan.toLowerCase());
+          const teacher = teachers.find(t => t.nama_guru.toLowerCase().trim() === namaGuru.toLowerCase());
 
           if (!student || !program || !teacher) {
-            console.warn('Missing data for row:', row);
+            console.warn(`Row ${index + 2}: Missing data match`, { namaSiswa, kelasSiswa, namaKegiatan, namaGuru });
             return null;
           }
 
           let formattedDate = format(new Date(), 'yyyy-MM-dd');
           if (tanggal) {
             try {
+              // Handle Excel date serial number or string
               const d = new Date(tanggal);
               if (!isNaN(d.getTime())) {
                 formattedDate = format(d, 'yyyy-MM-dd');
+              } else if (typeof tanggal === 'number') {
+                // Excel serial date
+                const excelDate = new Date((tanggal - 25569) * 86400 * 1000);
+                formattedDate = format(excelDate, 'yyyy-MM-dd');
               }
             } catch (e) {}
           }
@@ -225,7 +236,9 @@ const KeagamaanAbsensi: React.FC = () => {
             wali_kelas_id: teacher.id,
             tanggal: formattedDate,
             jam: jam || format(new Date(), 'HH.mm'),
-            alasan: reasons.find(r => r.label.toLowerCase() === String(alasan).toLowerCase())?.id || 'Hadir'
+            alasan: reasons.find(r => r.label.toLowerCase() === alasan.toLowerCase())?.id || 
+                    reasons.find(r => r.id.toLowerCase() === alasan.toLowerCase())?.id || 
+                    'Hadir'
           };
         }).filter(Boolean);
 
@@ -234,12 +247,51 @@ const KeagamaanAbsensi: React.FC = () => {
           return;
         }
 
-        const { error } = await supabase.from('agama_absensi').insert(mappedData);
-        if (error) throw error;
-        alert(`${mappedData.length} data berhasil diupload!`);
+        // Implement "Tindih" (Overwrite) logic
+        // We'll process in chunks to avoid payload limits and handle upsert manually if needed
+        // But Supabase upsert with onConflict is best if we have a unique constraint.
+        // Since we might not have one, we'll do it by checking existing records.
+        
+        setSubmitting(true);
+        let successCount = 0;
+        let errorCount = 0;
+
+        // Fetch existing records for the students and dates to check for duplicates
+        const studentIds = [...new Set(mappedData.map(d => d.siswa_id))];
+        const dates = [...new Set(mappedData.map(d => d.tanggal))];
+
+        const { data: existingRecords } = await supabase
+          .from('agama_absensi')
+          .select('id, siswa_id, tanggal, kegiatan_id')
+          .in('siswa_id', studentIds)
+          .in('tanggal', dates);
+
+        const toUpsert = mappedData.map(newItem => {
+          const existing = existingRecords?.find(ex => 
+            ex.siswa_id === newItem.siswa_id && 
+            ex.tanggal === newItem.tanggal && 
+            ex.kegiatan_id === newItem.kegiatan_id
+          );
+          if (existing) {
+            return { ...newItem, id: existing.id }; // Include ID to trigger update
+          }
+          return newItem;
+        });
+
+        // Perform upsert
+        const { error: upsertError } = await supabase
+          .from('agama_absensi')
+          .upsert(toUpsert);
+
+        if (upsertError) throw upsertError;
+
+        alert(`Berhasil memproses ${toUpsert.length} data (Termasuk update data yang sudah ada).`);
         fetchAbsensi();
       } catch (error: any) {
-        alert('Error reading Excel: ' + error.message);
+        console.error('Upload error:', error);
+        alert('Error processing upload: ' + error.message);
+      } finally {
+        setSubmitting(false);
       }
     };
     reader.readAsBinaryString(file);
