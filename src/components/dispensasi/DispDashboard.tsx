@@ -4,9 +4,15 @@ import { supabase } from '../../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { TransaksiDispensasi, SiswaSeringDispensasi } from '../../types/dispensasi';
 
+import { format, subDays } from 'date-fns';
+
 const COLORS = ['#3b82f6', '#ec4899', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
 
 const DispDashboard: React.FC = () => {
+  const [dateRange, setDateRange] = useState({
+    start: format(new Date(), 'yyyy-MM-dd'),
+    end: format(new Date(), 'yyyy-MM-dd')
+  });
   const [stats, setStats] = useState({
     totalSiswa: 0,
     totalDispensasi: 0,
@@ -19,23 +25,30 @@ const DispDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [dateRange]);
 
   const fetchDashboardData = async () => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       
       // 1. Total Siswa
       const { count: siswaCount } = await supabase.from('master_siswa').select('*', { count: 'exact', head: true });
       
-      // 2. Total Dispensasi
+      // 2. Total Dispensasi (Filtered by date)
       const { data: dispData, error: dispError } = await supabase
         .from('disp_transaksi')
         .select(`
           *,
           siswa:master_siswa(nama, kelas),
           jenis:disp_master_jenis(nama_jenis)
-        `);
+        `)
+        .gte('tanggal', dateRange.start)
+        .lte('tanggal', dateRange.end);
       
       if (dispError) throw dispError;
 
@@ -86,7 +99,10 @@ const DispDashboard: React.FC = () => {
       });
 
       const topList = Object.values(studentMap).map((s: any) => {
-        const bestType = Object.keys(s.jenis).reduce((a, b) => s.jenis[a] > s.jenis[b] ? a : b);
+        const jenisKeys = Object.keys(s.jenis);
+        const bestType = jenisKeys.length > 0 
+          ? jenisKeys.reduce((a, b) => s.jenis[a] > s.jenis[b] ? a : b)
+          : 'Lain-lain';
         return {
           ...s,
           jenis_terbanyak: bestType
@@ -112,7 +128,28 @@ const DispDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <h2 className="text-2xl font-bold text-slate-800">Dashboard Overview</h2>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Dashboard Overview</h2>
+          <p className="text-slate-500 text-sm">Statistik dispensasi siswa periode terpilih</p>
+        </div>
+        
+        <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+          <input 
+            type="date" 
+            value={dateRange.start}
+            onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+            className="px-3 py-1.5 outline-none text-sm font-medium text-slate-700 bg-transparent"
+          />
+          <span className="text-slate-400">-</span>
+          <input 
+            type="date" 
+            value={dateRange.end}
+            onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+            className="px-3 py-1.5 outline-none text-sm font-medium text-slate-700 bg-transparent"
+          />
+        </div>
+      </div>
       
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

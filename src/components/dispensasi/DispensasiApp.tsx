@@ -23,7 +23,7 @@ const DispensasiApp: React.FC<DispensasiAppProps> = ({ onBack, onOpenSidebar }) 
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col relative overflow-hidden">
+    <div className="h-full bg-[#f8fafc] flex flex-col relative overflow-hidden">
       {/* Top Navigation Bar */}
       <div className="bg-white border-b border-slate-100 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
