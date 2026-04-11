@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { TransaksiWithSiswa } from '../../types/sitelat';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Users, UserX, Clock, PhoneCall, Download, BarChart as BarChartIcon } from 'lucide-react';
+import { Users, UserX, Clock, PhoneCall, Download, BarChart as BarChartIcon, ChevronDown, ChevronRight, FileText } from 'lucide-react';
 import { format, subDays, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 
 export default function Dashboard() {
@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [totalSiswa, setTotalSiswa] = useState(0);
   const [terlambatHariIni, setTerlambatHariIni] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [expandedKelas, setExpandedKelas] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState({
     start: format(new Date(), 'yyyy-MM-dd'),
     end: format(new Date(), 'yyyy-MM-dd')
@@ -130,6 +131,21 @@ export default function Dashboard() {
     '#A0C4FF', '#BDB2FF', '#FFC6FF', '#FFFFFC', '#FFD1DC',
     '#E2F0CB', '#B5EAD7', '#C7CEEA'
   ];
+
+  const toggleKelas = (kelas: string) => {
+    setExpandedKelas(prev => 
+      prev.includes(kelas) ? prev.filter(k => k !== kelas) : [...prev, kelas]
+    );
+  };
+
+  const groupedByKelas = transaksi.reduce((acc, t) => {
+    const kelas = t.siswa?.kelas || 'Tanpa Kelas';
+    if (!acc[kelas]) acc[kelas] = [];
+    acc[kelas].push(t);
+    return acc;
+  }, {} as Record<string, TransaksiWithSiswa[]>);
+
+  const sortedKelas = Object.keys(groupedByKelas).sort();
 
   return (
     <div className="space-y-6">
@@ -262,6 +278,104 @@ export default function Dashboard() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Pivot Table: Siswa Terlambat Per Kelas */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+        <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+              <FileText size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-800">Pivot Terlambat Per Kelas</h3>
+              <p className="text-sm font-medium text-slate-500">Detail siswa terlambat dikelompokkan berdasarkan kelas.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setExpandedKelas(sortedKelas)}
+              className="px-4 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"
+            >
+              Expand All
+            </button>
+            <button 
+              onClick={() => setExpandedKelas([])}
+              className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
+            >
+              Collapse All
+            </button>
+          </div>
+        </div>
+        <div className="p-6 bg-slate-50/30">
+          <div className="space-y-3">
+            {sortedKelas.length === 0 ? (
+              <div className="p-12 text-center text-slate-400 font-medium italic bg-white rounded-2xl border border-slate-100">
+                Tidak ada data keterlambatan untuk periode ini.
+              </div>
+            ) : (
+              sortedKelas.map((kelas, idx) => {
+                const isExpanded = expandedKelas.includes(kelas);
+                const data = groupedByKelas[kelas];
+                const colorIdx = idx % softColors.length;
+                const softBg = softColors[colorIdx] + '20'; // 12% opacity
+                const softText = softColors[colorIdx];
+
+                return (
+                  <div key={kelas} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                    <button 
+                      onClick={() => toggleKelas(kelas)}
+                      className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: softBg, color: softText }}>
+                          {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                        </div>
+                        <span className="font-black text-slate-700 uppercase tracking-tight">Kelas {kelas}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider" style={{ backgroundColor: softBg, color: softText }}>
+                          {data.length} Siswa
+                        </span>
+                      </div>
+                    </button>
+                    
+                    {isExpanded && (
+                      <div className="border-t border-slate-50">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="bg-slate-50/50">
+                            <tr>
+                              <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Jam</th>
+                              <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Siswa</th>
+                              <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Alasan</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50">
+                            {data.map((t) => (
+                              <tr key={t.id} className="hover:bg-slate-50/30 transition-colors group">
+                                <td className="px-6 py-3">
+                                  <span className="text-[10px] font-mono text-slate-400 font-bold">{t.jam}</span>
+                                </td>
+                                <td className="px-6 py-3">
+                                  <p className="text-sm font-bold text-slate-700 uppercase">{t.siswa?.nama}</p>
+                                </td>
+                                <td className="px-6 py-3">
+                                  <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase" style={{ backgroundColor: softBg, color: softText }}>
+                                    {t.alasan}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
 
