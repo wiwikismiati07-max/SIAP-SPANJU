@@ -706,46 +706,66 @@ export default function Laporan() {
                 ) : filteredTransaksi.length === 0 ? (
                   <tr><td colSpan={4} className="p-8 text-center text-slate-500">Belum ada data.</td></tr>
                 ) : (
-                  filteredTransaksi.map((t) => (
-                    <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                      <td className="p-4">
-                        <p className="text-sm font-semibold text-slate-800">{t.tanggal}</p>
-                        <p className="text-xs text-slate-500">{t.jam}</p>
-                      </td>
-                      <td className="p-4">
-                        <p className="text-sm font-semibold text-slate-800">{t.siswa?.nama || 'Unknown'}</p>
-                        <p className="text-xs text-slate-500">Kelas {t.siswa?.kelas || '-'}</p>
-                      </td>
-                      <td className="p-4">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800">
-                          {t.alasan}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => handleEdit(t)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                            <Edit2 size={16} />
-                          </button>
-                          <button onClick={() => handleDelete(t.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  filteredTransaksi.map((t, idx) => {
+                    const rowColors = [
+                      'bg-rose-50/30', 'bg-emerald-50/30', 'bg-blue-50/30', 
+                      'bg-amber-50/30', 'bg-violet-50/30', 'bg-indigo-50/30',
+                      'bg-cyan-50/30', 'bg-orange-50/30'
+                    ];
+                    const textColors = [
+                      'text-rose-600', 'text-emerald-600', 'text-blue-600', 
+                      'text-amber-600', 'text-violet-600', 'text-indigo-600',
+                      'text-cyan-600', 'text-orange-600'
+                    ];
+                    const colorIdx = idx % rowColors.length;
+
+                    return (
+                      <tr key={t.id} className={`${rowColors[colorIdx]} hover:bg-white transition-colors`}>
+                        <td className="p-4">
+                          <p className={`text-sm font-bold ${textColors[colorIdx]}`}>{t.tanggal}</p>
+                          <p className="text-xs text-slate-500">{t.jam}</p>
+                        </td>
+                        <td className="p-4">
+                          <p className={`text-sm font-bold ${textColors[colorIdx]}`}>{t.siswa?.nama || 'Unknown'}</p>
+                          <p className="text-xs text-slate-500">Kelas {t.siswa?.kelas || '-'}</p>
+                        </td>
+                        <td className="p-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${rowColors[colorIdx].replace('/30', '')} ${textColors[colorIdx]}`}>
+                            {t.alasan}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button onClick={() => handleEdit(t)} className={`p-1.5 ${textColors[colorIdx]} hover:bg-white rounded-lg transition-colors`}>
+                              <Edit2 size={16} />
+                            </button>
+                            <button onClick={() => handleDelete(t.id)} className={`p-1.5 ${textColors[colorIdx]} hover:bg-white rounded-lg transition-colors`}>
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           ) : (
             <div className="p-6 flex flex-col gap-6">
-              {Array.from(new Set(siswaList.map(s => s.kelas))).sort().map(kelas => {
+              {Array.from(new Set(siswaList.map(s => s.kelas))).sort().map((kelas, kIdx) => {
                 const dataKelas = filteredTransaksi.filter(t => t.siswa?.kelas === kelas);
                 if (dataKelas.length === 0) return null;
+
+                const kelasColors = ['bg-blue-50', 'bg-emerald-50', 'bg-violet-50', 'bg-amber-50', 'bg-rose-50'];
+                const kelasTextColors = ['text-blue-600', 'text-emerald-600', 'text-violet-600', 'text-amber-600', 'text-rose-600'];
+                const kelasBorderColors = ['border-blue-100', 'border-emerald-100', 'border-violet-100', 'border-amber-100', 'border-rose-100'];
+                const cIdx = kIdx % kelasColors.length;
+
                 return (
-                  <div key={kelas} className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col overflow-hidden">
-                    <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-                      <h4 className="font-black text-slate-800 uppercase tracking-tight">Kelas {kelas}</h4>
-                      <span className="px-3 py-1 bg-blue-600 text-white text-[10px] font-black rounded-full uppercase tracking-wider shadow-sm">
+                  <div key={kelas} className={`bg-white rounded-2xl border ${kelasBorderColors[cIdx]} shadow-sm flex flex-col overflow-hidden`}>
+                    <div className={`p-4 border-b ${kelasBorderColors[cIdx]} flex items-center justify-between ${kelasColors[cIdx]}/50`}>
+                      <h4 className={`font-black ${kelasTextColors[cIdx]} uppercase tracking-tight`}>Kelas {kelas}</h4>
+                      <span className={`px-3 py-1 ${kelasColors[cIdx]} ${kelasTextColors[cIdx]} text-[10px] font-black rounded-full uppercase tracking-wider shadow-sm`}>
                         {dataKelas.length} Terlambat
                       </span>
                     </div>
@@ -760,22 +780,36 @@ export default function Laporan() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                          {dataKelas.map((t) => (
-                            <tr key={t.id} className="hover:bg-slate-50 transition-colors group">
-                              <td className="px-6 py-3 text-sm font-medium text-slate-600">{t.tanggal}</td>
-                              <td className="px-6 py-3 text-[10px] font-mono text-slate-400 font-bold">{t.jam}</td>
-                              <td className="px-6 py-3">
-                                <p className="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors uppercase">
-                                  {t.siswa?.nama}
-                                </p>
-                              </td>
-                              <td className="px-6 py-3">
-                                <span className="px-2 py-0.5 bg-rose-50 text-rose-600 text-[9px] font-black rounded uppercase">
-                                  {t.alasan}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
+                          {dataKelas.map((t, tIdx) => {
+                            const rowColors = [
+                              'bg-rose-50/20', 'bg-emerald-50/20', 'bg-blue-50/20', 
+                              'bg-amber-50/20', 'bg-violet-50/20', 'bg-indigo-50/20',
+                              'bg-cyan-50/20', 'bg-orange-50/20'
+                            ];
+                            const rowTextColors = [
+                              'text-rose-600', 'text-emerald-600', 'text-blue-600', 
+                              'text-amber-600', 'text-violet-600', 'text-indigo-600',
+                              'text-cyan-600', 'text-orange-600'
+                            ];
+                            const rIdx = tIdx % rowColors.length;
+
+                            return (
+                              <tr key={t.id} className={`${rowColors[rIdx]} hover:bg-white transition-colors group`}>
+                                <td className={`px-6 py-3 text-sm font-bold ${rowTextColors[rIdx]}`}>{t.tanggal}</td>
+                                <td className={`px-6 py-3 text-[10px] font-mono ${rowTextColors[rIdx]} font-bold`}>{t.jam}</td>
+                                <td className="px-6 py-3">
+                                  <p className={`text-sm font-bold ${rowTextColors[rIdx]} transition-colors uppercase`}>
+                                    {t.siswa?.nama}
+                                  </p>
+                                </td>
+                                <td className="px-6 py-3">
+                                  <span className={`px-2 py-0.5 ${rowColors[rIdx].replace('/20', '')} ${rowTextColors[rIdx]} text-[9px] font-black rounded uppercase`}>
+                                    {t.alasan}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
