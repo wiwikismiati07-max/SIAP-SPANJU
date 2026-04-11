@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS transaksi_pelanggaran (
   bukti_fisik TEXT[], -- Multi attachment (array of URLs)
   wali_kelas TEXT,
   guru_bk TEXT, -- Wiwik Ismiati S.pd, Eki Febriani S.pd
+  catatan TEXT,
   status TEXT DEFAULT 'Proses', -- Proses, Selesai
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

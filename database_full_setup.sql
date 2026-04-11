@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS transaksi_pelanggaran (
   tindak_lanjut TEXT, -- 'Konseling Individu', 'Konseling Kelompok', etc.
   wali_kelas TEXT,
   guru_bk TEXT, -- 'Wiwik Ismiati S.pd', 'Ekik Febriani S.pd'
+  catatan TEXT,
   status TEXT DEFAULT 'Proses', -- 'Proses', 'Selesai'
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

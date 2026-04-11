@@ -72,11 +72,11 @@ export default function DisiplinLaporan() {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Laporan Pelanggaran');
 
-      const totalCols = 10;
+      const totalCols = 11;
       await addExcelHeaderAndLogos(worksheet, workbook, 'LAPORAN PELANGGARAN SISWA', totalCols);
 
       // Table Headers
-      const headers = ['NO', 'TANGGAL', 'JAM', 'KELAS', 'NAMA SISWA', 'PELANGGARAN', 'ALASAN', 'PENANGANAN', 'KONSEKUENSI', 'STATUS'];
+      const headers = ['NO', 'TANGGAL', 'JAM', 'KELAS', 'NAMA SISWA', 'PELANGGARAN', 'ALASAN', 'PENANGANAN', 'CATATAN', 'KONSEKUENSI', 'STATUS'];
 
       const headerRow = worksheet.getRow(10);
       headerRow.values = headers;
@@ -92,6 +92,7 @@ export default function DisiplinLaporan() {
           d.pelanggaran?.nama_pelanggaran || '-',
           d.alasan || '-',
           d.penanganan || '-',
+          d.catatan || '-',
           d.konsekuensi || '-',
           d.status
         ]);
@@ -109,6 +110,7 @@ export default function DisiplinLaporan() {
         { width: 30 }, // PELANGGARAN
         { width: 30 }, // ALASAN
         { width: 20 }, // PENANGANAN
+        { width: 30 }, // CATATAN
         { width: 25 }, // KONSEKUENSI
         { width: 15 }  // STATUS
       ];
