@@ -15,6 +15,7 @@ export default function DisiplinDashboard() {
   });
   const [classData, setClassData] = useState<any[]>([]);
   const [categoryData, setCategoryData] = useState<any[]>([]);
+  const [frequentViolators, setFrequentViolators] = useState<any[]>([]);
 
   const KELAS_OPTIONS = [
     '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
@@ -77,6 +78,25 @@ export default function DisiplinDashboard() {
           value
         })).sort((a, b) => b.value - a.value);
         setCategoryData(catData);
+
+        // Frequent Violators (> 5x)
+        const studentCounts: Record<string, any> = {};
+        safeKasus.forEach(k => {
+          const sid = k.siswa_id;
+          if (!studentCounts[sid]) {
+            studentCounts[sid] = {
+              nama: k.siswa?.nama || 'Unknown',
+              kelas: k.siswa?.kelas || '-',
+              count: 0
+            };
+          }
+          studentCounts[sid].count += 1;
+        });
+
+        const frequent = Object.values(studentCounts)
+          .filter((s: any) => s.count >= 5)
+          .sort((a: any, b: any) => b.count - a.count);
+        setFrequentViolators(frequent);
       } else {
         throw new Error('Supabase client is not initialized');
       }
@@ -237,6 +257,46 @@ export default function DisiplinDashboard() {
             </ResponsiveContainer>
           </div>
         </div>
+      </div>
+
+      {/* Frequent Violators Section */}
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
+            <UserX size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-800">Siswa Sering Melanggar (≥ 5x)</h3>
+            <p className="text-xs text-slate-500">Daftar siswa dengan intensitas pelanggaran tinggi</p>
+          </div>
+        </div>
+
+        {frequentViolators.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {frequentViolators.map((s, i) => (
+              <div key={i} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between group hover:bg-rose-50 hover:border-rose-100 transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center font-bold text-slate-400 group-hover:text-rose-600 shadow-sm">
+                    {s.nama.substring(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-800 group-hover:text-rose-900">{s.nama}</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Kelas {s.kelas}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xl font-black text-rose-600">{s.count}</p>
+                  <p className="text-[8px] font-black text-rose-400 uppercase tracking-tighter">Pelanggaran</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+            <CheckCircle2 size={32} className="mx-auto text-emerald-400 mb-3" />
+            <p className="text-slate-500 font-medium">Tidak ada siswa dengan pelanggaran lebih dari 5 kali.</p>
+          </div>
+        )}
       </div>
     </div>
   );
