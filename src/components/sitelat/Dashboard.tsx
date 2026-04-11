@@ -10,7 +10,8 @@ export default function Dashboard() {
   const [totalSiswa, setTotalSiswa] = useState(0);
   const [terlambatHariIni, setTerlambatHariIni] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [expandedKelas, setExpandedKelas] = useState<string[]>([]);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [selectedKelas, setSelectedKelas] = useState<string>('All');
   const [dateRange, setDateRange] = useState({
     start: format(new Date(), 'yyyy-MM-dd'),
     end: format(new Date(), 'yyyy-MM-dd')
@@ -132,20 +133,43 @@ export default function Dashboard() {
     '#E2F0CB', '#B5EAD7', '#C7CEEA'
   ];
 
-  const toggleKelas = (kelas: string) => {
-    setExpandedKelas(prev => 
-      prev.includes(kelas) ? prev.filter(k => k !== kelas) : [...prev, kelas]
+  const toggleItem = (id: string) => {
+    setExpandedItems(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
 
-  const groupedByKelas = transaksi.reduce((acc, t) => {
-    const kelas = t.siswa?.kelas || 'Tanpa Kelas';
-    if (!acc[kelas]) acc[kelas] = [];
-    acc[kelas].push(t);
-    return acc;
-  }, {} as Record<string, TransaksiWithSiswa[]>);
+  const allKelas = Array.from(new Set(transaksi.map(t => t.siswa?.kelas || '-'))).sort();
 
-  const sortedKelas = Object.keys(groupedByKelas).sort();
+  const filteredTransaksi = selectedKelas === 'All' 
+    ? transaksi 
+    : transaksi.filter(t => t.siswa?.kelas === selectedKelas);
+
+  // Hierarchical grouping: Kelas -> Siswa -> Alasan -> Tanggal -> Jam
+  const hierarchicalData = filteredTransaksi.reduce((acc, t) => {
+    const kelas = t.siswa?.kelas || 'Tanpa Kelas';
+    const siswaNama = t.siswa?.nama || 'Unknown';
+    const alasan = t.alasan || 'Tanpa Alasan';
+    const tanggal = t.tanggal;
+    const jam = t.jam;
+
+    if (!acc[kelas]) acc[kelas] = { count: 0, children: {} };
+    acc[kelas].count++;
+    
+    if (!acc[kelas].children[siswaNama]) acc[kelas].children[siswaNama] = { count: 0, children: {} };
+    acc[kelas].children[siswaNama].count++;
+
+    if (!acc[kelas].children[siswaNama].children[alasan]) acc[kelas].children[siswaNama].children[alasan] = { count: 0, children: {} };
+    acc[kelas].children[siswaNama].children[alasan].count++;
+
+    if (!acc[kelas].children[siswaNama].children[alasan].children[tanggal]) acc[kelas].children[siswaNama].children[alasan].children[tanggal] = { count: 0, children: [] };
+    acc[kelas].children[siswaNama].children[alasan].children[tanggal].count++;
+    acc[kelas].children[siswaNama].children[alasan].children[tanggal].children.push(jam);
+
+    return acc;
+  }, {} as any);
+
+  const sortedHierarchicalKelas = Object.keys(hierarchicalData).sort();
 
   return (
     <div className="space-y-6">
@@ -281,7 +305,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Pivot Table: Siswa Terlambat Per Kelas */}
+      {/* Pivot Table: Siswa Terlambat Per Kelas (Hierarchical) */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -290,91 +314,187 @@ export default function Dashboard() {
             </div>
             <div>
               <h3 className="text-xl font-black text-slate-800">Pivot Terlambat Per Kelas</h3>
-              <p className="text-sm font-medium text-slate-500">Detail siswa terlambat dikelompokkan berdasarkan kelas.</p>
+              <p className="text-sm font-medium text-slate-500">Detail hirarkis siswa terlambat.</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+              <span className="text-[10px] font-black text-slate-400 uppercase">Pilih Kelas:</span>
+              <select 
+                value={selectedKelas}
+                onChange={(e) => setSelectedKelas(e.target.value)}
+                className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
+              >
+                <option value="All">Semua Kelas</option>
+                {allKelas.map(k => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+            </div>
+            <div className="h-6 w-px bg-slate-200" />
             <button 
-              onClick={() => setExpandedKelas(sortedKelas)}
+              onClick={() => {
+                const allIds: string[] = [];
+                Object.keys(hierarchicalData).forEach(k => {
+                  allIds.push(k);
+                  Object.keys(hierarchicalData[k].children).forEach(s => {
+                    allIds.push(`${k}-${s}`);
+                    Object.keys(hierarchicalData[k].children[s].children).forEach(a => {
+                      allIds.push(`${k}-${s}-${a}`);
+                      Object.keys(hierarchicalData[k].children[s].children[a].children).forEach(d => {
+                        allIds.push(`${k}-${s}-${a}-${d}`);
+                      });
+                    });
+                  });
+                });
+                setExpandedItems(allIds);
+              }}
               className="px-4 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"
             >
               Expand All
             </button>
             <button 
-              onClick={() => setExpandedKelas([])}
+              onClick={() => setExpandedItems([])}
               className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
             >
               Collapse All
             </button>
           </div>
         </div>
-        <div className="p-6 bg-slate-50/30">
-          <div className="space-y-3">
-            {sortedKelas.length === 0 ? (
-              <div className="p-12 text-center text-slate-400 font-medium italic bg-white rounded-2xl border border-slate-100">
-                Tidak ada data keterlambatan untuk periode ini.
-              </div>
-            ) : (
-              sortedKelas.map((kelas, idx) => {
-                const isExpanded = expandedKelas.includes(kelas);
-                const data = groupedByKelas[kelas];
-                const colorIdx = idx % softColors.length;
-                const softBg = softColors[colorIdx] + '20'; // 12% opacity
-                const softText = softColors[colorIdx];
-
-                return (
-                  <div key={kelas} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                    <button 
-                      onClick={() => toggleKelas(kelas)}
-                      className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: softBg, color: softText }}>
-                          {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+        <div className="p-4 bg-slate-50/30">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="bg-cyan-600 px-4 py-2 flex items-center justify-between text-white font-bold text-sm">
+              <span>Siswa Terlambat</span>
+              <span>Jumlah</span>
+            </div>
+            <div className="p-2 space-y-1 max-h-[350px] overflow-y-auto custom-scrollbar">
+              {sortedHierarchicalKelas.length === 0 ? (
+                <div className="p-10 text-center text-slate-400 font-medium italic">
+                  Tidak ada data untuk ditampilkan.
+                </div>
+              ) : (
+                sortedHierarchicalKelas.map((kelas, idx) => {
+                  const kData = hierarchicalData[kelas];
+                  const isKExpanded = expandedItems.includes(kelas);
+                  const rowColors = ['bg-blue-50/50', 'bg-emerald-50/50', 'bg-violet-50/50'];
+                  const hoverColors = ['hover:bg-blue-100/50', 'hover:bg-emerald-100/50', 'hover:bg-violet-100/50'];
+                  const colorIdx = idx % rowColors.length;
+                  
+                  return (
+                    <div key={kelas} className="space-y-1">
+                      {/* Level 1: Kelas */}
+                      <div 
+                        className={`flex items-center justify-between p-2 ${rowColors[colorIdx]} ${hoverColors[colorIdx]} rounded-lg cursor-pointer transition-colors group`}
+                        onClick={() => toggleItem(kelas)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border border-slate-300 rounded flex items-center justify-center bg-white text-slate-500">
+                            {isKExpanded ? <span className="leading-none">-</span> : <span className="leading-none">+</span>}
+                          </div>
+                          <span className="font-black text-slate-800 text-sm">{kelas}</span>
                         </div>
-                        <span className="font-black text-slate-700 uppercase tracking-tight">Kelas {kelas}</span>
+                        <span className="font-black text-slate-800 text-sm">{kData.count}</span>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider" style={{ backgroundColor: softBg, color: softText }}>
-                          {data.length} Siswa
-                        </span>
-                      </div>
-                    </button>
-                    
-                    {isExpanded && (
-                      <div className="border-t border-slate-50">
-                        <table className="w-full text-left border-collapse">
-                          <thead className="bg-slate-50/50">
-                            <tr>
-                              <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Jam</th>
-                              <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Siswa</th>
-                              <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Alasan</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-50">
-                            {data.map((t) => (
-                              <tr key={t.id} className="hover:bg-slate-50/30 transition-colors group">
-                                <td className="px-6 py-3">
-                                  <span className="text-[10px] font-mono text-slate-400 font-bold">{t.jam}</span>
-                                </td>
-                                <td className="px-6 py-3">
-                                  <p className="text-sm font-bold text-slate-700 uppercase">{t.siswa?.nama}</p>
-                                </td>
-                                <td className="px-6 py-3">
-                                  <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase" style={{ backgroundColor: softBg, color: softText }}>
-                                    {t.alasan}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
+
+                      {isKExpanded && (
+                        <div className="pl-6 space-y-1">
+                          {Object.keys(kData.children).sort().map((siswa) => {
+                            const sData = kData.children[siswa];
+                            const sId = `${kelas}-${siswa}`;
+                            const isSExpanded = expandedItems.includes(sId);
+
+                            return (
+                              <div key={siswa} className="space-y-1">
+                                {/* Level 2: Siswa */}
+                                <div 
+                                  className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group"
+                                  onClick={() => toggleItem(sId)}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 border border-slate-300 rounded flex items-center justify-center bg-white text-slate-500">
+                                      {isSExpanded ? <span className="leading-none">-</span> : <span className="leading-none">+</span>}
+                                    </div>
+                                    <span className="font-bold text-slate-700 text-sm uppercase">{siswa}</span>
+                                  </div>
+                                  <span className="font-bold text-slate-700 text-sm">{sData.count}</span>
+                                </div>
+
+                                {isSExpanded && (
+                                  <div className="pl-6 space-y-1">
+                                    {Object.keys(sData.children).sort().map((alasan) => {
+                                      const aData = sData.children[alasan];
+                                      const aId = `${sId}-${alasan}`;
+                                      const isAExpanded = expandedItems.includes(aId);
+
+                                      return (
+                                        <div key={alasan} className="space-y-1">
+                                          {/* Level 3: Alasan */}
+                                          <div 
+                                            className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group"
+                                            onClick={() => toggleItem(aId)}
+                                          >
+                                            <div className="flex items-center gap-2">
+                                              <div className="w-4 h-4 border border-slate-300 rounded flex items-center justify-center bg-white text-slate-500">
+                                                {isAExpanded ? <span className="leading-none">-</span> : <span className="leading-none">+</span>}
+                                              </div>
+                                              <span className="font-medium text-slate-600 text-sm">{alasan}</span>
+                                            </div>
+                                            <span className="font-medium text-slate-600 text-sm">{aData.count}</span>
+                                          </div>
+
+                                          {isAExpanded && (
+                                            <div className="pl-6 space-y-1">
+                                              {Object.keys(aData.children).sort().map((tanggal) => {
+                                                const dData = aData.children[tanggal];
+                                                const dId = `${aId}-${tanggal}`;
+                                                const isDExpanded = expandedItems.includes(dId);
+
+                                                return (
+                                                  <div key={tanggal} className="space-y-1">
+                                                    {/* Level 4: Tanggal */}
+                                                    <div 
+                                                      className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group"
+                                                      onClick={() => toggleItem(dId)}
+                                                    >
+                                                      <div className="flex items-center gap-2">
+                                                        <div className="w-4 h-4 border border-slate-300 rounded flex items-center justify-center bg-white text-slate-500">
+                                                          {isDExpanded ? <span className="leading-none">-</span> : <span className="leading-none">+</span>}
+                                                        </div>
+                                                        <span className="font-bold text-slate-500 text-xs font-mono">{tanggal}</span>
+                                                      </div>
+                                                      <span className="font-bold text-slate-500 text-xs">{dData.count}</span>
+                                                    </div>
+
+                                                    {isDExpanded && (
+                                                      <div className="pl-10 space-y-1">
+                                                        {dData.children.map((jam: string, jIdx: number) => (
+                                                          <div key={jIdx} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition-colors">
+                                                            <span className="text-slate-400 text-xs font-mono">{jam}</span>
+                                                            <span className="text-slate-400 text-xs">1</span>
+                                                          </div>
+                                                        ))}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       </div>
