@@ -219,6 +219,7 @@ const UksPeriksa: React.FC = () => {
         const ws = wb.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws);
         
+        const failedRows: string[] = [];
         const mappedData = data.map((row: any, index: number) => {
           const getValue = (keys: string[]) => {
             const rowKeys = Object.keys(row);
@@ -229,6 +230,8 @@ const UksPeriksa: React.FC = () => {
             return '';
           };
 
+          const normalize = (str: string) => str.toLowerCase().replace(/\s+/g, ' ').trim();
+
           const namaSiswa = getValue(['nama', 'nama siswa', 'siswa']);
           const kelasSiswa = getValue(['kelas']);
           const namaKeluhan = getValue(['keluhan']);
@@ -237,14 +240,20 @@ const UksPeriksa: React.FC = () => {
           const jam = getValue(['jam']);
           const catatan = getValue(['catatan', 'keterangan']) || '';
 
+          if (!namaSiswa && !kelasSiswa) return null;
+
           const student = siswa.find(s => 
-            s.nama.toLowerCase().trim() === namaSiswa.toLowerCase() && 
-            String(s.kelas).toLowerCase().trim() === kelasSiswa.toLowerCase()
+            normalize(s.nama) === normalize(namaSiswa) && 
+            normalize(String(s.kelas)) === normalize(String(kelasSiswa))
           );
-          const keluhanItem = keluhan.find(k => k.nama_keluhan.toLowerCase().trim() === namaKeluhan.toLowerCase());
+          const keluhanItem = keluhan.find(k => normalize(k.nama_keluhan) === normalize(namaKeluhan));
 
           if (!student || !keluhanItem) {
-            console.warn(`Row ${index + 2}: Missing data match`, { namaSiswa, kelasSiswa, namaKeluhan });
+            const missing = [];
+            if (!student) missing.push(`Siswa "${namaSiswa}" Kelas "${kelasSiswa}"`);
+            if (!keluhanItem) missing.push(`Keluhan "${namaKeluhan}"`);
+            
+            failedRows.push(`Baris ${index + 2}: ${missing.join(', ')} tidak ditemukan di data master.`);
             return null;
           }
 
@@ -272,8 +281,17 @@ const UksPeriksa: React.FC = () => {
         }).filter(Boolean);
 
         if (mappedData.length === 0) {
-          alert('Tidak ada data valid untuk diupload. Pastikan Nama Siswa, Kelas, dan Keluhan cocok dengan data master.');
+          let errorMsg = 'Tidak ada data valid untuk diupload.\n\nBeberapa masalah yang ditemukan:\n';
+          errorMsg += failedRows.slice(0, 5).join('\n');
+          if (failedRows.length > 5) errorMsg += `\n...dan ${failedRows.length - 5} baris lainnya.`;
+          errorMsg += '\n\nPastikan penulisan Nama, Kelas, dan Keluhan sama persis dengan yang ada di Data Master.';
+          alert(errorMsg);
           return;
+        }
+
+        if (failedRows.length > 0) {
+          const proceed = confirm(`${mappedData.length} data valid ditemukan, tetapi ${failedRows.length} baris bermasalah.\n\nContoh masalah:\n${failedRows.slice(0, 3).join('\n')}\n\nLanjutkan upload data yang valid saja?`);
+          if (!proceed) return;
         }
 
         setLoading(true);

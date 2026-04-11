@@ -15,6 +15,9 @@ const KeagamaanAbsensi: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterKelas, setFilterKelas] = useState('');
+  const [filterKeterangan, setFilterKeterangan] = useState('');
 
   const [formData, setFormData] = useState({
     siswa_id: '',
@@ -182,6 +185,7 @@ const KeagamaanAbsensi: React.FC = () => {
         const ws = wb.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws);
         
+        const failedRows: string[] = [];
         const mappedData = data.map((row: any, index: number) => {
           const getValue = (keys: string[]) => {
             const rowKeys = Object.keys(row);
@@ -192,6 +196,8 @@ const KeagamaanAbsensi: React.FC = () => {
             return '';
           };
 
+          const normalize = (str: string) => str.toLowerCase().replace(/\s+/g, ' ').trim();
+
           const namaSiswa = getValue(['nama', 'nama siswa', 'siswa']);
           const kelasSiswa = getValue(['kelas']);
           const namaKegiatan = getValue(['kegiatan', 'nama kegiatan']);
@@ -200,30 +206,35 @@ const KeagamaanAbsensi: React.FC = () => {
           const jam = getValue(['jam']);
           let alasan = getValue(['alasan', 'keterangan']) || 'Hadir';
 
+          if (!namaSiswa && !kelasSiswa) return null; // Skip empty rows
+
           // Handle common variations/typos
           if (alasan.toLowerCase() === 'alpha') alasan = 'Alpa';
 
           const student = students.find(s => 
-            s.nama.toLowerCase().trim() === namaSiswa.toLowerCase() && 
-            String(s.kelas).toLowerCase().trim() === kelasSiswa.toLowerCase()
+            normalize(s.nama) === normalize(namaSiswa) && 
+            normalize(String(s.kelas)) === normalize(String(kelasSiswa))
           );
-          const program = programs.find(p => p.nama_kegiatan.toLowerCase().trim() === namaKegiatan.toLowerCase());
-          const teacher = teachers.find(t => t.nama_guru.toLowerCase().trim() === namaGuru.toLowerCase());
+          const program = programs.find(p => normalize(p.nama_kegiatan) === normalize(namaKegiatan));
+          const teacher = teachers.find(t => normalize(t.nama_guru) === normalize(namaGuru));
 
           if (!student || !program || !teacher) {
-            console.warn(`Row ${index + 2}: Missing data match`, { namaSiswa, kelasSiswa, namaKegiatan, namaGuru });
+            const missing = [];
+            if (!student) missing.push(`Siswa "${namaSiswa}" Kelas "${kelasSiswa}"`);
+            if (!program) missing.push(`Kegiatan "${namaKegiatan}"`);
+            if (!teacher) missing.push(`Wali Kelas "${namaGuru}"`);
+            
+            failedRows.push(`Baris ${index + 2}: ${missing.join(', ')} tidak ditemukan di data master.`);
             return null;
           }
 
           let formattedDate = format(new Date(), 'yyyy-MM-dd');
           if (tanggal) {
             try {
-              // Handle Excel date serial number or string
               const d = new Date(tanggal);
               if (!isNaN(d.getTime())) {
                 formattedDate = format(d, 'yyyy-MM-dd');
               } else if (typeof tanggal === 'number') {
-                // Excel serial date
                 const excelDate = new Date((tanggal - 25569) * 86400 * 1000);
                 formattedDate = format(excelDate, 'yyyy-MM-dd');
               }
@@ -236,15 +247,24 @@ const KeagamaanAbsensi: React.FC = () => {
             wali_kelas_id: teacher.id,
             tanggal: formattedDate,
             jam: jam || format(new Date(), 'HH.mm'),
-            alasan: reasons.find(r => r.label.toLowerCase() === alasan.toLowerCase())?.id || 
-                    reasons.find(r => r.id.toLowerCase() === alasan.toLowerCase())?.id || 
+            alasan: reasons.find(r => normalize(r.label) === normalize(alasan))?.id || 
+                    reasons.find(r => normalize(r.id) === normalize(alasan))?.id || 
                     'Hadir'
           };
         }).filter(Boolean);
 
         if (mappedData.length === 0) {
-          alert('Tidak ada data valid untuk diupload. Pastikan Nama Siswa, Kelas, Kegiatan, dan Wali Kelas cocok dengan data master.');
+          let errorMsg = 'Tidak ada data valid untuk diupload.\n\nBeberapa masalah yang ditemukan:\n';
+          errorMsg += failedRows.slice(0, 5).join('\n');
+          if (failedRows.length > 5) errorMsg += `\n...dan ${failedRows.length - 5} baris lainnya.`;
+          errorMsg += '\n\nPastikan penulisan Nama, Kelas, Kegiatan, dan Wali Kelas sama persis dengan yang ada di Data Master.';
+          alert(errorMsg);
           return;
+        }
+
+        if (failedRows.length > 0) {
+          const proceed = confirm(`${mappedData.length} data valid ditemukan, tetapi ${failedRows.length} baris bermasalah.\n\nContoh masalah:\n${failedRows.slice(0, 3).join('\n')}\n\nLanjutkan upload data yang valid saja?`);
+          if (!proceed) return;
         }
 
         // Implement "Tindih" (Overwrite) logic
@@ -296,6 +316,13 @@ const KeagamaanAbsensi: React.FC = () => {
     };
     reader.readAsBinaryString(file);
   };
+
+  const filteredAbsensi = absensiList.filter(abs => {
+    const matchesSearch = abs.siswa?.nama.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesKelas = filterKelas ? abs.siswa?.kelas === filterKelas : true;
+    const matchesKeterangan = filterKeterangan ? abs.alasan === filterKeterangan : true;
+    return matchesSearch && matchesKelas && matchesKeterangan;
+  });
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
@@ -505,13 +532,33 @@ const KeagamaanAbsensi: React.FC = () => {
               <span>Upload Data</span>
               <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleExcelUpload} />
             </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input 
-                type="text" 
-                placeholder="Cari nama..." 
-                className="pl-10 pr-4 py-2 rounded-xl border border-slate-100 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
-              />
+            <div className="flex items-center gap-2">
+              <select
+                value={filterKelas}
+                onChange={(e) => setFilterKelas(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-100 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 bg-white font-bold text-slate-600"
+              >
+                <option value="">Semua Kelas</option>
+                {classes.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select
+                value={filterKeterangan}
+                onChange={(e) => setFilterKeterangan(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-100 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 bg-white font-bold text-slate-600"
+              >
+                <option value="">Semua Keterangan</option>
+                {reasons.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+              </select>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input 
+                  type="text" 
+                  placeholder="Cari nama..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 rounded-xl border border-slate-100 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -532,12 +579,12 @@ const KeagamaanAbsensi: React.FC = () => {
                 <tr>
                   <td colSpan={5} className="px-8 py-12 text-center text-slate-400 italic">Memuat data...</td>
                 </tr>
-              ) : absensiList.length === 0 ? (
+              ) : filteredAbsensi.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-8 py-12 text-center text-slate-400 italic">Belum ada data absensi.</td>
+                  <td colSpan={5} className="px-8 py-12 text-center text-slate-400 italic">Data tidak ditemukan.</td>
                 </tr>
               ) : (
-                absensiList.map(abs => (
+                filteredAbsensi.map(abs => (
                   <tr key={abs.id} className="hover:bg-slate-50/50 transition-all group">
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-3">
