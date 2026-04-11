@@ -48,8 +48,8 @@ export default function MasterData() {
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
       const newSiswa: Siswa[] = jsonData.map((row: any) => {
-        const nama = row['NAMA'] || row['Nama'] || row['nama'] || '';
-        const kelas = row['KELAS'] || row['Kelas'] || row['kelas'] || '';
+        const nama = (row['NAMA'] || row['Nama'] || row['nama'] || '').toString().toUpperCase().trim();
+        const kelas = (row['KELAS'] || row['Kelas'] || row['kelas'] || '').toString().toUpperCase().trim();
         return {
           id: crypto.randomUUID(),
           nama,
@@ -139,6 +139,53 @@ export default function MasterData() {
     reader.readAsText(file);
   };
 
+  const handleMigrateUppercase = async () => {
+    if (!confirm('Apakah Anda yakin ingin mengubah SEMUA nama siswa menjadi HURUF BESAR?')) return;
+    
+    setLoading(true);
+    try {
+      if (supabase) {
+        // Fetch all students
+        const { data, error: fetchError } = await supabase.from('master_siswa').select('*');
+        if (fetchError) throw fetchError;
+        
+        if (data) {
+          const updates = data.map(s => ({
+            ...s,
+            nama: s.nama.toUpperCase().trim(),
+            kelas: s.kelas.toUpperCase().trim()
+          }));
+          
+          // Supabase upsert handles bulk update if IDs match
+          const { error: updateError } = await supabase.from('master_siswa').upsert(updates);
+          if (updateError) throw updateError;
+        }
+      } else {
+        const local = localStorage.getItem('sitelat_siswa');
+        if (local) {
+          const data = JSON.parse(local);
+          const updated = data.map((s: any) => ({
+            ...s,
+            nama: s.nama.toUpperCase().trim(),
+            kelas: s.kelas.toUpperCase().trim()
+          }));
+          localStorage.setItem('sitelat_siswa', JSON.stringify(updated));
+        }
+      }
+      
+      await fetchSiswa();
+      alert('Berhasil mengubah semua nama siswa menjadi huruf besar!');
+    } catch (error: any) {
+      console.error('Migration error:', error);
+      alert(`Gagal migrasi: ${error.message}`);
+    } finally {
+      setLoading(true);
+      // Re-fetch to be sure
+      await fetchSiswa();
+      setLoading(false);
+    }
+  };
+
   const filteredSiswa = siswa.filter(s => 
     s.nama.toLowerCase().includes(searchTerm.toLowerCase()) || 
     s.kelas.toLowerCase().includes(searchTerm.toLowerCase())
@@ -162,6 +209,9 @@ export default function MasterData() {
           
           <button onClick={backupData} className="px-4 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-xl text-sm font-medium transition-colors flex items-center gap-2">
             <Save size={16} /> Backup
+          </button>
+          <button onClick={handleMigrateUppercase} className="px-4 py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-xl text-sm font-black transition-colors flex items-center gap-2 border border-rose-200">
+            <RefreshCw size={16} /> Nama ke UPPERCASE
           </button>
           <label className="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 cursor-pointer">
             <RefreshCw size={16} /> Restore

@@ -104,7 +104,7 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar }: { onBack?: () =>
                   <UserCheck size={20} />
                 </div>
                 <div className="min-w-0">
-                  <h1 className="text-xs md:text-lg font-bold text-slate-800 leading-tight truncate">Izin SWA</h1>
+                  <h1 className="text-xs md:text-lg font-bold text-slate-800 leading-tight truncate">Izin Siswa</h1>
                   <p className="text-[8px] md:text-[10px] text-slate-500 font-medium hidden sm:block truncate">
                     {isLoggedIn ? `Halo, ${user.nama_lengkap || user.username}` : 'Sistem Perizinan'}
                   </p>

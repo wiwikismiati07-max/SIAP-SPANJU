@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Download, Upload, Save, Users, BookOpen } from 'lucide-react';
+import { Download, Upload, Save, Users, BookOpen, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function MasterIzin() {
@@ -94,6 +94,45 @@ export default function MasterIzin() {
       setNotification({ type: 'success', message: 'Berhasil memperbarui seluruh data pengaju!' });
     } catch (error: any) {
       setNotification({ type: 'error', message: `Gagal memperbarui data: ${error.message}` });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setNotification(null), 5000);
+    }
+  };
+
+  const handleMigrateSiswaUppercase = async () => {
+    if (!confirm('Apakah Anda yakin ingin mengubah SEMUA nama siswa di Master Data menjadi HURUF BESAR?')) return;
+    
+    setLoading(true);
+    try {
+      if (supabase) {
+        const { data, error: fetchError } = await supabase.from('master_siswa').select('*');
+        if (fetchError) throw fetchError;
+        
+        if (data) {
+          const updates = data.map(s => ({
+            ...s,
+            nama: s.nama.toUpperCase().trim(),
+            kelas: s.kelas.toUpperCase().trim()
+          }));
+          const { error: updateError } = await supabase.from('master_siswa').upsert(updates);
+          if (updateError) throw updateError;
+        }
+      } else {
+        const local = localStorage.getItem('sitelat_siswa');
+        if (local) {
+          const data = JSON.parse(local);
+          const updated = data.map((s: any) => ({
+            ...s,
+            nama: s.nama.toUpperCase().trim(),
+            kelas: s.kelas.toUpperCase().trim()
+          }));
+          localStorage.setItem('sitelat_siswa', JSON.stringify(updated));
+        }
+      }
+      setNotification({ type: 'success', message: 'Berhasil mengubah semua nama siswa menjadi huruf besar!' });
+    } catch (error: any) {
+      setNotification({ type: 'error', message: `Gagal migrasi: ${error.message}` });
     } finally {
       setLoading(false);
       setTimeout(() => setNotification(null), 5000);
@@ -369,6 +408,14 @@ export default function MasterIzin() {
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-100 text-amber-700 hover:bg-amber-200 rounded-xl font-medium transition-colors disabled:opacity-50"
             >
               <Users size={18} /> {loading ? 'Mengecek...' : 'Cek & Hapus Data Double'}
+            </button>
+
+            <button
+              onClick={handleMigrateSiswaUppercase}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl font-bold border border-rose-200 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={18} /> {loading ? 'Memproses...' : 'Ubah Semua Nama Siswa ke UPPERCASE'}
             </button>
           </div>
         </div>

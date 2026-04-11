@@ -61,9 +61,38 @@ export default function LaporanIzin() {
     status: 'Menunggu' as 'Menunggu' | 'Disetujui' | 'Ditolak'
   });
 
+  const [studentsInClass, setStudentsInClass] = useState<any[]>([]);
+
   useEffect(() => {
     fetchData();
   }, [dateRange]);
+
+  useEffect(() => {
+    if (reportType === 'absensi' && selectedKelas) {
+      fetchStudentsInClass();
+    }
+  }, [reportType, selectedKelas]);
+
+  const fetchStudentsInClass = async () => {
+    try {
+      if (supabase) {
+        const { data: sData } = await supabase
+          .from('master_siswa')
+          .select('*')
+          .eq('kelas', selectedKelas)
+          .order('nama', { ascending: true });
+        setStudentsInClass(sData || []);
+      } else {
+        const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
+        const filtered = localSiswa
+          .filter((s: any) => s.kelas === selectedKelas)
+          .sort((a: any, b: any) => a.nama.localeCompare(b.nama));
+        setStudentsInClass(filtered);
+      }
+    } catch (error) {
+      console.error('Error fetching students:', error);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -166,7 +195,7 @@ export default function LaporanIzin() {
       if (reportType === 'detail') {
         headers = ['NO', 'NAMA SISWA', 'KELAS', 'TANGGAL', 'ALASAN', 'STATUS', 'PENGAJU', 'GURU/WALI'];
       } else {
-        headers = ['NO', 'NAMA SISWA', 'MASUK (X)', 'IZIN (V)', 'SAKIT (V)', 'ALPHA (V)'];
+        headers = ['NO', 'NAMA SISWA', 'MASUK (X)', 'IZIN (JML)', 'SAKIT (JML)', 'ALPHA (JML)'];
       }
       
       headerRow.values = headers;
@@ -217,9 +246,9 @@ export default function LaporanIzin() {
 
         studentsInClass.forEach((student, index) => {
           const studentIzins = data.filter(i => i.siswa_id === student.id && i.status === 'Disetujui');
-          const isSakit = studentIzins.some(i => i.alasan === 'Sakit');
-          const isIzin = studentIzins.some(i => i.alasan === 'Izin' || i.alasan === 'Acara Keluarga' || i.alasan === 'Keperluan Mendesak');
-          const isAlpa = studentIzins.some(i => i.alasan === 'Alpa');
+          const countSakit = studentIzins.filter(i => i.alasan === 'Sakit').length;
+          const countIzin = studentIzins.filter(i => i.alasan === 'Izin' || i.alasan === 'Acara Keluarga' || i.alasan === 'Keperluan Mendesak').length;
+          const countAlpa = studentIzins.filter(i => i.alasan === 'Alpa').length;
           const isMasuk = studentIzins.length === 0;
 
           const row = worksheet.getRow(12 + index);
@@ -227,9 +256,9 @@ export default function LaporanIzin() {
             index + 1,
             student.nama,
             isMasuk ? 'X' : '',
-            isIzin ? 'V' : '',
-            isSakit ? 'V' : '',
-            isAlpa ? 'V' : ''
+            countIzin > 0 ? countIzin : '',
+            countSakit > 0 ? countSakit : '',
+            countAlpa > 0 ? countAlpa : ''
           ];
 
           values.forEach((v, i) => {
@@ -545,15 +574,67 @@ export default function LaporanIzin() {
             </table>
           </div>
         ) : reportType === 'absensi' ? (
-          <div className="p-12 text-center">
-            <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Users size={32} className="text-emerald-600" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-800">Laporan Absensi Harian</h3>
-            <p className="text-slate-500 max-w-md mx-auto mt-2">
-              Laporan ini menampilkan rekap Sakit, Izin, dan Alpa per siswa dalam rentang waktu tertentu.
-              Silakan pilih kelas dan klik tombol <strong>Download Excel</strong> untuk melihat detail lengkapnya.
-            </p>
+          <div className="flex flex-col">
+            {!selectedKelas ? (
+              <div className="p-12 text-center">
+                <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Users size={32} className="text-emerald-600" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">Laporan Absensi Harian</h3>
+                <p className="text-slate-500 max-w-md mx-auto mt-2">
+                  Silakan pilih kelas terlebih dahulu untuk menampilkan laporan absensi harian.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="p-4 text-sm font-semibold text-slate-600 w-16 text-center">No</th>
+                      <th className="p-4 text-sm font-semibold text-slate-600">Nama Siswa</th>
+                      <th className="p-4 text-sm font-semibold text-slate-600 text-center">Masuk (X)</th>
+                      <th className="p-4 text-sm font-semibold text-slate-600 text-center">Izin</th>
+                      <th className="p-4 text-sm font-semibold text-slate-600 text-center">Sakit</th>
+                      <th className="p-4 text-sm font-semibold text-slate-600 text-center">Alpha</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {studentsInClass.map((student, index) => {
+                      const studentIzins = data.filter(i => i.siswa_id === student.id && i.status === 'Disetujui');
+                      const countSakit = studentIzins.filter(i => i.alasan === 'Sakit').length;
+                      const countIzin = studentIzins.filter(i => i.alasan === 'Izin' || i.alasan === 'Acara Keluarga' || i.alasan === 'Keperluan Mendesak').length;
+                      const countAlpa = studentIzins.filter(i => i.alasan === 'Alpa').length;
+                      const isMasuk = studentIzins.length === 0;
+
+                      return (
+                        <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-4 text-center text-sm text-slate-600">{index + 1}</td>
+                          <td className="p-4 font-bold text-slate-800">{student.nama}</td>
+                          <td className="p-4 text-center font-black text-emerald-600">{isMasuk ? 'X' : ''}</td>
+                          <td className="p-4 text-center font-black text-amber-600">{countIzin > 0 ? countIzin : ''}</td>
+                          <td className="p-4 text-center font-black text-blue-600">{countSakit > 0 ? countSakit : ''}</td>
+                          <td className="p-4 text-center font-black text-rose-600">{countAlpa > 0 ? countAlpa : ''}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
+                    <tr>
+                      <td colSpan={3} className="p-4 text-right text-slate-700">Total Izin Siswa (Izin/Sakit/Alpha):</td>
+                      <td className="p-4 text-center text-amber-600">
+                        {studentsInClass.filter(s => data.some(i => i.siswa_id === s.id && i.status === 'Disetujui' && (i.alasan === 'Izin' || i.alasan === 'Acara Keluarga' || i.alasan === 'Keperluan Mendesak'))).length}
+                      </td>
+                      <td className="p-4 text-center text-blue-600">
+                        {studentsInClass.filter(s => data.some(i => i.siswa_id === s.id && i.status === 'Disetujui' && i.alasan === 'Sakit')).length}
+                      </td>
+                      <td className="p-4 text-center text-rose-600">
+                        {studentsInClass.filter(s => data.some(i => i.siswa_id === s.id && i.status === 'Disetujui' && i.alasan === 'Alpa')).length}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
           </div>
         ) : (
           <div className="p-6 space-y-8">
