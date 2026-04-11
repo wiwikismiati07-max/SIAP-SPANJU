@@ -153,38 +153,75 @@ export default function FormOperatorIzin() {
 
     setIsUploading(true);
     try {
-      const records = validData.map(d => ({
-        siswa_id: d.siswa_id,
-        guru_id: d.guru_id,
-        tanggal_mulai: d.tanggal_mulai,
-        tanggal_selesai: d.tanggal_selesai,
-        alasan: d.alasan,
-        status: 'Menunggu',
-        diajukan_oleh: 'Wiwik Ismiati, S.Pd',
-        created_at: new Date().toISOString()
-      }));
-
-      console.log(`Starting import of ${records.length} records...`);
-
+      let records = [];
+      
       if (supabase) {
-        const chunkSize = 50; // Smaller chunk size for better reliability
+        // Fetch existing records to check for "tindih" (overwrite)
+        const studentIds = [...new Set(validData.map(d => d.siswa_id))];
+        const { data: existingRecords } = await supabase
+          .from('izin_siswa')
+          .select('id, siswa_id, tanggal_mulai, tanggal_selesai, created_at')
+          .in('siswa_id', studentIds);
+
+        records = validData.map(d => {
+          const existing = existingRecords?.find(ex => 
+            ex.siswa_id === d.siswa_id && 
+            ex.tanggal_mulai === d.tanggal_mulai && 
+            ex.tanggal_selesai === d.tanggal_selesai
+          );
+
+          return {
+            id: existing ? existing.id : crypto.randomUUID(),
+            siswa_id: d.siswa_id,
+            guru_id: d.guru_id,
+            tanggal_mulai: d.tanggal_mulai,
+            tanggal_selesai: d.tanggal_selesai,
+            alasan: d.alasan,
+            status: 'Disetujui', // Set to Disetujui for historical data
+            diajukan_oleh: 'Wiwik Ismiati, S.Pd',
+            created_at: existing ? existing.created_at : new Date().toISOString()
+          };
+        });
+
+        const chunkSize = 50;
         for (let i = 0; i < records.length; i += chunkSize) {
           const chunk = records.slice(i, i + chunkSize);
-          console.log(`Inserting chunk ${i / chunkSize + 1} of ${Math.ceil(records.length / chunkSize)}...`);
-          const { error } = await supabase.from('izin_siswa').insert(chunk);
-          if (error) {
-            console.error(`Error inserting chunk:`, error);
-            throw new Error(`Gagal menyimpan data pada baris ${i + 1}: ${error.message}`);
-          }
+          const { error } = await supabase.from('izin_siswa').upsert(chunk);
+          if (error) throw error;
         }
       } else {
         const localData = JSON.parse(localStorage.getItem('izinsiswa_data') || '[]');
-        const recordsWithId = records.map(r => ({ ...r, id: crypto.randomUUID() }));
-        const updated = [...localData, ...recordsWithId];
+        const updated = [...localData];
+        
+        validData.forEach(d => {
+          const existingIdx = updated.findIndex(ex => 
+            ex.siswa_id === d.siswa_id && 
+            ex.tanggal_mulai === d.tanggal_mulai && 
+            ex.tanggal_selesai === d.tanggal_selesai
+          );
+
+          const newRecord = {
+            id: existingIdx >= 0 ? updated[existingIdx].id : crypto.randomUUID(),
+            siswa_id: d.siswa_id,
+            guru_id: d.guru_id,
+            tanggal_mulai: d.tanggal_mulai,
+            tanggal_selesai: d.tanggal_selesai,
+            alasan: d.alasan,
+            status: 'Disetujui',
+            diajukan_oleh: 'Wiwik Ismiati, S.Pd',
+            created_at: existingIdx >= 0 ? updated[existingIdx].created_at : new Date().toISOString()
+          };
+
+          if (existingIdx >= 0) {
+            updated[existingIdx] = newRecord;
+          } else {
+            updated.push(newRecord);
+          }
+        });
         localStorage.setItem('izinsiswa_data', JSON.stringify(updated));
       }
 
-      alert(`Berhasil mengimport ${validData.length} data. Data sekarang muncul di daftar "Menunggu Persetujuan".`);
+      alert(`Berhasil mengimport ${validData.length} data. Data lama yang sama telah ditindih (diupdate).`);
       setShowUploadModal(false);
       setUploadData([]);
       fetchPending();
