@@ -1336,6 +1336,9 @@ const SipenaPeminjaman = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [siswa, setSiswa] = useState<any[]>([]);
   const [books, setBooks] = useState<any[]>([]);
+  const [editingLoan, setEditingLoan] = useState<any>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [loanToDelete, setLoanToDelete] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     tanggal_pinjam: format(new Date(), 'yyyy-MM-dd'),
@@ -1411,16 +1414,30 @@ const SipenaPeminjaman = () => {
 
     try {
       setLoading(true);
-      const { data: loan, error: loanError } = await supabase
-        .from('sipena_peminjaman')
-        .insert([formData])
-        .select()
-        .single();
+      let loanId = editingLoan?.id;
       
-      if (loanError) throw loanError;
+      if (editingLoan) {
+        const { error: loanError } = await supabase
+          .from('sipena_peminjaman')
+          .update(formData)
+          .eq('id', loanId);
+        if (loanError) throw loanError;
+        
+        // Delete old items
+        await supabase.from('sipena_peminjaman_item').delete().eq('peminjaman_id', loanId);
+      } else {
+        const { data: loan, error: loanError } = await supabase
+          .from('sipena_peminjaman')
+          .insert([formData])
+          .select()
+          .single();
+        
+        if (loanError) throw loanError;
+        loanId = loan.id;
+      }
 
       const items = finalBooks.map(b => ({
-        peminjaman_id: loan.id,
+        peminjaman_id: loanId,
         buku_id: b.id,
         jumlah: b.jumlah
       }));
@@ -1429,6 +1446,7 @@ const SipenaPeminjaman = () => {
       if (itemError) throw itemError;
 
       setIsModalOpen(false);
+      setEditingLoan(null);
       setSelectedBooks([]);
       setCurrentBookId('');
       fetchLoans();
@@ -1437,6 +1455,42 @@ const SipenaPeminjaman = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!loanToDelete) return;
+    try {
+      setLoading(true);
+      // Delete items first
+      await supabase.from('sipena_peminjaman_item').delete().eq('peminjaman_id', loanToDelete);
+      // Delete loan
+      const { error } = await supabase.from('sipena_peminjaman').delete().eq('id', loanToDelete);
+      if (error) throw error;
+      setIsDeleteModalOpen(false);
+      setLoanToDelete(null);
+      fetchLoans();
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (loan: any) => {
+    setEditingLoan(loan);
+    setFormData({
+      tanggal_pinjam: loan.tanggal_pinjam,
+      jam_pinjam: loan.jam_pinjam || format(new Date(), 'HH:mm'),
+      kelas: loan.kelas,
+      siswa_id: loan.siswa_id,
+      tanggal_kembali_rencana: loan.tanggal_kembali_rencana,
+    });
+    setSelectedBooks(loan.sipena_peminjaman_item.map((item: any) => ({
+      ...item.sipena_buku,
+      id: item.buku_id,
+      jumlah: item.jumlah
+    })));
+    setIsModalOpen(true);
   };
 
   return (
@@ -1476,11 +1530,12 @@ const SipenaPeminjaman = () => {
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tgl Pinjam</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tgl Kembali</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {loans.map((l) => (
-                <tr key={l.id} className="hover:bg-slate-50/50 transition-colors">
+                <tr key={l.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-8 py-6">
                     <p className="text-sm font-black text-slate-800">{l.master_siswa?.nama || '-'}</p>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kelas {l.kelas}</p>
@@ -1504,6 +1559,25 @@ const SipenaPeminjaman = () => {
                     }`}>
                       {l.status}
                     </span>
+                  </td>
+                  <td className="px-8 py-6 text-right">
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => handleEdit(l)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setLoanToDelete(l.id);
+                          setIsDeleteModalOpen(true);
+                        }}
+                        className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1590,6 +1664,37 @@ const SipenaPeminjaman = () => {
                   {loading ? 'Memproses...' : 'Proses Peminjaman'}
                 </button>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {isDeleteModalOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsDeleteModalOpen(false)} />
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 text-center">
+              <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle size={40} />
+              </div>
+              <h4 className="text-xl font-black text-slate-800 uppercase mb-2 tracking-tight">Konfirmasi Hapus</h4>
+              <p className="text-slate-500 font-medium mb-8">Apakah Anda yakin ingin menghapus data peminjaman ini? Tindakan ini tidak dapat dibatalkan.</p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+                >
+                  Batal
+                </button>
+                <button 
+                  onClick={handleDelete}
+                  disabled={loading}
+                  className="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-rose-200 hover:bg-rose-600 transition-all disabled:opacity-50"
+                >
+                  {loading ? 'Menghapus...' : 'Ya, Hapus'}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

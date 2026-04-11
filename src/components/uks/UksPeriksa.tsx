@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Save, ClipboardList, AlertCircle, CheckCircle2, Search, User, Clock, Pill, X } from 'lucide-react';
+import { Plus, Trash2, Save, ClipboardList, AlertCircle, CheckCircle2, Search, User, Clock, Pill, X, Upload, Download } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { UksKeluhan, UksObat, UksKunjungan } from '../../types/uks';
 import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const UksPeriksa: React.FC = () => {
   const [keluhan, setKeluhan] = useState<UksKeluhan[]>([]);
@@ -203,6 +205,116 @@ const UksPeriksa: React.FC = () => {
   };
 
   const filteredSiswa = siswa.filter(s => s.kelas === selectedClass);
+
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+        
+        const mappedData = data.map((row: any) => {
+          const getValue = (keys: string[]) => {
+            const rowKeys = Object.keys(row);
+            for (const key of keys) {
+              const foundKey = rowKeys.find(rk => rk.toLowerCase().trim() === key.toLowerCase().trim());
+              if (foundKey) return row[foundKey];
+            }
+            return '';
+          };
+
+          const namaSiswa = getValue(['nama', 'nama siswa', 'siswa']);
+          const kelasSiswa = getValue(['kelas']);
+          const namaKeluhan = getValue(['keluhan']);
+          const penanganan = getValue(['penanganan']) || 'Istirahat';
+          const tanggal = getValue(['tanggal']);
+          const jam = getValue(['jam']);
+          const catatan = getValue(['catatan', 'keterangan']) || '';
+
+          const student = siswa.find(s => s.nama.toLowerCase() === String(namaSiswa).toLowerCase() && s.kelas === String(kelasSiswa));
+          const keluhanItem = keluhan.find(k => k.nama_keluhan.toLowerCase() === String(namaKeluhan).toLowerCase());
+
+          if (!student || !keluhanItem) {
+            console.warn('Missing data for row:', row);
+            return null;
+          }
+
+          let formattedDate = format(new Date(), 'yyyy-MM-dd');
+          if (tanggal) {
+            try {
+              const d = new Date(tanggal);
+              if (!isNaN(d.getTime())) {
+                formattedDate = format(d, 'yyyy-MM-dd');
+              }
+            } catch (e) {}
+          }
+
+          return {
+            siswa_id: student.id,
+            keluhan_id: keluhanItem.id,
+            tanggal: formattedDate,
+            jam: jam || format(new Date(), 'HH:mm'),
+            penanganan: ['Minum Obat', 'Pulang', 'Istirahat'].includes(penanganan) ? penanganan : 'Istirahat',
+            catatan: catatan
+          };
+        }).filter(Boolean);
+
+        if (mappedData.length === 0) {
+          alert('Tidak ada data valid untuk diupload. Pastikan Nama Siswa, Kelas, dan Keluhan cocok dengan data master.');
+          return;
+        }
+
+        const { error } = await supabase.from('uks_kunjungan').insert(mappedData);
+        if (error) throw error;
+        alert(`${mappedData.length} data berhasil diupload!`);
+        fetchInitialData();
+      } catch (error: any) {
+        alert('Error reading Excel: ' + error.message);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const downloadTemplate = () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Template UKS');
+    worksheet.columns = [
+      { header: 'Nama Siswa', key: 'nama', width: 30 },
+      { header: 'Kelas', key: 'kelas', width: 10 },
+      { header: 'Tanggal (YYYY-MM-DD)', key: 'tanggal', width: 20 },
+      { header: 'Jam (HH:mm)', key: 'jam', width: 15 },
+      { header: 'Keluhan', key: 'keluhan', width: 25 },
+      { header: 'Penanganan', key: 'penanganan', width: 20 },
+      { header: 'Catatan', key: 'catatan', width: 40 }
+    ];
+    
+    // Add example row
+    worksheet.addRow({
+      nama: 'Contoh Nama Siswa',
+      kelas: '7A',
+      tanggal: '2026-04-11',
+      jam: '09:30',
+      keluhan: 'Pusing',
+      penanganan: 'Istirahat',
+      catatan: 'Siswa beristirahat di UKS selama 30 menit'
+    });
+
+    workbook.xlsx.writeBuffer().then(buffer => {
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Template_Upload_UKS.xlsx';
+      a.click();
+      window.URL.revokeObjectURL(url);
+    });
+  };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
@@ -425,6 +537,20 @@ const UksPeriksa: React.FC = () => {
           <div>
             <h3 className="text-xl font-black text-slate-800 tracking-tight">Daftar Pemeriksaan Terakhir</h3>
             <p className="text-sm text-slate-400 font-medium mt-1">Menampilkan 10 data pemeriksaan terbaru</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={downloadTemplate}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-100 transition-all"
+            >
+              <Download size={16} />
+              <span>Template</span>
+            </button>
+            <label className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-600 rounded-xl text-sm font-bold cursor-pointer hover:bg-rose-100 transition-all">
+              <Upload size={16} />
+              <span>Upload Data</span>
+              <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleExcelUpload} />
+            </label>
           </div>
         </div>
 

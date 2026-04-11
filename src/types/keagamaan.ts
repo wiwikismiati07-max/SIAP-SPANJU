@@ -33,3 +33,18 @@ export interface HaidScreening {
   total_hari: number;
   bulan: string;
 }
+
+export interface AgamaJadwal {
+  id: string;
+  kegiatan_id: string;
+  hari: string;
+  minggu_ke: number;
+  bulan: string;
+  tahun: number;
+  kelas: string;
+  keterangan?: string;
+  created_at?: string;
+  kegiatan?: {
+    nama_kegiatan: string;
+  };
+}

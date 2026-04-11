@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, User, Users, Activity, Save, X, Edit2, Trash2, Search } from 'lucide-react';
+import { Calendar, Clock, User, Users, Activity, Save, X, Edit2, Trash2, Search, Upload, Download } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AgamaAbsensi, AgamaProgram } from '../../types/keagamaan';
 import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const KeagamaanAbsensi: React.FC = () => {
   const [absensiList, setAbsensiList] = useState<AgamaAbsensi[]>([]);
@@ -167,6 +169,82 @@ const KeagamaanAbsensi: React.FC = () => {
     }
   };
 
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+        
+        const mappedData = data.map((row: any) => {
+          const getValue = (keys: string[]) => {
+            const rowKeys = Object.keys(row);
+            for (const key of keys) {
+              const foundKey = rowKeys.find(rk => rk.toLowerCase().trim() === key.toLowerCase().trim());
+              if (foundKey) return row[foundKey];
+            }
+            return '';
+          };
+
+          const namaSiswa = getValue(['nama', 'nama siswa', 'siswa']);
+          const kelasSiswa = getValue(['kelas']);
+          const namaKegiatan = getValue(['kegiatan', 'nama kegiatan']);
+          const namaGuru = getValue(['wali kelas', 'guru', 'wali']);
+          const tanggal = getValue(['tanggal']);
+          const jam = getValue(['jam']);
+          const alasan = getValue(['alasan', 'keterangan']) || 'Hadir';
+
+          const student = students.find(s => s.nama.toLowerCase() === String(namaSiswa).toLowerCase() && s.kelas === String(kelasSiswa));
+          const program = programs.find(p => p.nama_kegiatan.toLowerCase() === String(namaKegiatan).toLowerCase());
+          const teacher = teachers.find(t => t.nama_guru.toLowerCase() === String(namaGuru).toLowerCase());
+
+          if (!student || !program || !teacher) {
+            console.warn('Missing data for row:', row);
+            return null;
+          }
+
+          let formattedDate = format(new Date(), 'yyyy-MM-dd');
+          if (tanggal) {
+            try {
+              const d = new Date(tanggal);
+              if (!isNaN(d.getTime())) {
+                formattedDate = format(d, 'yyyy-MM-dd');
+              }
+            } catch (e) {}
+          }
+
+          return {
+            siswa_id: student.id,
+            kegiatan_id: program.id,
+            wali_kelas_id: teacher.id,
+            tanggal: formattedDate,
+            jam: jam || format(new Date(), 'HH.mm'),
+            alasan: reasons.find(r => r.label.toLowerCase() === String(alasan).toLowerCase())?.id || 'Hadir'
+          };
+        }).filter(Boolean);
+
+        if (mappedData.length === 0) {
+          alert('Tidak ada data valid untuk diupload. Pastikan Nama Siswa, Kelas, Kegiatan, dan Wali Kelas cocok dengan data master.');
+          return;
+        }
+
+        const { error } = await supabase.from('agama_absensi').insert(mappedData);
+        if (error) throw error;
+        alert(`${mappedData.length} data berhasil diupload!`);
+        fetchAbsensi();
+      } catch (error: any) {
+        alert('Error reading Excel: ' + error.message);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
       {/* Form Section */}
@@ -329,13 +407,60 @@ const KeagamaanAbsensi: React.FC = () => {
             <h3 className="text-xl font-black text-slate-800">Riwayat Absensi Terbaru</h3>
             <p className="text-sm text-slate-400">Menampilkan 50 data terakhir</p>
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-            <input 
-              type="text" 
-              placeholder="Cari nama..." 
-              className="pl-10 pr-4 py-2 rounded-xl border border-slate-100 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
-            />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                const workbook = new ExcelJS.Workbook();
+                const worksheet = workbook.addWorksheet('Template Absensi');
+                worksheet.columns = [
+                  { header: 'Nama Siswa', key: 'nama', width: 30 },
+                  { header: 'Kelas', key: 'kelas', width: 10 },
+                  { header: 'Kegiatan', key: 'kegiatan', width: 25 },
+                  { header: 'Wali Kelas', key: 'wali_kelas', width: 30 },
+                  { header: 'Tanggal', key: 'tanggal', width: 15 },
+                  { header: 'Jam', key: 'jam', width: 10 },
+                  { header: 'Alasan', key: 'alasan', width: 15 }
+                ];
+                
+                // Add example row
+                worksheet.addRow({
+                  nama: 'Contoh Nama Siswa',
+                  kelas: '7A',
+                  kegiatan: 'Pondok Ramadhan',
+                  wali_kelas: 'Nama Guru Wali Kelas',
+                  tanggal: '2026-04-11',
+                  jam: '07.30',
+                  alasan: 'Hadir'
+                });
+
+                workbook.xlsx.writeBuffer().then(buffer => {
+                  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'Template_Upload_Keagamaan.xlsx';
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                });
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-100 transition-all"
+            >
+              <Download size={16} />
+              <span>Template</span>
+            </button>
+            <label className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-bold cursor-pointer hover:bg-emerald-100 transition-all">
+              <Upload size={16} />
+              <span>Upload Data</span>
+              <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleExcelUpload} />
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input 
+                type="text" 
+                placeholder="Cari nama..." 
+                className="pl-10 pr-4 py-2 rounded-xl border border-slate-100 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
+              />
+            </div>
           </div>
         </div>
         

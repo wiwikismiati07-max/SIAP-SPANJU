@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Database, ClipboardList, FileText, ChevronLeft, Menu, X, MoreVertical } from 'lucide-react';
+import { LayoutDashboard, Database, ClipboardList, FileText, ChevronLeft, Menu, X, MoreVertical, Calendar } from 'lucide-react';
 import KeagamaanDashboard from './KeagamaanDashboard';
 import KeagamaanMaster from './KeagamaanMaster';
 import KeagamaanAbsensi from './KeagamaanAbsensi';
 import KeagamaanLaporan from './KeagamaanLaporan';
+import KeagamaanJadwal from './KeagamaanJadwal';
 
 interface KeagamaanAppProps {
   onBack: () => void;
@@ -11,7 +12,7 @@ interface KeagamaanAppProps {
 }
 
 const KeagamaanApp: React.FC<KeagamaanAppProps> = ({ onBack, onOpenSidebar }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'absensi' | 'laporan'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'absensi' | 'laporan' | 'jadwal'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
@@ -19,6 +20,7 @@ const KeagamaanApp: React.FC<KeagamaanAppProps> = ({ onBack, onOpenSidebar }) =>
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'master', label: 'Master Data', icon: Database },
     { id: 'absensi', label: 'Input Absen', icon: ClipboardList },
+    { id: 'jadwal', label: 'Jadwal Kegiatan', icon: Calendar },
     { id: 'laporan', label: 'Laporan', icon: FileText },
   ];
 
@@ -156,6 +158,7 @@ const KeagamaanApp: React.FC<KeagamaanAppProps> = ({ onBack, onOpenSidebar }) =>
           {activeTab === 'dashboard' && <KeagamaanDashboard />}
           {activeTab === 'master' && <KeagamaanMaster />}
           {activeTab === 'absensi' && <KeagamaanAbsensi />}
+          {activeTab === 'jadwal' && <KeagamaanJadwal />}
           {activeTab === 'laporan' && <KeagamaanLaporan />}
         </div>
       </main>
