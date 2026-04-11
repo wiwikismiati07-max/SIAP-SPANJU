@@ -111,31 +111,45 @@ const PrestasiDashboard: React.FC = () => {
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center space-x-4">
-          <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-            <Users size={28} />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-slate-400 uppercase tracking-wider">Total Siswa</p>
-            <h3 className="text-3xl font-black text-slate-800">{stats.totalSiswa}</h3>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center space-x-4">
-          <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600">
-            <Trophy size={28} />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-slate-400 uppercase tracking-wider">Total Prestasi</p>
-            <h3 className="text-3xl font-black text-slate-800">{stats.totalPrestasi}</h3>
+        {/* Total Siswa */}
+        <div className="bg-blue-50/50 border border-blue-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm group-hover:scale-110 transition-transform">
+              <Users size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Siswa</p>
+              <p className="text-3xl font-black text-slate-800">{stats.totalSiswa}</p>
+            </div>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center space-x-4">
-          <div className="w-14 h-14 bg-pink-50 rounded-2xl flex items-center justify-center text-pink-600">
-            <Star size={28} />
+
+        {/* Total Prestasi */}
+        <div className="bg-violet-50/50 border border-violet-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-violet-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-violet-600 shadow-sm group-hover:scale-110 transition-transform">
+              <Trophy size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Prestasi</p>
+              <p className="text-3xl font-black text-slate-800">{stats.totalPrestasi}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-bold text-slate-400 uppercase tracking-wider">Siswa Berprestasi</p>
-            <h3 className="text-3xl font-black text-slate-800">{stats.totalSiswaBerprestasi}</h3>
+        </div>
+
+        {/* Siswa Berprestasi */}
+        <div className="bg-rose-50/50 border border-rose-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-rose-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-rose-600 shadow-sm group-hover:scale-110 transition-transform">
+              <Star size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Siswa Berprestasi</p>
+              <p className="text-3xl font-black text-slate-800">{stats.totalSiswaBerprestasi}</p>
+            </div>
           </div>
         </div>
       </div>

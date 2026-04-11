@@ -156,43 +156,59 @@ const KeagamaanDashboard: React.FC = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 flex items-center justify-between group hover:shadow-xl hover:shadow-emerald-500/5 transition-all duration-500">
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Total Siswa Terdata</p>
-            <h3 className="text-4xl font-black text-slate-800">{stats.totalSiswa}</h3>
-          </div>
-          <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
-            <Users size={28} />
-          </div>
-        </div>
-
-        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 flex items-center justify-between group hover:shadow-xl hover:shadow-blue-500/5 transition-all duration-500">
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Total Ketidakhadiran</p>
-            <h3 className="text-4xl font-black text-slate-800">{stats.totalKetidakhadiran}</h3>
-          </div>
-          <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
-            <Calendar size={28} />
+        {/* Total Siswa Terdata */}
+        <div className="bg-emerald-50/50 border border-emerald-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm group-hover:scale-110 transition-transform">
+              <Users size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Siswa Terdata</p>
+              <p className="text-3xl font-black text-slate-800">{stats.totalSiswa}</p>
+            </div>
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 flex items-center justify-between group hover:shadow-xl hover:shadow-amber-500/5 transition-all duration-500">
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Perlu Panggilan Ortu</p>
-            <h3 className="text-4xl font-black text-slate-800">{stats.perluPanggilan}</h3>
-          </div>
-          <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
-            <Phone size={28} />
+        {/* Total Ketidakhadiran */}
+        <div className="bg-blue-50/50 border border-blue-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm group-hover:scale-110 transition-transform">
+              <Calendar size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Ketidakhadiran</p>
+              <p className="text-3xl font-black text-slate-800">{stats.totalKetidakhadiran}</p>
+            </div>
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 flex items-center justify-between group hover:shadow-xl hover:shadow-rose-500/5 transition-all duration-500">
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Screening Kesehatan</p>
-            <h3 className="text-4xl font-black text-slate-800">{stats.screeningHaid}</h3>
+        {/* Perlu Panggilan Ortu */}
+        <div className="bg-amber-50/50 border border-amber-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-amber-600 shadow-sm group-hover:scale-110 transition-transform">
+              <Phone size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Perlu Panggilan Ortu</p>
+              <p className="text-3xl font-black text-slate-800">{stats.perluPanggilan}</p>
+            </div>
           </div>
-          <div className="w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-600 group-hover:scale-110 transition-transform">
-            <HeartPulse size={28} />
+        </div>
+
+        {/* Screening Kesehatan */}
+        <div className="bg-rose-50/50 border border-rose-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-rose-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-rose-600 shadow-sm group-hover:scale-110 transition-transform">
+              <HeartPulse size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Screening Kesehatan</p>
+              <p className="text-3xl font-black text-slate-800">{stats.screeningHaid}</p>
+            </div>
           </div>
         </div>
       </div>

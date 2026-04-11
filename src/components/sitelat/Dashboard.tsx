@@ -139,41 +139,60 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-blue-50/50 border border-blue-100 p-6 rounded-2xl flex items-center gap-4">
-          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
-            <Users size={24} />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500">Total Siswa</p>
-            <p className="text-2xl font-bold text-slate-800">{totalSiswa}</p>
-          </div>
-        </div>
-        <div className="bg-rose-50/50 border border-rose-100 p-6 rounded-2xl flex items-center gap-4">
-          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-rose-600 shadow-sm">
-            <UserX size={24} />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500">Terlambat</p>
-            <p className="text-2xl font-bold text-slate-800">{uniqueTerlambatCount}</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Siswa */}
+        <div className="bg-violet-50/50 border border-violet-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-violet-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-violet-600 shadow-sm group-hover:scale-110 transition-transform">
+              <Users size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Siswa</p>
+              <p className="text-3xl font-black text-slate-800">{totalSiswa}</p>
+            </div>
           </div>
         </div>
-        <div className="bg-emerald-50/50 border border-emerald-100 p-6 rounded-2xl flex items-center gap-4">
-          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-emerald-600 shadow-sm">
-            <Clock size={24} />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500">Tepat Waktu</p>
-            <p className="text-2xl font-bold text-slate-800">{totalSiswa - uniqueTerlambatCount}</p>
+
+        {/* Terlambat */}
+        <div className="bg-rose-50/50 border border-rose-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-rose-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-rose-600 shadow-sm group-hover:scale-110 transition-transform">
+              <UserX size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Terlambat</p>
+              <p className="text-3xl font-black text-slate-800">{uniqueTerlambatCount}</p>
+            </div>
           </div>
         </div>
-        <div className="bg-orange-50/50 border border-orange-100 p-6 rounded-2xl flex items-center gap-4">
-          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-orange-600 shadow-sm">
-            <PhoneCall size={24} />
+
+        {/* Tepat Waktu */}
+        <div className="bg-emerald-50/50 border border-emerald-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm group-hover:scale-110 transition-transform">
+              <Clock size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tepat Waktu</p>
+              <p className="text-3xl font-black text-slate-800">{totalSiswa - uniqueTerlambatCount}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-medium text-slate-500">Panggilan Ortu</p>
-            <p className="text-2xl font-bold text-slate-800">{frequentLatecomers.length}</p>
+        </div>
+
+        {/* Panggilan Ortu */}
+        <div className="bg-amber-50/50 border border-amber-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-amber-600 shadow-sm group-hover:scale-110 transition-transform">
+              <PhoneCall size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Panggilan Ortu</p>
+              <p className="text-3xl font-black text-slate-800">{frequentLatecomers.length}</p>
+            </div>
           </div>
         </div>
       </div>

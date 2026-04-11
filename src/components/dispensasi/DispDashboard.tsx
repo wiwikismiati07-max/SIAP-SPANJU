@@ -116,36 +116,45 @@ const DispDashboard: React.FC = () => {
       
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110 duration-500" />
-          <div className="p-3 bg-blue-100 text-blue-600 rounded-xl relative z-10">
-            <Users size={24} />
-          </div>
-          <div className="relative z-10">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Siswa</p>
-            <p className="text-3xl font-black text-slate-800">{stats.totalSiswa}</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-pink-50 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110 duration-500" />
-          <div className="p-3 bg-pink-100 text-pink-600 rounded-xl relative z-10">
-            <FileText size={24} />
-          </div>
-          <div className="relative z-10">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Dispensasi</p>
-            <p className="text-3xl font-black text-slate-800">{stats.totalDispensasi}</p>
+        {/* Total Siswa */}
+        <div className="bg-blue-50/50 border border-blue-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm group-hover:scale-110 transition-transform">
+              <Users size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Siswa</p>
+              <p className="text-3xl font-black text-slate-800">{stats.totalSiswa}</p>
+            </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-110 duration-500" />
-          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl relative z-10">
-            <TrendingUp size={24} />
+        {/* Total Dispensasi */}
+        <div className="bg-pink-50/50 border border-pink-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-pink-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-pink-600 shadow-sm group-hover:scale-110 transition-transform">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Dispensasi</p>
+              <p className="text-3xl font-black text-slate-800">{stats.totalDispensasi}</p>
+            </div>
           </div>
-          <div className="relative z-10">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">% Siswa Dispensasi</p>
-            <p className="text-3xl font-black text-slate-800">{stats.persentase.toFixed(2)}%</p>
+        </div>
+
+        {/* % Siswa Dispensasi */}
+        <div className="bg-emerald-50/50 border border-emerald-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm group-hover:scale-110 transition-transform">
+              <TrendingUp size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">% Siswa Dispensasi</p>
+              <p className="text-3xl font-black text-slate-800">{stats.persentase.toFixed(2)}%</p>
+            </div>
           </div>
         </div>
       </div>
