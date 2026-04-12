@@ -130,8 +130,8 @@ export default function GlobalLogin({ onLoginSuccess }: GlobalLoginProps) {
               </button>
               
               <div className="text-center">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                  (Username = Tamu Pasword = Tamu)
+                <p className="text-[10px] font-black text-slate-500 tracking-widest">
+                  (Username = Tamu dan Pasword = Tamu)
                 </p>
               </div>
             </div>
