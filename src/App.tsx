@@ -70,7 +70,6 @@ const COLORS = [
 ];
 
 const EXTERNAL_APPS = [
-  { id: "tata-tertib", title: "Tata Tertib Siswa", url: "https://tally.so/r/q4D1XY", icon: "FileText", color: "from-blue-400 to-blue-600" },
   { id: "8-program-prioritas-spanju", title: "8 Program Prioritas Spanju", url: "https://7-kaih-nine.vercel.app/", icon: "LayoutDashboard", color: "from-blue-400 to-blue-600" }
 ];
 
@@ -212,7 +211,7 @@ export default function App() {
     { id: 'menu_aplikasi', title: 'MENU APLIKASI', subtitle: 'DAFTAR SEMUA APLIKASI', icon: LayoutDashboard, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
     { id: 'survey', title: 'SURVEY APLIKASI', subtitle: 'SURVEY KEPUASAN PENGGUNA', icon: ClipboardList, color: 'from-slate-800 to-black', shadow: 'shadow-slate-400', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
     { id: 'management_login', title: 'MANAGEMENT LOGIN', subtitle: 'KELOLA AKSES USER', icon: ShieldCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', adminOnly: true, roles: ['full'] },
-    { id: 'sitelat', title: 'SI-TELAT', subtitle: 'SISTEM KETERLAMBATAN SISWA', icon: Clock, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200', roles: ['entry', 'full'] },
+    { id: 'sitelat', title: 'SI-TELAT', subtitle: 'SISTEM KETERLAMBATAN SISWA', icon: Clock, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200', roles: ['view', 'entry', 'full'] },
     { id: 'izinsiswa', title: 'IZIN SISWA', subtitle: 'SISTEM PERIZINAN SISWA', icon: UserCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', roles: ['view', 'entry', 'full'] },
     { id: 'sipena', title: 'SIPENA', subtitle: 'PERPUSTAKAAN SISWA (BARU)', icon: Library, color: 'from-slate-800 to-black', shadow: 'shadow-slate-300', roles: ['entry', 'full'] },
     { id: 'pengaduan', title: 'PENGADUAN WALI MURID', subtitle: 'LAYANAN PENGADUAN (BARU)', icon: MessageSquare, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200', roles: ['view', 'entry', 'full'] },

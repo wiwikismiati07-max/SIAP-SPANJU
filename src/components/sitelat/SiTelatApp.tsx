@@ -15,9 +15,11 @@ export default function SiTelatApp({ onBack, onOpenSidebar, user }: { onBack?: (
   const isAdmin = user?.role === 'full';
   const canEdit = user?.role === 'entry' || user?.role === 'full';
 
+  const isViewer = user?.role === 'view';
+
   const menuItems = [
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
-    { id: 'pencatatan', label: 'Absensi Siswa', icon: Clock },
+    ...(isViewer ? [] : [{ id: 'pencatatan', label: 'Absensi Siswa', icon: Clock }]),
     { id: 'laporan', label: 'Report', icon: FileText },
   ];
 
@@ -25,12 +27,15 @@ export default function SiTelatApp({ onBack, onOpenSidebar, user }: { onBack?: (
     menuItems.push({ id: 'master', label: 'Operator / Master', icon: Users });
   }
 
-  // If not admin and trying to access master, redirect to dashboard
+  // If viewer and trying to access pencatatan, or not admin and trying to access master
   useEffect(() => {
     if (activeTab === 'master' && !isAdmin) {
       setActiveTab('dashboard');
     }
-  }, [activeTab, isAdmin]);
+    if (activeTab === 'pencatatan' && isViewer) {
+      setActiveTab('dashboard');
+    }
+  }, [activeTab, isAdmin, isViewer]);
 
   return (
     <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">
