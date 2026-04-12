@@ -12,6 +12,8 @@ const KeagamaanDashboard: React.FC = () => {
     perluPanggilan: 0,
     screeningHaid: 0
   });
+  const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [participationData, setParticipationData] = useState<any[]>([]);
   const [absentByActivity, setAbsentByActivity] = useState<any[]>([]);
   const [pivotData, setPivotData] = useState<any>({});
@@ -23,7 +25,7 @@ const KeagamaanDashboard: React.FC = () => {
     fetchDashboardData();
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
-  }, []);
+  }, [startDate, endDate]);
 
   const fetchDashboardData = async () => {
     try {
@@ -32,22 +34,21 @@ const KeagamaanDashboard: React.FC = () => {
       // 1. Total Siswa
       const { count: siswaCount } = await supabase.from('master_siswa').select('*', { count: 'exact', head: true });
       
-      // 2. Total Ketidakhadiran (Semua yang bukan 'Hadir')
+      // 2. Total Ketidakhadiran (Filtered by date)
       const { count: absensiCount } = await supabase
         .from('agama_absensi')
         .select('*', { count: 'exact', head: true })
-        .neq('alasan', 'Hadir');
+        .neq('alasan', 'Hadir')
+        .gte('tanggal', startDate)
+        .lte('tanggal', endDate);
       
-      // 3. Perlu Panggilan Ortu (Siswa dengan ketidakhadiran > 3 kali dalam sebulan)
-      const start = format(startOfMonth(new Date()), 'yyyy-MM-dd');
-      const end = format(endOfMonth(new Date()), 'yyyy-MM-dd');
-      
+      // 3. Perlu Panggilan Ortu (Siswa dengan ketidakhadiran > 3 kali dalam periode)
       const { data: monthlyAbsence } = await supabase
         .from('agama_absensi')
         .select('siswa_id')
         .neq('alasan', 'Hadir')
-        .gte('tanggal', start)
-        .lte('tanggal', end);
+        .gte('tanggal', startDate)
+        .lte('tanggal', endDate);
 
       const studentAbsenceCounts: any = {};
       monthlyAbsence?.forEach((a: any) => {
@@ -55,13 +56,13 @@ const KeagamaanDashboard: React.FC = () => {
       });
       const perluPanggilan = Object.values(studentAbsenceCounts).filter((c: any) => c >= 3).length;
 
-      // 4. Screening Haid (> 25 hari dalam sebulan)
+      // 4. Screening Haid (> 14 hari dalam periode)
       const { data: haidData } = await supabase
         .from('agama_absensi')
         .select('siswa_id')
         .eq('alasan', 'Haid')
-        .gte('tanggal', start)
-        .lte('tanggal', end);
+        .gte('tanggal', startDate)
+        .lte('tanggal', endDate);
 
       const haidCounts: any = {};
       haidData?.forEach((h: any) => {
@@ -74,8 +75,8 @@ const KeagamaanDashboard: React.FC = () => {
         .from('agama_absensi')
         .select('siswa_id, alasan, siswa:master_siswa(nama, kelas)')
         .neq('alasan', 'Hadir')
-        .gte('tanggal', start)
-        .lte('tanggal', end);
+        .gte('tanggal', startDate)
+        .lte('tanggal', endDate);
 
       const pivot: any = {};
       pivotRaw?.forEach((item: any) => {
@@ -96,8 +97,8 @@ const KeagamaanDashboard: React.FC = () => {
         .from('agama_absensi')
         .select('siswa_id, tanggal, siswa:master_siswa(nama, kelas)')
         .eq('alasan', 'Haid')
-        .gte('tanggal', start)
-        .lte('tanggal', end)
+        .gte('tanggal', startDate)
+        .lte('tanggal', endDate)
         .order('tanggal', { ascending: true });
 
       const haidMap: any = {};
@@ -123,7 +124,7 @@ const KeagamaanDashboard: React.FC = () => {
           let longestStreak: Date[] = [dates[0]];
 
           for (let i = 1; i < dates.length; i++) {
-            const diff = (dates[i].getTime() - dates[i-1].getTime()) / (1000 * 60 * 60 * 24);
+            const diff = Math.round((dates[i].getTime() - dates[i-1].getTime()) / (1000 * 60 * 60 * 24));
             if (diff === 1) {
               currentStreak.push(dates[i]);
             } else {
@@ -168,11 +169,13 @@ const KeagamaanDashboard: React.FC = () => {
         { name: 'Tidak Mengikuti', value: totalTodayAbsence, color: '#f43f5e' }
       ]);
 
-      // 6. Absent by Activity
+      // 8. Absent by Activity
       const { data: activityData } = await supabase
         .from('agama_absensi')
         .select('kegiatan:agama_program(nama_kegiatan)')
-        .neq('alasan', 'Hadir');
+        .neq('alasan', 'Hadir')
+        .gte('tanggal', startDate)
+        .lte('tanggal', endDate);
 
       const actCounts: any = {};
       activityData?.forEach((a: any) => {
@@ -215,25 +218,51 @@ const KeagamaanDashboard: React.FC = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-12">
       {/* Header Info */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">Dashboard Overview</h1>
           <p className="text-sm text-slate-400 font-medium mt-1">Sistem Informasi Monitoring Kegiatan Keagamaan</p>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="bg-emerald-50/50 border border-emerald-100 px-6 py-3 rounded-full flex items-center gap-3">
-            <Calendar size={18} className="text-emerald-600" />
-            <span className="text-sm font-bold text-slate-700">
-              {format(currentTime, 'EEEE, d MMMM yyyy p', { locale: id })}
-            </span>
-          </div>
-          <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
-            <div className="text-right">
-              <p className="text-sm font-black text-slate-800">Administrator</p>
-              <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Online</p>
+        
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          {/* Date Range Filters */}
+          <div className="flex items-center gap-2 bg-white border border-slate-200 p-2 rounded-2xl shadow-sm">
+            <div className="flex flex-col px-2">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Tgl Awal</span>
+              <input 
+                type="date" 
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="text-xs font-bold text-slate-700 focus:outline-none bg-transparent"
+              />
             </div>
-            <div className="w-10 h-10 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
-              <Users size={20} />
+            <div className="h-8 w-px bg-slate-100" />
+            <div className="flex flex-col px-2">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Tgl Akhir</span>
+              <input 
+                type="date" 
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="text-xs font-bold text-slate-700 focus:outline-none bg-transparent"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="bg-emerald-50/50 border border-emerald-100 px-6 py-3 rounded-full flex items-center gap-3">
+              <Calendar size={18} className="text-emerald-600" />
+              <span className="text-sm font-bold text-slate-700">
+                {format(currentTime, 'EEEE, d MMMM yyyy p', { locale: id })}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
+              <div className="text-right">
+                <p className="text-sm font-black text-slate-800">Administrator</p>
+                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Online</p>
+              </div>
+              <div className="w-10 h-10 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
+                <Users size={20} />
+              </div>
             </div>
           </div>
         </div>
@@ -385,7 +414,7 @@ const KeagamaanDashboard: React.FC = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h3 className="text-xl font-black text-slate-800 tracking-tight">Pivot Siswa Tidak Mengikuti Kegiatan</h3>
-            <p className="text-sm text-slate-400 font-medium mt-1">Rekapitulasi ketidakhadiran per kelas (Bulan Ini)</p>
+            <p className="text-sm text-slate-400 font-medium mt-1">Rekapitulasi ketidakhadiran per kelas (Periode Terpilih)</p>
           </div>
           <div className="bg-rose-50 text-rose-600 px-4 py-2 rounded-xl text-xs font-bold border border-rose-100">
             {Object.keys(pivotData).length} Kelas Terdeteksi
@@ -442,7 +471,7 @@ const KeagamaanDashboard: React.FC = () => {
           ))}
           {Object.keys(pivotData).length === 0 && (
             <div className="text-center py-20 bg-slate-50 rounded-[32px] border-2 border-dashed border-slate-200">
-              <p className="text-slate-400 font-bold italic">Tidak ada data ketidakhadiran bulan ini.</p>
+              <p className="text-slate-400 font-bold italic">Tidak ada data ketidakhadiran pada periode ini.</p>
             </div>
           )}
         </div>

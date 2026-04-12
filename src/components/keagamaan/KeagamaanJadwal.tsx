@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, BookOpen, Users, Save, X, Edit2, Trash2, Search, Download, Plus, FileSpreadsheet } from 'lucide-react';
+import { Calendar, Clock, BookOpen, Users, Save, X, Edit2, Trash2, Search, Download, Plus, FileSpreadsheet, Upload } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AgamaProgram, AgamaJadwal } from '../../types/keagamaan';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 
 const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
@@ -201,6 +202,114 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
     window.URL.revokeObjectURL(url);
   };
 
+  const downloadTemplate = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Template Jadwal');
+
+    const columns = [
+      { header: 'Nama Kegiatan', key: 'kegiatan', width: 30 },
+      { header: 'Hari', key: 'hari', width: 15 },
+      { header: 'Minggu Ke', key: 'minggu', width: 12 },
+      { header: 'Bulan', key: 'bulan', width: 15 },
+      { header: 'Tahun', key: 'tahun', width: 10 },
+      { header: 'Kelas', key: 'kelas', width: 25 },
+      { header: 'Keterangan', key: 'keterangan', width: 40 }
+    ];
+
+    worksheet.columns = columns;
+
+    // Add example row
+    worksheet.addRow({
+      kegiatan: 'Sholat Dhuha',
+      hari: 'Senin',
+      minggu: 1,
+      bulan: 'Januari',
+      tahun: 2026,
+      kelas: '7A',
+      keterangan: 'Rutin setiap pagi'
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Template_Upload_Jadwal_Keagamaan.xlsx';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        setLoading(true);
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        const normalize = (str: string) => str?.toLowerCase().trim().replace(/\s+/g, ' ') || '';
+
+        const mappedData = data.map((row: any) => {
+          const getValue = (keys: string[]) => {
+            const rowKeys = Object.keys(row);
+            for (const key of keys) {
+              const foundKey = rowKeys.find(rk => normalize(rk) === normalize(key));
+              if (foundKey) return String(row[foundKey]).trim();
+            }
+            return '';
+          };
+
+          const namaKegiatan = getValue(['nama kegiatan', 'kegiatan']);
+          const hari = getValue(['hari']);
+          const mingguKe = parseInt(getValue(['minggu ke', 'minggu']));
+          const bulan = getValue(['bulan']);
+          const tahun = parseInt(getValue(['tahun']));
+          const kelas = getValue(['kelas']);
+          const keterangan = getValue(['keterangan']);
+
+          if (!namaKegiatan || !hari || !kelas) return null;
+
+          const program = programs.find(p => normalize(p.nama_kegiatan) === normalize(namaKegiatan));
+          if (!program) return null;
+
+          return {
+            kegiatan_id: program.id,
+            hari,
+            minggu_ke: isNaN(mingguKe) ? 1 : mingguKe,
+            bulan: bulan || format(new Date(), 'MMMM', { locale: id }),
+            tahun: isNaN(tahun) ? new Date().getFullYear() : tahun,
+            kelas,
+            keterangan
+          };
+        }).filter(Boolean);
+
+        if (mappedData.length === 0) {
+          alert('Tidak ada data valid untuk diupload. Pastikan Nama Kegiatan sesuai dengan Data Master.');
+          return;
+        }
+
+        const { error } = await supabase.from('agama_jadwal').insert(mappedData);
+        if (error) throw error;
+
+        alert(`Berhasil mengupload ${mappedData.length} data jadwal.`);
+        fetchJadwal();
+      } catch (error: any) {
+        console.error('Upload error:', error);
+        alert('Gagal mengupload data: ' + error.message);
+      } finally {
+        setLoading(false);
+        if (e.target) e.target.value = '';
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -210,8 +319,20 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={downloadTemplate}
+            className="flex items-center gap-2 px-4 py-3 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all shadow-sm"
+          >
+            <Download size={18} className="text-blue-500" />
+            Template
+          </button>
+          <label className="flex items-center gap-2 px-4 py-3 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all shadow-sm cursor-pointer">
+            <Upload size={18} className="text-amber-500" />
+            Upload Data
+            <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleExcelUpload} />
+          </label>
+          <button
             onClick={exportToExcel}
-            className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all shadow-sm"
+            className="flex items-center gap-2 px-4 py-3 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all shadow-sm"
           >
             <FileSpreadsheet size={18} className="text-emerald-500" />
             Export Excel

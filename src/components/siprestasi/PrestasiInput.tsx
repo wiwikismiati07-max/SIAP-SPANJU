@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, X, Check, Calendar, Clock, Trophy, Medal, MapPin, Link as LinkIcon, User, Users } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, X, Check, Calendar, Clock, Trophy, Medal, MapPin, Link as LinkIcon, User, Users, Upload, Download } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { PrestasiSiswa } from '../../types/prestasi';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 
 const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
   const isAdmin = user?.role === 'full';
@@ -131,6 +133,138 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
     }
   };
 
+  const downloadTemplate = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Template Prestasi');
+
+    const columns = [
+      { header: 'Tanggal (YYYY-MM-DD)', key: 'tanggal', width: 20 },
+      { header: 'Jam (HH:mm)', key: 'jam', width: 10 },
+      { header: 'Nama Siswa', key: 'nama_siswa', width: 30 },
+      { header: 'Kelas', key: 'kelas', width: 10 },
+      { header: 'Jenis Prestasi (Akademik/Non Akademik)', key: 'jenis', width: 25 },
+      { header: 'Nama Lomba', key: 'lomba', width: 30 },
+      { header: 'Juara', key: 'juara', width: 15 },
+      { header: 'Tingkat', key: 'tingkat', width: 20 },
+      { header: 'Wali Kelas', key: 'wali_kelas', width: 30 },
+      { header: 'Guru BK', key: 'guru_bk', width: 20 },
+      { header: 'Link Bukti', key: 'bukti', width: 40 }
+    ];
+
+    worksheet.columns = columns;
+
+    // Add example row
+    worksheet.addRow({
+      tanggal: '2026-04-12',
+      jam: '08:00',
+      nama_siswa: 'Nama Siswa Contoh',
+      kelas: '7A',
+      jenis: 'Akademik',
+      lomba: 'Olimpiade Matematika',
+      juara: 'Juara 1',
+      tingkat: 'Kabupaten/Kota',
+      wali_kelas: 'Nama Guru Wali Kelas',
+      guru_bk: 'WiwikIsmiati S.pd',
+      bukti: 'https://link-sertifikat.com'
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Template_Upload_Prestasi.xlsx';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        setLoading(true);
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        // Fetch all students for matching
+        const { data: allStudents } = await supabase.from('master_siswa').select('id, nama, kelas');
+        
+        const normalize = (str: string) => str?.toLowerCase().trim().replace(/\s+/g, ' ') || '';
+
+        const mappedData = data.map((row: any) => {
+          const getValue = (keys: string[]) => {
+            const rowKeys = Object.keys(row);
+            for (const key of keys) {
+              const foundKey = rowKeys.find(rk => normalize(rk) === normalize(key));
+              if (foundKey) return String(row[foundKey]).trim();
+            }
+            return '';
+          };
+
+          const tgl = getValue(['tanggal', 'tanggal (yyyy-mm-dd)']);
+          const jam = getValue(['jam', 'jam (hh:mm)']);
+          const namaSiswa = getValue(['nama siswa', 'siswa']);
+          const kelas = getValue(['kelas']);
+          const jenis = getValue(['jenis prestasi', 'jenis']);
+          const lomba = getValue(['nama lomba', 'lomba']);
+          const juara = getValue(['juara']);
+          const tingkat = getValue(['tingkat']);
+          const waliKelas = getValue(['wali kelas']);
+          const guruBk = getValue(['guru bk']);
+          const bukti = getValue(['link bukti', 'bukti']);
+
+          if (!namaSiswa || !kelas || !lomba) return null;
+
+          const student = allStudents?.find(s => 
+            normalize(s.nama) === normalize(namaSiswa) && 
+            normalize(s.kelas) === normalize(kelas)
+          );
+          if (!student) return null;
+
+          const teacher = teachers.find(t => normalize(t.nama_guru) === normalize(waliKelas));
+
+          return {
+            tanggal: tgl || format(new Date(), 'yyyy-MM-dd'),
+            jam: jam || format(new Date(), 'HH:mm'),
+            siswa_id: student.id,
+            kelas: student.kelas,
+            jenis_prestasi: jenis.includes('Non') ? 'Non Akademik' : 'Akademik',
+            nama_lomba: lomba,
+            juara: juara || 'Juara 1',
+            tingkat: tingkat || 'Antar Sekolah',
+            bukti_url: bukti,
+            wali_kelas_id: teacher?.id || null,
+            guru_bk: guruBk || 'WiwikIsmiati S.pd'
+          };
+        }).filter(Boolean);
+
+        if (mappedData.length === 0) {
+          alert('Tidak ada data valid untuk diupload. Pastikan Nama Siswa dan Kelas sesuai dengan Data Master.');
+          return;
+        }
+
+        const { error } = await supabase.from('prestasi_siswa').insert(mappedData);
+        if (error) throw error;
+
+        alert(`Berhasil mengupload ${mappedData.length} data prestasi.`);
+        fetchData();
+      } catch (error: any) {
+        console.error('Upload error:', error);
+        alert('Gagal mengupload data: ' + error.message);
+      } finally {
+        setLoading(false);
+        if (e.target) e.target.value = '';
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -138,32 +272,46 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
           <h2 className="text-2xl font-black text-slate-800">Input Prestasi Siswa</h2>
           <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Catat pencapaian gemilang siswa</p>
         </div>
-        {(isAdmin || canEdit) && (
-          <button 
-            onClick={() => {
-              setEditingItem(null);
-              setSelectedClass('');
-              setFormData({
-                tanggal: format(new Date(), 'yyyy-MM-dd'),
-                jam: format(new Date(), 'HH:mm'),
-                siswa_id: '',
-                kelas: '',
-                jenis_prestasi: 'Akademik',
-                nama_lomba: '',
-                juara: 'Juara 1',
-                tingkat: 'Antar Sekolah',
-                bukti_url: '',
-                wali_kelas_id: '',
-                guru_bk: 'WiwikIsmiati S.pd'
-              });
-              setShowModal(true);
-            }}
-            className="flex items-center space-x-2 px-6 py-3 bg-purple-600 text-white rounded-2xl hover:bg-purple-700 transition-all shadow-xl shadow-purple-200"
+        <div className="flex items-center gap-3">
+          <button
+            onClick={downloadTemplate}
+            className="flex items-center space-x-2 px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-all shadow-sm"
           >
-            <Plus size={20} />
-            <span className="font-black uppercase tracking-wider text-sm">Tambah Prestasi</span>
+            <Download size={18} className="text-blue-500" />
+            <span className="font-bold text-xs uppercase tracking-wider">Template</span>
           </button>
-        )}
+          <label className="flex items-center space-x-2 px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-all shadow-sm cursor-pointer">
+            <Upload size={18} className="text-amber-500" />
+            <span className="font-bold text-xs uppercase tracking-wider">Upload Data</span>
+            <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleExcelUpload} />
+          </label>
+          {(isAdmin || canEdit) && (
+            <button 
+              onClick={() => {
+                setEditingItem(null);
+                setSelectedClass('');
+                setFormData({
+                  tanggal: format(new Date(), 'yyyy-MM-dd'),
+                  jam: format(new Date(), 'HH:mm'),
+                  siswa_id: '',
+                  kelas: '',
+                  jenis_prestasi: 'Akademik',
+                  nama_lomba: '',
+                  juara: 'Juara 1',
+                  tingkat: 'Antar Sekolah',
+                  bukti_url: '',
+                  wali_kelas_id: '',
+                  guru_bk: 'WiwikIsmiati S.pd'
+                });
+                setShowModal(true);
+              }}
+              className="flex items-center space-x-2 px-6 py-3 bg-purple-600 text-white rounded-2xl hover:bg-purple-700 transition-all shadow-xl shadow-purple-200"
+            >
+              <Plus size={20} />
+              <span className="font-black uppercase tracking-wider text-sm">Tambah Prestasi</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Recent Data Table */}
