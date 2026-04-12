@@ -56,8 +56,7 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
       const { data: prestasiData, error } = await supabase
         .from('prestasi_siswa')
         .select('*, siswa:master_siswa(nama)')
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false });
       if (error) throw error;
       setData(prestasiData || []);
     } catch (error) {
@@ -337,7 +336,7 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
         <div className="p-8 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Medal className="text-purple-600" size={24} />
-            <h3 className="font-black text-slate-800">Riwayat Prestasi (10 Terakhir)</h3>
+            <h3 className="font-black text-slate-800">Riwayat Prestasi</h3>
           </div>
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Scroll kebawah</span>
         </div>
