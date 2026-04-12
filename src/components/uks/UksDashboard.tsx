@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Calendar, Activity, AlertCircle, HeartPulse, Pill, TrendingUp, ShoppingCart } from 'lucide-react';
+import { Users, Calendar, Activity, AlertCircle, HeartPulse, Pill, TrendingUp, ShoppingCart, FileText, PlusSquare, MinusSquare, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { motion, AnimatePresence } from 'motion/react';
 
 const UksDashboard: React.FC = () => {
+  const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [stats, setStats] = useState({
     totalKunjungan: 0,
     totalSiswaBerobat: 0,
@@ -15,6 +18,9 @@ const UksDashboard: React.FC = () => {
   const [visitTrend, setVisitTrend] = useState<any[]>([]);
   const [lowStockObat, setLowStockObat] = useState<any[]>([]);
   const [frequentPatients, setFrequentPatients] = useState<any[]>([]);
+  const [pivotData, setPivotData] = useState<any>({});
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const [selectedPivotClass, setSelectedPivotClass] = useState('Semua Kelas');
   const [screeningReport, setScreeningReport] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -23,26 +29,41 @@ const UksDashboard: React.FC = () => {
     fetchDashboardData();
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
-  }, []);
+  }, [startDate, endDate]);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       
-      // 1. Stats
-      const { count: kunjunganCount } = await supabase.from('uks_kunjungan').select('*', { count: 'exact', head: true });
-      const { data: uniqueSiswa } = await supabase.from('uks_kunjungan').select('siswa_id');
+      // 1. Stats filtered by date
+      const { count: kunjunganCount } = await supabase
+        .from('uks_kunjungan')
+        .select('*', { count: 'exact', head: true })
+        .gte('tanggal', startDate)
+        .lte('tanggal', endDate);
+
+      const { data: uniqueSiswa } = await supabase
+        .from('uks_kunjungan')
+        .select('siswa_id')
+        .gte('tanggal', startDate)
+        .lte('tanggal', endDate);
       const totalSiswaBerobat = new Set(uniqueSiswa?.map(s => s.siswa_id)).size;
       
-      const { count: screeningCount } = await supabase.from('uks_screening').select('*', { count: 'exact', head: true });
+      const { count: screeningCount } = await supabase
+        .from('uks_screening')
+        .select('*', { count: 'exact', head: true })
+        .gte('tanggal', startDate)
+        .lte('tanggal', endDate);
+
       const { count: obatCount } = await supabase.from('uks_obat').select('*', { count: 'exact', head: true });
 
-      // 2. Visit Trend (Last 7 days)
+      // 2. Visit Trend (Filtered by date range)
       const { data: trendData } = await supabase
         .from('uks_kunjungan')
         .select('tanggal')
-        .order('tanggal', { ascending: false })
-        .limit(100);
+        .gte('tanggal', startDate)
+        .lte('tanggal', endDate)
+        .order('tanggal', { ascending: true });
 
       const trendCounts: any = {};
       trendData?.forEach((v: any) => {
@@ -51,7 +72,7 @@ const UksDashboard: React.FC = () => {
       const formattedTrend = Object.keys(trendCounts).map(k => ({
         date: format(new Date(k), 'dd MMM'),
         count: trendCounts[k]
-      })).reverse().slice(-7);
+      }));
 
       // 3. Low Stock Obat (< 5)
       const { data: lowStock } = await supabase
@@ -60,19 +81,41 @@ const UksDashboard: React.FC = () => {
         .lt('stok', 5)
         .order('stok', { ascending: true });
 
-      // 4. Frequent Patients
+      // 4. Frequent Patients & Pivot Data
       const { data: patientsData } = await supabase
         .from('uks_kunjungan')
-        .select('siswa_id, siswa:master_siswa(nama, kelas)');
+        .select('siswa_id, tanggal, jam, keluhan, siswa:master_siswa(nama, kelas)')
+        .gte('tanggal', startDate)
+        .lte('tanggal', endDate);
       
       const patientCounts: any = {};
+      const pivot: any = {};
+
       patientsData?.forEach((p: any) => {
         const key = p.siswa_id;
+        const kelas = p.siswa?.kelas || 'Tanpa Kelas';
+        const nama = p.siswa?.nama || 'Unknown';
+        const tanggal = p.tanggal;
+        const jam = p.jam || '--:--';
+        const keluhan = p.keluhan || 'Tidak ada keluhan';
+
+        // Stats for sidebar
         if (!patientCounts[key]) {
-          patientCounts[key] = { nama: p.siswa?.nama, kelas: p.siswa?.kelas, count: 0 };
+          patientCounts[key] = { nama: nama, kelas: kelas, count: 0 };
         }
         patientCounts[key].count += 1;
+
+        // Hierarchical Pivot Data
+        if (!pivot[kelas]) pivot[kelas] = { count: 0, students: {} };
+        if (!pivot[kelas].students[nama]) pivot[kelas].students[nama] = { count: 0, visits: {} };
+        if (!pivot[kelas].students[nama].visits[tanggal]) pivot[kelas].students[nama].visits[tanggal] = { count: 0, details: [] };
+        
+        pivot[kelas].count++;
+        pivot[kelas].students[nama].count++;
+        pivot[kelas].students[nama].visits[tanggal].count++;
+        pivot[kelas].students[nama].visits[tanggal].details.push({ jam, keluhan });
       });
+
       const formattedPatients = Object.values(patientCounts)
         .sort((a: any, b: any) => b.count - a.count)
         .slice(0, 5);
@@ -86,17 +129,15 @@ const UksDashboard: React.FC = () => {
       setVisitTrend(formattedTrend);
       setLowStockObat(lowStock || []);
       setFrequentPatients(formattedPatients);
+      setPivotData(pivot);
 
       // 5. Screening Haid Report (> 14 days)
-      const start = format(startOfMonth(new Date()), 'yyyy-MM-dd');
-      const end = format(endOfMonth(new Date()), 'yyyy-MM-dd');
-      
       const { data: haidRaw } = await supabase
         .from('agama_absensi')
         .select('siswa_id, tanggal, siswa:master_siswa(nama, kelas)')
         .eq('alasan', 'Haid')
-        .gte('tanggal', start)
-        .lte('tanggal', end)
+        .gte('tanggal', startDate)
+        .lte('tanggal', endDate)
         .order('tanggal', { ascending: true });
 
       const studentHaid: any = {};
@@ -161,6 +202,35 @@ const UksDashboard: React.FC = () => {
     }
   };
 
+  const toggleExpand = (key: string) => {
+    const newExpanded = new Set(expandedKeys);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
+    } else {
+      newExpanded.add(key);
+    }
+    setExpandedKeys(newExpanded);
+  };
+
+  const expandAll = () => {
+    const allKeys = new Set<string>();
+    Object.keys(pivotData).forEach(kelas => {
+      allKeys.add(kelas);
+      Object.keys(pivotData[kelas].students).forEach(nama => {
+        const studentKey = `${kelas}-${nama}`;
+        allKeys.add(studentKey);
+        Object.keys(pivotData[kelas].students[nama].visits).forEach(tanggal => {
+          allKeys.add(`${studentKey}-${tanggal}`);
+        });
+      });
+    });
+    setExpandedKeys(allKeys);
+  };
+
+  const collapseAll = () => {
+    setExpandedKeys(new Set());
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -172,16 +242,39 @@ const UksDashboard: React.FC = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-12">
       {/* Header Info */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">Dashboard UKS</h1>
           <p className="text-sm text-slate-400 font-medium mt-1">Monitoring Kesehatan Siswa SMPN 7 Pasuruan</p>
         </div>
-        <div className="bg-rose-50/50 border border-rose-100 px-6 py-3 rounded-full flex items-center gap-3">
-          <Calendar size={18} className="text-rose-600" />
-          <span className="text-sm font-bold text-slate-700">
-            {format(currentTime, 'EEEE, d MMMM yyyy p', { locale: id })}
-          </span>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mulai:</span>
+              <input 
+                type="date" 
+                className="text-xs font-bold text-slate-700 outline-none"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="w-px h-4 bg-slate-200"></div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Selesai:</span>
+              <input 
+                type="date" 
+                className="text-xs font-bold text-slate-700 outline-none"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="bg-rose-50/50 border border-rose-100 px-6 py-3 rounded-2xl flex items-center gap-3">
+            <Calendar size={18} className="text-rose-600" />
+            <span className="text-sm font-bold text-slate-700">
+              {format(currentTime, 'p', { locale: id })}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -348,6 +441,160 @@ const UksDashboard: React.FC = () => {
                 ))
               )}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Pivot Table Section */}
+      <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-600">
+              <FileText size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-800 tracking-tight">Pivot Kunjungan UKS Per Kelas</h3>
+              <p className="text-sm text-slate-400 font-medium mt-1">Detail hirarkis siswa yang sering ke UKS.</p>
+            </div>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pilih Kelas:</span>
+              <select 
+                className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                value={selectedPivotClass}
+                onChange={(e) => setSelectedPivotClass(e.target.value)}
+              >
+                <option value="Semua Kelas">Semua Kelas</option>
+                {Object.keys(pivotData).sort().map(k => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="text-slate-400" />
+            </div>
+            
+            <div className="flex items-center gap-4 border-l border-slate-200 pl-4">
+              <button 
+                onClick={expandAll}
+                className="text-xs font-black text-rose-600 hover:text-rose-700 uppercase tracking-widest transition-colors"
+              >
+                Expand All
+              </button>
+              <button 
+                onClick={collapseAll}
+                className="text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
+              >
+                Collapse All
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="border border-slate-100 rounded-[32px] overflow-hidden">
+          <div className="bg-rose-800 px-8 py-4 flex items-center justify-between text-white">
+            <span className="font-black text-xs uppercase tracking-[0.2em]">Kunjungan Siswa</span>
+            <span className="font-black text-xs uppercase tracking-[0.2em]">Jumlah</span>
+          </div>
+          
+          <div className="divide-y divide-slate-50">
+            {Object.keys(pivotData)
+              .filter(kelas => selectedPivotClass === 'Semua Kelas' || kelas === selectedPivotClass)
+              .sort()
+              .map((kelas) => (
+              <div key={kelas} className="animate-in fade-in duration-300">
+                {/* Level 1: Kelas */}
+                <div 
+                  className="flex items-center justify-between px-8 py-4 hover:bg-slate-50 cursor-pointer transition-colors group"
+                  onClick={() => toggleExpand(kelas)}
+                >
+                  <div className="flex items-center gap-4">
+                    {expandedKeys.has(kelas) ? (
+                      <MinusSquare size={18} className="text-slate-400 group-hover:text-rose-600 transition-colors" />
+                    ) : (
+                      <PlusSquare size={18} className="text-slate-400 group-hover:text-rose-600 transition-colors" />
+                    )}
+                    <span className="font-black text-slate-700 uppercase tracking-widest">Kelas {kelas}</span>
+                  </div>
+                  <span className="font-black text-slate-800">{pivotData[kelas].count}</span>
+                </div>
+
+                {expandedKeys.has(kelas) && (
+                  <div className="bg-slate-50/30 divide-y divide-slate-50/50">
+                    {Object.keys(pivotData[kelas].students).sort().map((nama) => {
+                      const studentKey = `${kelas}-${nama}`;
+                      const studentData = pivotData[kelas].students[nama];
+                      return (
+                        <div key={nama}>
+                          {/* Level 2: Siswa */}
+                          <div 
+                            className="flex items-center justify-between px-12 py-3 hover:bg-slate-50 cursor-pointer transition-colors group"
+                            onClick={() => toggleExpand(studentKey)}
+                          >
+                            <div className="flex items-center gap-4">
+                              {expandedKeys.has(studentKey) ? (
+                                <MinusSquare size={16} className="text-slate-300 group-hover:text-rose-600 transition-colors" />
+                              ) : (
+                                <PlusSquare size={16} className="text-slate-300 group-hover:text-rose-600 transition-colors" />
+                              )}
+                              <span className="font-bold text-slate-600 text-sm uppercase">{nama}</span>
+                            </div>
+                            <span className="font-bold text-slate-700 text-sm">{studentData.count}</span>
+                          </div>
+
+                          {expandedKeys.has(studentKey) && (
+                            <div className="bg-white/50 divide-y divide-slate-50/30">
+                              {Object.keys(studentData.visits).sort((a,b) => b.localeCompare(a)).map((tanggal) => {
+                                const dateKey = `${studentKey}-${tanggal}`;
+                                const dateData = studentData.visits[tanggal];
+                                return (
+                                  <div key={tanggal}>
+                                    {/* Level 3: Tanggal */}
+                                    <div 
+                                      className="flex items-center justify-between px-16 py-2 hover:bg-slate-50 cursor-pointer transition-colors group"
+                                      onClick={() => toggleExpand(dateKey)}
+                                    >
+                                      <div className="flex items-center gap-4">
+                                        {expandedKeys.has(dateKey) ? (
+                                          <MinusSquare size={14} className="text-slate-200 group-hover:text-rose-600 transition-colors" />
+                                        ) : (
+                                          <PlusSquare size={14} className="text-slate-200 group-hover:text-rose-600 transition-colors" />
+                                        )}
+                                        <span className="text-xs font-medium text-slate-500">{format(new Date(tanggal), 'dd MMM yyyy', {locale: id})}</span>
+                                      </div>
+                                      <span className="text-xs font-bold text-slate-600">{dateData.count}</span>
+                                    </div>
+
+                                    {expandedKeys.has(dateKey) && (
+                                      <div className="bg-slate-50/20 px-20 py-2 space-y-2">
+                                        {dateData.details.map((detail: any, dIdx: number) => (
+                                          <div key={dIdx} className="flex items-start justify-between py-1 border-l-2 border-rose-100 pl-4">
+                                            <div>
+                                              <p className="text-[10px] font-mono text-rose-400">{detail.jam}</p>
+                                              <p className="text-[11px] font-medium text-slate-500 mt-0.5">{detail.keluhan}</p>
+                                            </div>
+                                            <span className="text-[10px] font-bold text-slate-200">1</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+            {Object.keys(pivotData).length === 0 && (
+              <div className="text-center py-20 bg-slate-50 rounded-[32px] border-2 border-dashed border-slate-200">
+                <p className="text-slate-400 font-bold italic">Tidak ada data kunjungan pada periode ini.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
