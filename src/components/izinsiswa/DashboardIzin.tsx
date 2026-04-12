@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { IzinWithSiswa } from '../../types/izinsiswa';
-import { Users, UserCheck, AlertTriangle, Clock, BarChart3, TrendingUp } from 'lucide-react';
+import { Users, UserCheck, AlertTriangle, Clock, BarChart3, TrendingUp, FileText, ChevronDown, ChevronRight, Download } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, parseISO, subMonths } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
@@ -21,6 +21,13 @@ export default function DashboardIzin() {
     totalSiswa: 0,
     siswaMasuk: 0
   });
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
+
+  const toggleItem = (id: string) => {
+    setExpandedItems(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
 
   const KELAS_OPTIONS = [
     '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
@@ -163,6 +170,29 @@ export default function DashboardIzin() {
     })
     .filter(s => s.count >= 3)
     .sort((a, b) => b.count - a.count);
+
+  const hierarchicalData = filteredData.reduce((acc: any, curr) => {
+    const kelas = curr.siswa?.kelas || 'Tanpa Kelas';
+    const nama = curr.siswa?.nama || 'Unknown';
+    const alasan = curr.alasan || 'Tanpa Alasan';
+    const tanggal = curr.tanggal_mulai;
+
+    if (!acc[kelas]) acc[kelas] = { count: 0, children: {} };
+    acc[kelas].count++;
+
+    if (!acc[kelas].children[nama]) acc[kelas].children[nama] = { count: 0, children: {} };
+    acc[kelas].children[nama].count++;
+
+    if (!acc[kelas].children[nama].children[alasan]) acc[kelas].children[nama].children[alasan] = { count: 0, children: {} };
+    acc[kelas].children[nama].children[alasan].count++;
+
+    if (!acc[kelas].children[nama].children[alasan].children[tanggal]) acc[kelas].children[nama].children[alasan].children[tanggal] = { count: 0 };
+    acc[kelas].children[nama].children[alasan].children[tanggal].count++;
+
+    return acc;
+  }, {});
+
+  const sortedHierarchicalKelas = Object.keys(hierarchicalData).sort();
 
   const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
 
@@ -433,6 +463,162 @@ export default function DashboardIzin() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Pivot Rekap Izin Siswa */}
+      <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-600 border border-rose-100 shadow-sm">
+              <FileText size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-800">Pivot Rekap Izin Siswa</h3>
+              <p className="text-sm font-medium text-slate-500">Detail hirarkis rekap izin siswa (Periode)</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button 
+              onClick={() => {
+                const allIds: string[] = [];
+                Object.keys(hierarchicalData).forEach(k => {
+                  allIds.push(k);
+                  Object.keys(hierarchicalData[k].children).forEach(s => {
+                    allIds.push(`${k}-${s}`);
+                    Object.keys(hierarchicalData[k].children[s].children).forEach(a => {
+                      allIds.push(`${k}-${s}-${a}`);
+                    });
+                  });
+                });
+                setExpandedItems(allIds);
+              }}
+              className="px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+            >
+              Expand All
+            </button>
+            <button 
+              onClick={() => setExpandedItems([])}
+              className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
+            >
+              Collapse All
+            </button>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="bg-[#993333] px-6 py-3 flex items-center justify-between text-white font-bold text-sm">
+            <span className="text-lg">Izin Siswa</span>
+            <div className="flex items-center gap-2">
+              <span className="text-lg">Jumlah</span>
+              <div className="bg-white text-slate-400 rounded p-0.5">
+                <ChevronDown size={14} />
+              </div>
+            </div>
+          </div>
+          <div className="p-2 space-y-1 max-h-[500px] overflow-y-auto custom-scrollbar">
+            {sortedHierarchicalKelas.length === 0 ? (
+              <div className="p-10 text-center text-slate-400 font-medium italic">
+                Tidak ada data untuk ditampilkan.
+              </div>
+            ) : (
+              sortedHierarchicalKelas.map((kelas, idx) => {
+                const kData = hierarchicalData[kelas];
+                const isKExpanded = expandedItems.includes(kelas);
+                const rowColors = ['bg-rose-50/50', 'bg-orange-50/50', 'bg-blue-50/50'];
+                const hoverColors = ['hover:bg-rose-100/50', 'hover:bg-orange-100/50', 'hover:bg-blue-100/50'];
+                const colorIdx = idx % rowColors.length;
+                
+                return (
+                  <div key={kelas} className="space-y-1">
+                    {/* Level 1: Kelas */}
+                    <div 
+                      className={`flex items-center justify-between p-2 ${rowColors[colorIdx]} ${hoverColors[colorIdx]} rounded-lg cursor-pointer transition-colors group`}
+                      onClick={() => toggleItem(kelas)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border border-slate-300 rounded flex items-center justify-center bg-white text-slate-500">
+                          {isKExpanded ? <span className="leading-none">-</span> : <span className="leading-none">+</span>}
+                        </div>
+                        <span className="font-black text-slate-800 text-sm">{kelas}</span>
+                      </div>
+                      <span className="font-black text-slate-800 text-sm">{kData.count}</span>
+                    </div>
+
+                    {isKExpanded && (
+                      <div className="pl-6 space-y-1">
+                        {Object.keys(kData.children).sort().map((siswa) => {
+                          const sData = kData.children[siswa];
+                          const sId = `${kelas}-${siswa}`;
+                          const isSExpanded = expandedItems.includes(sId);
+
+                          return (
+                            <div key={siswa} className="space-y-1">
+                              {/* Level 2: Siswa */}
+                              <div 
+                                className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group"
+                                onClick={() => toggleItem(sId)}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className="w-4 h-4 border border-slate-300 rounded flex items-center justify-center bg-white text-slate-500">
+                                    {isSExpanded ? <span className="leading-none">-</span> : <span className="leading-none">+</span>}
+                                  </div>
+                                  <span className="font-bold text-slate-700 text-sm uppercase">{siswa}</span>
+                                </div>
+                                <span className="font-bold text-slate-700 text-sm">{sData.count}</span>
+                              </div>
+
+                              {isSExpanded && (
+                                <div className="pl-6 space-y-1">
+                                  {Object.keys(sData.children).sort().map((alasan) => {
+                                    const aData = sData.children[alasan];
+                                    const aId = `${sId}-${alasan}`;
+                                    const isAExpanded = expandedItems.includes(aId);
+
+                                    return (
+                                      <div key={alasan} className="space-y-1">
+                                        {/* Level 3: Alasan */}
+                                        <div 
+                                          className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group"
+                                          onClick={() => toggleItem(aId)}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 border border-slate-300 rounded flex items-center justify-center bg-white text-slate-500">
+                                              {isAExpanded ? <span className="leading-none">-</span> : <span className="leading-none">+</span>}
+                                            </div>
+                                            <span className="font-medium text-slate-600 text-sm">{alasan}</span>
+                                          </div>
+                                          <span className="font-medium text-slate-600 text-sm">{aData.count}</span>
+                                        </div>
+
+                                        {isAExpanded && (
+                                          <div className="pl-6 space-y-1">
+                                            {Object.keys(aData.children).sort().map((tanggal) => {
+                                              const dData = aData.children[tanggal];
+                                              return (
+                                                <div key={tanggal} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition-colors">
+                                                  <span className="text-slate-500 text-xs font-mono pl-6">{tanggal}</span>
+                                                  <span className="text-slate-500 text-xs">{dData.count}</span>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Top Absentees List */}
