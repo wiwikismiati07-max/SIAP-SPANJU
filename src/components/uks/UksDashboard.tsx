@@ -35,38 +35,43 @@ const UksDashboard: React.FC = () => {
     try {
       setLoading(true);
       
-      // 1. Stats filtered by date
-      const { data: patientsData } = await supabase
+      // 1. Fetch all kunjungan data for the period
+      const { data: patientsData, error: patientsError } = await supabase
         .from('uks_kunjungan')
-        .select('siswa_id, tanggal, jam, keluhan, siswa:master_siswa(nama, kelas)')
+        .select(`
+          *,
+          siswa:master_siswa(nama, kelas),
+          keluhan:uks_keluhan(nama_keluhan)
+        `)
         .gte('tanggal', startDate)
         .lte('tanggal', endDate);
 
-      const { count: kunjunganCount } = await supabase
-        .from('uks_kunjungan')
-        .select('*', { count: 'exact', head: true })
-        .gte('tanggal', startDate)
-        .lte('tanggal', endDate);
+      if (patientsError) {
+        console.error('Error fetching patients data:', patientsError);
+      }
 
-      const { data: uniqueSiswa } = await supabase
-        .from('uks_kunjungan')
-        .select('siswa_id')
-        .gte('tanggal', startDate)
-        .lte('tanggal', endDate);
-      const totalSiswaBerobat = new Set(uniqueSiswa?.map(s => s.siswa_id)).size;
+      // Ensure patientsData is an array
+      const safePatientsData = Array.isArray(patientsData) ? patientsData : [];
+      const kunjunganCount = safePatientsData.length;
+      const totalSiswaBerobat = new Set(safePatientsData.map(s => s.siswa_id)).size;
       
-      const { count: screeningCount } = await supabase
+      const { count: screeningCount, error: screeningError } = await supabase
         .from('uks_screening')
         .select('*', { count: 'exact', head: true })
         .gte('tanggal', startDate)
         .lte('tanggal', endDate);
+      
+      if (screeningError) console.error('Error fetching screening count:', screeningError);
 
-      const { count: obatCount } = await supabase.from('uks_obat').select('*', { count: 'exact', head: true });
+      const { count: obatCount, error: obatError } = await supabase.from('uks_obat').select('*', { count: 'exact', head: true });
+      if (obatError) console.error('Error fetching obat count:', obatError);
 
       // 2. Visits Per Class (Filtered by date range)
       const classCounts: any = {};
-      patientsData?.forEach((p: any) => {
-        const kelas = p.siswa?.kelas || 'Tanpa Kelas';
+      safePatientsData.forEach((p: any) => {
+        let student = p.siswa || p.master_siswa;
+        if (Array.isArray(student)) student = student[0];
+        const kelas = student?.kelas || 'Tanpa Kelas';
         classCounts[kelas] = (classCounts[kelas] || 0) + 1;
       });
       const formattedClassData = Object.keys(classCounts).map(k => ({
@@ -85,13 +90,17 @@ const UksDashboard: React.FC = () => {
       const patientCounts: any = {};
       const pivot: any = {};
 
-      patientsData?.forEach((p: any) => {
+      safePatientsData.forEach((p: any) => {
         const key = p.siswa_id;
-        const kelas = p.siswa?.kelas || 'Tanpa Kelas';
-        const nama = p.siswa?.nama || 'Unknown';
+        let student = p.siswa || p.master_siswa;
+        if (Array.isArray(student)) student = student[0];
+        const kelas = student?.kelas || 'Tanpa Kelas';
+        const nama = student?.nama || 'Unknown';
         const tanggal = p.tanggal;
         const jam = p.jam || '--:--';
-        const keluhan = p.keluhan || 'Tidak ada keluhan';
+        let keluhanData = p.keluhan || p.uks_keluhan;
+        if (Array.isArray(keluhanData)) keluhanData = keluhanData[0];
+        const keluhan = keluhanData?.nama_keluhan || 'Tidak ada keluhan';
 
         // Stats for sidebar
         if (!patientCounts[key]) {
