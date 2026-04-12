@@ -15,6 +15,7 @@ const UksDashboard: React.FC = () => {
   const [visitTrend, setVisitTrend] = useState<any[]>([]);
   const [lowStockObat, setLowStockObat] = useState<any[]>([]);
   const [frequentPatients, setFrequentPatients] = useState<any[]>([]);
+  const [screeningReport, setScreeningReport] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -85,6 +86,73 @@ const UksDashboard: React.FC = () => {
       setVisitTrend(formattedTrend);
       setLowStockObat(lowStock || []);
       setFrequentPatients(formattedPatients);
+
+      // 5. Screening Haid Report (> 14 days)
+      const start = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+      const end = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+      
+      const { data: haidRaw } = await supabase
+        .from('agama_absensi')
+        .select('siswa_id, tanggal, siswa:master_siswa(nama, kelas)')
+        .eq('alasan', 'Haid')
+        .gte('tanggal', start)
+        .lte('tanggal', end)
+        .order('tanggal', { ascending: true });
+
+      const studentHaid: any = {};
+      haidRaw?.forEach((item: any) => {
+        const id = item.siswa_id;
+        if (!studentHaid[id]) {
+          studentHaid[id] = {
+            nama: item.siswa?.nama,
+            kelas: item.siswa?.kelas,
+            dates: []
+          };
+        }
+        studentHaid[id].dates.push(new Date(item.tanggal));
+      });
+
+      const report: any[] = [];
+      Object.keys(studentHaid).forEach(siswaId => {
+        const data = studentHaid[siswaId];
+        const dates = data.dates.sort((a: any, b: any) => a - b);
+        
+        if (dates.length > 0) {
+          // Find longest contiguous streak
+          let currentStreak: Date[] = [dates[0]];
+          let longestStreak: Date[] = [dates[0]];
+
+          for (let i = 1; i < dates.length; i++) {
+            const diff = (dates[i].getTime() - dates[i-1].getTime()) / (1000 * 60 * 60 * 24);
+            if (diff === 1) {
+              currentStreak.push(dates[i]);
+            } else {
+              if (currentStreak.length > longestStreak.length) {
+                longestStreak = [...currentStreak];
+              }
+              currentStreak = [dates[i]];
+            }
+          }
+          if (currentStreak.length > longestStreak.length) {
+            longestStreak = currentStreak;
+          }
+
+          // If longest streak > 14 days OR total days > 14
+          if (longestStreak.length > 14 || dates.length > 14) {
+            report.push({
+              siswa_id: siswaId,
+              nama: data.nama,
+              kelas: data.kelas,
+              awal: format(longestStreak[0], 'd MMM yyyy', { locale: id }),
+              akhir: format(longestStreak[longestStreak.length - 1], 'd MMM yyyy', { locale: id }),
+              durasi: longestStreak.length,
+              total: dates.length,
+              status: 'Perlu Screening'
+            });
+          }
+        }
+      });
+      setScreeningReport(report);
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -281,6 +349,76 @@ const UksDashboard: React.FC = () => {
               )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Screening Haid Report Section */}
+      <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+          <div className="flex items-center gap-6">
+            <div className="w-16 h-16 bg-amber-50 rounded-[24px] flex items-center justify-center text-amber-600 border border-amber-100 shadow-sm">
+              <HeartPulse size={32} />
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-slate-800 tracking-tight">Pemantauan Kesehatan (Screening)</h3>
+              <p className="text-sm font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg inline-block mt-1">Siswa dengan siklus haid {'>'} 14 hari</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="px-6 py-3 bg-amber-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-amber-500/20">
+              Perlu Screening
+            </span>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left border-separate border-spacing-y-4">
+            <thead>
+              <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <th className="px-8 py-4">Nama Siswa</th>
+                <th className="px-8 py-4">Kelas</th>
+                <th className="px-8 py-4">Awal Haid</th>
+                <th className="px-8 py-4">Akhir Haid</th>
+                <th className="px-8 py-4">Durasi</th>
+                <th className="px-8 py-4 text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {screeningReport.map((item, idx) => (
+                <tr key={idx} className="group bg-slate-50 hover:bg-white rounded-[32px] border-2 border-transparent hover:border-amber-100 hover:shadow-xl hover:shadow-amber-500/5 transition-all duration-500">
+                  <td className="px-8 py-6 rounded-l-[32px]">
+                    <p className="font-black text-slate-800 uppercase tracking-tight">{item.nama}</p>
+                  </td>
+                  <td className="px-8 py-6">
+                    <p className="text-sm font-bold text-slate-500">{item.kelas}</p>
+                  </td>
+                  <td className="px-8 py-6">
+                    <p className="text-sm font-bold text-slate-600">{item.awal}</p>
+                  </td>
+                  <td className="px-8 py-6">
+                    <p className="text-sm font-bold text-slate-600">{item.akhir}</p>
+                  </td>
+                  <td className="px-8 py-6">
+                    <span className="px-4 py-2 bg-amber-100 text-amber-700 rounded-xl text-sm font-black">
+                      {item.durasi} Hari
+                    </span>
+                  </td>
+                  <td className="px-8 py-6 rounded-r-[32px] text-right">
+                    <button className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm">
+                      Tindak Lanjut
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {screeningReport.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="text-center py-20 bg-slate-50 rounded-[32px] border-2 border-dashed border-slate-200">
+                    <p className="text-slate-400 font-bold italic">Tidak ada siswa yang memerlukan screening haid saat ini.</p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
