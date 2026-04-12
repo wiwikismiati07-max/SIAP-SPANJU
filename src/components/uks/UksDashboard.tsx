@@ -36,6 +36,12 @@ const UksDashboard: React.FC = () => {
       setLoading(true);
       
       // 1. Stats filtered by date
+      const { data: patientsData } = await supabase
+        .from('uks_kunjungan')
+        .select('siswa_id, tanggal, jam, keluhan, siswa:master_siswa(nama, kelas)')
+        .gte('tanggal', startDate)
+        .lte('tanggal', endDate);
+
       const { count: kunjunganCount } = await supabase
         .from('uks_kunjungan')
         .select('*', { count: 'exact', head: true })
@@ -57,22 +63,16 @@ const UksDashboard: React.FC = () => {
 
       const { count: obatCount } = await supabase.from('uks_obat').select('*', { count: 'exact', head: true });
 
-      // 2. Visit Trend (Filtered by date range)
-      const { data: trendData } = await supabase
-        .from('uks_kunjungan')
-        .select('tanggal')
-        .gte('tanggal', startDate)
-        .lte('tanggal', endDate)
-        .order('tanggal', { ascending: true });
-
-      const trendCounts: any = {};
-      trendData?.forEach((v: any) => {
-        trendCounts[v.tanggal] = (trendCounts[v.tanggal] || 0) + 1;
+      // 2. Visits Per Class (Filtered by date range)
+      const classCounts: any = {};
+      patientsData?.forEach((p: any) => {
+        const kelas = p.siswa?.kelas || 'Tanpa Kelas';
+        classCounts[kelas] = (classCounts[kelas] || 0) + 1;
       });
-      const formattedTrend = Object.keys(trendCounts).map(k => ({
-        date: format(new Date(k), 'dd MMM'),
-        count: trendCounts[k]
-      }));
+      const formattedClassData = Object.keys(classCounts).map(k => ({
+        name: k,
+        count: classCounts[k]
+      })).sort((a, b) => b.count - a.count);
 
       // 3. Low Stock Obat (< 5)
       const { data: lowStock } = await supabase
@@ -82,12 +82,6 @@ const UksDashboard: React.FC = () => {
         .order('stok', { ascending: true });
 
       // 4. Frequent Patients & Pivot Data
-      const { data: patientsData } = await supabase
-        .from('uks_kunjungan')
-        .select('siswa_id, tanggal, jam, keluhan, siswa:master_siswa(nama, kelas)')
-        .gte('tanggal', startDate)
-        .lte('tanggal', endDate);
-      
       const patientCounts: any = {};
       const pivot: any = {};
 
@@ -126,7 +120,7 @@ const UksDashboard: React.FC = () => {
         totalScreening: screeningCount || 0,
         totalObat: obatCount || 0
       });
-      setVisitTrend(formattedTrend);
+      setVisitTrend(formattedClassData);
       setLowStockObat(lowStock || []);
       setFrequentPatients(formattedPatients);
       setPivotData(pivot);
@@ -339,14 +333,14 @@ const UksDashboard: React.FC = () => {
 
       {/* Main Dashboard Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Visit Trend Chart */}
+        {/* Visits Per Class Chart */}
         <div className="lg:col-span-2 bg-white p-10 rounded-[40px] shadow-sm border border-slate-100">
           <div className="mb-8">
             <h3 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
               <TrendingUp size={20} className="text-rose-600" />
-              Tren Kunjungan Harian
+              Total Kunjungan Per Kelas
             </h3>
-            <p className="text-sm text-slate-400 font-medium mt-1">Data kunjungan siswa ke UKS 7 hari terakhir</p>
+            <p className="text-sm text-slate-400 font-medium mt-1">Data kunjungan siswa ke UKS berdasarkan kelas</p>
           </div>
           
           <div className="h-[350px] w-full">
@@ -354,7 +348,7 @@ const UksDashboard: React.FC = () => {
               <BarChart data={visitTrend} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis 
-                  dataKey="date" 
+                  dataKey="name" 
                   axisLine={false} 
                   tickLine={false} 
                   tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 600}}
@@ -371,7 +365,7 @@ const UksDashboard: React.FC = () => {
                 />
                 <Bar dataKey="count" radius={[12, 12, 0, 0]} barSize={50}>
                   {visitTrend.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={index === visitTrend.length - 1 ? '#e11d48' : '#fb7185'} />
+                    <Cell key={`cell-${index}`} fill={index === 0 ? '#e11d48' : '#fb7185'} />
                   ))}
                 </Bar>
               </BarChart>

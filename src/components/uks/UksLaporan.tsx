@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import { FileText, Download, Calendar, Search, Filter, HeartPulse, Pill, ClipboardList } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -16,6 +16,19 @@ const UksLaporan: React.FC = () => {
   });
   const [loading, setLoading] = useState(false);
   const [reportType, setReportType] = useState<'kunjungan' | 'screening' | 'obat'>('kunjungan');
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  useEffect(() => {
+    loadPreview();
+  }, [dateRange, reportType]);
+
+  const loadPreview = async () => {
+    setPreviewLoading(true);
+    const data = await fetchReportData();
+    setPreviewData(data || []);
+    setPreviewLoading(false);
+  };
 
   const fetchReportData = async () => {
     setLoading(true);
@@ -276,6 +289,73 @@ const UksLaporan: React.FC = () => {
                 Laporan akan diunduh dalam format .xlsx dengan kop surat resmi
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Preview Table */}
+      <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-600">
+              <ClipboardList size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-800 tracking-tight">Pratinjau Laporan</h3>
+              <p className="text-sm text-slate-400 font-medium mt-1">Menampilkan data terbaru berdasarkan filter</p>
+            </div>
+          </div>
+          <span className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold">
+            Total: {previewData.length} Data
+          </span>
+        </div>
+
+        <div className="overflow-hidden border border-slate-100 rounded-[32px]">
+          <div className="max-h-[380px] overflow-y-auto custom-scrollbar">
+            <table className="w-full text-left border-collapse">
+              <thead className="sticky top-0 bg-slate-50 z-10">
+                <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <th className="px-8 py-4">No</th>
+                  <th className="px-8 py-4">Tanggal</th>
+                  <th className="px-8 py-4">Nama Siswa</th>
+                  <th className="px-8 py-4">Kelas</th>
+                  <th className="px-8 py-4">Detail</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {previewLoading ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-20">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-600 mx-auto"></div>
+                    </td>
+                  </tr>
+                ) : previewData.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-20 text-slate-400 italic">Tidak ada data untuk periode ini.</td>
+                  </tr>
+                ) : (
+                  previewData.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-8 py-4 text-sm font-bold text-slate-400">{idx + 1}</td>
+                      <td className="px-8 py-4 text-sm font-bold text-slate-600">
+                        {format(new Date(reportType === 'obat' ? item.kunjungan?.tanggal : item.tanggal), 'dd/MM/yyyy')}
+                      </td>
+                      <td className="px-8 py-4 text-sm font-black text-slate-800 uppercase">
+                        {reportType === 'obat' ? item.kunjungan?.siswa?.nama : item.siswa?.nama}
+                      </td>
+                      <td className="px-8 py-4 text-sm font-bold text-slate-500">
+                        {reportType === 'obat' ? item.kunjungan?.siswa?.kelas : item.siswa?.kelas}
+                      </td>
+                      <td className="px-8 py-4 text-sm text-slate-600">
+                        {reportType === 'kunjungan' ? item.keluhan?.nama_keluhan : 
+                         reportType === 'screening' ? item.evaluasi : 
+                         item.obat?.nama_obat}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
