@@ -15,6 +15,7 @@ const KeagamaanDashboard: React.FC = () => {
   const [participationData, setParticipationData] = useState<any[]>([]);
   const [absentByActivity, setAbsentByActivity] = useState<any[]>([]);
   const [pivotData, setPivotData] = useState<any>({});
+  const [screeningReport, setScreeningReport] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -90,7 +91,68 @@ const KeagamaanDashboard: React.FC = () => {
       });
       setPivotData(pivot);
 
-      // 6. Participation Chart (Donut)
+      // 6. Screening Haid Report (> 14 days)
+      const { data: haidDetails } = await supabase
+        .from('agama_absensi')
+        .select('siswa_id, tanggal, siswa:master_siswa(nama, kelas)')
+        .eq('alasan', 'Haid')
+        .gte('tanggal', start)
+        .lte('tanggal', end)
+        .order('tanggal', { ascending: true });
+
+      const haidMap: any = {};
+      haidDetails?.forEach((item: any) => {
+        const sid = item.siswa_id;
+        if (!haidMap[sid]) {
+          haidMap[sid] = {
+            nama: item.siswa?.nama,
+            kelas: item.siswa?.kelas,
+            dates: []
+          };
+        }
+        haidMap[sid].dates.push(new Date(item.tanggal));
+      });
+
+      const report: any[] = [];
+      Object.keys(haidMap).forEach(sid => {
+        const data = haidMap[sid];
+        const dates = data.dates.sort((a: any, b: any) => a - b);
+        
+        if (dates.length > 0) {
+          let currentStreak: Date[] = [dates[0]];
+          let longestStreak: Date[] = [dates[0]];
+
+          for (let i = 1; i < dates.length; i++) {
+            const diff = (dates[i].getTime() - dates[i-1].getTime()) / (1000 * 60 * 60 * 24);
+            if (diff === 1) {
+              currentStreak.push(dates[i]);
+            } else {
+              if (currentStreak.length > longestStreak.length) {
+                longestStreak = [...currentStreak];
+              }
+              currentStreak = [dates[i]];
+            }
+          }
+          if (currentStreak.length > longestStreak.length) {
+            longestStreak = currentStreak;
+          }
+
+          if (longestStreak.length > 14 || dates.length > 14) {
+            report.push({
+              siswa_id: sid,
+              nama: data.nama,
+              kelas: data.kelas,
+              awal: format(longestStreak[0], 'd MMM yyyy', { locale: id }),
+              akhir: format(longestStreak[longestStreak.length - 1], 'd MMM yyyy', { locale: id }),
+              durasi: longestStreak.length,
+              total: dates.length
+            });
+          }
+        }
+      });
+      setScreeningReport(report);
+
+      // 7. Participation Chart (Donut)
       const today = format(new Date(), 'yyyy-MM-dd');
       const { data: todayAbsence } = await supabase
         .from('agama_absensi')
@@ -383,6 +445,76 @@ const KeagamaanDashboard: React.FC = () => {
               <p className="text-slate-400 font-bold italic">Tidak ada data ketidakhadiran bulan ini.</p>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Screening Report Section */}
+      <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+          <div className="flex items-center gap-6">
+            <div className="w-16 h-16 bg-rose-50 rounded-[24px] flex items-center justify-center text-rose-600 border border-rose-100 shadow-sm">
+              <HeartPulse size={32} />
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-slate-800 tracking-tight">Health Screening Report (Pemantauan Kesehatan)</h3>
+              <p className="text-sm font-bold text-rose-600 bg-rose-50 px-3 py-1 rounded-lg inline-block mt-1">Siswa dengan alasan Haid {'>'} 14 hari</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="px-6 py-3 bg-rose-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-rose-600/20">
+              Perlu Verifikasi
+            </span>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left border-separate border-spacing-y-4">
+            <thead>
+              <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <th className="px-8 py-4">Nama Siswa</th>
+                <th className="px-8 py-4">Kelas</th>
+                <th className="px-8 py-4">Awal Haid</th>
+                <th className="px-8 py-4">Akhir Haid</th>
+                <th className="px-8 py-4">Durasi</th>
+                <th className="px-8 py-4 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {screeningReport.map((item, idx) => (
+                <tr key={idx} className="group bg-slate-50 hover:bg-white rounded-[32px] border-2 border-transparent hover:border-rose-100 hover:shadow-xl hover:shadow-rose-500/5 transition-all duration-500">
+                  <td className="px-8 py-6 rounded-l-[32px]">
+                    <p className="font-black text-slate-800 uppercase tracking-tight">{item.nama}</p>
+                  </td>
+                  <td className="px-8 py-6">
+                    <p className="text-sm font-bold text-slate-500">{item.kelas}</p>
+                  </td>
+                  <td className="px-8 py-6">
+                    <p className="text-sm font-bold text-slate-600">{item.awal}</p>
+                  </td>
+                  <td className="px-8 py-6">
+                    <p className="text-sm font-bold text-slate-600">{item.akhir}</p>
+                  </td>
+                  <td className="px-8 py-6">
+                    <span className="px-4 py-2 bg-rose-100 text-rose-700 rounded-xl text-sm font-black">
+                      {item.durasi} Hari
+                    </span>
+                  </td>
+                  <td className="px-8 py-6 rounded-r-[32px] text-right">
+                    <button className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm">
+                      Verifikasi
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {screeningReport.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="text-center py-20 bg-slate-50 rounded-[32px] border-2 border-dashed border-slate-200">
+                    <p className="text-slate-400 font-bold italic">Tidak ada siswa yang memerlukan pemantauan haid saat ini.</p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
