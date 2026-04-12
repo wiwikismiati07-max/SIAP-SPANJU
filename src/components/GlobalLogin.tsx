@@ -65,7 +65,7 @@ export default function GlobalLogin({ onLoginSuccess }: GlobalLoginProps) {
               <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
             </div>
             <h1 className="text-3xl font-black tracking-tight mb-2">SIAP SPANJU</h1>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">Sistem Integrasi Aplikasi Pembinaan</p>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em]">Sistem Integrasi Aplikasi Pembinaan SISWA</p>
           </div>
 
           <form onSubmit={handleLogin} className="p-10 space-y-8">
@@ -113,20 +113,28 @@ export default function GlobalLogin({ onLoginSuccess }: GlobalLoginProps) {
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-5 bg-gradient-to-r from-slate-800 to-black text-white rounded-2xl font-black hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-slate-200 uppercase tracking-[0.2em] text-xs disabled:opacity-50 flex items-center justify-center gap-3"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <LogIn size={18} />
-                  Masuk Aplikasi
-                </>
-              )}
-            </button>
+            <div className="space-y-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-5 bg-gradient-to-r from-slate-800 to-black text-white rounded-2xl font-black hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-slate-200 uppercase tracking-[0.2em] text-xs disabled:opacity-50 flex items-center justify-center gap-3"
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <LogIn size={18} />
+                    Masuk Aplikasi
+                  </>
+                )}
+              </button>
+              
+              <div className="text-center">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                  (Username = Tamu Pasword = Tamu)
+                </p>
+              </div>
+            </div>
 
             <div className="pt-4 text-center">
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
