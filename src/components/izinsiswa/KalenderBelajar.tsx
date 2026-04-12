@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { KalenderBelajar as KalenderType } from '../../types/izinsiswa';
-import { Calendar, Plus, Trash2, ChevronLeft, ChevronRight, X, Info } from 'lucide-react';
+import { Calendar, Plus, Trash2, ChevronLeft, ChevronRight, X, Info, Pencil } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOfWeek, endOfWeek, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
 
 export default function KalenderBelajar({ user }: { user?: any }) {
   const canDelete = user?.role === 'full';
   const canAdd = user?.role === 'entry' || user?.role === 'full';
+  const canEdit = user?.role === 'entry' || user?.role === 'full';
   const [events, setEvents] = useState<KalenderType[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     tanggal: format(new Date(), 'yyyy-MM-dd'),
     keterangan: '',
@@ -52,27 +54,59 @@ export default function KalenderBelajar({ user }: { user?: any }) {
     e.preventDefault();
     if (!formData.keterangan) return;
 
-    const newRecord = {
-      id: crypto.randomUUID(),
-      ...formData
-    };
-
     try {
-      if (supabase) {
-        const { error } = await supabase.from('kalender_belajar').insert([newRecord]);
-        if (error) throw error;
+      if (editingId) {
+        if (supabase) {
+          const { error } = await supabase
+            .from('kalender_belajar')
+            .update({
+              tanggal: formData.tanggal,
+              keterangan: formData.keterangan,
+              libur: formData.libur
+            })
+            .eq('id', editingId);
+          if (error) throw error;
+        } else {
+          const localData = JSON.parse(localStorage.getItem('kalender_belajar') || '[]');
+          const index = localData.findIndex((d: any) => d.id === editingId);
+          if (index !== -1) {
+            localData[index] = { ...localData[index], ...formData };
+            localStorage.setItem('kalender_belajar', JSON.stringify(localData));
+          }
+        }
       } else {
-        const localData = JSON.parse(localStorage.getItem('kalender_belajar') || '[]');
-        localData.push(newRecord);
-        localStorage.setItem('kalender_belajar', JSON.stringify(localData));
+        const newRecord = {
+          id: crypto.randomUUID(),
+          ...formData
+        };
+
+        if (supabase) {
+          const { error } = await supabase.from('kalender_belajar').insert([newRecord]);
+          if (error) throw error;
+        } else {
+          const localData = JSON.parse(localStorage.getItem('kalender_belajar') || '[]');
+          localData.push(newRecord);
+          localStorage.setItem('kalender_belajar', JSON.stringify(localData));
+        }
       }
       
       setShowForm(false);
+      setEditingId(null);
       setFormData({ tanggal: format(new Date(), 'yyyy-MM-dd'), keterangan: '', libur: false });
       fetchEvents();
     } catch (error: any) {
       alert(`Gagal menyimpan: ${error.message}`);
     }
+  };
+
+  const handleEdit = (event: KalenderType) => {
+    setEditingId(event.id);
+    setFormData({
+      tanggal: event.tanggal,
+      keterangan: event.keterangan,
+      libur: event.libur
+    });
+    setShowForm(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -168,14 +202,24 @@ export default function KalenderBelajar({ user }: { user?: any }) {
                   }`}
                 >
                   <span className="truncate" title={e.keterangan}>{e.keterangan}</span>
-                  {canDelete && (
-                    <button 
-                      onClick={(ev) => { ev.stopPropagation(); handleDelete(e.id); }} 
-                      className="opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-700 transition-opacity ml-1"
-                    >
-                      <Trash2 size={10} />
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {canEdit && (
+                      <button 
+                        onClick={(ev) => { ev.stopPropagation(); handleEdit(e); }} 
+                        className="text-indigo-500 hover:text-indigo-700"
+                      >
+                        <Pencil size={10} />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button 
+                        onClick={(ev) => { ev.stopPropagation(); handleDelete(e.id); }} 
+                        className="text-rose-500 hover:text-rose-700"
+                      >
+                        <Trash2 size={10} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -259,8 +303,17 @@ export default function KalenderBelajar({ user }: { user?: any }) {
       {showForm && (
         <div className="bg-white p-8 rounded-[32px] shadow-xl border border-slate-100 animate-in fade-in slide-in-from-top-4 duration-300">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-black text-slate-800">Tambah Hari Libur / Kegiatan</h3>
-            <button onClick={() => setShowForm(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+            <h3 className="text-xl font-black text-slate-800">
+              {editingId ? 'Edit Hari Libur / Kegiatan' : 'Tambah Hari Libur / Kegiatan'}
+            </h3>
+            <button 
+              onClick={() => {
+                setShowForm(false);
+                setEditingId(null);
+                setFormData({ tanggal: format(new Date(), 'yyyy-MM-dd'), keterangan: '', libur: false });
+              }} 
+              className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+            >
               <X size={20} className="text-slate-400" />
             </button>
           </div>
@@ -308,7 +361,7 @@ export default function KalenderBelajar({ user }: { user?: any }) {
                 type="submit"
                 className="px-8 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all active:scale-95"
               >
-                Simpan ke Kalender
+                {editingId ? 'Simpan Perubahan' : 'Simpan ke Kalender'}
               </button>
             </div>
           </form>
