@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Calendar, Activity, AlertCircle, HeartPulse, Phone, Clock } from 'lucide-react';
+import { Users, Calendar, Activity, AlertCircle, HeartPulse, Phone, Clock, FileText, PlusSquare, MinusSquare, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
+import { motion, AnimatePresence } from 'motion/react';
 
 const KeagamaanDashboard: React.FC = () => {
   const [stats, setStats] = useState({
@@ -17,6 +18,8 @@ const KeagamaanDashboard: React.FC = () => {
   const [participationData, setParticipationData] = useState<any[]>([]);
   const [absentByActivity, setAbsentByActivity] = useState<any[]>([]);
   const [pivotData, setPivotData] = useState<any>({});
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const [selectedPivotClass, setSelectedPivotClass] = useState('Semua Kelas');
   const [screeningReport, setScreeningReport] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -73,7 +76,7 @@ const KeagamaanDashboard: React.FC = () => {
       // 5. Pivot Data (Siswa tidak mengikuti per kelas)
       const { data: pivotRaw } = await supabase
         .from('agama_absensi')
-        .select('siswa_id, alasan, siswa:master_siswa(nama, kelas)')
+        .select('siswa_id, alasan, tanggal, jam, siswa:master_siswa(nama, kelas)')
         .neq('alasan', 'Hadir')
         .gte('tanggal', startDate)
         .lte('tanggal', endDate);
@@ -83,12 +86,19 @@ const KeagamaanDashboard: React.FC = () => {
         const kelas = item.siswa?.kelas || 'Tanpa Kelas';
         const nama = item.siswa?.nama || 'Unknown';
         const alasan = item.alasan;
+        const tanggal = item.tanggal;
+        const jam = item.jam || '--:--';
 
-        if (!pivot[kelas]) pivot[kelas] = {};
-        if (!pivot[kelas][nama]) pivot[kelas][nama] = { count: 0, reasons: {} };
+        if (!pivot[kelas]) pivot[kelas] = { count: 0, students: {} };
+        if (!pivot[kelas].students[nama]) pivot[kelas].students[nama] = { count: 0, reasons: {} };
+        if (!pivot[kelas].students[nama].reasons[alasan]) pivot[kelas].students[nama].reasons[alasan] = { count: 0, dates: {} };
+        if (!pivot[kelas].students[nama].reasons[alasan].dates[tanggal]) pivot[kelas].students[nama].reasons[alasan].dates[tanggal] = { count: 0, times: [] };
         
-        pivot[kelas][nama].count++;
-        pivot[kelas][nama].reasons[alasan] = (pivot[kelas][nama].reasons[alasan] || 0) + 1;
+        pivot[kelas].count++;
+        pivot[kelas].students[nama].count++;
+        pivot[kelas].students[nama].reasons[alasan].count++;
+        pivot[kelas].students[nama].reasons[alasan].dates[tanggal].count++;
+        pivot[kelas].students[nama].reasons[alasan].dates[tanggal].times.push(jam);
       });
       setPivotData(pivot);
 
@@ -201,6 +211,39 @@ const KeagamaanDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleExpand = (key: string) => {
+    const newExpanded = new Set(expandedKeys);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
+    } else {
+      newExpanded.add(key);
+    }
+    setExpandedKeys(newExpanded);
+  };
+
+  const expandAll = () => {
+    const allKeys = new Set<string>();
+    Object.keys(pivotData).forEach(kelas => {
+      allKeys.add(kelas);
+      Object.keys(pivotData[kelas].students).forEach(nama => {
+        const studentKey = `${kelas}-${nama}`;
+        allKeys.add(studentKey);
+        Object.keys(pivotData[kelas].students[nama].reasons).forEach(alasan => {
+          const reasonKey = `${studentKey}-${alasan}`;
+          allKeys.add(reasonKey);
+          Object.keys(pivotData[kelas].students[nama].reasons[alasan].dates).forEach(tanggal => {
+            allKeys.add(`${reasonKey}-${tanggal}`);
+          });
+        });
+      });
+    });
+    setExpandedKeys(allKeys);
+  };
+
+  const collapseAll = () => {
+    setExpandedKeys(new Set());
   };
 
   if (loading) {
@@ -411,69 +454,180 @@ const KeagamaanDashboard: React.FC = () => {
 
       {/* Pivot Table Section */}
       <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h3 className="text-xl font-black text-slate-800 tracking-tight">Pivot Siswa Tidak Mengikuti Kegiatan</h3>
-            <p className="text-sm text-slate-400 font-medium mt-1">Rekapitulasi ketidakhadiran per kelas (Periode Terpilih)</p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+              <FileText size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-800 tracking-tight">Pivot Ketidakhadiran Per Kelas</h3>
+              <p className="text-sm text-slate-400 font-medium mt-1">Detail hirarkis siswa tidak mengikuti kegiatan.</p>
+            </div>
           </div>
-          <div className="bg-rose-50 text-rose-600 px-4 py-2 rounded-xl text-xs font-bold border border-rose-100">
-            {Object.keys(pivotData).length} Kelas Terdeteksi
+          
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pilih Kelas:</span>
+              <select 
+                className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                value={selectedPivotClass}
+                onChange={(e) => setSelectedPivotClass(e.target.value)}
+              >
+                <option value="Semua Kelas">Semua Kelas</option>
+                {Object.keys(pivotData).sort().map(k => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="text-slate-400" />
+            </div>
+            
+            <div className="flex items-center gap-4 border-l border-slate-200 pl-4">
+              <button 
+                onClick={expandAll}
+                className="text-xs font-black text-indigo-600 hover:text-indigo-700 uppercase tracking-widest transition-colors"
+              >
+                Expand All
+              </button>
+              <button 
+                onClick={collapseAll}
+                className="text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition-colors"
+              >
+                Collapse All
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="space-y-6">
-          {Object.keys(pivotData).sort().map((kelas) => (
-            <div key={kelas} className="border border-slate-100 rounded-[32px] overflow-hidden">
-              <div className="bg-slate-50 px-8 py-4 flex items-center justify-between">
-                <span className="font-black text-slate-700 uppercase tracking-widest">Kelas {kelas}</span>
-                <span className="bg-white px-3 py-1 rounded-lg text-[10px] font-black text-slate-400 border border-slate-200">
-                  {Object.keys(pivotData[kelas]).length} Siswa
-                </span>
-              </div>
-              <div className="p-4">
-                <div className="overflow-x-auto custom-scrollbar">
-                  <table className="w-full text-left border-separate border-spacing-y-2">
-                    <thead>
-                      <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        <th className="px-4 py-2">Nama Siswa</th>
-                        <th className="px-4 py-2">Total Absen</th>
-                        <th className="px-4 py-2">Rincian Alasan</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.keys(pivotData[kelas]).sort().map((nama) => {
-                        const data = pivotData[kelas][nama];
-                        return (
-                          <tr key={nama} className="bg-white hover:bg-slate-50 transition-colors">
-                            <td className="px-4 py-3 font-bold text-slate-700 text-sm uppercase">{nama}</td>
-                            <td className="px-4 py-3">
-                              <span className="px-3 py-1 bg-rose-50 text-rose-600 rounded-lg text-xs font-black">
-                                {data.count}x
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex flex-wrap gap-2">
-                                {Object.entries(data.reasons).map(([alasan, count]: any) => (
-                                  <span key={alasan} className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
-                                    {alasan}: {count}
-                                  </span>
-                                ))}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+        <div className="border border-slate-100 rounded-[32px] overflow-hidden">
+          <div className="bg-emerald-600 px-8 py-4 flex items-center justify-between text-white">
+            <span className="font-black text-xs uppercase tracking-[0.2em]">Siswa Tidak Mengikuti</span>
+            <span className="font-black text-xs uppercase tracking-[0.2em]">Jumlah</span>
+          </div>
+          
+          <div className="divide-y divide-slate-50">
+            {Object.keys(pivotData)
+              .filter(kelas => selectedPivotClass === 'Semua Kelas' || kelas === selectedPivotClass)
+              .sort()
+              .map((kelas) => (
+              <div key={kelas} className="animate-in fade-in duration-300">
+                {/* Level 1: Kelas */}
+                <div 
+                  className="flex items-center justify-between px-8 py-4 hover:bg-slate-50 cursor-pointer transition-colors group"
+                  onClick={() => toggleExpand(kelas)}
+                >
+                  <div className="flex items-center gap-4">
+                    {expandedKeys.has(kelas) ? (
+                      <MinusSquare size={18} className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
+                    ) : (
+                      <PlusSquare size={18} className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
+                    )}
+                    <span className="font-black text-slate-700 uppercase tracking-widest">Kelas {kelas}</span>
+                  </div>
+                  <span className="font-black text-slate-800">{pivotData[kelas].count}</span>
                 </div>
+
+                {expandedKeys.has(kelas) && (
+                  <div className="bg-slate-50/30 divide-y divide-slate-50/50">
+                    {Object.keys(pivotData[kelas].students).sort().map((nama) => {
+                      const studentKey = `${kelas}-${nama}`;
+                      const studentData = pivotData[kelas].students[nama];
+                      return (
+                        <div key={nama}>
+                          {/* Level 2: Siswa */}
+                          <div 
+                            className="flex items-center justify-between px-12 py-3 hover:bg-slate-50 cursor-pointer transition-colors group"
+                            onClick={() => toggleExpand(studentKey)}
+                          >
+                            <div className="flex items-center gap-4">
+                              {expandedKeys.has(studentKey) ? (
+                                <MinusSquare size={16} className="text-slate-300 group-hover:text-indigo-600 transition-colors" />
+                              ) : (
+                                <PlusSquare size={16} className="text-slate-300 group-hover:text-indigo-600 transition-colors" />
+                              )}
+                              <span className="font-bold text-slate-600 text-sm uppercase">{nama}</span>
+                            </div>
+                            <span className="font-bold text-slate-700 text-sm">{studentData.count}</span>
+                          </div>
+
+                          {expandedKeys.has(studentKey) && (
+                            <div className="bg-white/50 divide-y divide-slate-50/30">
+                              {Object.keys(studentData.reasons).sort().map((alasan) => {
+                                const reasonKey = `${studentKey}-${alasan}`;
+                                const reasonData = studentData.reasons[alasan];
+                                return (
+                                  <div key={alasan}>
+                                    {/* Level 3: Alasan */}
+                                    <div 
+                                      className="flex items-center justify-between px-16 py-2 hover:bg-slate-50 cursor-pointer transition-colors group"
+                                      onClick={() => toggleExpand(reasonKey)}
+                                    >
+                                      <div className="flex items-center gap-4">
+                                        {expandedKeys.has(reasonKey) ? (
+                                          <MinusSquare size={14} className="text-slate-200 group-hover:text-indigo-600 transition-colors" />
+                                        ) : (
+                                          <PlusSquare size={14} className="text-slate-200 group-hover:text-indigo-600 transition-colors" />
+                                        )}
+                                        <span className="text-xs font-medium text-slate-500">{alasan}</span>
+                                      </div>
+                                      <span className="text-xs font-bold text-slate-600">{reasonData.count}</span>
+                                    </div>
+
+                                    {expandedKeys.has(reasonKey) && (
+                                      <div className="bg-slate-50/20 divide-y divide-slate-50/10">
+                                        {Object.keys(reasonData.dates).sort().map((tanggal) => {
+                                          const dateKey = `${reasonKey}-${tanggal}`;
+                                          const dateData = reasonData.dates[tanggal];
+                                          return (
+                                            <div key={tanggal}>
+                                              {/* Level 4: Tanggal */}
+                                              <div 
+                                                className="flex items-center justify-between px-20 py-2 hover:bg-slate-50 cursor-pointer transition-colors group"
+                                                onClick={() => toggleExpand(dateKey)}
+                                              >
+                                                <div className="flex items-center gap-4">
+                                                  {expandedKeys.has(dateKey) ? (
+                                                    <MinusSquare size={12} className="text-slate-200 group-hover:text-indigo-600 transition-colors" />
+                                                  ) : (
+                                                    <PlusSquare size={12} className="text-slate-200 group-hover:text-indigo-600 transition-colors" />
+                                                  )}
+                                                  <span className="text-[10px] font-mono text-slate-400">{tanggal}</span>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-slate-400">{dateData.count}</span>
+                                              </div>
+
+                                              {expandedKeys.has(dateKey) && (
+                                                <div className="px-24 py-1 space-y-1">
+                                                  {dateData.times.map((jam: string, tIdx: number) => (
+                                                    <div key={tIdx} className="flex items-center justify-between py-1">
+                                                      <span className="text-[10px] font-mono text-slate-300 ml-8">{jam}</span>
+                                                      <span className="text-[10px] font-bold text-slate-200">1</span>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
-          {Object.keys(pivotData).length === 0 && (
-            <div className="text-center py-20 bg-slate-50 rounded-[32px] border-2 border-dashed border-slate-200">
-              <p className="text-slate-400 font-bold italic">Tidak ada data ketidakhadiran pada periode ini.</p>
-            </div>
-          )}
+            ))}
+            {Object.keys(pivotData).length === 0 && (
+              <div className="text-center py-20 bg-slate-50 rounded-[32px] border-2 border-dashed border-slate-200">
+                <p className="text-slate-400 font-bold italic">Tidak ada data ketidakhadiran pada periode ini.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
