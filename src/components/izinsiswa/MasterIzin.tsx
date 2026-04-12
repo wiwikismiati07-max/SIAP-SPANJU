@@ -75,6 +75,65 @@ export default function MasterIzin() {
     }
   };
 
+  const handleCleanSiswaDuplicates = async () => {
+    if (!confirm('Sistem akan mencari nama siswa yang sama di kelas yang sama dan menggabungkannya. Lanjutkan?')) return;
+    
+    setLoading(true);
+    try {
+      if (supabase) {
+        const { data: allSiswa } = await supabase.from('master_siswa').select('*');
+        if (!allSiswa) return;
+
+        const groups: { [key: string]: any[] } = {};
+        allSiswa.forEach(s => {
+          const key = `${s.nama}-${s.kelas}`.toUpperCase().trim();
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(s);
+        });
+
+        const duplicateGroups = Object.values(groups).filter(g => g.length > 1);
+        if (duplicateGroups.length === 0) {
+          setNotification({ type: 'success', message: 'Tidak ditemukan data siswa double.' });
+          return;
+        }
+
+        let totalCleaned = 0;
+        for (const group of duplicateGroups) {
+          const master = group[0];
+          const redundants = group.slice(1);
+          const redundantIds = redundants.map(r => r.id);
+
+          // Update references in other tables
+          await supabase.from('izin_siswa').update({ siswa_id: master.id }).in('siswa_id', redundantIds);
+          await supabase.from('transaksi_terlambat').update({ siswa_id: master.id }).in('siswa_id', redundantIds);
+          
+          // Delete redundants
+          await supabase.from('master_siswa').delete().in('id', redundantIds);
+          totalCleaned += redundants.length;
+        }
+
+        setNotification({ type: 'success', message: `Berhasil membersihkan ${totalCleaned} data siswa double.` });
+      } else {
+        const local = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
+        const groups: { [key: string]: any[] } = {};
+        local.forEach((s: any) => {
+          const key = `${s.nama}-${s.kelas}`.toUpperCase().trim();
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(s);
+        });
+
+        const cleaned = Object.values(groups).map(g => g[0]);
+        localStorage.setItem('sitelat_siswa', JSON.stringify(cleaned));
+        setNotification({ type: 'success', message: 'Data lokal berhasil dibersihkan.' });
+      }
+    } catch (error: any) {
+      setNotification({ type: 'error', message: `Gagal membersihkan data: ${error.message}` });
+    } finally {
+      setLoading(false);
+      setTimeout(() => setNotification(null), 5000);
+    }
+  };
+
   const handleBulkUpdate = async () => {
     setShowConfirmModal(false);
     setLoading(true);
@@ -408,6 +467,14 @@ export default function MasterIzin() {
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-100 text-amber-700 hover:bg-amber-200 rounded-xl font-medium transition-colors disabled:opacity-50"
             >
               <Users size={18} /> {loading ? 'Mengecek...' : 'Cek & Hapus Data Double'}
+            </button>
+
+            <button
+              onClick={handleCleanSiswaDuplicates}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-xl font-medium transition-colors disabled:opacity-50"
+            >
+              <Users size={18} /> {loading ? 'Memproses...' : 'Hapus Duplikat Siswa'}
             </button>
 
             <button

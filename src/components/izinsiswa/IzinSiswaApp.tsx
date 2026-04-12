@@ -7,23 +7,19 @@ import FormOperatorIzin from './FormOperatorIzin';
 import LaporanIzin from './LaporanIzin';
 import LaporanPanggilan from './LaporanPanggilan';
 import KalenderBelajar from './KalenderBelajar';
-import UserManagement from './UserManagement';
-import Login from './Login';
 import { supabase } from '../../lib/supabase';
 
-export default function IzinSiswaApp({ onBack, onOpenSidebar }: { onBack?: () => void, onOpenSidebar?: () => void }) {
+export default function IzinSiswaApp({ onBack, onOpenSidebar, user: globalUser }: { onBack?: () => void, onOpenSidebar?: () => void, user?: any }) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'wali' | 'operator' | 'laporan' | 'panggilan' | 'kalender' | 'users'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [user, setUser] = useState<any>(null);
-  const [isPublicMode, setIsPublicMode] = useState(true); // Default public mode for Dashboard & Wali Murid
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(!!globalUser);
+  const [user, setUser] = useState<any>(globalUser);
+  const [isPublicMode, setIsPublicMode] = useState(!globalUser); // Default public mode for Dashboard & Wali Murid
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('app_user');
-    if (savedUser) {
-      const userData = JSON.parse(savedUser);
-      setUser(userData);
+    if (globalUser) {
+      setUser(globalUser);
       setIsLoggedIn(true);
       setIsPublicMode(false);
     }
@@ -45,23 +41,20 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar }: { onBack?: () =>
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('app_user');
-    setUser(null);
-    setIsLoggedIn(false);
-    setIsPublicMode(true);
-    setActiveTab('dashboard');
+    // Global logout is handled in App.tsx
+    onBack?.();
   };
 
   // Logic for role-based access
   const canEdit = user?.role === 'entry' || user?.role === 'full';
   const isAdmin = user?.role === 'full';
 
-  // If not logged in and trying to access restricted tabs, show login
+  // If not logged in and trying to access restricted tabs, show dashboard (or we could show a message)
   const restrictedTabs = ['master', 'operator', 'laporan', 'panggilan', 'users'];
   const isAccessingRestricted = restrictedTabs.includes(activeTab);
 
   if (!isLoggedIn && isAccessingRestricted) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
+    setActiveTab('dashboard');
   }
 
   const menuItems = [
@@ -75,7 +68,6 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar }: { onBack?: () =>
 
   if (isAdmin) {
     menuItems.push({ id: 'master', label: 'Master Data', icon: Database, staff: true });
-    menuItems.push({ id: 'users', label: 'Setup Login', icon: ShieldCheck, staff: true });
   }
 
   return (
@@ -247,7 +239,6 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar }: { onBack?: () =>
           {activeTab === 'laporan' && <LaporanIzin />}
           {activeTab === 'panggilan' && <LaporanPanggilan />}
           {activeTab === 'master' && <MasterIzin />}
-          {activeTab === 'users' && <UserManagement />}
         </div>
       </div>
     </div>

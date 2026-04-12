@@ -35,7 +35,9 @@ import {
   UserCheck,
   Trophy,
   HeartPulse,
-  Library
+  Library,
+  ShieldCheck,
+  LogOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from './lib/supabase';
@@ -88,6 +90,8 @@ import PengaduanWaliApp from './components/pengaduan/PengaduanWaliApp';
 import SipenaApp from './components/sipena/SipenaApp';
 import SurveyApp from './components/survey/SurveyApp';
 import DisiplinSiswaApp from './components/disiplinsiswa/DisiplinSiswaApp';
+import GlobalLogin from './components/GlobalLogin';
+import ManagementLogin from './components/ManagementLogin';
 
 // --- Components ---
 
@@ -99,9 +103,22 @@ export default function App() {
   const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'menu_aplikasi' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | 'survey' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   // Responsive handling
   useEffect(() => {
+    const savedUser = localStorage.getItem('app_user');
+    if (savedUser) {
+      try {
+        const userData = JSON.parse(savedUser);
+        setUser(userData);
+        setIsLoggedIn(true);
+      } catch (e) {
+        console.error("Failed to parse saved user", e);
+      }
+    }
+
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
@@ -184,9 +201,17 @@ export default function App() {
     })
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('app_user');
+    setUser(null);
+    setIsLoggedIn(false);
+    setActiveSection(null);
+  };
+
   const sidebarItems = [
     { id: 'menu_aplikasi', title: 'MENU APLIKASI', subtitle: 'DAFTAR SEMUA APLIKASI', icon: LayoutDashboard, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200', prominent: true, extraLarge: true },
     { id: 'survey', title: 'SURVEY APLIKASI', subtitle: 'SURVEY KEPUASAN PENGGUNA', icon: ClipboardList, color: 'from-slate-800 to-black', shadow: 'shadow-slate-400', prominent: true, extraLarge: true },
+    { id: 'management_login', title: 'MANAGEMENT LOGIN', subtitle: 'KELOLA AKSES USER', icon: ShieldCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', adminOnly: true },
     { id: 'sitelat', title: 'SI-TELAT', subtitle: 'SISTEM KETERLAMBATAN SISWA', icon: Clock, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200' },
     { id: 'izinsiswa', title: 'IZIN SISWA', subtitle: 'SISTEM PERIZINAN SISWA', icon: UserCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200' },
     { id: 'sipena', title: 'SIPENA', subtitle: 'PERPUSTAKAAN SISWA (BARU)', icon: Library, color: 'from-slate-800 to-black', shadow: 'shadow-slate-300' },
@@ -203,6 +228,15 @@ export default function App() {
     { id: 'korelasi_program', title: 'KORELASI PROGRAM', subtitle: 'SPIP & SIAP SPANJU', icon: ClipboardList, color: 'from-orange-500 to-orange-600', shadow: 'shadow-orange-200' },
     { id: 'korelasi_sra', title: 'KORELASI SRA', subtitle: 'SEKOLAH RAMAH ANAK', icon: Activity, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200' },
   ];
+
+  if (!isLoggedIn) {
+    return <GlobalLogin onLoginSuccess={(userData) => {
+      setUser(userData);
+      setIsLoggedIn(true);
+      setIsDashboard(true);
+      setActiveSection('menu_aplikasi');
+    }} />;
+  }
 
   if (!isDashboard) {
     return (
@@ -302,7 +336,7 @@ export default function App() {
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3 min-w-[280px] custom-scrollbar">
           {/* Static Sections */}
-          {sidebarItems.map((section) => (
+          {sidebarItems.filter(item => !item.adminOnly || user?.role === 'full').map((section) => (
             <button
               key={section.id}
               onClick={() => {
@@ -404,6 +438,15 @@ export default function App() {
             );
           })}
         </div>
+        <div className="p-4 border-t border-white/50 min-w-[280px]">
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center gap-4 p-4 rounded-2xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all font-black uppercase tracking-widest text-xs"
+          >
+            <LogOut size={18} />
+            Keluar Aplikasi
+          </button>
+        </div>
       </motion.aside>
 
       {/* Sidebar Toggle for Desktop/Mobile when closed */}
@@ -425,11 +468,17 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 min-h-0 min-w-0 flex flex-col relative p-1.5 md:p-3 md:pl-0">
+        {activeSection === 'management_login' && (
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            <ManagementLogin />
+          </div>
+        )}
         {activeSection === 'sitelat' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
             <SiTelatApp 
               onBack={() => setActiveSection('menu_aplikasi')} 
               onOpenSidebar={() => setIsSidebarOpen(true)}
+              user={user}
             />
           </div>
         )}
@@ -438,6 +487,7 @@ export default function App() {
             <IzinSiswaApp 
               onBack={() => setActiveSection('menu_aplikasi')} 
               onOpenSidebar={() => setIsSidebarOpen(true)}
+              user={user}
             />
           </div>
         )}

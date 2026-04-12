@@ -5,10 +5,23 @@ import DisiplinMaster from './DisiplinMaster';
 import DisiplinTransaksi from './DisiplinTransaksi';
 import DisiplinLaporan from './DisiplinLaporan';
 
-export default function DisiplinSiswaApp({ onBack, onOpenSidebar }: { onBack?: () => void, onOpenSidebar?: () => void }) {
+export default function DisiplinSiswaApp({ onBack, onOpenSidebar, user }: { onBack?: () => void, onOpenSidebar?: () => void, user?: any }) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'transaksi' | 'laporan'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
+
+  const isAdmin = user?.role === 'full';
+  const canEdit = user?.role === 'entry' || user?.role === 'full';
+
+  const menuItems = [
+    { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
+    { id: 'transaksi', label: 'Input Kasus', icon: PlusCircle },
+    { id: 'laporan', label: 'Laporan', icon: FileText },
+  ];
+
+  if (isAdmin) {
+    menuItems.push({ id: 'master', label: 'Master', icon: Database });
+  }
 
   return (
     <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">
@@ -46,42 +59,20 @@ export default function DisiplinSiswaApp({ onBack, onOpenSidebar }: { onBack?: (
 
             {/* Desktop Menu */}
             <nav className="hidden md:flex items-center space-x-1">
-              <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 font-semibold text-sm ${
-                  activeTab === 'dashboard' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <LayoutDashboard size={18} />
-                <span>Dashboard</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('transaksi')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 font-semibold text-sm ${
-                  activeTab === 'transaksi' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <PlusCircle size={18} />
-                <span>Input Kasus</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('laporan')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 font-semibold text-sm ${
-                  activeTab === 'laporan' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <FileText size={18} />
-                <span>Laporan</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('master')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 font-semibold text-sm ${
-                  activeTab === 'master' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <Database size={18} />
-                <span>Master</span>
-              </button>
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as any)}
+                  className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 font-semibold text-sm ${
+                    activeTab === item.id 
+                      ? 'bg-blue-600 text-white shadow-md' 
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <item.icon size={18} />
+                  <span>{item.label}</span>
+                </button>
+              ))}
             </nav>
 
             <div className="flex items-center gap-2">
@@ -133,42 +124,23 @@ export default function DisiplinSiswaApp({ onBack, onOpenSidebar }: { onBack?: (
             </div>
 
             <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
-              <button
-                onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }}
-                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-semibold ${
-                  activeTab === 'dashboard' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <LayoutDashboard size={20} />
-                <span>Dashboard</span>
-              </button>
-              <button
-                onClick={() => { setActiveTab('transaksi'); setIsMobileMenuOpen(false); }}
-                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-semibold ${
-                  activeTab === 'transaksi' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <PlusCircle size={20} />
-                <span>Input Kasus</span>
-              </button>
-              <button
-                onClick={() => { setActiveTab('laporan'); setIsMobileMenuOpen(false); }}
-                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-semibold ${
-                  activeTab === 'laporan' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <FileText size={20} />
-                <span>Laporan</span>
-              </button>
-              <button
-                onClick={() => { setActiveTab('master'); setIsMobileMenuOpen(false); }}
-                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-semibold ${
-                  activeTab === 'master' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <Database size={20} />
-                <span>Master Kasus</span>
-              </button>
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveTab(item.id as any);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-semibold ${
+                    activeTab === item.id 
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <item.icon size={20} />
+                  <span>{item.label}</span>
+                </button>
+              ))}
             </nav>
           </div>
         </div>

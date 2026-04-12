@@ -81,13 +81,18 @@ export default function LaporanIzin() {
           .select('*')
           .eq('kelas', selectedKelas)
           .order('nama', { ascending: true });
-        setStudentsInClass(sData || []);
+        
+        // Safeguard: Ensure unique students by name and class in UI
+        const uniqueStudents = sData ? Array.from(new Map(sData.map(s => [`${s.nama}-${s.kelas}`.toUpperCase(), s])).values()) : [];
+        setStudentsInClass(uniqueStudents);
       } else {
         const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
         const filtered = localSiswa
           .filter((s: any) => s.kelas === selectedKelas)
           .sort((a: any, b: any) => a.nama.localeCompare(b.nama));
-        setStudentsInClass(filtered);
+          
+        const uniqueStudents = Array.from(new Map(filtered.map((s: any) => [`${s.nama}-${s.kelas}`.toUpperCase(), s])).values());
+        setStudentsInClass(uniqueStudents);
       }
     } catch (error) {
       console.error('Error fetching students:', error);

@@ -7,18 +7,30 @@ import Pencatatan from './Pencatatan';
 import Laporan from './Laporan';
 import { LayoutDashboard, Users, Clock, Settings, Menu, X, FileText, MoreVertical } from 'lucide-react';
 
-export default function SiTelatApp({ onBack, onOpenSidebar }: { onBack?: () => void, onOpenSidebar?: () => void }) {
+export default function SiTelatApp({ onBack, onOpenSidebar, user }: { onBack?: () => void, onOpenSidebar?: () => void, user?: any }) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'pencatatan' | 'master' | 'laporan'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
+  const isAdmin = user?.role === 'full';
+  const canEdit = user?.role === 'entry' || user?.role === 'full';
 
   const menuItems = [
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
     { id: 'pencatatan', label: 'Absensi Siswa', icon: Clock },
-    { id: 'master', label: 'Operator / Master', icon: Users },
     { id: 'laporan', label: 'Report', icon: FileText },
   ];
+
+  if (isAdmin) {
+    menuItems.push({ id: 'master', label: 'Operator / Master', icon: Users });
+  }
+
+  // If not admin and trying to access master, redirect to dashboard
+  useEffect(() => {
+    if (activeTab === 'master' && !isAdmin) {
+      setActiveTab('dashboard');
+    }
+  }, [activeTab, isAdmin]);
 
   return (
     <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">

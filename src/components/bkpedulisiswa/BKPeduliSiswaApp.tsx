@@ -4,52 +4,37 @@ import BKDashboard from './BKDashboard';
 import BKMasterKasus from './BKMasterKasus';
 import BKTransaksiKasus from './BKTransaksiKasus';
 import BKLaporan from './BKLaporan';
-import Login from '../izinsiswa/Login';
 import { supabase } from '../../lib/supabase';
 
-export default function BKPeduliSiswaApp({ onBack, onOpenSidebar }: { onBack?: () => void, onOpenSidebar?: () => void }) {
+export default function BKPeduliSiswaApp({ onBack, onOpenSidebar, user }: { onBack?: () => void, onOpenSidebar?: () => void, user?: any }) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'transaksi' | 'laporan' | 'users'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [user, setUser] = useState<any>(null);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
-  useEffect(() => {
-    const savedUser = localStorage.getItem('app_user');
-    if (savedUser) {
-      const userData = JSON.parse(savedUser);
-      setUser(userData);
-      setIsLoggedIn(true);
-    }
-  }, []);
-
-  const handleLoginSuccess = (userData: any) => {
-    setUser(userData);
-    setIsLoggedIn(true);
-    setActiveTab('dashboard');
-  };
-
   const handleLogout = () => {
-    localStorage.removeItem('app_user');
-    setUser(null);
-    setIsLoggedIn(false);
-    setActiveTab('dashboard');
+    onBack?.();
   };
 
   // Logic for role-based access
   const isAdmin = user?.role === 'full';
+  const canEdit = user?.role === 'entry' || user?.role === 'full';
 
-  // If not logged in, show login (BK Peduli Siswa is internal only)
-  if (!isLoggedIn) {
-    return (
-      <Login 
-        onLoginSuccess={handleLoginSuccess} 
-        title="BK_PEDULI SISWA SMPN7"
-        subtitle="Digital Counseling System Login"
-        colorClass="bg-pink-600"
-      />
-    );
+  const menuItems = [
+    { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
+    { id: 'transaksi', label: 'Input Kasus', icon: PlusCircle },
+    { id: 'laporan', label: 'Laporan', icon: FileText },
+  ];
+
+  if (isAdmin) {
+    menuItems.push({ id: 'master', label: 'Master', icon: Database });
   }
+
+  // If not admin and trying to access master, redirect to dashboard
+  useEffect(() => {
+    if (activeTab === 'master' && !isAdmin) {
+      setActiveTab('dashboard');
+    }
+  }, [activeTab, isAdmin]);
 
   return (
     <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">

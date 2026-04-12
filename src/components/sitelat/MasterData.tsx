@@ -51,17 +51,15 @@ export default function MasterData() {
         const nama = (row['NAMA'] || row['Nama'] || row['nama'] || '').toString().toUpperCase().trim();
         const kelas = (row['KELAS'] || row['Kelas'] || row['kelas'] || '').toString().toUpperCase().trim();
         return {
-          id: crypto.randomUUID(),
+          id: generateId(nama, kelas), // Use deterministic ID to prevent duplicates on upsert
           nama,
           kelas
         };
       }).filter(s => s.nama && s.kelas);
 
       if (supabase) {
-        // Since we generate new UUIDs, we should just insert. 
-        // If we want to avoid duplicates, we'd need to check existing names/classes first.
-        // For now, let's just insert them.
-        const { error } = await supabase.from('master_siswa').insert(newSiswa);
+        // Use upsert to prevent duplicates based on ID
+        const { error } = await supabase.from('master_siswa').upsert(newSiswa, { onConflict: 'id' });
         if (error) throw error;
       } else {
         localStorage.setItem('sitelat_siswa', JSON.stringify(newSiswa));
@@ -186,6 +184,65 @@ export default function MasterData() {
     }
   };
 
+  const handleCleanDuplicates = async () => {
+    if (!confirm('Sistem akan mencari nama siswa yang sama di kelas yang sama dan menggabungkannya. Lanjutkan?')) return;
+    
+    setLoading(true);
+    try {
+      if (supabase) {
+        const { data: allSiswa } = await supabase.from('master_siswa').select('*');
+        if (!allSiswa) return;
+
+        const groups: { [key: string]: any[] } = {};
+        allSiswa.forEach(s => {
+          const key = `${s.nama}-${s.kelas}`.toUpperCase();
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(s);
+        });
+
+        const duplicateGroups = Object.values(groups).filter(g => g.length > 1);
+        if (duplicateGroups.length === 0) {
+          alert('Tidak ditemukan data siswa double.');
+          return;
+        }
+
+        let totalCleaned = 0;
+        for (const group of duplicateGroups) {
+          const master = group[0];
+          const redundants = group.slice(1);
+          const redundantIds = redundants.map(r => r.id);
+
+          // Update references in other tables
+          await supabase.from('izin_siswa').update({ siswa_id: master.id }).in('siswa_id', redundantIds);
+          await supabase.from('transaksi_terlambat').update({ siswa_id: master.id }).in('siswa_id', redundantIds);
+          
+          // Delete redundants
+          await supabase.from('master_siswa').delete().in('id', redundantIds);
+          totalCleaned += redundants.length;
+        }
+
+        alert(`Berhasil membersihkan ${totalCleaned} data siswa double.`);
+      } else {
+        const local = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
+        const groups: { [key: string]: any[] } = {};
+        local.forEach((s: any) => {
+          const key = `${s.nama}-${s.kelas}`.toUpperCase();
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(s);
+        });
+
+        const cleaned = Object.values(groups).map(g => g[0]);
+        localStorage.setItem('sitelat_siswa', JSON.stringify(cleaned));
+        alert('Data lokal berhasil dibersihkan.');
+      }
+      fetchSiswa();
+    } catch (error: any) {
+      alert(`Gagal membersihkan data: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredSiswa = siswa.filter(s => 
     s.nama.toLowerCase().includes(searchTerm.toLowerCase()) || 
     s.kelas.toLowerCase().includes(searchTerm.toLowerCase())
@@ -207,6 +264,9 @@ export default function MasterData() {
           </button>
           <input type="file" accept=".xlsx, .xls" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
           
+          <button onClick={handleCleanDuplicates} className="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-xl text-sm font-medium transition-colors flex items-center gap-2">
+            <Trash2 size={16} /> Hapus Duplikat
+          </button>
           <button onClick={backupData} className="px-4 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-xl text-sm font-medium transition-colors flex items-center gap-2">
             <Save size={16} /> Backup
           </button>
