@@ -18,10 +18,11 @@ export default function BKPeduliSiswaApp({ onBack, onOpenSidebar, user }: { onBa
   // Logic for role-based access
   const isAdmin = user?.role === 'full';
   const canEdit = user?.role === 'entry' || user?.role === 'full';
+  const isViewer = user?.role === 'view';
 
   const menuItems = [
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
-    { id: 'transaksi', label: 'Input Kasus', icon: PlusCircle },
+    ...(!isViewer ? [{ id: 'transaksi', label: 'Input Kasus', icon: PlusCircle }] : []),
     { id: 'laporan', label: 'Laporan', icon: FileText },
   ];
 
@@ -72,33 +73,18 @@ export default function BKPeduliSiswaApp({ onBack, onOpenSidebar, user }: { onBa
 
             {/* Desktop Menu */}
             <nav className="hidden md:flex items-center space-x-1">
-              <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 font-semibold text-sm ${
-                  activeTab === 'dashboard' ? 'bg-pink-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <LayoutDashboard size={18} />
-                <span>Dashboard</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('transaksi')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 font-semibold text-sm ${
-                  activeTab === 'transaksi' ? 'bg-pink-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <PlusCircle size={18} />
-                <span>Input Kasus</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('laporan')}
-                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 font-semibold text-sm ${
-                  activeTab === 'laporan' ? 'bg-pink-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <FileText size={18} />
-                <span>Laporan</span>
-              </button>
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as any)}
+                  className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 font-semibold text-sm ${
+                    activeTab === item.id ? 'bg-pink-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <item.icon size={18} />
+                  <span>{item.label}</span>
+                </button>
+              ))}
               {isAdmin && (
                 <button
                   onClick={() => setActiveTab('master')}
@@ -169,33 +155,18 @@ export default function BKPeduliSiswaApp({ onBack, onOpenSidebar, user }: { onBa
             </div>
 
             <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
-              <button
-                onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }}
-                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-semibold ${
-                  activeTab === 'dashboard' ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <LayoutDashboard size={20} />
-                <span>Dashboard</span>
-              </button>
-              <button
-                onClick={() => { setActiveTab('transaksi'); setIsMobileMenuOpen(false); }}
-                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-semibold ${
-                  activeTab === 'transaksi' ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <PlusCircle size={20} />
-                <span>Input Kasus</span>
-              </button>
-              <button
-                onClick={() => { setActiveTab('laporan'); setIsMobileMenuOpen(false); }}
-                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-semibold ${
-                  activeTab === 'laporan' ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <FileText size={20} />
-                <span>Laporan</span>
-              </button>
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => { setActiveTab(item.id as any); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-semibold ${
+                    activeTab === item.id ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <item.icon size={20} />
+                  <span>{item.label}</span>
+                </button>
+              ))}
               {isAdmin && (
                 <button
                   onClick={() => { setActiveTab('master'); setIsMobileMenuOpen(false); }}

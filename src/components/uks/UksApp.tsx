@@ -18,11 +18,14 @@ const UksApp: React.FC<UksAppProps & { user?: any }> = ({ onBack, onOpenSidebar,
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
   const isAdmin = user?.role === 'full';
+  const isViewer = user?.role === 'view';
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'periksa', label: 'Periksa Siswa', icon: ClipboardList },
-    { id: 'screening', label: 'Screening', icon: Search },
+    ...(!isViewer ? [
+      { id: 'periksa', label: 'Periksa Siswa', icon: ClipboardList },
+      { id: 'screening', label: 'Screening', icon: Search },
+    ] : []),
     { id: 'laporan', label: 'Laporan', icon: FileText },
   ];
 

@@ -48,6 +48,7 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar, user: globalUser }
   // Logic for role-based access
   const canEdit = user?.role === 'entry' || user?.role === 'full';
   const isAdmin = user?.role === 'full';
+  const isViewer = user?.role === 'view';
 
   // If not logged in and trying to access restricted tabs, show dashboard (or we could show a message)
   const restrictedTabs = ['master', 'operator', 'laporan', 'panggilan', 'users'];
@@ -59,13 +60,17 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar, user: globalUser }
 
   const menuItems: { id: string, label: string, icon: any, staff?: boolean }[] = [
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
-    { id: 'wali', label: 'Form Wali Murid', icon: Users },
+    ...(!isViewer ? [{ id: 'wali', label: 'Form Wali Murid', icon: Users }] : []),
     { id: 'kalender', label: 'Kalender Belajar', icon: Calendar },
   ];
 
-  if (isLoggedIn && (user?.role === 'entry' || user?.role === 'full')) {
+  if (isLoggedIn && (user?.role === 'entry' || user?.role === 'full' || user?.role === 'view')) {
+    if (user?.role !== 'view') {
+      menuItems.push(
+        { id: 'operator', label: 'Absensi Siswa', icon: UserCheck, staff: true }
+      );
+    }
     menuItems.push(
-      { id: 'operator', label: 'Absensi Siswa', icon: UserCheck, staff: true },
       { id: 'laporan', label: 'Laporan Detail', icon: FileText, staff: true },
       { id: 'panggilan', label: 'Panggilan Orang Tua', icon: AlertTriangle, staff: true }
     );

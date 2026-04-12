@@ -16,10 +16,11 @@ const DispensasiApp: React.FC<DispensasiAppProps & { user?: any }> = ({ onBack, 
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
   const isAdmin = user?.role === 'full';
+  const isViewer = user?.role === 'view';
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { id: 'input', label: 'Input Data', icon: PlusCircle, color: 'text-pink-600', bg: 'bg-pink-50' },
+    ...(!isViewer ? [{ id: 'input', label: 'Input Data', icon: PlusCircle, color: 'text-pink-600', bg: 'bg-pink-50' }] : []),
     { id: 'laporan', label: 'Laporan', icon: FileBarChart, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   ];
 

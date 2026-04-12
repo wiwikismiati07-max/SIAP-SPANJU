@@ -12,10 +12,11 @@ export default function DisiplinSiswaApp({ onBack, onOpenSidebar, user }: { onBa
 
   const isAdmin = user?.role === 'full';
   const canEdit = user?.role === 'entry' || user?.role === 'full';
+  const isViewer = user?.role === 'view';
 
   const menuItems = [
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
-    { id: 'transaksi', label: 'Input Kasus', icon: PlusCircle },
+    ...(!isViewer ? [{ id: 'transaksi', label: 'Input Kasus', icon: PlusCircle }] : []),
     { id: 'laporan', label: 'Laporan', icon: FileText },
   ];
 

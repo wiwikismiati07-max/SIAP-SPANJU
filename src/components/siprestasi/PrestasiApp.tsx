@@ -15,9 +15,11 @@ const PrestasiApp: React.FC<PrestasiAppProps> = ({ onBack, onOpenSidebar, user }
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
+  const isViewer = user?.role === 'view';
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'input', label: 'Input Data', icon: FileEdit },
+    ...(!isViewer ? [{ id: 'input', label: 'Input Data', icon: FileEdit }] : []),
     { id: 'laporan', label: 'Laporan', icon: FileText },
   ];
 

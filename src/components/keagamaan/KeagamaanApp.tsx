@@ -17,11 +17,14 @@ const KeagamaanApp: React.FC<KeagamaanAppProps & { user?: any }> = ({ onBack, on
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
   const isAdmin = user?.role === 'full';
+  const isViewer = user?.role === 'view';
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'absensi', label: 'Input Absen', icon: ClipboardList },
-    { id: 'jadwal', label: 'Jadwal Kegiatan', icon: Calendar },
+    ...(!isViewer ? [
+      { id: 'absensi', label: 'Input Absen', icon: ClipboardList },
+      { id: 'jadwal', label: 'Jadwal Kegiatan', icon: Calendar },
+    ] : []),
     { id: 'laporan', label: 'Laporan', icon: FileText },
   ];
 

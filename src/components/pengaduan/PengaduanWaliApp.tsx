@@ -37,7 +37,8 @@ interface PengaduanWaliAppProps {
 const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ onBack, onOpenSidebar, user }) => {
   const isAdmin = user?.role === 'full';
   const isEditor = user?.role === 'entry';
-  const [view, setView] = useState<'form' | 'list'>('form');
+  const isViewer = user?.role === 'view';
+  const [view, setView] = useState<'form' | 'list'>(isViewer ? 'list' : 'form');
   const [siswa, setSiswa] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -197,22 +198,24 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
 
             {/* Desktop Menu */}
             <div className="hidden md:flex items-center gap-2">
-              <button
-                onClick={() => setView('form')}
-                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                  view === 'form' ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                }`}
-              >
-                Form Laporan
-              </button>
-              {(isAdmin || isEditor) && (
+              {!isViewer && (
+                <button
+                  onClick={() => setView('form')}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                    view === 'form' ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  }`}
+                >
+                  Form Laporan
+                </button>
+              )}
+              {(isAdmin || isEditor || isViewer) && (
                 <button
                   onClick={() => setView('list')}
                   className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
                     view === 'list' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                   }`}
                 >
-                  List Pengaduan (Admin)
+                  List Pengaduan {isViewer ? '' : '(Admin)'}
                 </button>
               )}
             </div>
@@ -267,16 +270,18 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
             </div>
 
             <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
-              <button
-                onClick={() => { setView('form'); setIsMobileMenuOpen(false); }}
-                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
-                  view === 'form' ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'text-slate-500 hover:bg-slate-50'
-                }`}
-              >
-                <Plus size={20} />
-                <span>Form Laporan</span>
-              </button>
-              {(isAdmin || isEditor) && (
+              {!isViewer && (
+                <button
+                  onClick={() => { setView('form'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
+                    view === 'form' ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  <Plus size={20} />
+                  <span>Form Laporan</span>
+                </button>
+              )}
+              {(isAdmin || isEditor || isViewer) && (
                 <button
                   onClick={() => { setView('list'); setIsMobileMenuOpen(false); }}
                   className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
