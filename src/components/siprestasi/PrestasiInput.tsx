@@ -207,8 +207,26 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
             return '';
           };
 
-          const tgl = getValue(['tanggal', 'tanggal (yyyy-mm-dd)']);
-          const jam = getValue(['jam', 'jam (hh:mm)']);
+          let tgl = getValue(['tanggal', 'tanggal (yyyy-mm-dd)']);
+          
+          // Handle Excel serial date format
+          if (tgl && !isNaN(Number(tgl)) && Number(tgl) > 1000) {
+            const serial = Number(tgl);
+            const date = new Date(Math.round((serial - 25569) * 86400 * 1000));
+            tgl = format(date, 'yyyy-MM-dd');
+          }
+
+          let jam = getValue(['jam', 'jam (hh:mm)']);
+          
+          // Handle Excel serial time format
+          if (jam && !isNaN(Number(jam)) && Number(jam) < 1) {
+            const serial = Number(jam);
+            const totalSeconds = Math.round(serial * 24 * 60 * 60);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            jam = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+          }
+
           const namaSiswa = getValue(['nama siswa', 'siswa']);
           const kelas = getValue(['kelas']);
           const jenis = getValue(['jenis prestasi', 'jenis']);
