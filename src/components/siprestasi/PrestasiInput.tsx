@@ -5,7 +5,9 @@ import { PrestasiSiswa } from '../../types/prestasi';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 
-const PrestasiInput: React.FC = () => {
+const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
+  const isAdmin = user?.role === 'full';
+  const canEdit = user?.role === 'entry' || user?.role === 'full';
   const [data, setData] = useState<PrestasiSiswa[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -136,30 +138,32 @@ const PrestasiInput: React.FC = () => {
           <h2 className="text-2xl font-black text-slate-800">Input Prestasi Siswa</h2>
           <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Catat pencapaian gemilang siswa</p>
         </div>
-        <button 
-          onClick={() => {
-            setEditingItem(null);
-            setSelectedClass('');
-            setFormData({
-              tanggal: format(new Date(), 'yyyy-MM-dd'),
-              jam: format(new Date(), 'HH:mm'),
-              siswa_id: '',
-              kelas: '',
-              jenis_prestasi: 'Akademik',
-              nama_lomba: '',
-              juara: 'Juara 1',
-              tingkat: 'Antar Sekolah',
-              bukti_url: '',
-              wali_kelas_id: '',
-              guru_bk: 'WiwikIsmiati S.pd'
-            });
-            setShowModal(true);
-          }}
-          className="flex items-center space-x-2 px-6 py-3 bg-purple-600 text-white rounded-2xl hover:bg-purple-700 transition-all shadow-xl shadow-purple-200"
-        >
-          <Plus size={20} />
-          <span className="font-black uppercase tracking-wider text-sm">Tambah Prestasi</span>
-        </button>
+        {(isAdmin || canEdit) && (
+          <button 
+            onClick={() => {
+              setEditingItem(null);
+              setSelectedClass('');
+              setFormData({
+                tanggal: format(new Date(), 'yyyy-MM-dd'),
+                jam: format(new Date(), 'HH:mm'),
+                siswa_id: '',
+                kelas: '',
+                jenis_prestasi: 'Akademik',
+                nama_lomba: '',
+                juara: 'Juara 1',
+                tingkat: 'Antar Sekolah',
+                bukti_url: '',
+                wali_kelas_id: '',
+                guru_bk: 'WiwikIsmiati S.pd'
+              });
+              setShowModal(true);
+            }}
+            className="flex items-center space-x-2 px-6 py-3 bg-purple-600 text-white rounded-2xl hover:bg-purple-700 transition-all shadow-xl shadow-purple-200"
+          >
+            <Plus size={20} />
+            <span className="font-black uppercase tracking-wider text-sm">Tambah Prestasi</span>
+          </button>
+        )}
       </div>
 
       {/* Recent Data Table */}
@@ -221,35 +225,39 @@ const PrestasiInput: React.FC = () => {
                   </td>
                   <td className="px-8 py-5 text-right">
                     <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => {
-                          setEditingItem(item);
-                          setSelectedClass(item.kelas);
-                          setFormData({
-                            tanggal: item.tanggal,
-                            jam: item.jam,
-                            siswa_id: item.siswa_id,
-                            kelas: item.kelas,
-                            jenis_prestasi: item.jenis_prestasi,
-                            nama_lomba: item.nama_lomba,
-                            juara: item.juara,
-                            tingkat: item.tingkat,
-                            bukti_url: item.bukti_url || '',
-                            wali_kelas_id: item.wali_kelas_id,
-                            guru_bk: item.guru_bk
-                          });
-                          setShowModal(true);
-                        }}
-                        className="p-2.5 text-blue-600 hover:bg-blue-100 rounded-xl transition-colors"
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(item.id)}
-                        className="p-2.5 text-pink-600 hover:bg-pink-100 rounded-xl transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      {canEdit && (
+                        <button 
+                          onClick={() => {
+                            setEditingItem(item);
+                            setSelectedClass(item.kelas);
+                            setFormData({
+                              tanggal: item.tanggal,
+                              jam: item.jam,
+                              siswa_id: item.siswa_id,
+                              kelas: item.kelas,
+                              jenis_prestasi: item.jenis_prestasi,
+                              nama_lomba: item.nama_lomba,
+                              juara: item.juara,
+                              tingkat: item.tingkat,
+                              bukti_url: item.bukti_url || '',
+                              wali_kelas_id: item.wali_kelas_id,
+                              guru_bk: item.guru_bk
+                            });
+                            setShowModal(true);
+                          }}
+                          className="p-2.5 text-blue-600 hover:bg-blue-100 rounded-xl transition-colors"
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button 
+                          onClick={() => handleDelete(item.id)}
+                          className="p-2.5 text-pink-600 hover:bg-pink-100 rounded-xl transition-colors"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

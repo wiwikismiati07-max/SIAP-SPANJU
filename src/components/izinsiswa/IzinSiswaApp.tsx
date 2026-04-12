@@ -57,14 +57,19 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar, user: globalUser }
     setActiveTab('dashboard');
   }
 
-  const menuItems = [
+  const menuItems: { id: string, label: string, icon: any, staff?: boolean }[] = [
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
     { id: 'wali', label: 'Form Wali Murid', icon: Users },
-    { id: 'operator', label: 'Absensi Siswa', icon: UserCheck, staff: true },
-    { id: 'kalender', label: 'Kalender Belajar', icon: Calendar, staff: true },
-    { id: 'laporan', label: 'Laporan Detail', icon: FileText, staff: true },
-    { id: 'panggilan', label: 'Panggilan Orang Tua', icon: AlertTriangle, staff: true },
   ];
+
+  if (isLoggedIn && (user?.role === 'entry' || user?.role === 'full')) {
+    menuItems.push(
+      { id: 'operator', label: 'Absensi Siswa', icon: UserCheck, staff: true },
+      { id: 'kalender', label: 'Kalender Belajar', icon: Calendar, staff: true },
+      { id: 'laporan', label: 'Laporan Detail', icon: FileText, staff: true },
+      { id: 'panggilan', label: 'Panggilan Orang Tua', icon: AlertTriangle, staff: true }
+    );
+  }
 
   if (isAdmin) {
     menuItems.push({ id: 'master', label: 'Master Data', icon: Database, staff: true });
@@ -234,11 +239,11 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar, user: globalUser }
         <div className="max-w-7xl mx-auto pb-12">
           {activeTab === 'dashboard' && <DashboardIzin />}
           {activeTab === 'wali' && <FormWaliMurid />}
-          {activeTab === 'operator' && <FormOperatorIzin />}
-          {activeTab === 'kalender' && <KalenderBelajar />}
-          {activeTab === 'laporan' && <LaporanIzin />}
-          {activeTab === 'panggilan' && <LaporanPanggilan />}
-          {activeTab === 'master' && <MasterIzin />}
+          {activeTab === 'operator' && <FormOperatorIzin user={user} />}
+          {activeTab === 'kalender' && <KalenderBelajar user={user} />}
+          {activeTab === 'laporan' && <LaporanIzin user={user} />}
+          {activeTab === 'panggilan' && <LaporanPanggilan user={user} />}
+          {activeTab === 'master' && <MasterIzin user={user} />}
         </div>
       </div>
     </div>

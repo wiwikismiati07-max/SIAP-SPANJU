@@ -209,24 +209,24 @@ export default function App() {
   };
 
   const sidebarItems = [
-    { id: 'menu_aplikasi', title: 'MENU APLIKASI', subtitle: 'DAFTAR SEMUA APLIKASI', icon: LayoutDashboard, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200', prominent: true, extraLarge: true },
-    { id: 'survey', title: 'SURVEY APLIKASI', subtitle: 'SURVEY KEPUASAN PENGGUNA', icon: ClipboardList, color: 'from-slate-800 to-black', shadow: 'shadow-slate-400', prominent: true, extraLarge: true },
-    { id: 'management_login', title: 'MANAGEMENT LOGIN', subtitle: 'KELOLA AKSES USER', icon: ShieldCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', adminOnly: true },
-    { id: 'sitelat', title: 'SI-TELAT', subtitle: 'SISTEM KETERLAMBATAN SISWA', icon: Clock, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200' },
-    { id: 'izinsiswa', title: 'IZIN SISWA', subtitle: 'SISTEM PERIZINAN SISWA', icon: UserCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200' },
-    { id: 'sipena', title: 'SIPENA', subtitle: 'PERPUSTAKAAN SISWA (BARU)', icon: Library, color: 'from-slate-800 to-black', shadow: 'shadow-slate-300' },
-    { id: 'pengaduan', title: 'PENGADUAN WALI MURID', subtitle: 'LAYANAN PENGADUAN (BARU)', icon: MessageSquare, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200' },
-    { id: 'dispensasi', title: 'SI-DISPENSASI', subtitle: 'DISPENSASI SISWA (BARU)', icon: FileCheck, color: 'from-indigo-500 to-indigo-600', shadow: 'shadow-indigo-200' },
-    { id: 'prestasi', title: 'SI-PRESTASI', subtitle: 'PRESTASI SISWA (BARU)', icon: Trophy, color: 'from-purple-500 to-purple-600', shadow: 'shadow-purple-200' },
-    { id: 'keagamaan', title: 'KEAGAMAAN', subtitle: 'KEGIATAN KEAGAMAAN (BARU)', icon: Book, color: 'from-teal-500 to-teal-600', shadow: 'shadow-teal-200' },
-    { id: 'uks', title: 'UKS SMPN7', subtitle: 'UNIT KESEHATAN SEKOLAH (BARU)', icon: HeartPulse, color: 'from-rose-500 to-rose-600', shadow: 'shadow-rose-200' },
-    { id: 'disiplinsiswa', title: 'DISIPLIN SISWA', subtitle: 'KASUS RINGAN (GURU)', icon: ClipboardList, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200' },
-    { id: 'bkpedulisiswa', title: 'BK PEDULI SISWA', subtitle: 'KASUS BERAT (GURU BK)', icon: Users, color: 'from-pink-500 to-pink-600', shadow: 'shadow-pink-200' },
-    { id: 'kilas', title: 'KILAS APLIKASI', subtitle: 'REFERENSI DASAR', icon: Book, color: 'from-amber-500 to-amber-600', shadow: 'shadow-amber-200' },
-    { id: 'program', title: '8 PROGRAM PRIORITAS', subtitle: 'SMPN 7 PASURUAN', icon: LayoutDashboard, color: 'from-cyan-500 to-cyan-600', shadow: 'shadow-cyan-200' },
-    { id: 'spip', title: '15 INDIKATOR SPIP', subtitle: 'ANTI KORUPSI', icon: Shield, color: 'from-violet-500 to-violet-600', shadow: 'shadow-violet-200' },
-    { id: 'korelasi_program', title: 'KORELASI PROGRAM', subtitle: 'SPIP & SIAP SPANJU', icon: ClipboardList, color: 'from-orange-500 to-orange-600', shadow: 'shadow-orange-200' },
-    { id: 'korelasi_sra', title: 'KORELASI SRA', subtitle: 'SEKOLAH RAMAH ANAK', icon: Activity, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200' },
+    { id: 'menu_aplikasi', title: 'MENU APLIKASI', subtitle: 'DAFTAR SEMUA APLIKASI', icon: LayoutDashboard, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
+    { id: 'survey', title: 'SURVEY APLIKASI', subtitle: 'SURVEY KEPUASAN PENGGUNA', icon: ClipboardList, color: 'from-slate-800 to-black', shadow: 'shadow-slate-400', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
+    { id: 'management_login', title: 'MANAGEMENT LOGIN', subtitle: 'KELOLA AKSES USER', icon: ShieldCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', adminOnly: true, roles: ['full'] },
+    { id: 'sitelat', title: 'SI-TELAT', subtitle: 'SISTEM KETERLAMBATAN SISWA', icon: Clock, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200', roles: ['entry', 'full'] },
+    { id: 'izinsiswa', title: 'IZIN SISWA', subtitle: 'SISTEM PERIZINAN SISWA', icon: UserCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', roles: ['view', 'entry', 'full'] },
+    { id: 'sipena', title: 'SIPENA', subtitle: 'PERPUSTAKAAN SISWA (BARU)', icon: Library, color: 'from-slate-800 to-black', shadow: 'shadow-slate-300', roles: ['entry', 'full'] },
+    { id: 'pengaduan', title: 'PENGADUAN WALI MURID', subtitle: 'LAYANAN PENGADUAN (BARU)', icon: MessageSquare, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200', roles: ['view', 'entry', 'full'] },
+    { id: 'dispensasi', title: 'SI-DISPENSASI', subtitle: 'DISPENSASI SISWA (BARU)', icon: FileCheck, color: 'from-indigo-500 to-indigo-600', shadow: 'shadow-indigo-200', roles: ['entry', 'full'] },
+    { id: 'prestasi', title: 'SI-PRESTASI', subtitle: 'PRESTASI SISWA (BARU)', icon: Trophy, color: 'from-purple-500 to-purple-600', shadow: 'shadow-purple-200', roles: ['entry', 'full'] },
+    { id: 'keagamaan', title: 'KEAGAMAAN', subtitle: 'KEGIATAN KEAGAMAAN (BARU)', icon: Book, color: 'from-teal-500 to-teal-600', shadow: 'shadow-teal-200', roles: ['entry', 'full'] },
+    { id: 'uks', title: 'UKS SMPN7', subtitle: 'UNIT KESEHATAN SEKOLAH (BARU)', icon: HeartPulse, color: 'from-rose-500 to-rose-600', shadow: 'shadow-rose-200', roles: ['entry', 'full'] },
+    { id: 'disiplinsiswa', title: 'DISIPLIN SISWA', subtitle: 'KASUS RINGAN (GURU)', icon: ClipboardList, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200', roles: ['entry', 'full'] },
+    { id: 'bkpedulisiswa', title: 'BK PEDULI SISWA', subtitle: 'KASUS BERAT (GURU BK)', icon: Users, color: 'from-pink-500 to-pink-600', shadow: 'shadow-pink-200', roles: ['entry', 'full'] },
+    { id: 'kilas', title: 'KILAS APLIKASI', subtitle: 'REFERENSI DASAR', icon: Book, color: 'from-amber-500 to-amber-600', shadow: 'shadow-amber-200', roles: ['view', 'entry', 'full'] },
+    { id: 'program', title: '8 PROGRAM PRIORITAS', subtitle: 'SMPN 7 PASURUAN', icon: LayoutDashboard, color: 'from-cyan-500 to-cyan-600', shadow: 'shadow-cyan-200', roles: ['view', 'entry', 'full'] },
+    { id: 'spip', title: '15 INDIKATOR SPIP', subtitle: 'ANTI KORUPSI', icon: Shield, color: 'from-violet-500 to-violet-600', shadow: 'shadow-violet-200', roles: ['view', 'entry', 'full'] },
+    { id: 'korelasi_program', title: 'KORELASI PROGRAM', subtitle: 'SPIP & SIAP SPANJU', icon: ClipboardList, color: 'from-orange-500 to-orange-600', shadow: 'shadow-orange-200', roles: ['view', 'entry', 'full'] },
+    { id: 'korelasi_sra', title: 'KORELASI SRA', subtitle: 'SEKOLAH RAMAH ANAK', icon: Activity, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', roles: ['view', 'entry', 'full'] },
   ];
 
   if (!isLoggedIn) {
@@ -336,7 +336,7 @@ export default function App() {
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3 min-w-[280px] custom-scrollbar">
           {/* Static Sections */}
-          {sidebarItems.filter(item => !item.adminOnly || user?.role === 'full').map((section) => (
+          {sidebarItems.filter(item => item.roles.includes(user?.role)).map((section) => (
             <button
               key={section.id}
               onClick={() => {
@@ -496,6 +496,7 @@ export default function App() {
             <DisiplinSiswaApp 
               onBack={() => setActiveSection('menu_aplikasi')} 
               onOpenSidebar={() => setIsSidebarOpen(true)}
+              user={user}
             />
           </div>
         )}
@@ -504,6 +505,7 @@ export default function App() {
             <BKPeduliSiswaApp 
               onBack={() => setActiveSection('menu_aplikasi')} 
               onOpenSidebar={() => setIsSidebarOpen(true)}
+              user={user}
             />
           </div>
         )}
@@ -512,6 +514,7 @@ export default function App() {
             <DispensasiApp 
               onBack={() => setActiveSection('menu_aplikasi')} 
               onOpenSidebar={() => setIsSidebarOpen(true)}
+              user={user}
             />
           </div>
         )}
@@ -520,6 +523,7 @@ export default function App() {
             <PrestasiApp 
               onBack={() => setActiveSection('menu_aplikasi')} 
               onOpenSidebar={() => setIsSidebarOpen(true)}
+              user={user}
             />
           </div>
         )}
@@ -528,6 +532,7 @@ export default function App() {
             <KeagamaanApp 
               onBack={() => setActiveSection('menu_aplikasi')} 
               onOpenSidebar={() => setIsSidebarOpen(true)}
+              user={user}
             />
           </div>
         )}
@@ -536,6 +541,7 @@ export default function App() {
             <UksApp 
               onBack={() => setActiveSection('menu_aplikasi')} 
               onOpenSidebar={() => setIsSidebarOpen(true)}
+              user={user}
             />
           </div>
         )}
@@ -544,6 +550,7 @@ export default function App() {
             <PengaduanWaliApp 
               onBack={() => setActiveSection('menu_aplikasi')} 
               onOpenSidebar={() => setIsSidebarOpen(true)}
+              user={user}
             />
           </div>
         )}
@@ -552,6 +559,7 @@ export default function App() {
             <SipenaApp 
               onBack={() => setActiveSection('menu_aplikasi')} 
               onOpenSidebar={() => setIsSidebarOpen(true)}
+              user={user}
             />
           </div>
         )}
@@ -799,7 +807,7 @@ export default function App() {
 
                 {/* Grid of Apps */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                  {sidebarItems.filter(item => !['kilas', 'program', 'spip', 'korelasi_program', 'korelasi_sra', 'survey'].includes(item.id)).map(app => (
+                  {sidebarItems.filter(item => item.roles.includes(user?.role) && !['kilas', 'program', 'spip', 'korelasi_program', 'korelasi_sra', 'survey', 'menu_aplikasi'].includes(item.id)).map(app => (
                     <button
                       key={app.id}
                       onClick={() => setActiveSection(app.id as any)}

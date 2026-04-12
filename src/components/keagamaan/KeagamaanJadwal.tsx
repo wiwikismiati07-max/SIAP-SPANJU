@@ -7,7 +7,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import ExcelJS from 'exceljs';
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 
-const KeagamaanJadwal: React.FC = () => {
+const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
+  const canDelete = user?.role === 'full';
+  const canEdit = user?.role === 'entry' || user?.role === 'full';
+  const canAdd = user?.role === 'entry' || user?.role === 'full';
   const [jadwalList, setJadwalList] = useState<AgamaJadwal[]>([]);
   const [programs, setPrograms] = useState<AgamaProgram[]>([]);
   const [loading, setLoading] = useState(true);
@@ -212,16 +215,18 @@ const KeagamaanJadwal: React.FC = () => {
             <FileSpreadsheet size={18} className="text-emerald-500" />
             Export Excel
           </button>
-          <button
-            onClick={() => {
-              resetForm();
-              setIsModalOpen(true);
-            }}
-            className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl font-black text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
-          >
-            <Plus size={18} />
-            Tambah Jadwal
-          </button>
+          {canAdd && (
+            <button
+              onClick={() => {
+                resetForm();
+                setIsModalOpen(true);
+              }}
+              className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl font-black text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
+            >
+              <Plus size={18} />
+              Tambah Jadwal
+            </button>
+          )}
         </div>
       </div>
 
@@ -287,18 +292,22 @@ const KeagamaanJadwal: React.FC = () => {
                     </td>
                     <td className="px-8 py-5 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                        <button
-                          onClick={() => handleEdit(jadwal)}
-                          className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(jadwal.id)}
-                          className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {canEdit && (
+                          <button
+                            onClick={() => handleEdit(jadwal)}
+                            className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDelete(jadwal.id)}
+                            className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

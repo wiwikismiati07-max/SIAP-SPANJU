@@ -9,7 +9,9 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
-export default function LaporanIzin() {
+export default function LaporanIzin({ user }: { user?: any }) {
+  const canDelete = user?.role === 'full';
+  const canEdit = user?.role === 'entry' || user?.role === 'full';
   const KELAS_OPTIONS = [
     '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
     '8A', '8B', '8C', '8D', '8E', '8F', '8G', '8H',
@@ -558,20 +560,24 @@ export default function LaporanIzin() {
                       )}
                     </td>
                     <td className="p-4 text-right space-x-2">
-                      <button
-                        onClick={() => startEdit(izin)}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
-                        title="Edit"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(izin.id)}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-rose-100 text-rose-600 hover:bg-rose-200 transition-colors"
-                        title="Hapus"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {canEdit && (
+                        <button
+                          onClick={() => startEdit(izin)}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                          title="Edit"
+                        >
+                          <Edit size={16} />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDelete(izin.id)}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-rose-100 text-rose-600 hover:bg-rose-200 transition-colors"
+                          title="Hapus"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

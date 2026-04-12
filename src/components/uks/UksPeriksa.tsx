@@ -6,7 +6,9 @@ import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 
-const UksPeriksa: React.FC = () => {
+const UksPeriksa: React.FC<{ user?: any }> = ({ user }) => {
+  const canDelete = user?.role === 'full';
+  const canEdit = user?.role === 'entry' || user?.role === 'full';
   const [keluhan, setKeluhan] = useState<UksKeluhan[]>([]);
   const [obat, setObat] = useState<UksObat[]>([]);
   const [siswa, setSiswa] = useState<any[]>([]);
@@ -655,18 +657,22 @@ const UksPeriksa: React.FC = () => {
                   </td>
                   <td className="px-8 py-6 rounded-r-[32px] text-right">
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => handleEdit(item)}
-                        className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300"
-                      >
-                        <Search size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="p-3 text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-300"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      {canEdit && (
+                        <button
+                          onClick={() => handleEdit(item)}
+                          className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300"
+                        >
+                          <Search size={18} />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="p-3 text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-300"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

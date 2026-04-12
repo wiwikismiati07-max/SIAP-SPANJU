@@ -4,7 +4,9 @@ import { Siswa } from '../../types/izinsiswa';
 import { Save, Search, User, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, CheckCircle2, Trash2, Edit2, X, ClipboardList, Plus, Paperclip, FileText as FileIcon, Upload, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-export default function DisiplinTransaksi() {
+export default function DisiplinTransaksi({ user }: { user?: any }) {
+  const isAdmin = user?.role === 'full';
+  const canEdit = user?.role === 'entry' || user?.role === 'full';
   const [loading, setLoading] = useState(false);
   const [siswa, setSiswa] = useState<Siswa[]>([]);
   const [pelanggaran, setPelanggaran] = useState<any[]>([]);
@@ -319,19 +321,23 @@ export default function DisiplinTransaksi() {
           <p className="text-sm text-slate-500">Catat kasus pelanggaran ringan siswa</p>
         </div>
         <div className="flex items-center gap-2">
-          <button 
-            onClick={handleDownloadTemplate}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold border border-slate-200 hover:bg-slate-200 transition-colors"
-            title="Download Template Excel"
-          >
-            <Download size={18} />
-            Template
-          </button>
-          <label className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold border border-blue-100 hover:bg-blue-100 cursor-pointer transition-colors">
-            <Upload size={18} />
-            Upload Data Lama
-            <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleUploadOldData} />
-          </label>
+          {(isAdmin || canEdit) && (
+            <button 
+              onClick={handleDownloadTemplate}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold border border-slate-200 hover:bg-slate-200 transition-colors"
+              title="Download Template Excel"
+            >
+              <Download size={18} />
+              Template
+            </button>
+          )}
+          {(isAdmin || canEdit) && (
+            <label className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold border border-blue-100 hover:bg-blue-100 cursor-pointer transition-colors">
+              <Upload size={18} />
+              Upload Data Lama
+              <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleUploadOldData} />
+            </label>
+          )}
         </div>
       </div>
 
@@ -594,8 +600,16 @@ export default function DisiplinTransaksi() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => handleEdit(t)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 size={16} /></button>
-                          <button onClick={() => handleDelete(t.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg"><Trash2 size={16} /></button>
+                          {canEdit && (
+                            <button onClick={() => handleEdit(t)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg">
+                              <Edit2 size={16} />
+                            </button>
+                          )}
+                          {isAdmin && (
+                            <button onClick={() => handleDelete(t.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg">
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -7,9 +7,10 @@ import PrestasiLaporan from './PrestasiLaporan';
 interface PrestasiAppProps {
   onBack: () => void;
   onOpenSidebar?: () => void;
+  user?: any;
 }
 
-const PrestasiApp: React.FC<PrestasiAppProps> = ({ onBack, onOpenSidebar }) => {
+const PrestasiApp: React.FC<PrestasiAppProps> = ({ onBack, onOpenSidebar, user }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'input' | 'laporan'>('dashboard');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
@@ -146,8 +147,8 @@ const PrestasiApp: React.FC<PrestasiAppProps> = ({ onBack, onOpenSidebar }) => {
       <div className="flex-1 p-4 md:p-8 overflow-y-auto">
         <div className="max-w-7xl mx-auto pb-12">
           {activeTab === 'dashboard' && <PrestasiDashboard />}
-          {activeTab === 'input' && <PrestasiInput />}
-          {activeTab === 'laporan' && <PrestasiLaporan />}
+          {activeTab === 'input' && <PrestasiInput user={user} />}
+          {activeTab === 'laporan' && <PrestasiLaporan user={user} />}
         </div>
       </div>
     </div>

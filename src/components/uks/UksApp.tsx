@@ -12,19 +12,24 @@ interface UksAppProps {
   onOpenSidebar?: () => void;
 }
 
-const UksApp: React.FC<UksAppProps> = ({ onBack, onOpenSidebar }) => {
+const UksApp: React.FC<UksAppProps & { user?: any }> = ({ onBack, onOpenSidebar, user }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'stok' | 'periksa' | 'screening' | 'laporan'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
+  const isAdmin = user?.role === 'full';
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'master', label: 'Master Keluhan', icon: Database },
-    { id: 'stok', label: 'Stok Obat', icon: Pill },
     { id: 'periksa', label: 'Periksa Siswa', icon: ClipboardList },
     { id: 'screening', label: 'Screening', icon: Search },
     { id: 'laporan', label: 'Laporan', icon: FileText },
   ];
+
+  if (isAdmin) {
+    menuItems.push({ id: 'master', label: 'Master Keluhan', icon: Database });
+    menuItems.push({ id: 'stok', label: 'Stok Obat', icon: Pill });
+  }
 
   return (
     <div className="h-full bg-[#f8fafc] flex flex-col animate-in fade-in duration-500 relative overflow-hidden">
@@ -160,9 +165,9 @@ const UksApp: React.FC<UksAppProps> = ({ onBack, onOpenSidebar }) => {
           {activeTab === 'dashboard' && <UksDashboard />}
           {activeTab === 'master' && <UksMaster />}
           {activeTab === 'stok' && <UksStokObat />}
-          {activeTab === 'periksa' && <UksPeriksa />}
-          {activeTab === 'screening' && <UksScreening />}
-          {activeTab === 'laporan' && <UksLaporan />}
+          {activeTab === 'periksa' && <UksPeriksa user={user} />}
+          {activeTab === 'screening' && <UksScreening user={user} />}
+          {activeTab === 'laporan' && <UksLaporan user={user} />}
         </div>
       </main>
     </div>

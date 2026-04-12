@@ -5,7 +5,9 @@ import { Calendar, Plus, Trash2, ChevronLeft, ChevronRight, X, Info } from 'luci
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOfWeek, endOfWeek, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
 
-export default function KalenderBelajar() {
+export default function KalenderBelajar({ user }: { user?: any }) {
+  const canDelete = user?.role === 'full';
+  const canAdd = user?.role === 'entry' || user?.role === 'full';
   const [events, setEvents] = useState<KalenderType[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -166,12 +168,14 @@ export default function KalenderBelajar() {
                   }`}
                 >
                   <span className="truncate" title={e.keterangan}>{e.keterangan}</span>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handleDelete(e.id); }} 
-                    className="opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-700 transition-opacity ml-1"
-                  >
-                    <Trash2 size={10} />
-                  </button>
+                  {canDelete && (
+                    <button 
+                      onClick={(ev) => { ev.stopPropagation(); handleDelete(e.id); }} 
+                      className="opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-700 transition-opacity ml-1"
+                    >
+                      <Trash2 size={10} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -239,13 +243,15 @@ export default function KalenderBelajar() {
             <button className="px-5 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-200 transition-all">
               Muat Default
             </button>
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95"
-            >
-              <Plus size={18} />
-              Tambah Libur
-            </button>
+            {canAdd && (
+              <button
+                onClick={() => setShowForm(!showForm)}
+                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95"
+              >
+                <Plus size={18} />
+                Tambah Libur
+              </button>
+            )}
           </div>
         </div>
       </div>

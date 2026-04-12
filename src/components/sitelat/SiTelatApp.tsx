@@ -162,10 +162,10 @@ export default function SiTelatApp({ onBack, onOpenSidebar, user }: { onBack?: (
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-7xl mx-auto pb-12">
-          {activeTab === 'dashboard' && <Dashboard />}
-          {activeTab === 'pencatatan' && <Pencatatan />}
-          {activeTab === 'master' && <MasterData />}
-          {activeTab === 'laporan' && <Laporan />}
+          {activeTab === 'dashboard' && <Dashboard user={user} />}
+          {activeTab === 'pencatatan' && <Pencatatan user={user} />}
+          {activeTab === 'master' && <MasterData user={user} />}
+          {activeTab === 'laporan' && <Laporan user={user} />}
         </div>
       </div>
     </div>

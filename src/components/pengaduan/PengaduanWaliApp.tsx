@@ -34,7 +34,9 @@ interface PengaduanWaliAppProps {
   onOpenSidebar?: () => void;
 }
 
-const PengaduanWaliApp: React.FC<PengaduanWaliAppProps> = ({ onBack, onOpenSidebar }) => {
+const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ onBack, onOpenSidebar, user }) => {
+  const isAdmin = user?.role === 'full';
+  const isEditor = user?.role === 'entry';
   const [view, setView] = useState<'form' | 'list'>('form');
   const [siswa, setSiswa] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -203,14 +205,16 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps> = ({ onBack, onOpenSideb
               >
                 Form Laporan
               </button>
-              <button
-                onClick={() => setView('list')}
-                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                  view === 'list' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                }`}
-              >
-                List Pengaduan (Admin)
-              </button>
+              {(isAdmin || isEditor) && (
+                <button
+                  onClick={() => setView('list')}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                    view === 'list' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  }`}
+                >
+                  List Pengaduan (Admin)
+                </button>
+              )}
             </div>
 
             {/* Mobile Menu Toggle */}
@@ -272,15 +276,17 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps> = ({ onBack, onOpenSideb
                 <Plus size={20} />
                 <span>Form Laporan</span>
               </button>
-              <button
-                onClick={() => { setView('list'); setIsMobileMenuOpen(false); }}
-                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
-                  view === 'list' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-500 hover:bg-slate-50'
-                }`}
-              >
-                <ClipboardList size={20} />
-                <span>List Pengaduan</span>
-              </button>
+              {(isAdmin || isEditor) && (
+                <button
+                  onClick={() => { setView('list'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
+                    view === 'list' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  <ClipboardList size={20} />
+                  <span>List Pengaduan</span>
+                </button>
+              )}
             </nav>
           </div>
         </div>
@@ -667,12 +673,16 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps> = ({ onBack, onOpenSideb
                               <button className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300">
                                 <Eye size={18} />
                               </button>
-                              <button className="p-3 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all duration-300">
-                                <Settings size={18} />
-                              </button>
-                              <button className="p-3 text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-300">
-                                <Trash2 size={18} />
-                              </button>
+                              {(isAdmin || isEditor) && (
+                                <button className="p-3 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all duration-300">
+                                  <Settings size={18} />
+                                </button>
+                              )}
+                              {isAdmin && (
+                                <button className="p-3 text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-300">
+                                  <Trash2 size={18} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>

@@ -11,18 +11,23 @@ interface KeagamaanAppProps {
   onOpenSidebar?: () => void;
 }
 
-const KeagamaanApp: React.FC<KeagamaanAppProps> = ({ onBack, onOpenSidebar }) => {
+const KeagamaanApp: React.FC<KeagamaanAppProps & { user?: any }> = ({ onBack, onOpenSidebar, user }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'absensi' | 'laporan' | 'jadwal'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
+  const isAdmin = user?.role === 'full';
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'master', label: 'Master Data', icon: Database },
     { id: 'absensi', label: 'Input Absen', icon: ClipboardList },
     { id: 'jadwal', label: 'Jadwal Kegiatan', icon: Calendar },
     { id: 'laporan', label: 'Laporan', icon: FileText },
   ];
+
+  if (isAdmin) {
+    menuItems.push({ id: 'master', label: 'Master Data', icon: Database });
+  }
 
   return (
     <div className="h-full bg-[#f8fafc] flex flex-col animate-in fade-in duration-500 relative overflow-hidden">
@@ -156,10 +161,10 @@ const KeagamaanApp: React.FC<KeagamaanAppProps> = ({ onBack, onOpenSidebar }) =>
             <p className="text-sm text-slate-400 font-medium mt-1">Sistem Informasi Monitoring Kegiatan Keagamaan</p>
           </div>
           {activeTab === 'dashboard' && <KeagamaanDashboard />}
-          {activeTab === 'master' && <KeagamaanMaster />}
-          {activeTab === 'absensi' && <KeagamaanAbsensi />}
-          {activeTab === 'jadwal' && <KeagamaanJadwal />}
-          {activeTab === 'laporan' && <KeagamaanLaporan />}
+          {activeTab === 'master' && <KeagamaanMaster user={user} />}
+          {activeTab === 'absensi' && <KeagamaanAbsensi user={user} />}
+          {activeTab === 'jadwal' && <KeagamaanJadwal user={user} />}
+          {activeTab === 'laporan' && <KeagamaanLaporan user={user} />}
         </div>
       </main>
     </div>

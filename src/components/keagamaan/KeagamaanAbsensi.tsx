@@ -6,7 +6,9 @@ import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 
-const KeagamaanAbsensi: React.FC = () => {
+const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
+  const canDelete = user?.role === 'full';
+  const canEdit = user?.role === 'entry' || user?.role === 'full';
   const [absensiList, setAbsensiList] = useState<AgamaAbsensi[]>([]);
   const [programs, setPrograms] = useState<AgamaProgram[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -618,18 +620,22 @@ const KeagamaanAbsensi: React.FC = () => {
                     </td>
                     <td className="px-8 py-5 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                        <button
-                          onClick={() => handleEdit(abs)}
-                          className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(abs.id)}
-                          className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {canEdit && (
+                          <button
+                            onClick={() => handleEdit(abs)}
+                            className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDelete(abs.id)}
+                            className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

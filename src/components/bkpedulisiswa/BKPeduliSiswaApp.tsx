@@ -226,8 +226,8 @@ export default function BKPeduliSiswaApp({ onBack, onOpenSidebar, user }: { onBa
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-7xl mx-auto pb-12">
           {activeTab === 'dashboard' && <BKDashboard />}
-          {activeTab === 'transaksi' && <BKTransaksiKasus />}
-          {activeTab === 'laporan' && <BKLaporan />}
+          {activeTab === 'transaksi' && <BKTransaksiKasus user={user} />}
+          {activeTab === 'laporan' && <BKLaporan user={user} />}
           {activeTab === 'master' && <BKMasterKasus />}
         </div>
       </div>

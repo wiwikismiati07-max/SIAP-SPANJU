@@ -10,17 +10,22 @@ interface DispensasiAppProps {
   onOpenSidebar?: () => void;
 }
 
-const DispensasiApp: React.FC<DispensasiAppProps> = ({ onBack, onOpenSidebar }) => {
+const DispensasiApp: React.FC<DispensasiAppProps & { user?: any }> = ({ onBack, onOpenSidebar, user }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'input' | 'laporan'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
+
+  const isAdmin = user?.role === 'full';
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'text-blue-600', bg: 'bg-blue-50' },
     { id: 'input', label: 'Input Data', icon: PlusCircle, color: 'text-pink-600', bg: 'bg-pink-50' },
     { id: 'laporan', label: 'Laporan', icon: FileBarChart, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { id: 'master', label: 'Master Data', icon: Database, color: 'text-purple-600', bg: 'bg-purple-50' },
   ];
+
+  if (isAdmin) {
+    menuItems.push({ id: 'master', label: 'Master Data', icon: Database, color: 'text-purple-600', bg: 'bg-purple-50' });
+  }
 
   return (
     <div className="h-full bg-[#f8fafc] flex flex-col relative overflow-hidden">
@@ -148,9 +153,9 @@ const DispensasiApp: React.FC<DispensasiAppProps> = ({ onBack, onOpenSidebar }) 
       <div className="flex-1 p-4 md:p-8 overflow-y-auto">
         <div className="max-w-7xl mx-auto pb-12">
           {activeTab === 'dashboard' && <DispDashboard />}
-          {activeTab === 'master' && <DispMasterData />}
-          {activeTab === 'input' && <DispInputData />}
-          {activeTab === 'laporan' && <DispLaporan />}
+          {activeTab === 'master' && <DispMasterData user={user} />}
+          {activeTab === 'input' && <DispInputData user={user} />}
+          {activeTab === 'laporan' && <DispLaporan user={user} />}
         </div>
       </div>
     </div>

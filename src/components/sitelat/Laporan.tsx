@@ -16,7 +16,9 @@ const ALASAN_OPTIONS = [
   "Lainnya"
 ];
 
-export default function Laporan() {
+export default function Laporan({ user }: { user?: any }) {
+  const canDelete = user?.role === 'full';
+  const canEdit = user?.role === 'entry' || user?.role === 'full';
   const [transaksi, setTransaksi] = useState<TransaksiWithSiswa[]>([]);
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [loading, setLoading] = useState(false);
@@ -736,12 +738,16 @@ export default function Laporan() {
                         </td>
                         <td className="p-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <button onClick={() => handleEdit(t)} className={`p-1.5 ${textColors[colorIdx]} hover:bg-white rounded-lg transition-colors`}>
-                              <Edit2 size={16} />
-                            </button>
-                            <button onClick={() => handleDelete(t.id)} className={`p-1.5 ${textColors[colorIdx]} hover:bg-white rounded-lg transition-colors`}>
-                              <Trash2 size={16} />
-                            </button>
+                            {canEdit && (
+                              <button onClick={() => handleEdit(t)} className={`p-1.5 ${textColors[colorIdx]} hover:bg-white rounded-lg transition-colors`}>
+                                <Edit2 size={16} />
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button onClick={() => handleDelete(t.id)} className={`p-1.5 ${textColors[colorIdx]} hover:bg-white rounded-lg transition-colors`}>
+                                <Trash2 size={16} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

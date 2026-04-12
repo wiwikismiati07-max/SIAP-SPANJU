@@ -5,7 +5,9 @@ import { MasterKasus, TransaksiKasus, TindakLanjutKasus } from '../../types/bkpe
 import { Save, Search, User, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, CheckCircle2, Trash2, Edit2, X, ClipboardList, Plus, Paperclip, FileText as FileIcon, Upload, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-export default function BKTransaksiKasus() {
+export default function BKTransaksiKasus({ user }: { user?: any }) {
+  const isAdmin = user?.role === 'full';
+  const canEdit = user?.role === 'entry' || user?.role === 'full';
   const [loading, setLoading] = useState(false);
   const [siswa, setSiswa] = useState<Siswa[]>([]);
   const [kasus, setKasus] = useState<MasterKasus[]>([]);
@@ -721,23 +723,27 @@ export default function BKTransaksiKasus() {
             Riwayat Kasus Terakhir
           </h3>
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleDownloadTemplate}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold border border-slate-200 hover:bg-slate-100 transition-all"
-            >
-              <Download size={14} />
-              Download Template
-            </button>
-            <label className="flex items-center gap-2 px-4 py-2 bg-pink-50 text-pink-600 rounded-xl text-xs font-bold border border-pink-100 hover:bg-pink-100 transition-all cursor-pointer">
-              <Upload size={14} />
-              Upload Data Lama
-              <input 
-                type="file" 
-                className="hidden" 
-                accept=".xlsx, .xls"
-                onChange={handleUploadOldData}
-              />
-            </label>
+            {(isAdmin || canEdit) && (
+              <button
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold border border-slate-200 hover:bg-slate-100 transition-all"
+              >
+                <Download size={14} />
+                Download Template
+              </button>
+            )}
+            {(isAdmin || canEdit) && (
+              <label className="flex items-center gap-2 px-4 py-2 bg-pink-50 text-pink-600 rounded-xl text-xs font-bold border border-pink-100 hover:bg-pink-100 transition-all cursor-pointer">
+                <Upload size={14} />
+                Upload Data Lama
+                <input 
+                  type="file" 
+                  className="hidden" 
+                  accept=".xlsx, .xls"
+                  onChange={handleUploadOldData}
+                />
+              </label>
+            )}
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -772,20 +778,24 @@ export default function BKTransaksiKasus() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        <button 
-                          onClick={() => handleEdit(t)}
-                          className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
-                          title="Edit"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(t.id)}
-                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="Hapus"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {canEdit && (
+                          <button 
+                            onClick={() => handleEdit(t)}
+                            className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
+                            title="Edit"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                        )}
+                        {isAdmin && (
+                          <button 
+                            onClick={() => handleDelete(t.id)}
+                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Hapus"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

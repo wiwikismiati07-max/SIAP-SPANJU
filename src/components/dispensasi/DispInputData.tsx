@@ -4,7 +4,9 @@ import { supabase } from '../../lib/supabase';
 import { MasterJenisDispensasi, TransaksiDispensasi } from '../../types/dispensasi';
 import { format } from 'date-fns';
 
-const DispInputData: React.FC = () => {
+const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
+  const canDelete = user?.role === 'full';
+  const canEdit = user?.role === 'entry' || user?.role === 'full';
   const [loading, setLoading] = useState(false);
   const [jenisList, setJenisList] = useState<MasterJenisDispensasi[]>([]);
   const [siswaList, setSiswaList] = useState<any[]>([]);
@@ -337,18 +339,22 @@ const DispInputData: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end space-x-2">
-                      <button 
-                        onClick={() => handleEdit(item)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(item.id)}
-                        className="p-2 text-pink-600 hover:bg-pink-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {canEdit && (
+                        <button 
+                          onClick={() => handleEdit(item)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button 
+                          onClick={() => handleDelete(item.id)}
+                          className="p-2 text-pink-600 hover:bg-pink-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

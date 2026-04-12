@@ -150,8 +150,8 @@ export default function DisiplinSiswaApp({ onBack, onOpenSidebar, user }: { onBa
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-7xl mx-auto pb-12">
           {activeTab === 'dashboard' && <DisiplinDashboard />}
-          {activeTab === 'transaksi' && <DisiplinTransaksi />}
-          {activeTab === 'laporan' && <DisiplinLaporan />}
+          {activeTab === 'transaksi' && <DisiplinTransaksi user={user} />}
+          {activeTab === 'laporan' && <DisiplinLaporan user={user} />}
           {activeTab === 'master' && <DisiplinMaster />}
         </div>
       </div>

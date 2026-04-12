@@ -68,12 +68,15 @@ interface SipenaAppProps {
 
 type SipenaSection = 'dashboard' | 'master' | 'kunjungan_siswa' | 'kunjungan_warta' | 'peminjaman' | 'pengembalian' | 'laporan';
 
-const SipenaApp: React.FC<SipenaAppProps> = ({ onBack, onOpenSidebar }) => {
+const SipenaApp: React.FC<SipenaAppProps & { user?: any }> = ({ onBack, onOpenSidebar, user }) => {
   const [activeSection, setActiveSection] = useState<SipenaSection>('dashboard');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
+
+  const isAdmin = user?.role === 'full';
+  const isEditor = user?.role === 'entry';
 
   // --- Dashboard Stats ---
   const [stats, setStats] = useState({
@@ -86,13 +89,16 @@ const SipenaApp: React.FC<SipenaAppProps> = ({ onBack, onOpenSidebar }) => {
 
   const menuItems = [
     { id: 'dashboard', title: 'Dashboard', icon: LayoutDashboard, color: 'from-blue-600 to-blue-800' },
-    { id: 'master', title: 'Master Buku', icon: Book, color: 'from-slate-800 to-black' },
     { id: 'kunjungan_siswa', title: 'Kunjungan Siswa', icon: Users, color: 'from-emerald-600 to-emerald-800' },
     { id: 'kunjungan_warta', title: 'Kunjungan Warta', icon: Briefcase, color: 'from-amber-600 to-amber-800' },
     { id: 'peminjaman', title: 'Peminjaman', icon: ArrowLeftRight, color: 'from-pink-600 to-rose-700' },
     { id: 'pengembalian', title: 'Pengembalian', icon: History, color: 'from-indigo-600 to-indigo-800' },
     { id: 'laporan', title: 'Laporan', icon: FileSpreadsheet, color: 'from-purple-600 to-purple-800' },
   ];
+
+  if (isAdmin) {
+    menuItems.splice(1, 0, { id: 'master', title: 'Master Buku', icon: Book, color: 'from-slate-800 to-black' });
+  }
 
   return (
     <div className="h-full flex flex-col bg-[#F8FAFC] overflow-hidden font-sans selection:bg-indigo-100 selection:text-indigo-900 relative">
@@ -219,15 +225,15 @@ const SipenaApp: React.FC<SipenaAppProps> = ({ onBack, onOpenSidebar }) => {
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
         <div className="max-w-[1600px] mx-auto">
-          <AnimatePresence mode="wait">
-            {activeSection === 'dashboard' && <SipenaDashboard key="dashboard" />}
-            {activeSection === 'master' && <SipenaMaster key="master" />}
-            {activeSection === 'kunjungan_siswa' && <SipenaKunjunganSiswa key="kunjungan_siswa" />}
-            {activeSection === 'kunjungan_warta' && <SipenaKunjunganWarta key="kunjungan_warta" />}
-            {activeSection === 'peminjaman' && <SipenaPeminjaman key="peminjaman" />}
-            {activeSection === 'pengembalian' && <SipenaPengembalian key="pengembalian" />}
-            {activeSection === 'laporan' && <SipenaLaporan key="laporan" />}
-          </AnimatePresence>
+      <AnimatePresence mode="wait">
+        {activeSection === 'dashboard' && <SipenaDashboard key="dashboard" />}
+        {activeSection === 'master' && <SipenaMaster key="master" user={user} />}
+        {activeSection === 'kunjungan_siswa' && <SipenaKunjunganSiswa key="kunjungan_siswa" user={user} />}
+        {activeSection === 'kunjungan_warta' && <SipenaKunjunganWarta key="kunjungan_warta" user={user} />}
+        {activeSection === 'peminjaman' && <SipenaPeminjaman key="peminjaman" user={user} />}
+        {activeSection === 'pengembalian' && <SipenaPengembalian key="pengembalian" user={user} />}
+        {activeSection === 'laporan' && <SipenaLaporan key="laporan" user={user} />}
+      </AnimatePresence>
         </div>
       </div>
 
@@ -479,7 +485,9 @@ const SipenaDashboard = () => {
   );
 };
 
-const SipenaMaster = () => {
+const SipenaMaster: React.FC<{ user?: any }> = ({ user }) => {
+  const isAdmin = user?.role === 'full';
+  const isEditor = user?.role === 'entry';
   const [books, setBooks] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -665,27 +673,31 @@ const SipenaMaster = () => {
               className="pl-12 pr-6 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all w-full md:w-64"
             />
           </div>
-          <label className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-100 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest cursor-pointer">
-            <Upload size={18} />
-            <span className="hidden sm:inline">Upload Excel</span>
-            <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleExcelUpload} />
-          </label>
-          <button 
-            onClick={() => { 
-              setEditingBook(null); 
-              setFormData({
-                judul_buku: '', jenis_buku: '', mapel_id: '', edisi: '', isbn_issn: '', 
-                penerbit: '', tahun: '', kolasi: '', judul_seri: '', nomor_panggil: '', 
-                bahasa_buku: 'Indonesia', kota_terbit: '', nomor_kelas: '', catatan: '', 
-                guru_id: '', pengarang: '', subjek: '', kode_eksemplar: '', stok_eksemplar: 0
-              });
-              setIsModalOpen(true); 
-            }}
-            className="p-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-200"
-          >
-            <Plus size={18} />
-            <span className="hidden sm:inline">Tambah Buku</span>
-          </button>
+          {(isAdmin || isEditor) && (
+            <label className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-100 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest cursor-pointer">
+              <Upload size={18} />
+              <span className="hidden sm:inline">Upload Excel</span>
+              <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleExcelUpload} />
+            </label>
+          )}
+          {(isAdmin || isEditor) && (
+            <button 
+              onClick={() => { 
+                setEditingBook(null); 
+                setFormData({
+                  judul_buku: '', jenis_buku: '', mapel_id: '', edisi: '', isbn_issn: '', 
+                  penerbit: '', tahun: '', kolasi: '', judul_seri: '', nomor_panggil: '', 
+                  bahasa_buku: 'Indonesia', kota_terbit: '', nomor_kelas: '', catatan: '', 
+                  guru_id: '', pengarang: '', subjek: '', kode_eksemplar: '', stok_eksemplar: 0
+                });
+                setIsModalOpen(true); 
+              }}
+              className="p-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-200"
+            >
+              <Plus size={18} />
+              <span className="hidden sm:inline">Tambah Buku</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -742,42 +754,46 @@ const SipenaMaster = () => {
                   </td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => {
-                          setEditingBook(book);
-                          setFormData({
-                            judul_buku: book.judul_buku,
-                            jenis_buku: book.jenis_buku || '',
-                            mapel_id: book.mapel_id || '',
-                            edisi: book.edisi || '',
-                            isbn_issn: book.isbn_issn || '',
-                            penerbit: book.penerbit || '',
-                            tahun: book.tahun || '',
-                            kolasi: book.kolasi || '',
-                            judul_seri: book.judul_seri || '',
-                            nomor_panggil: book.nomor_panggil || '',
-                            bahasa_buku: book.bahasa_buku || 'Indonesia',
-                            kota_terbit: book.kota_terbit || '',
-                            nomor_kelas: book.nomor_kelas || '',
-                            catatan: book.catatan || '',
-                            guru_id: book.guru_id || '',
-                            pengarang: book.pengarang || '',
-                            subjek: book.subjek || '',
-                            kode_eksemplar: book.kode_eksemplar || '',
-                            stok_eksemplar: book.stok_eksemplar || 0
-                          });
-                          setIsModalOpen(true);
-                        }}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(book.id)}
-                        className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {(isAdmin || isEditor) && (
+                        <button 
+                          onClick={() => {
+                            setEditingBook(book);
+                            setFormData({
+                              judul_buku: book.judul_buku,
+                              jenis_buku: book.jenis_buku || '',
+                              mapel_id: book.mapel_id || '',
+                              edisi: book.edisi || '',
+                              isbn_issn: book.isbn_issn || '',
+                              penerbit: book.penerbit || '',
+                              tahun: book.tahun || '',
+                              kolasi: book.kolasi || '',
+                              judul_seri: book.judul_seri || '',
+                              nomor_panggil: book.nomor_panggil || '',
+                              bahasa_buku: book.bahasa_buku || 'Indonesia',
+                              kota_terbit: book.kota_terbit || '',
+                              nomor_kelas: book.nomor_kelas || '',
+                              catatan: book.catatan || '',
+                              guru_id: book.guru_id || '',
+                              pengarang: book.pengarang || '',
+                              subjek: book.subjek || '',
+                              kode_eksemplar: book.kode_eksemplar || '',
+                              stok_eksemplar: book.stok_eksemplar || 0
+                            });
+                            setIsModalOpen(true);
+                          }}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                        >
+                          <Edit size={16} />
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button 
+                          onClick={() => handleDelete(book.id)}
+                          className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -964,7 +980,8 @@ const SipenaMaster = () => {
   );
 };
 
-const SipenaKunjunganSiswa = () => {
+const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
+  const isAdmin = user?.role === 'full';
   const [visits, setVisits] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1088,9 +1105,11 @@ const SipenaKunjunganSiswa = () => {
                     </span>
                   </td>
                   <td className="px-8 py-6 text-right">
-                    <button onClick={() => handleDelete(v.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all">
-                      <Trash2 size={16} />
-                    </button>
+                    {isAdmin && (
+                      <button onClick={() => handleDelete(v.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all">
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1159,7 +1178,9 @@ const SipenaKunjunganSiswa = () => {
   );
 };
 
-const SipenaKunjunganWarta = () => {
+const SipenaKunjunganWarta: React.FC<{ user?: any }> = ({ user }) => {
+  const isAdmin = user?.role === 'full';
+  const isEditor = user?.role === 'entry';
   const [visits, setVisits] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1221,6 +1242,20 @@ const SipenaKunjunganWarta = () => {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('Hapus data kunjungan ini?')) return;
+    try {
+      setLoading(true);
+      const { error } = await supabase.from('sipena_kunjungan_warta').delete().eq('id', id);
+      if (error) throw error;
+      fetchVisits();
+    } catch (error: any) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
       <div className="flex items-center justify-between">
@@ -1228,13 +1263,15 @@ const SipenaKunjunganWarta = () => {
           <h3 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Kunjungan Warta</h3>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Catat kunjungan guru dan staf</p>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="p-3 bg-amber-600 text-white rounded-2xl hover:bg-amber-700 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-amber-200"
-        >
-          <Plus size={18} />
-          Catat Kunjungan
-        </button>
+        {(isAdmin || isEditor) && (
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="p-3 bg-amber-600 text-white rounded-2xl hover:bg-amber-700 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-amber-200"
+          >
+            <Plus size={18} />
+            Catat Kunjungan
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
@@ -1246,11 +1283,12 @@ const SipenaKunjunganWarta = () => {
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Guru</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Mata Pelajaran</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Kelas</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {visits.map((v) => (
-                <tr key={v.id} className="hover:bg-slate-50/50 transition-colors">
+                <tr key={v.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-8 py-6">
                     <p className="text-xs font-black text-slate-800">{safeFormatDate(v.tanggal, 'dd MMM yyyy')}</p>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{v.jam.substring(0, 5)} WIB</p>
@@ -1265,6 +1303,13 @@ const SipenaKunjunganWarta = () => {
                   </td>
                   <td className="px-8 py-6">
                     <p className="text-xs font-black text-slate-800">{v.kelas || '-'}</p>
+                  </td>
+                  <td className="px-8 py-6 text-right">
+                    {isAdmin && (
+                      <button onClick={() => handleDelete(v.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all">
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1330,7 +1375,9 @@ const SipenaKunjunganWarta = () => {
   );
 };
 
-const SipenaPeminjaman = () => {
+const SipenaPeminjaman: React.FC<{ user?: any }> = ({ user }) => {
+  const isAdmin = user?.role === 'full';
+  const isEditor = user?.role === 'entry';
   const [loans, setLoans] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1500,24 +1547,26 @@ const SipenaPeminjaman = () => {
           <h3 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Peminjaman Buku</h3>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Kelola peminjaman buku oleh siswa</p>
         </div>
-        <button 
-          onClick={() => {
-            setFormData({
-              tanggal_pinjam: format(new Date(), 'yyyy-MM-dd'),
-              jam_pinjam: format(new Date(), 'HH:mm'),
-              kelas: '',
-              siswa_id: '',
-              tanggal_kembali_rencana: format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
-            });
-            setSelectedBooks([]);
-            setCurrentBookId('');
-            setIsModalOpen(true);
-          }}
-          className="p-3 bg-pink-600 text-white rounded-2xl hover:bg-pink-700 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-pink-200"
-        >
-          <Plus size={18} />
-          Pinjam Buku
-        </button>
+        {(isAdmin || isEditor) && (
+          <button 
+            onClick={() => {
+              setFormData({
+                tanggal_pinjam: format(new Date(), 'yyyy-MM-dd'),
+                jam_pinjam: format(new Date(), 'HH:mm'),
+                kelas: '',
+                siswa_id: '',
+                tanggal_kembali_rencana: format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
+              });
+              setSelectedBooks([]);
+              setCurrentBookId('');
+              setIsModalOpen(true);
+            }}
+            className="p-3 bg-pink-600 text-white rounded-2xl hover:bg-pink-700 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-pink-200"
+          >
+            <Plus size={18} />
+            Pinjam Buku
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
@@ -1562,21 +1611,25 @@ const SipenaPeminjaman = () => {
                   </td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => handleEdit(l)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setLoanToDelete(l.id);
-                          setIsDeleteModalOpen(true);
-                        }}
-                        className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {(isAdmin || isEditor) && (
+                        <button 
+                          onClick={() => handleEdit(l)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                        >
+                          <Edit size={16} />
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button 
+                          onClick={() => {
+                            setLoanToDelete(l.id);
+                            setIsDeleteModalOpen(true);
+                          }}
+                          className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -1703,7 +1756,9 @@ const SipenaPeminjaman = () => {
   );
 };
 
-const SipenaPengembalian = () => {
+const SipenaPengembalian: React.FC<{ user?: any }> = ({ user }) => {
+  const isAdmin = user?.role === 'full';
+  const isEditor = user?.role === 'entry';
   const [loans, setLoans] = useState<any[]>([]);
   const [returnedLoans, setReturnedLoans] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1834,12 +1889,14 @@ const SipenaPengembalian = () => {
                 <span className="text-slate-400">Jatuh Tempo:</span>
                 <span className="text-rose-500">{safeFormatDate(l.tanggal_kembali_rencana, 'dd/MM/yyyy')}</span>
               </div>
-              <button 
-                onClick={() => handleReturn(l.id)}
-                className="w-full py-5 bg-gradient-to-r from-indigo-600 to-indigo-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-[0_10px_20px_-5px_rgba(79,70,229,0.4)] hover:shadow-[0_15px_30px_-5px_rgba(79,70,229,0.5)] hover:translate-y-[-2px] active:translate-y-[0px] transition-all"
-              >
-                Proses Kembali
-              </button>
+              {(isAdmin || isEditor) && (
+                <button 
+                  onClick={() => handleReturn(l.id)}
+                  className="w-full py-5 bg-gradient-to-r from-indigo-600 to-indigo-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-[0_10px_20px_-5px_rgba(79,70,229,0.4)] hover:shadow-[0_15px_30px_-5px_rgba(79,70,229,0.5)] hover:translate-y-[-2px] active:translate-y-[0px] transition-all"
+                >
+                  Proses Kembali
+                </button>
+              )}
             </div>
           </motion.div>
         ))}
@@ -1897,14 +1954,16 @@ const SipenaPengembalian = () => {
                       </span>
                     </td>
                     <td className="px-8 py-6 text-right">
-                      <button 
-                        onClick={() => handleCancelReturn(l.id)}
-                        className="p-3 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-100 transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ml-auto"
-                        title="Batalkan Pengembalian"
-                      >
-                        <RotateCcw size={14} />
-                        Batal
-                      </button>
+                      {isAdmin && (
+                        <button 
+                          onClick={() => handleCancelReturn(l.id)}
+                          className="p-3 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-100 transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ml-auto"
+                          title="Batalkan Pengembalian"
+                        >
+                          <RotateCcw size={14} />
+                          Batal
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -1924,7 +1983,8 @@ const SipenaPengembalian = () => {
   );
 };
 
-const SipenaLaporan = () => {
+const SipenaLaporan: React.FC<{ user?: any }> = ({ user }) => {
+  const isAdmin = user?.role === 'full';
   const [reportType, setReportType] = useState<'buku' | 'kunjungan' | 'peminjaman'>('buku');
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
