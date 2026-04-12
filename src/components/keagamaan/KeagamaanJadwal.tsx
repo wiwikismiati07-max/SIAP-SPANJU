@@ -3,6 +3,7 @@ import { Calendar, Clock, BookOpen, Users, Save, X, Edit2, Trash2, Search, Downl
 import { supabase } from '../../lib/supabase';
 import { AgamaProgram, AgamaJadwal } from '../../types/keagamaan';
 import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import ExcelJS from 'exceljs';
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
@@ -22,7 +23,7 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
     kegiatan_id: '',
     hari: '',
     minggu_ke: 1,
-    bulan: format(new Date(), 'MMMM'),
+    bulan: format(new Date(), 'MMMM', { locale: id }),
     tahun: new Date().getFullYear(),
     kelas: '',
     keterangan: ''
@@ -112,7 +113,7 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
       kegiatan_id: '',
       hari: '',
       minggu_ke: 1,
-      bulan: format(new Date(), 'MMMM'),
+      bulan: format(new Date(), 'MMMM', { locale: id }),
       tahun: new Date().getFullYear(),
       kelas: '',
       keterangan: ''
