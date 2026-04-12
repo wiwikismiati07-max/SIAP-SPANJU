@@ -242,16 +242,33 @@ export default function KalenderBelajar({ user }: { user?: any }) {
     const monthEnd = endOfMonth(monthStart);
     const allDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
     
-    const sundays = allDays.filter(d => d.getDay() === 0).length;
-    const holidays = events.filter(e => e.libur && isSameMonth(new Date(e.tanggal), currentMonth)).length;
-    const totalDays = allDays.length;
-    const effectiveDays = totalDays - sundays - holidays;
+    let effectiveDays = 0;
+    let sundays = 0;
+    let nationalHolidays = 0;
+    let semesterHolidays = 0;
+
+    allDays.forEach(day => {
+      const isSunday = day.getDay() === 0;
+      const dayEvents = events.filter(e => isSameDay(new Date(e.tanggal), day) && e.libur);
+      const isSemester = dayEvents.some(e => e.keterangan.toLowerCase().includes('semester'));
+      const isNational = dayEvents.some(e => !e.keterangan.toLowerCase().includes('semester'));
+
+      if (isSunday) {
+        sundays++;
+      } else if (isSemester) {
+        semesterHolidays++;
+      } else if (isNational) {
+        nationalHolidays++;
+      } else {
+        effectiveDays++;
+      }
+    });
 
     return {
       effective: effectiveDays,
       sundays: sundays,
-      holidays: holidays,
-      semester: 0 // Placeholder as not in data yet
+      holidays: nationalHolidays,
+      semester: semesterHolidays
     };
   };
 
