@@ -183,6 +183,9 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
     
     try {
       setLoading(true);
+      // Optimistically update UI
+      const updatedList = pengaduanList.filter(item => item.id !== itemToDelete);
+      
       const { error } = await supabase
         .from('pengaduan_wali')
         .delete()
@@ -190,13 +193,20 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
       
       if (error) throw error;
       
+      setPengaduanList(updatedList);
       setMessage({ type: 'success', text: 'Pengaduan berhasil dihapus.' });
       setIsDeleteConfirmOpen(false);
       setItemToDelete(null);
-      fetchPengaduan();
+      
+      // Refresh data from server to be sure
+      await fetchPengaduan();
+      
       setTimeout(() => setMessage(null), 3000);
     } catch (error: any) {
+      console.error('Delete error:', error);
       setMessage({ type: 'error', text: error.message || 'Gagal menghapus pengaduan' });
+      // Revert UI if failed
+      fetchPengaduan();
     } finally {
       setLoading(false);
     }
