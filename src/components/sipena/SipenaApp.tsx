@@ -985,15 +985,17 @@ const SipenaMaster: React.FC<{ user?: any }> = ({ user }) => {
 
 const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
   const isAdmin = user?.role === 'full';
+  const isEditor = user?.role === 'entry';
   const [visits, setVisits] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [siswa, setSiswa] = useState<any[]>([]);
-  const [selectedClass, setSelectedClass] = useState('');
+  const [editingVisit, setEditingVisit] = useState<any>(null);
   
   const [formData, setFormData] = useState({
     tanggal: format(new Date(), 'yyyy-MM-dd'),
     jam: format(new Date(), 'HH:mm'),
+    jam_pulang: '',
     kelas: '',
     siswa_id: '',
     keperluan: 'Membaca',
@@ -1033,15 +1035,38 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
     e.preventDefault();
     try {
       setLoading(true);
-      const { error } = await supabase.from('sipena_kunjungan_siswa').insert([formData]);
-      if (error) throw error;
+      if (editingVisit) {
+        const { error } = await supabase
+          .from('sipena_kunjungan_siswa')
+          .update(formData)
+          .eq('id', editingVisit.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('sipena_kunjungan_siswa').insert([formData]);
+        if (error) throw error;
+      }
       setIsModalOpen(false);
+      setEditingVisit(null);
       fetchVisits();
     } catch (error: any) {
       alert(error.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEdit = (visit: any) => {
+    setEditingVisit(visit);
+    setFormData({
+      tanggal: visit.tanggal,
+      jam: visit.jam,
+      jam_pulang: visit.jam_pulang || '',
+      kelas: visit.kelas,
+      siswa_id: visit.siswa_id,
+      keperluan: visit.keperluan,
+      keterangan_lain: visit.keterangan_lain || ''
+    });
+    setIsModalOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -1058,7 +1083,19 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Catat kehadiran siswa di perpustakaan</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setEditingVisit(null);
+            setFormData({
+              tanggal: format(new Date(), 'yyyy-MM-dd'),
+              jam: format(new Date(), 'HH:mm'),
+              jam_pulang: '',
+              kelas: '',
+              siswa_id: '',
+              keperluan: 'Membaca',
+              keterangan_lain: ''
+            });
+            setIsModalOpen(true);
+          }}
           className="p-3 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-200"
         >
           <Plus size={18} />
@@ -1072,6 +1109,8 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Waktu</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Jam Masuk</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Jam Pulang</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Siswa</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Keperluan</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
@@ -1087,8 +1126,23 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
                       </div>
                       <div>
                         <p className="text-xs font-black text-slate-800">{safeFormatDate(v.tanggal, 'dd MMM yyyy')}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{v.jam.substring(0, 5)} WIB</p>
                       </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-6">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
+                        <Clock size={14} />
+                      </div>
+                      <p className="text-xs font-black text-slate-800">{v.jam?.substring(0, 5) || '-'} WIB</p>
+                    </div>
+                  </td>
+                  <td className="px-8 py-6">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-rose-50 text-rose-600 rounded-lg">
+                        <Clock size={14} />
+                      </div>
+                      <p className="text-xs font-black text-slate-800">{v.jam_pulang?.substring(0, 5) || '-'} WIB</p>
                     </div>
                   </td>
                   <td className="px-8 py-6">
@@ -1108,11 +1162,18 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
                     </span>
                   </td>
                   <td className="px-8 py-6 text-right">
-                    {isAdmin && (
-                      <button onClick={() => handleDelete(v.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all">
-                        <Trash2 size={16} />
-                      </button>
-                    )}
+                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                      {(isAdmin || isEditor) && (
+                        <button onClick={() => handleEdit(v)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
+                          <Edit size={16} />
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button onClick={() => handleDelete(v.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1126,9 +1187,42 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
         {isModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8">
-              <h4 className="text-xl font-black text-slate-800 uppercase mb-6">Catat Kunjungan</h4>
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
+              <h4 className="text-xl font-black text-slate-800 uppercase mb-6">{editingVisit ? 'Edit Kunjungan' : 'Catat Kunjungan'}</h4>
               <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Tanggal</label>
+                    <input 
+                      type="date"
+                      required
+                      value={formData.tanggal}
+                      onChange={(e) => setFormData({...formData, tanggal: e.target.value})}
+                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Jam Masuk</label>
+                    <input 
+                      type="time"
+                      required
+                      value={formData.jam}
+                      onChange={(e) => setFormData({...formData, jam: e.target.value})}
+                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Jam Pulang</label>
+                    <input 
+                      type="time"
+                      value={formData.jam_pulang}
+                      onChange={(e) => setFormData({...formData, jam_pulang: e.target.value})}
+                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                    />
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Kelas</label>
@@ -1136,7 +1230,7 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
                       required
                       value={formData.kelas}
                       onChange={(e) => setFormData({...formData, kelas: e.target.value})}
-                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none"
+                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
                     >
                       <option value="">Pilih Kelas</option>
                       {classes.map(c => <option key={c} value={c}>{c}</option>)}
@@ -1148,7 +1242,7 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
                       required
                       value={formData.siswa_id}
                       onChange={(e) => setFormData({...formData, siswa_id: e.target.value})}
-                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none"
+                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
                     >
                       <option value="">Pilih Siswa</option>
                       {siswa.filter(s => s.kelas === formData.kelas).map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
@@ -1160,7 +1254,7 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
                   <select 
                     value={formData.keperluan}
                     onChange={(e) => setFormData({...formData, keperluan: e.target.value})}
-                    className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none"
+                    className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
                   >
                     <option value="Membaca">Membaca</option>
                     <option value="Belajar">Belajar</option>
@@ -1169,8 +1263,24 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
                     <option value="Lain-lain">Lain-lain</option>
                   </select>
                 </div>
-                <button type="submit" className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-200">
-                  Simpan Kunjungan
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">
+                    Keterangan { (formData.keperluan === 'Membaca' || formData.keperluan === 'Meminjam Buku') && '(Judul Buku / Materi)' }
+                  </label>
+                  <textarea 
+                    value={formData.keterangan_lain}
+                    onChange={(e) => setFormData({...formData, keterangan_lain: e.target.value})}
+                    placeholder="Masukkan keterangan tambahan..."
+                    className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all min-h-[100px]"
+                  />
+                </div>
+                <button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-200 flex items-center justify-center gap-2"
+                >
+                  {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={18} />}
+                  {editingVisit ? 'Update Kunjungan' : 'Simpan Kunjungan'}
                 </button>
               </form>
             </motion.div>
