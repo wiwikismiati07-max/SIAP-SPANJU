@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface PengaduanWaliAppProps {
   onBack?: () => void;
@@ -44,6 +46,10 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [pengaduanList, setPengaduanList] = useState<any[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
   
   const [selectedClass, setSelectedClass] = useState('');
@@ -165,6 +171,56 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
     });
     setSelectedSiswaId('');
     setSelectedClass('');
+  };
+
+  const handleDelete = (id: string) => {
+    setItemToDelete(id);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const executeDelete = async () => {
+    if (!itemToDelete) return;
+    
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('pengaduan_wali')
+        .delete()
+        .eq('id', itemToDelete);
+      
+      if (error) throw error;
+      
+      setMessage({ type: 'success', text: 'Pengaduan berhasil dihapus.' });
+      setIsDeleteConfirmOpen(false);
+      setItemToDelete(null);
+      fetchPengaduan();
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Gagal menghapus pengaduan' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = async (id: string, newStatus: string) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('pengaduan_wali')
+        .update({ status: newStatus })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      setMessage({ type: 'success', text: `Status pengaduan berhasil diubah menjadi ${newStatus}.` });
+      setIsStatusModalOpen(false);
+      fetchPengaduan();
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Gagal mengubah status' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredSiswa = siswa.filter(s => s.kelas === selectedClass);
@@ -585,18 +641,6 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
                     </button>
                   </div>
                 </form>
-
-                {message && (
-                  <div className={`mt-10 p-8 rounded-[32px] flex items-center gap-6 animate-in slide-in-from-top-4 duration-300 ${
-                    message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'
-                  }`}>
-                    {message.type === 'success' ? <CheckCircle2 size={32} /> : <AlertCircle size={32} />}
-                    <div>
-                      <p className="font-black text-lg">{message.type === 'success' ? 'Berhasil!' : 'Terjadi Kesalahan'}</p>
-                      <p className="font-bold opacity-80">{message.text}</p>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           ) : (
@@ -675,16 +719,28 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
                           </td>
                           <td className="px-8 py-6 rounded-r-[32px] text-right">
                             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300">
+                              <button 
+                                onClick={() => { setSelectedItem(item); setIsStatusModalOpen(true); }}
+                                className="p-3 text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300"
+                                title="Lihat Detail & Update Status"
+                              >
                                 <Eye size={18} />
                               </button>
                               {(isAdmin || isEditor) && (
-                                <button className="p-3 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all duration-300">
+                                <button 
+                                  onClick={() => { setSelectedItem(item); setIsStatusModalOpen(true); }}
+                                  className="p-3 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all duration-300"
+                                  title="Update Status"
+                                >
                                   <Settings size={18} />
                                 </button>
                               )}
-                              {isAdmin && (
-                                <button className="p-3 text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-300">
+                              {(isAdmin || isEditor) && (
+                                <button 
+                                  onClick={() => handleDelete(item.id)}
+                                  className="p-3 text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-300"
+                                  title="Hapus Pengaduan"
+                                >
                                   <Trash2 size={18} />
                                 </button>
                               )}
@@ -714,6 +770,173 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
           )}
         </div>
       </div>
+
+      {/* Status Update Modal */}
+      <AnimatePresence>
+        {isStatusModalOpen && selectedItem && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsStatusModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 md:p-10">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                      <ClipboardList size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Detail & Update Status</h3>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">ID: {selectedItem.id.substring(0, 8)}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setIsStatusModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Pelapor</label>
+                      <p className="font-black text-slate-800">{selectedItem.nama_pelapor}</p>
+                      <p className="text-xs font-bold text-slate-500">{selectedItem.hp_pelapor} ({selectedItem.hubungan_siswa})</p>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Siswa</label>
+                      <p className="font-black text-slate-800">{selectedItem.siswa?.nama || 'N/A'}</p>
+                      <p className="text-xs font-bold text-slate-500">Kelas {selectedItem.kelas}</p>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Waktu Kejadian</label>
+                      <p className="font-bold text-slate-700 text-sm">{format(new Date(selectedItem.waktu_kejadian), 'dd MMMM yyyy, HH:mm', { locale: idLocale })}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Jenis Pengaduan</label>
+                      <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100">
+                        {selectedItem.jenis_pengaduan}
+                      </span>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Uraian</label>
+                      <p className="text-sm font-bold text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        {selectedItem.uraian}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {(isAdmin || isEditor) && (
+                  <div className="border-t border-slate-100 pt-8">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 text-center">Update Status Laporan</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {['Pending', 'Diproses', 'Selesai', 'Ditolak'].map((status) => (
+                        <button
+                          key={status}
+                          onClick={() => handleUpdateStatus(selectedItem.id, status)}
+                          disabled={loading}
+                          className={`py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${
+                            selectedItem.status === status
+                              ? status === 'Selesai' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' :
+                                status === 'Diproses' ? 'bg-amber-500 text-white shadow-lg shadow-amber-200' :
+                                status === 'Ditolak' ? 'bg-rose-600 text-white shadow-lg shadow-rose-200' :
+                                'bg-slate-600 text-white shadow-lg shadow-slate-200'
+                              : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                          }`}
+                        >
+                          {status}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {isDeleteConfirmOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsDeleteConfirmOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white w-full max-w-md rounded-[40px] shadow-2xl overflow-hidden p-10 text-center"
+            >
+              <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center text-rose-600 mx-auto mb-6">
+                <Trash2 size={40} />
+              </div>
+              <h3 className="text-2xl font-black text-slate-800 mb-2">Hapus Pengaduan?</h3>
+              <p className="text-slate-500 font-bold mb-8">Tindakan ini tidak dapat dibatalkan. Apakah Anda yakin ingin menghapus data ini?</p>
+              
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={executeDelete}
+                  disabled={loading}
+                  className="w-full py-5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl font-black uppercase tracking-widest transition-all shadow-lg shadow-rose-200 flex items-center justify-center gap-3"
+                >
+                  {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Trash2 size={20} />}
+                  Ya, Hapus Sekarang
+                </button>
+                <button
+                  onClick={() => setIsDeleteConfirmOpen(false)}
+                  className="w-full py-5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-2xl font-black uppercase tracking-widest transition-all"
+                >
+                  Batalkan
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Global Message Toast */}
+      <AnimatePresence>
+        {message && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, x: 50 }}
+            animate={{ opacity: 1, y: 0, x: 0 }}
+            exit={{ opacity: 0, y: 50, x: 50 }}
+            className={`fixed bottom-8 right-8 z-[120] px-8 py-6 rounded-[32px] shadow-2xl flex items-center gap-6 border animate-in slide-in-from-bottom-4 duration-300 ${
+              message.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'
+            }`}
+          >
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+              message.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
+            }`}>
+              {message.type === 'success' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
+            </div>
+            <div>
+              <p className="font-black text-sm uppercase tracking-widest mb-1">{message.type === 'success' ? 'Berhasil' : 'Kesalahan'}</p>
+              <p className="font-bold text-xs opacity-80">{message.text}</p>
+            </div>
+            <button onClick={() => setMessage(null)} className="p-2 hover:bg-black/5 rounded-xl transition-colors ml-2">
+              <X size={20} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
