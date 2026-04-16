@@ -1113,6 +1113,7 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Jam Pulang</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Siswa</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Keperluan</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Keterangan</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
               </tr>
             </thead>
@@ -1161,6 +1162,11 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
                       {v.keperluan}
                     </span>
                   </td>
+                  <td className="px-8 py-6">
+                    <p className="text-xs font-bold text-slate-500 max-w-[200px] truncate" title={v.keterangan_lain}>
+                      {v.keterangan_lain || '-'}
+                    </p>
+                  </td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
                       {(isAdmin || isEditor) && (
@@ -1168,7 +1174,7 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
                           <Edit size={16} />
                         </button>
                       )}
-                      {isAdmin && (
+                      {(isAdmin || isEditor) && (
                         <button onClick={() => handleDelete(v.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
                           <Trash2 size={16} />
                         </button>
