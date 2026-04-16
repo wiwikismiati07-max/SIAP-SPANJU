@@ -90,8 +90,8 @@ const SipenaApp: React.FC<SipenaAppProps & { user?: any }> = ({ onBack, onOpenSi
 
   const menuItems = [
     { id: 'dashboard', title: 'Dashboard', icon: LayoutDashboard, color: 'from-blue-600 to-blue-800' },
+    { id: 'kunjungan_siswa', title: 'Kunjungan Siswa', icon: Users, color: 'from-emerald-600 to-emerald-800' },
     ...(!isViewer ? [
-      { id: 'kunjungan_siswa', title: 'Kunjungan Siswa', icon: Users, color: 'from-emerald-600 to-emerald-800' },
       { id: 'kunjungan_warta', title: 'Kunjungan Warta', icon: Briefcase, color: 'from-amber-600 to-amber-800' },
       { id: 'peminjaman', title: 'Peminjaman', icon: ArrowLeftRight, color: 'from-pink-600 to-rose-700' },
       { id: 'pengembalian', title: 'Pengembalian', icon: History, color: 'from-indigo-600 to-indigo-800' },
