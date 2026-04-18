@@ -12,6 +12,10 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
   const [pelanggaran, setPelanggaran] = useState<any[]>([]);
   const [guru, setGuru] = useState<any[]>([]);
   const [transaksi, setTransaksi] = useState<any[]>([]);
+  const [historyFilter, setHistoryFilter] = useState({
+    startDate: '',
+    endDate: ''
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -58,6 +62,10 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
     fetchInitialData();
   }, []);
 
+  useEffect(() => {
+    fetchTransaksi();
+  }, [historyFilter]);
+
   const fetchInitialData = async () => {
     try {
       if (supabase) {
@@ -76,22 +84,35 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
   };
 
   const fetchTransaksi = async () => {
+    setLoading(true);
     try {
       if (supabase) {
-        const { data, error } = await supabase
+        let query = supabase
           .from('transaksi_pelanggaran')
           .select(`
             *,
             siswa:master_siswa(*),
             pelanggaran:master_pelanggaran(*)
           `)
-          .order('created_at', { ascending: false })
-          .limit(10);
+          .order('tanggal', { ascending: false })
+          .order('created_at', { ascending: false });
+
+        if (historyFilter.startDate) query = query.gte('tanggal', historyFilter.startDate);
+        if (historyFilter.endDate) query = query.lte('tanggal', historyFilter.endDate);
+
+        // If filtering, don't limit to 10 so they can see all in that range
+        if (!historyFilter.startDate && !historyFilter.endDate) {
+          query = query.limit(10);
+        }
+        
+        const { data, error } = await query;
         if (error) throw error;
         setTransaksi(data || []);
       }
     } catch (error) {
       console.error('Error fetching transaksi:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -588,8 +609,35 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
 
           {/* Recent Data Table */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="font-bold text-slate-800">10 Data Terakhir</h3>
+            <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <h3 className="font-bold text-slate-800 shrink-0">10 Data Terakhir</h3>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="date" 
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={historyFilter.startDate}
+                    onChange={e => setHistoryFilter({...historyFilter, startDate: e.target.value})}
+                  />
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">s/d</span>
+                  <input 
+                    type="date" 
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={historyFilter.endDate}
+                    onChange={e => setHistoryFilter({...historyFilter, endDate: e.target.value})}
+                  />
+                  {(historyFilter.startDate || historyFilter.endDate) && (
+                    <button 
+                      type="button"
+                      onClick={() => setHistoryFilter({ startDate: '', endDate: '' })}
+                      className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors"
+                      title="Reset Filter"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
