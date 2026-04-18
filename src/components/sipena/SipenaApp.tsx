@@ -1305,9 +1305,14 @@ const SipenaKunjunganWarta: React.FC<{ user?: any }> = ({ user }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [gurus, setGurus] = useState<any[]>([]);
   const [mapels, setMapels] = useState<any[]>([]);
+  const [historyFilter, setHistoryFilter] = useState({
+    startDate: '',
+    endDate: ''
+  });
   
   const [formData, setFormData] = useState({
-    tanggal: format(new Date(), 'yyyy-MM-dd'),
+    tanggal_awal: format(new Date(), 'yyyy-MM-dd'),
+    tanggal_akhir: format(new Date(), 'yyyy-MM-dd'),
     jam: format(new Date(), 'HH:mm'),
     kelas: '',
     guru_id: '',
@@ -1319,15 +1324,20 @@ const SipenaKunjunganWarta: React.FC<{ user?: any }> = ({ user }) => {
   useEffect(() => {
     fetchVisits();
     fetchMasters();
-  }, []);
+  }, [historyFilter]);
 
   const fetchVisits = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from('sipena_kunjungan_warta')
         .select('*, master_guru(nama_guru), master_mapel(nama_mapel)')
-        .order('tanggal', { ascending: false });
+        .order('tanggal_awal', { ascending: false });
+
+      if (historyFilter.startDate) query = query.gte('tanggal_awal', historyFilter.startDate);
+      if (historyFilter.endDate) query = query.lte('tanggal_awal', historyFilter.endDate);
+
+      const { data, error } = await query;
       if (error) throw error;
       setVisits(data || []);
     } catch (error) {
@@ -1377,20 +1387,57 @@ const SipenaKunjunganWarta: React.FC<{ user?: any }> = ({ user }) => {
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h3 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Kunjungan Warta</h3>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Catat kunjungan guru dan staf</p>
         </div>
-        {(isAdmin || isEditor) && (
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="p-3 bg-amber-600 text-white rounded-2xl hover:bg-amber-700 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-amber-200"
-          >
-            <Plus size={18} />
-            Catat Kunjungan
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm">
+            <Calendar size={14} className="text-slate-400" />
+            <input 
+              type="date" 
+              className="text-[10px] font-bold text-slate-600 outline-none bg-transparent"
+              value={historyFilter.startDate}
+              onChange={(e) => setHistoryFilter({...historyFilter, startDate: e.target.value})}
+            />
+            <span className="text-[10px] font-black text-slate-300">S/D</span>
+            <input 
+              type="date" 
+              className="text-[10px] font-bold text-slate-600 outline-none bg-transparent"
+              value={historyFilter.endDate}
+              onChange={(e) => setHistoryFilter({...historyFilter, endDate: e.target.value})}
+            />
+            {(historyFilter.startDate || historyFilter.endDate) && (
+              <button 
+                onClick={() => setHistoryFilter({ startDate: '', endDate: '' })}
+                className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
+                title="Reset Filter"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          {(isAdmin || isEditor) && (
+            <button 
+              onClick={() => {
+                setFormData({
+                  tanggal_awal: format(new Date(), 'yyyy-MM-dd'),
+                  tanggal_akhir: format(new Date(), 'yyyy-MM-dd'),
+                  jam: format(new Date(), 'HH:mm'),
+                  kelas: '',
+                  guru_id: '',
+                  mapel_id: ''
+                });
+                setIsModalOpen(true);
+              }}
+              className="p-3 bg-amber-600 text-white rounded-2xl hover:bg-amber-700 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-amber-200 shrink-0"
+            >
+              <Plus size={18} />
+              Catat Kunjungan
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
@@ -1409,8 +1456,11 @@ const SipenaKunjunganWarta: React.FC<{ user?: any }> = ({ user }) => {
               {visits.map((v) => (
                 <tr key={v.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-8 py-6">
-                    <p className="text-xs font-black text-slate-800">{safeFormatDate(v.tanggal, 'dd MMM yyyy')}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{v.jam.substring(0, 5)} WIB</p>
+                    <p className="text-xs font-black text-slate-800">
+                      {safeFormatDate(v.tanggal_awal, 'dd MMM yyyy')}
+                      {v.tanggal_akhir !== v.tanggal_awal && ` - ${safeFormatDate(v.tanggal_akhir, 'dd MMM yyyy')}`}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{v.jam?.substring(0, 5)} WIB</p>
                   </td>
                   <td className="px-8 py-6">
                     <p className="text-sm font-black text-slate-800">{v.master_guru?.nama_guru || '-'}</p>
@@ -1445,6 +1495,38 @@ const SipenaKunjunganWarta: React.FC<{ user?: any }> = ({ user }) => {
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8">
               <h4 className="text-xl font-black text-slate-800 uppercase mb-6">Catat Kunjungan Warta</h4>
               <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Tanggal Awal</label>
+                    <input 
+                      type="date"
+                      required
+                      value={formData.tanggal_awal}
+                      onChange={(e) => setFormData({...formData, tanggal_awal: e.target.value})}
+                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-500 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Tanggal Akhir</label>
+                    <input 
+                      type="date"
+                      required
+                      value={formData.tanggal_akhir}
+                      onChange={(e) => setFormData({...formData, tanggal_akhir: e.target.value})}
+                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-500 transition-all"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Jam</label>
+                  <input 
+                    type="time"
+                    required
+                    value={formData.jam}
+                    onChange={(e) => setFormData({...formData, jam: e.target.value})}
+                    className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-500 transition-all"
+                  />
+                </div>
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Guru</label>
                   <select 
@@ -2104,15 +2186,19 @@ const SipenaPengembalian: React.FC<{ user?: any }> = ({ user }) => {
 
 const SipenaLaporan: React.FC<{ user?: any }> = ({ user }) => {
   const isAdmin = user?.role === 'full';
-  const [reportType, setReportType] = useState<'buku' | 'kunjungan' | 'peminjaman'>('buku');
+  const [reportType, setReportType] = useState<'buku' | 'kunjungan' | 'kunjungan_warta' | 'peminjaman'>('buku');
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [filter, setFilter] = useState({
+    startDate: '',
+    endDate: ''
+  });
 
   useEffect(() => {
     setData([]);
     fetchData();
-  }, [reportType]);
+  }, [reportType, filter]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -2122,8 +2208,16 @@ const SipenaLaporan: React.FC<{ user?: any }> = ({ user }) => {
         query = supabase.from('sipena_buku').select('*').order('judul_buku');
       } else if (reportType === 'kunjungan') {
         query = supabase.from('sipena_kunjungan_siswa').select('*, master_siswa(nama, kelas)').order('tanggal', { ascending: false });
+        if (filter.startDate) query = query.gte('tanggal', filter.startDate);
+        if (filter.endDate) query = query.lte('tanggal', filter.endDate);
+      } else if (reportType === 'kunjungan_warta') {
+        query = supabase.from('sipena_kunjungan_warta').select('*, master_guru(nama_guru), master_mapel(nama_mapel)').order('tanggal_awal', { ascending: false });
+        if (filter.startDate) query = query.gte('tanggal_awal', filter.startDate);
+        if (filter.endDate) query = query.lte('tanggal_awal', filter.endDate);
       } else {
         query = supabase.from('sipena_peminjaman').select('*, master_siswa(nama, kelas), sipena_peminjaman_item(*, sipena_buku(judul_buku))').order('tanggal_pinjam', { ascending: false });
+        if (filter.startDate) query = query.gte('tanggal_pinjam', filter.startDate);
+        if (filter.endDate) query = query.lte('tanggal_pinjam', filter.endDate);
       }
       const { data: res, error } = await query;
       if (error) throw error;
@@ -2153,6 +2247,10 @@ const SipenaLaporan: React.FC<{ user?: any }> = ({ user }) => {
         title = 'Laporan Kunjungan Siswa';
         headers = ['NO', 'TANGGAL', 'JAM', 'NAMA SISWA', 'KELAS', 'KEPERLUAN'];
         totalCols = 6;
+      } else if (reportType === 'kunjungan_warta') {
+        title = 'Laporan Kunjungan Warta';
+        headers = ['NO', 'TANGGAL AWAL', 'TANGGAL AKHIR', 'JAM', 'GURU', 'MATA PELAJARAN', 'KELAS'];
+        totalCols = 7;
       } else {
         title = 'Laporan Peminjaman Buku';
         headers = ['NO', 'TANGGAL PINJAM', 'NAMA SISWA', 'KELAS', 'JUDUL BUKU', 'JUMLAH', 'STATUS'];
@@ -2191,6 +2289,19 @@ const SipenaLaporan: React.FC<{ user?: any }> = ({ user }) => {
           ]);
           rowCount++;
         });
+      } else if (reportType === 'kunjungan_warta') {
+        data.forEach((v, index) => {
+          worksheet.addRow([
+            index + 1,
+            safeFormatDate(v.tanggal_awal),
+            safeFormatDate(v.tanggal_akhir),
+            v.jam,
+            v.master_guru?.nama_guru,
+            v.master_mapel?.nama_mapel,
+            v.kelas
+          ]);
+          rowCount++;
+        });
       } else {
         data.forEach((l, index) => {
           l.sipena_peminjaman_item.forEach((item: any) => {
@@ -2218,13 +2329,14 @@ const SipenaLaporan: React.FC<{ user?: any }> = ({ user }) => {
         worksheet.getColumn(4).width = 25;
         worksheet.getColumn(5).width = 10;
         worksheet.getColumn(6).width = 10;
-      } else if (reportType === 'kunjungan') {
+      } else if (reportType === 'kunjungan' || reportType === 'kunjungan_warta') {
         worksheet.getColumn(1).width = 5;
         worksheet.getColumn(2).width = 15;
-        worksheet.getColumn(3).width = 10;
+        worksheet.getColumn(3).width = 15;
         worksheet.getColumn(4).width = 30;
-        worksheet.getColumn(5).width = 10;
+        worksheet.getColumn(5).width = 25;
         worksheet.getColumn(6).width = 40;
+        if (reportType === 'kunjungan_warta') worksheet.getColumn(7).width = 15;
       } else {
         worksheet.getColumn(1).width = 5;
         worksheet.getColumn(2).width = 15;
@@ -2347,7 +2459,7 @@ const SipenaLaporan: React.FC<{ user?: any }> = ({ user }) => {
               {/* Judul Laporan */}
               <div className="text-center mb-10">
                 <h3 className="text-2xl font-black text-slate-900 uppercase tracking-widest underline decoration-blue-600 decoration-4 underline-offset-8">
-                  Laporan {reportType === 'buku' ? 'Data Buku' : reportType === 'kunjungan' ? 'Kunjungan Siswa' : 'Peminjaman Buku'}
+                  Laporan {reportType === 'buku' ? 'Data Buku' : reportType === 'kunjungan' ? 'Kunjungan Siswa' : reportType === 'kunjungan_warta' ? 'Kunjungan Warta' : 'Peminjaman Buku'}
                 </h3>
                 <p className="text-xs font-bold text-slate-400 mt-4 uppercase tracking-widest">Per Tanggal: {format(new Date(), 'dd MMMM yyyy')}</p>
               </div>
@@ -2370,6 +2482,14 @@ const SipenaLaporan: React.FC<{ user?: any }> = ({ user }) => {
                           <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Tanggal</th>
                           <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Nama Siswa</th>
                           <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Keperluan</th>
+                        </>
+                      )}
+                      {reportType === 'kunjungan_warta' && (
+                        <>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Tgl Awal</th>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Tgl Akhir</th>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Guru</th>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700 text-center">Jam</th>
                         </>
                       )}
                       {reportType === 'peminjaman' && (
@@ -2398,6 +2518,14 @@ const SipenaLaporan: React.FC<{ user?: any }> = ({ user }) => {
                             <td className="px-4 py-3 text-[10px] font-bold text-slate-800 border border-slate-200">{safeFormatDate(item.tanggal)}</td>
                             <td className="px-4 py-3 text-[10px] text-slate-600 border border-slate-200">{item.master_siswa?.nama} ({item.kelas})</td>
                             <td className="px-4 py-3 text-[10px] text-slate-600 border border-slate-200">{item.keperluan}</td>
+                          </>
+                        )}
+                        {reportType === 'kunjungan_warta' && (
+                          <>
+                            <td className="px-4 py-3 text-[10px] font-bold text-slate-800 border border-slate-200">{safeFormatDate(item.tanggal_awal)}</td>
+                            <td className="px-4 py-3 text-[10px] font-bold text-slate-800 border border-slate-200">{safeFormatDate(item.tanggal_akhir)}</td>
+                            <td className="px-4 py-3 text-[10px] text-slate-600 border border-slate-200">{item.master_guru?.nama_guru} ({item.kelas})</td>
+                            <td className="px-4 py-3 text-[10px] font-black text-slate-800 border border-slate-200 text-center">{item.jam?.substring(0, 5)}</td>
                           </>
                         )}
                         {reportType === 'peminjaman' && (
@@ -2447,7 +2575,23 @@ const SipenaLaporan: React.FC<{ user?: any }> = ({ user }) => {
           <h3 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Laporan Perpustakaan</h3>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Rekapitulasi data koleksi dan aktivitas</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm">
+            <Calendar size={14} className="text-slate-400" />
+            <input 
+              type="date" 
+              className="text-[10px] font-bold text-slate-600 outline-none bg-transparent"
+              value={filter.startDate}
+              onChange={(e) => setFilter({...filter, startDate: e.target.value})}
+            />
+            <span className="text-[10px] font-black text-slate-300">S/D</span>
+            <input 
+              type="date" 
+              className="text-[10px] font-bold text-slate-600 outline-none bg-transparent"
+              value={filter.endDate}
+              onChange={(e) => setFilter({...filter, endDate: e.target.value})}
+            />
+          </div>
           <button 
             onClick={() => setShowPreview(true)}
             className="px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-2xl hover:shadow-[0_15px_30px_-5px_rgba(37,99,235,0.4)] transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-[0_10px_20px_-5px_rgba(37,99,235,0.3)] translate-y-[-2px]"
@@ -2466,7 +2610,7 @@ const SipenaLaporan: React.FC<{ user?: any }> = ({ user }) => {
       </div>
 
       <div className="flex gap-2 p-2 bg-slate-100/50 rounded-2xl w-fit border border-slate-200/50">
-        {(['buku', 'kunjungan', 'peminjaman'] as const).map((t) => (
+        {(['buku', 'kunjungan', 'kunjungan_warta', 'peminjaman'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setReportType(t)}
@@ -2476,7 +2620,7 @@ const SipenaLaporan: React.FC<{ user?: any }> = ({ user }) => {
                 : 'text-slate-400 hover:text-slate-600 hover:bg-white/50'
             }`}
           >
-            {t}
+            {t.replace('_', ' ')}
           </button>
         ))}
       </div>
@@ -2498,6 +2642,14 @@ const SipenaLaporan: React.FC<{ user?: any }> = ({ user }) => {
                     <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</th>
                     <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Siswa</th>
                     <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Keperluan</th>
+                  </>
+                )}
+                {reportType === 'kunjungan_warta' && (
+                  <>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tgl Awal</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tgl Akhir</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Guru</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Jam</th>
                   </>
                 )}
                 {reportType === 'peminjaman' && (
@@ -2524,6 +2676,14 @@ const SipenaLaporan: React.FC<{ user?: any }> = ({ user }) => {
                       <td className="px-8 py-6 text-xs font-bold text-slate-800">{safeFormatDate(item.tanggal)}</td>
                       <td className="px-8 py-6 text-xs text-slate-500">{item.master_siswa?.nama} ({item.kelas})</td>
                       <td className="px-8 py-6 text-xs text-slate-500">{item.keperluan}</td>
+                    </>
+                  )}
+                  {reportType === 'kunjungan_warta' && (
+                    <>
+                      <td className="px-8 py-6 text-xs font-bold text-slate-800">{safeFormatDate(item.tanggal_awal)}</td>
+                      <td className="px-8 py-6 text-xs font-bold text-slate-800">{safeFormatDate(item.tanggal_akhir)}</td>
+                      <td className="px-8 py-6 text-xs text-slate-500">{item.master_guru?.nama_guru} ({item.kelas})</td>
+                      <td className="px-8 py-6 text-xs font-black text-slate-800 text-right">{item.jam?.substring(0, 5)} WIB</td>
                     </>
                   )}
                   {reportType === 'peminjaman' && (
