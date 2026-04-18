@@ -72,14 +72,19 @@ export default function DisiplinLaporan() {
     setLoading(true);
     try {
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet(reportType === 'detail' ? 'Laporan Detail' : 'Laporan Pivot');
+      const sheetName = reportType === 'pivot' ? 'Laporan Pivot' : 'Laporan Detail';
+      const worksheet = workbook.addWorksheet(sheetName);
 
-      if (reportType === 'detail') {
-        const totalCols = 13;
+      if (reportType === 'detail' || reportType === 'kasus') {
+        const totalCols = 15;
         await addExcelHeaderAndLogos(worksheet, workbook, 'LAPORAN DETAIL PELANGGARAN SISWA', totalCols);
 
         // Table Headers
-        const headers = ['NO', 'TANGGAL', 'JAM', 'KELAS', 'NAMA SISWA', 'PELANGGARAN', 'KATEGORI', 'ALASAN', 'PENANGANAN', 'CATATAN', 'TINDAK LANJUT', 'GURU BK', 'STATUS'];
+        const headers = [
+          'NO', 'TANGGAL', 'JAM', 'KELAS', 'NAMA SISWA', 'WALI KELAS', 
+          'PELANGGARAN', 'KATEGORI', 'POIN', 'ALASAN', 
+          'PENANGANAN', 'KONSEKUENSI', 'TINDAK LANJUT', 'GURU BK', 'STATUS'
+        ];
 
         const headerRow = worksheet.getRow(10);
         headerRow.values = headers;
@@ -92,11 +97,13 @@ export default function DisiplinLaporan() {
             d.jam || '-',
             d.siswa?.kelas || '-',
             d.siswa?.nama || '-',
+            d.wali_kelas || '-',
             d.pelanggaran?.nama_pelanggaran || '-',
             d.pelanggaran?.kategori || '-',
+            d.pelanggaran?.poin || 0,
             d.alasan || '-',
             d.penanganan || '-',
-            d.catatan || '-',
+            d.konsekuensi || '-',
             d.tindak_lanjut || '-',
             d.guru_bk || '-',
             d.status
@@ -112,11 +119,13 @@ export default function DisiplinLaporan() {
           { width: 10 }, // JAM
           { width: 10 }, // KELAS
           { width: 25 }, // NAMA SISWA
+          { width: 20 }, // WALI KELAS
           { width: 30 }, // PELANGGARAN
           { width: 15 }, // KATEGORI
+          { width: 8 },  // POIN
           { width: 30 }, // ALASAN
           { width: 25 }, // PENANGANAN
-          { width: 30 }, // CATATAN
+          { width: 25 }, // KONSEKUENSI
           { width: 25 }, // TINDAK LANJUT
           { width: 20 }, // GURU BK
           { width: 15 }  // STATUS
@@ -157,7 +166,12 @@ export default function DisiplinLaporan() {
       // Generate Excel File
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const fileName = reportType === 'detail' ? `Detail_Pelanggaran_${filter.startDate}_${filter.endDate}.xlsx` : `Pivot_Pelanggaran_${filter.startDate}_${filter.endDate}.xlsx`;
+      
+      let fileNamePrefix = 'Detail_Pelanggaran';
+      if (reportType === 'pivot') fileNamePrefix = 'Pivot_Pelanggaran';
+      if (reportType === 'kasus') fileNamePrefix = 'Kartu_Kasus_Pelanggaran';
+      
+      const fileName = `${fileNamePrefix}_${filter.startDate}_${filter.endDate}.xlsx`;
       saveAs(blob, fileName);
     } catch (error) {
       console.error('Export Excel Error:', error);

@@ -442,6 +442,23 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
                 )}
               </div>
 
+              {/* Wali Kelas */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-2">
+                  <User size={14} className="text-indigo-400" /> Wali Kelas
+                </label>
+                <select 
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
+                  value={formData.wali_kelas}
+                  onChange={e => setFormData({...formData, wali_kelas: e.target.value})}
+                >
+                  <option value="">-- Pilih Wali Kelas --</option>
+                  {guru.map(g => (
+                    <option key={g.id} value={g.nama_guru}>{g.nama_guru}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Detail Kasus */}
               <div className="space-y-4">
                 <div>
