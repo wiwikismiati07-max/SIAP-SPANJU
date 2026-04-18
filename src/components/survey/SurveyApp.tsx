@@ -7,12 +7,18 @@ import {
 } from 'recharts';
 import { 
   ClipboardList, LayoutDashboard, Send, User, MessageSquare, CheckCircle2, AlertCircle, ChevronLeft,
-  Star, Users, Activity, MoreVertical, Menu, X
+  Star, Users, Activity, MoreVertical, Menu, X, Download, Trash2, Edit, Save, ListFilter
 } from 'lucide-react';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+import { format } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
+import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 
 interface SurveyAppProps {
   onBack?: () => void;
   onOpenSidebar?: () => void;
+  user?: any;
 }
 
 const STATUS_OPTIONS = ['Siswa', 'Guru', 'Orang Tua Murid', 'Tamu'];
@@ -32,10 +38,14 @@ const QUESTIONS = [
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
-export default function SurveyApp({ onBack, onOpenSidebar }: SurveyAppProps) {
-  const [activeTab, setActiveTab] = useState<'form' | 'dashboard'>('form');
+export default function SurveyApp({ onBack, onOpenSidebar, user }: SurveyAppProps) {
+  const [activeTab, setActiveTab] = useState<'form' | 'dashboard' | 'list'>('form');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
+
+  const isAdmin = user?.role === 'full';
+  const isEditor = user?.role === 'entry';
+  const canManage = isAdmin || isEditor;
   
   // Form State
   const [namaLengkap, setNamaLengkap] = useState('');
@@ -50,8 +60,16 @@ export default function SurveyApp({ onBack, onOpenSidebar }: SurveyAppProps) {
   const [responses, setResponses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Edit State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingResponse, setEditingResponse] = useState<any>(null);
+
+  // Delete State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [responseToDeleteId, setResponseToDeleteId] = useState<string | null>(null);
+
   useEffect(() => {
-    if (activeTab === 'dashboard') {
+    if (activeTab === 'dashboard' || activeTab === 'list') {
       fetchResponses();
     }
   }, [activeTab]);
@@ -70,6 +88,179 @@ export default function SurveyApp({ onBack, onOpenSidebar }: SurveyAppProps) {
       console.error('Error fetching responses:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!responseToDeleteId) return;
+    
+    setIsLoading(true);
+    try {
+      const { error: deleteError } = await supabase
+        .from('survey_responses')
+        .delete()
+        .eq('id', responseToDeleteId);
+      
+      if (deleteError) throw deleteError;
+      
+      setIsDeleteModalOpen(false);
+      setResponseToDeleteId(null);
+      await fetchResponses(); // Refresh table and dashboard
+      alert('Data survey berhasil dihapus.');
+    } catch (err: any) {
+      console.error('Error deleting response:', err);
+      alert('Terjadi kesalahan saat menghapus data.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const confirmDelete = (id: string) => {
+    setResponseToDeleteId(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleEdit = (response: any) => {
+    setEditingResponse({ ...response });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingResponse) return;
+
+    setIsLoading(true);
+    try {
+      const { error: updateError } = await supabase
+        .from('survey_responses')
+        .update({
+          nama_lengkap: editingResponse.nama_lengkap,
+          status: editingResponse.status,
+          kritik_saran: editingResponse.kritik_saran,
+          q1: editingResponse.q1,
+          q2: editingResponse.q2,
+          q3: editingResponse.q3,
+          q4: editingResponse.q4,
+          q5: editingResponse.q5,
+          q6: editingResponse.q6,
+          q7: editingResponse.q7,
+          q8: editingResponse.q8,
+          q9: editingResponse.q9,
+          q10: editingResponse.q10
+        })
+        .eq('id', editingResponse.id);
+
+      if (updateError) throw updateError;
+
+      setIsEditModalOpen(false);
+      fetchResponses();
+      alert('Data survey berhasil diperbarui.');
+    } catch (err: any) {
+      console.error('Error updating response:', err);
+      alert('Terjadi kesalahan saat memperbarui data.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const exportToExcel = async () => {
+    if (responses.length === 0) return;
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Hasil Survey');
+
+      const title = 'Hasil Survey Kepuasan Penggunaan Aplikasi SIAP SPANJU';
+      const headers = ['NO', 'TANGGAL', 'NAMA LENGKAP', 'STATUS', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'Q9', 'Q10', 'KRITIK & SARAN'];
+      const totalCols = headers.length;
+
+      await addExcelHeaderAndLogos(worksheet, workbook, title, totalCols);
+
+      // Table Headers
+      const headerRow = worksheet.getRow(10);
+      headerRow.values = headers;
+
+      // Data Rows
+      responses.forEach((r, index) => {
+        worksheet.addRow([
+          index + 1,
+          new Date(r.created_at).toLocaleDateString('id-ID'),
+          r.nama_lengkap || 'Anonim',
+          r.status || '-',
+          r.q1,
+          r.q2,
+          r.q3,
+          r.q4,
+          r.q5,
+          r.q6,
+          r.q7,
+          r.q8,
+          r.q9,
+          r.q10,
+          r.kritik_saran || '-'
+        ]);
+      });
+
+      applyColorfulTableStyle(worksheet, 10, responses.length, totalCols);
+
+      // Column Widths
+      worksheet.getColumn(1).width = 5;
+      worksheet.getColumn(2).width = 15;
+      worksheet.getColumn(3).width = 25;
+      worksheet.getColumn(4).width = 15;
+      for (let i = 5; i <= 14; i++) {
+        worksheet.getColumn(i).width = 5;
+      }
+      worksheet.getColumn(15).width = 40;
+
+      // Footer / TTD
+      const footerStartRow = 11 + responses.length + 2;
+      
+      // Left Signature (Kepala Sekolah)
+      worksheet.mergeCells(footerStartRow, 2, footerStartRow, 4);
+      worksheet.getCell(footerStartRow, 2).value = 'Mengetahui';
+      worksheet.getCell(footerStartRow, 2).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 1, 2, footerStartRow + 1, 4);
+      worksheet.getCell(footerStartRow + 1, 2).value = 'Kepala Sekolah';
+      worksheet.getCell(footerStartRow + 1, 2).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 6, 2, footerStartRow + 6, 4);
+      const kasekName = worksheet.getCell(footerStartRow + 6, 2);
+      kasekName.value = 'NUR FADILAH, S.Pd';
+      kasekName.font = { bold: true, underline: true };
+      kasekName.alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 7, 2, footerStartRow + 7, 4);
+      worksheet.getCell(footerStartRow + 7, 2).value = 'NIP. 19860410 201001 2 030';
+      worksheet.getCell(footerStartRow + 7, 2).alignment = { horizontal: 'center' };
+
+      // Right Signature (Guru BK)
+      const today = format(new Date(), 'd MMMM yyyy', { locale: idLocale });
+      worksheet.mergeCells(footerStartRow, totalCols - 3, footerStartRow, totalCols - 1);
+      worksheet.getCell(footerStartRow, totalCols - 3).value = `Pasuruan, ${today}`;
+      worksheet.getCell(footerStartRow, totalCols - 3).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 1, totalCols - 3, footerStartRow + 1, totalCols - 1);
+      worksheet.getCell(footerStartRow + 1, totalCols - 3).value = 'Guru BK';
+      worksheet.getCell(footerStartRow + 1, totalCols - 3).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 6, totalCols - 3, footerStartRow + 6, totalCols - 1);
+      const petugasName = worksheet.getCell(footerStartRow + 6, totalCols - 3);
+      petugasName.value = 'WIWIK ISMIATI, S.Pd';
+      petugasName.font = { bold: true, underline: true };
+      petugasName.alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 7, totalCols - 3, footerStartRow + 7, totalCols - 1);
+      worksheet.getCell(footerStartRow + 7, totalCols - 3).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(footerStartRow + 7, totalCols - 3).alignment = { horizontal: 'center' };
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const dataBlob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(dataBlob, `Hasil_Survey_SIAP_SPANJU_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+    } catch (err) {
+      console.error('Excel Export Error:', err);
+      alert('Gagal mengekspor Excel');
     }
   };
 
@@ -241,6 +432,19 @@ export default function SurveyApp({ onBack, onOpenSidebar }: SurveyAppProps) {
                 <LayoutDashboard size={14} />
                 Dashboard
               </button>
+              {canManage && (
+                <button
+                  onClick={() => setActiveTab('list')}
+                  className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                    activeTab === 'list' 
+                      ? 'bg-white text-slate-800 shadow-sm' 
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <ListFilter size={14} />
+                  Hasil Detail
+                </button>
+              )}
             </div>
 
             {/* Mobile Menu Toggle */}
@@ -311,6 +515,17 @@ export default function SurveyApp({ onBack, onOpenSidebar }: SurveyAppProps) {
                 <LayoutDashboard size={20} />
                 <span>Dashboard</span>
               </button>
+              {canManage && (
+                <button
+                  onClick={() => { setActiveTab('list'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
+                    activeTab === 'list' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  <ListFilter size={20} />
+                  <span>Hasil Detail</span>
+                </button>
+              )}
             </nav>
           </div>
         </div>
@@ -321,7 +536,7 @@ export default function SurveyApp({ onBack, onOpenSidebar }: SurveyAppProps) {
         <div className="max-w-5xl mx-auto">
           
           <AnimatePresence mode="wait">
-            {activeTab === 'form' ? (
+            {activeTab === 'form' && (
               <motion.div
                 key="form"
                 initial={{ opacity: 0, y: 20 }}
@@ -467,7 +682,9 @@ export default function SurveyApp({ onBack, onOpenSidebar }: SurveyAppProps) {
                   </form>
                 </div>
               </motion.div>
-            ) : (
+            )}
+
+            {activeTab === 'dashboard' && (
               <motion.div
                 key="dashboard"
                 initial={{ opacity: 0, y: 20 }}
@@ -613,9 +830,245 @@ export default function SurveyApp({ onBack, onOpenSidebar }: SurveyAppProps) {
                 )}
               </motion.div>
             )}
+
+            {activeTab === 'list' && (
+              <motion.div
+                key="list"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Daftar Hasil Survey</h3>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Manajemen data responden dan penilaian</p>
+                  </div>
+                  <button 
+                    onClick={exportToExcel}
+                    className="px-6 py-3 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+                  >
+                    <Download size={18} />
+                    Unduh Excel
+                  </button>
+                </div>
+
+                <div className="bg-white rounded-[2rem] shadow-xl border border-slate-100 overflow-hidden">
+                  <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left border-collapse min-w-[800px]">
+                      <thead>
+                        <tr className="bg-slate-50/50 border-b border-slate-100">
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Responden</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Rata-rata</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Kritik & Saran</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {responses.map((resp) => {
+                          const avg = ((resp.q1 + resp.q2 + resp.q3 + resp.q4 + resp.q5 + resp.q6 + resp.q7 + resp.q8 + resp.q9 + resp.q10) / 10).toFixed(1);
+                          return (
+                            <tr key={resp.id} className="hover:bg-slate-50/50 transition-colors group">
+                              <td className="px-6 py-4">
+                                <p className="font-bold text-slate-800 text-sm">{resp.nama_lengkap || 'Anonim'}</p>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{resp.status || '-'}</p>
+                              </td>
+                              <td className="px-6 py-4">
+                                <p className="text-xs font-medium text-slate-500 font-mono">
+                                  {new Date(resp.created_at).toLocaleDateString('id-ID')}
+                                </p>
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-black">
+                                  {avg}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <p className="text-xs text-slate-600 line-clamp-1 max-w-xs">{resp.kritik_saran || '-'}</p>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button 
+                                    onClick={() => handleEdit(resp)}
+                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                    title="Edit Data"
+                                  >
+                                    <Edit size={16} />
+                                  </button>
+                                  <button 
+                                    onClick={() => confirmDelete(resp.id)}
+                                    className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                                    title="Hapus Data"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {responses.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium italic">
+                              Belum ada data survey yang tersedia.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {isEditModalOpen && editingResponse && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" 
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl relative z-10 overflow-hidden border border-white/20"
+            >
+              <div className="p-8 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100">
+                    <Edit size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Edit Data Survey</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Perbarui informasi responden</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsEditModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdate} className="p-8 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Lengkap</label>
+                    <input
+                      type="text"
+                      value={editingResponse.nama_lengkap || ''}
+                      onChange={(e) => setEditingResponse({...editingResponse, nama_lengkap: e.target.value})}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none transition-all font-bold text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</label>
+                    <select
+                      value={editingResponse.status || ''}
+                      onChange={(e) => setEditingResponse({...editingResponse, status: e.target.value})}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none transition-all font-bold text-sm bg-white"
+                    >
+                      <option value="">Pilih Status</option>
+                      {STATUS_OPTIONS.map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Skor Jawaban (1-5)</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                      <div key={n} className="flex flex-col gap-1">
+                        <span className="text-[8px] font-black text-slate-400 uppercase text-center">Q{n}</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="5"
+                          value={editingResponse[`q${n}`]}
+                          onChange={(e) => setEditingResponse({...editingResponse, [`q${n}`]: parseInt(e.target.value)})}
+                          className="w-full px-2 py-2 rounded-lg border border-slate-200 text-center font-bold text-xs"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kritik & Saran</label>
+                  <textarea
+                    rows={4}
+                    value={editingResponse.kritik_saran || ''}
+                    onChange={(e) => setEditingResponse({...editingResponse, kritik_saran: e.target.value})}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 outline-none transition-all font-bold text-sm resize-none"
+                  />
+                </div>
+              </form>
+
+              <div className="p-8 border-t border-slate-100 bg-slate-50 flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="flex-1 py-4 border border-slate-200 text-slate-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-100 transition-all"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleUpdate}
+                  className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
+                >
+                  <Save size={18} />
+                  Simpan Perubahan
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {isDeleteModalOpen && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsDeleteModalOpen(false)} />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 text-center"
+            >
+              <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle size={40} />
+              </div>
+              <h4 className="text-xl font-black text-slate-800 uppercase mb-2 tracking-tight">Konfirmasi Hapus</h4>
+              <p className="text-slate-500 font-medium mb-8 italic">Apakah Anda benar-benar ingin menghapus data survey ini? Tindakan ini tidak dapat dibatalkan.</p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all font-sans"
+                >
+                  Batal
+                </button>
+                <button 
+                  onClick={handleDelete}
+                  disabled={isLoading}
+                  className="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-rose-200 hover:bg-rose-600 transition-all disabled:opacity-50 flex items-center justify-center font-sans"
+                >
+                  {isLoading ? 'Menghapus...' : 'Ya, Hapus'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
