@@ -68,7 +68,7 @@ export default function BKLaporan() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet(reportType === 'kasus' ? 'Laporan Kasus' : 'Laporan Tindak Lanjut');
 
-    const totalCols = reportType === 'kasus' ? 9 : 9;
+    const totalCols = reportType === 'kasus' ? 11 : 9;
     const title = reportType === 'kasus' ? 'LAPORAN KASUS SISWA' : 'LAPORAN TINDAK LANJUT KASUS';
     
     await addExcelHeaderAndLogos(worksheet, workbook, title, totalCols);
@@ -76,7 +76,7 @@ export default function BKLaporan() {
     // Table Headers
     let headers: string[] = [];
     if (reportType === 'kasus') {
-      headers = ['NO', 'TANGGAL', 'KELAS', 'NAMA SISWA', 'KATEGORI KASUS', 'KRONOLOGI', 'GURU BK', 'WALI KELAS', 'STATUS'];
+      headers = ['NO', 'TANGGAL', 'KELAS', 'NAMA SISWA', 'KATEGORI KASUS', 'KRONOLOGI', 'PENANGANAN', 'KONSEKUENSI', 'GURU BK', 'WALI KELAS', 'STATUS'];
     } else {
       headers = ['NO', 'TANGGAL KASUS', 'NAMA SISWA', 'KELAS', 'KATEGORI KASUS', 'TANGGAL TL', 'TINDAK LANJUT', 'KETERANGAN', 'GURU BK'];
     }
@@ -95,6 +95,8 @@ export default function BKLaporan() {
           d.siswa?.nama || '-',
           d.kasus?.nama_kasus || d.kasus_kategori || '-',
           d.kronologi || '-',
+          d.penanganan || '-',
+          d.konsekuensi || '-',
           d.guru_bk || '-',
           d.wali_kelas || '-',
           d.status
@@ -132,9 +134,11 @@ export default function BKLaporan() {
     worksheet.getColumn(4).width = 25;
     worksheet.getColumn(5).width = 20;
     worksheet.getColumn(6).width = 30;
-    worksheet.getColumn(7).width = 20;
-    worksheet.getColumn(8).width = 20;
-    worksheet.getColumn(9).width = 15;
+    worksheet.getColumn(7).width = 25;
+    worksheet.getColumn(8).width = 25;
+    worksheet.getColumn(9).width = 20;
+    worksheet.getColumn(10).width = 20;
+    worksheet.getColumn(11).width = 15;
 
     // Footer
     const footerRow = 11 + dataRowCount + 2;
@@ -307,7 +311,17 @@ export default function BKLaporan() {
                         <p className="text-sm text-slate-600 italic leading-relaxed">
                           {d.kronologi || 'Tidak ada kronologi yang dicatat.'}
                         </p>
-                        <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                          <div className="bg-pink-50/50 p-2 rounded-lg border border-pink-100">
+                            <p className="text-[10px] font-bold text-pink-600 uppercase">Penanganan</p>
+                            <p className="text-sm text-slate-700">{d.penanganan || '-'}</p>
+                          </div>
+                          <div className="bg-amber-50/50 p-2 rounded-lg border border-amber-100">
+                            <p className="text-[10px] font-bold text-amber-600 uppercase">Konsekuensi</p>
+                            <p className="text-sm text-slate-700">{d.konsekuensi || '-'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase mt-2">
                           <span>BK: {d.guru_bk}</span>
                           <span>Wali: {d.wali_kelas}</span>
                           <span className={d.status === 'Selesai' ? 'text-emerald-600' : 'text-amber-600'}>Status: {d.status}</span>
@@ -369,10 +383,14 @@ export default function BKLaporan() {
                         <p className="font-bold text-slate-800 text-sm">{d.siswa?.nama}</p>
                         <p className="text-xs text-slate-500">Kelas {d.kelas || d.siswa?.kelas} • {d.tanggal}</p>
                       </td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-medium text-slate-700">{d.kasus?.nama_kasus || d.kasus_kategori}</p>
-                      <p className="text-[10px] text-slate-400 uppercase font-bold">BK: {d.guru_bk}</p>
-                    </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-medium text-slate-700">{d.kasus?.nama_kasus || d.kasus_kategori}</p>
+                        <div className="mt-1 space-y-0.5">
+                          <p className="text-[10px] text-slate-500"><span className="font-bold">Penanganan:</span> {d.penanganan || '-'}</p>
+                          <p className="text-[10px] text-slate-500"><span className="font-bold">Konsekuensi:</span> {d.konsekuensi || '-'}</p>
+                          <p className="text-[10px] text-slate-400 uppercase font-bold">BK: {d.guru_bk}</p>
+                        </div>
+                      </td>
                       {reportType === 'tindak_lanjut' && (
                         <td className="px-6 py-4">
                           <div className="space-y-1">

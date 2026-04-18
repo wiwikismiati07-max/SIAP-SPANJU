@@ -18,6 +18,9 @@ export interface TransaksiKasus {
   kasus_kategori?: 'Kedisiplinan' | 'Etika' | 'Akademi' | 'Bullying' | 'Perkelahian' | 'merokok' | 'Narkoba' | 'Lain-Lain';
   kronologi?: string;
   bukti_fisik?: string[];
+  penanganan?: string;
+  konsekuensi?: string;
+  catatan?: string;
   wali_kelas?: string;
   guru_bk?: 'Wiwik Ismiati S.pd' | 'Eki Febriani S.pd' | string;
   status?: 'Proses' | 'Selesai';

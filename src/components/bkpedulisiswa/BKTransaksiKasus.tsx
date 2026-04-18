@@ -13,6 +13,10 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
   const [kasus, setKasus] = useState<MasterKasus[]>([]);
   const [guru, setGuru] = useState<any[]>([]);
   const [transaksi, setTransaksi] = useState<TransaksiKasus[]>([]);
+  const [historyFilter, setHistoryFilter] = useState({
+    startDate: '',
+    endDate: ''
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -35,6 +39,9 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
     kasus_kategori_lain: '',
     kronologi: '',
     bukti_fisik: [] as string[],
+    penanganan: 'Observasi langsung Oleh guru BK',
+    konsekuensi: 'Surat pernyataan Siswa',
+    catatan: '',
     wali_kelas: '',
     guru_bk: 'Wiwik Ismiati S.pd',
     status: 'Proses'
@@ -50,6 +57,16 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
   ];
 
   const KASUS_OPTIONS = ['Kedisiplinan', 'Etika', 'Akademi', 'Bullying', 'Perkelahian', 'merokok', 'Narkoba', 'Lain-Lain'];
+  const PENANGANAN_OPTIONS = [
+    'Observasi langsung Oleh guru BK',
+    'Pendampingan Berkelanjutan oleh guru BK',
+    'Pendekatan Prefentif (Pencegahan)',
+    'Pendekatan Kuratif (Penanganan langsung)',
+    'Pendekatan Kolaboratif',
+    'Pemberian sangsi edukatif',
+    'Pemantauan dan Efaluasi'
+  ];
+  const KONSEKUENSI_OPTIONS = ['Surat pernyataan orang tua', 'Surat pernyataan Siswa', 'Sangsi ditempat', 'Skorsing'];
   const TINDAK_LANJUT_OPTIONS = [
     'Konseling Individu', 'Konseling Kelompok', 'Panggilan Orang Tua', 
     'Mediasi', 'Home visit', 'Skorsing', 'Lain-lain'
@@ -59,6 +76,10 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
   useEffect(() => {
     fetchInitialData();
   }, []);
+
+  useEffect(() => {
+    fetchTransaksi();
+  }, [historyFilter]);
 
   const fetchInitialData = async () => {
     try {
@@ -78,9 +99,10 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
   };
 
   const fetchTransaksi = async () => {
+    setLoading(true);
     try {
       if (supabase) {
-        const { data, error } = await supabase
+        let query = supabase
           .from('bk_transaksi_kasus')
           .select(`
             *,
@@ -88,13 +110,24 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
             kasus:bk_master_kasus(*),
             tindak_lanjuts:bk_tindak_lanjut(*)
           `)
-          .order('created_at', { ascending: false })
-          .limit(10);
+          .order('tanggal', { ascending: false })
+          .order('created_at', { ascending: false });
+
+        if (historyFilter.startDate) query = query.gte('tanggal', historyFilter.startDate);
+        if (historyFilter.endDate) query = query.lte('tanggal', historyFilter.endDate);
+
+        if (!historyFilter.startDate && !historyFilter.endDate) {
+          query = query.limit(20);
+        }
+        
+        const { data, error } = await query;
         if (error) throw error;
         setTransaksi(data || []);
       }
     } catch (error) {
       console.error('Error fetching transaksi:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -372,6 +405,9 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
       kasus_kategori_lain: isOtherKasus ? t.kasus_kategori : '',
       kronologi: t.kronologi || '',
       bukti_fisik: t.bukti_fisik || [],
+      penanganan: t.penanganan || 'Observasi langsung Oleh guru BK',
+      konsekuensi: t.konsekuensi || 'Surat pernyataan Siswa',
+      catatan: t.catatan || '',
       wali_kelas: t.wali_kelas || '',
       guru_bk: t.guru_bk || 'Wiwik Ismiati S.pd',
       status: t.status || 'Proses'
@@ -648,9 +684,46 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
             </div>
           )}
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Penanganan</label>
+              <select 
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none transition-all"
+                value={formData.penanganan}
+                onChange={e => setFormData({...formData, penanganan: e.target.value})}
+              >
+                {PENANGANAN_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Konsikuensi</label>
+              <select 
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none transition-all"
+                value={formData.konsekuensi}
+                onChange={e => setFormData({...formData, konsekuensi: e.target.value})}
+              >
+                {KONSEKUENSI_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Catatan Penanganan (Maks. 500 Karakter)</label>
+            <textarea 
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none resize-none"
+              placeholder="Catatan tambahan mengenai penanganan kasus..."
+              value={formData.catatan}
+              onChange={e => setFormData({...formData, catatan: e.target.value.substring(0, 500)})}
+            />
+            <p className="text-[10px] text-right text-slate-400 mt-1">
+              {formData.catatan?.length || 0} / 500 karakter
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Guru BK</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Guru BK / Penindak</label>
               <select 
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
                 value={formData.guru_bk}
@@ -717,12 +790,36 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
       </form>
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden mt-8">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h3 className="font-bold text-slate-800 flex items-center gap-2">
             <ClipboardList className="text-pink-600" size={20} />
-            Riwayat Kasus Terakhir
+            Riwayat Kasus Siswa
           </h3>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 mr-2">
+              <input 
+                type="date" 
+                className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-pink-500 outline-none"
+                value={historyFilter.startDate}
+                onChange={e => setHistoryFilter({...historyFilter, startDate: e.target.value})}
+              />
+              <span className="text-[10px] text-slate-400 font-bold">s/d</span>
+              <input 
+                type="date" 
+                className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-pink-500 outline-none"
+                value={historyFilter.endDate}
+                onChange={e => setHistoryFilter({...historyFilter, endDate: e.target.value})}
+              />
+              {(historyFilter.startDate || historyFilter.endDate) && (
+                <button 
+                  type="button"
+                  onClick={() => setHistoryFilter({ startDate: '', endDate: '' })}
+                  className="p-1.5 text-slate-400 hover:text-pink-600"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
             {(isAdmin || canEdit) && (
               <button
                 onClick={handleDownloadTemplate}
