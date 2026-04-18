@@ -270,13 +270,13 @@ export default function App() {
             whileTap={{ scale: 0.95 }}
             onClick={() => {
               setIsDashboard(true);
-              setActiveSection('kilas');
+              setActiveSection('menu_aplikasi');
             }}
             className="group relative px-8 py-4 md:px-12 md:py-5 bg-gradient-to-r from-pink-500 to-blue-500 text-white rounded-full font-bold text-lg md:text-xl shadow-[0_10px_40px_-10px_rgba(236,72,153,0.5)] border border-white/50 overflow-hidden"
           >
             <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out" />
             <span className="relative flex items-center gap-3">
-              Masuk Dashboard <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+              Menu Dashboard <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
             </span>
           </motion.button>
         </motion.div>

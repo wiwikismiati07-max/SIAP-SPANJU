@@ -186,12 +186,16 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
       // Optimistically update UI
       const updatedList = pengaduanList.filter(item => item.id !== itemToDelete);
       
-      const { error } = await supabase
+      const { error, count } = await supabase
         .from('pengaduan_wali')
-        .delete()
+        .delete({ count: 'exact' })
         .eq('id', itemToDelete);
       
       if (error) throw error;
+      
+      if (count === 0) {
+        throw new Error('Data tidak terhapus di server. Pastikan Anda memiliki izin atau data masih ada.');
+      }
       
       setPengaduanList(updatedList);
       setMessage({ type: 'success', text: 'Pengaduan berhasil dihapus.' });
@@ -215,12 +219,16 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     try {
       setLoading(true);
-      const { error } = await supabase
+      const { error, count } = await supabase
         .from('pengaduan_wali')
-        .update({ status: newStatus })
+        .update({ status: newStatus }, { count: 'exact' })
         .eq('id', id);
       
       if (error) throw error;
+      
+      if (count === 0) {
+        throw new Error('Gagal mengupdate status di server. Pastikan Anda memiliki izin.');
+      }
       
       setMessage({ type: 'success', text: `Status pengaduan berhasil diubah menjadi ${newStatus}.` });
       setIsStatusModalOpen(false);

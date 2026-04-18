@@ -32,8 +32,10 @@ CREATE POLICY "Allow public insert for complaints" ON pengaduan_wali
 CREATE POLICY "Allow public to view complaints" ON pengaduan_wali
   FOR SELECT USING (true);
 
-CREATE POLICY "Allow admin to update complaints" ON pengaduan_wali
-  FOR UPDATE USING (auth.role() = 'authenticated');
+-- Allow anyone to update complaints (for preview/testing)
+CREATE POLICY "Allow public update for complaints" ON pengaduan_wali
+  FOR UPDATE USING (true);
 
-CREATE POLICY "Allow admin to delete complaints" ON pengaduan_wali
-  FOR DELETE USING (auth.role() = 'authenticated');
+-- Allow anyone to delete complaints (for preview/testing)
+CREATE POLICY "Allow public delete for complaints" ON pengaduan_wali
+  FOR DELETE USING (true);
