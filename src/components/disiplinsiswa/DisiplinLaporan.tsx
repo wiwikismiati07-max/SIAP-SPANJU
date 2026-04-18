@@ -1,15 +1,16 @@
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { FileText, Download, Search, Filter, Calendar, CheckCircle2, Clock, LayoutGrid, List } from 'lucide-react';
+import { FileText, Download, Search, Filter, Calendar, CheckCircle2, Clock, LayoutGrid, List, ChevronRight, User, ShieldAlert, BookOpen, UserCheck, AlertCircle, Users, Activity } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
 
 export default function DisiplinLaporan() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any[]>([]);
-  const [reportType, setReportType] = useState<'detail' | 'pivot'>('detail');
+  const [reportType, setReportType] = useState<'detail' | 'pivot' | 'kasus'>('pivot');
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState({
     startDate: format(new Date(), 'yyyy-MM-01'),
@@ -172,19 +173,46 @@ export default function DisiplinLaporan() {
       const key = d.siswa_id;
       if (!grouped[key]) {
         grouped[key] = {
+          id: d.siswa_id,
           nama: d.siswa?.nama || 'Unknown',
           kelas: d.siswa?.kelas || '-',
           count: 0,
           totalPoin: 0,
-          lastStatus: d.status
+          lastStatus: d.status,
+          cases: []
         };
       }
       grouped[key].count += 1;
       grouped[key].totalPoin += (d.pelanggaran?.poin || 0);
-      // Update status if it's more recent (though data is ordered by date desc already)
-      // grouped[key].lastStatus = d.status; 
+      grouped[key].cases.push(d);
     });
     return Object.values(grouped).sort((a, b) => b.count - a.count);
+  };
+
+  const getGroupedByStudent = () => {
+    const grouped: Record<string, any> = {};
+    filteredData.forEach(d => {
+      const studentName = d.siswa?.nama || 'Unknown';
+      if (!grouped[studentName]) {
+        grouped[studentName] = {
+          studentName,
+          kelas: d.siswa?.kelas || '-',
+          lastDate: d.tanggal,
+          categories: {}
+        };
+      }
+      
+      const category = d.pelanggaran?.kategori || 'Lainnya';
+      if (!grouped[studentName].categories[category]) {
+        grouped[studentName].categories[category] = [];
+      }
+      grouped[studentName].categories[category].push(d);
+      
+      if (new Date(d.tanggal) > new Date(grouped[studentName].lastDate)) {
+        grouped[studentName].lastDate = d.tanggal;
+      }
+    });
+    return Object.values(grouped);
   };
 
   return (
@@ -195,33 +223,42 @@ export default function DisiplinLaporan() {
           <p className="text-sm text-slate-500">Unduh dan filter data pelanggaran siswa</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
+            <button 
+              onClick={() => setReportType('pivot')}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widset transition-all ${
+                reportType === 'pivot' ? 'bg-white text-blue-600 shadow-lg' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <LayoutGrid size={16} />
+              Pivot
+            </button>
             <button 
               onClick={() => setReportType('detail')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                reportType === 'detail' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                reportType === 'detail' ? 'bg-white text-blue-600 shadow-lg' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               <List size={16} />
               Detail
             </button>
             <button 
-              onClick={() => setReportType('pivot')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                reportType === 'pivot' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              onClick={() => setReportType('kasus')}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                reportType === 'kasus' ? 'bg-white text-blue-600 shadow-lg' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              <LayoutGrid size={16} />
-              Pivot
+              <FileText size={16} />
+              Kartu Kasus
             </button>
           </div>
           <button 
             onClick={handleDownloadExcel}
             disabled={loading}
-            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-br from-emerald-500 to-emerald-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-200/50 hover:shadow-emerald-300/50 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed translate-y-[-2px]"
           >
             <Download size={18} />
-            <span>{loading ? 'Memproses...' : 'Download Excel'}</span>
+            <span>{loading ? 'Memproses...' : 'Export Excel'}</span>
           </button>
         </div>
       </div>
@@ -296,116 +333,124 @@ export default function DisiplinLaporan() {
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            {reportType === 'detail' ? (
+            {reportType === 'detail' && (
               <>
                 <thead>
-                  <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold tracking-widest">
-                    <th className="px-6 py-4">Tanggal</th>
-                    <th className="px-6 py-4">Siswa</th>
-                    <th className="px-6 py-4">Pelanggaran</th>
-                    <th className="px-6 py-4">Detail Penanganan</th>
-                    <th className="px-6 py-4">Status</th>
+                  <tr className="bg-slate-50/50 border-b border-slate-100 text-slate-400 text-[10px] uppercase font-black tracking-[0.2em]">
+                    <th className="px-8 py-5">Tanggal & Jam</th>
+                    <th className="px-8 py-5">Siswa</th>
+                    <th className="px-8 py-5">Pelanggaran</th>
+                    <th className="px-8 py-5">Detail Penanganan</th>
+                    <th className="px-8 py-5">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-50">
                   {loading ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Memuat data laporan...</td>
+                      <td colSpan={5} className="px-8 py-20 text-center text-slate-400 font-bold uppercase tracking-widest italic">Memuat data laporan...</td>
                     </tr>
                   ) : filteredData.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Tidak ada data untuk filter yang dipilih.</td>
+                      <td colSpan={5} className="px-8 py-20 text-center text-slate-400 font-bold uppercase tracking-widest italic">Tidak ada data untuk filter yang dipilih.</td>
                     </tr>
                   ) : (
                     filteredData.map((d) => (
-                      <tr key={d.id} className="hover:bg-slate-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <Calendar size={14} className="text-slate-400" />
-                            {d.tanggal}
-                          </div>
-                          <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-1">
-                            <Clock size={10} />
-                            {d.jam || '-'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="font-bold text-slate-800">{d.siswa?.nama}</p>
-                          <p className="text-xs text-slate-500">Kelas {d.siswa?.kelas}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="font-medium text-slate-800">{d.pelanggaran?.nama_pelanggaran}</p>
-                          <div className="flex gap-1 mt-1">
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-bold border border-blue-100">{d.pelanggaran?.kategori}</span>
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-bold border border-amber-100">{d.pelanggaran?.poin} Poin</span>
+                      <tr key={d.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-8 py-6 whitespace-nowrap">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                              <Calendar size={14} />
+                            </div>
+                            <div>
+                              <p className="font-black text-slate-800 text-xs">{d.tanggal}</p>
+                              <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{d.jam || '-'}</p>
+                            </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="space-y-1">
-                            <p className="text-xs text-slate-600"><span className="font-bold text-slate-400 uppercase text-[9px]">Alasan:</span> {d.alasan}</p>
-                            <p className="text-xs text-slate-600"><span className="font-bold text-slate-400 uppercase text-[9px]">Penanganan:</span> {d.penanganan}</p>
-                            <p className="text-xs text-slate-600"><span className="font-bold text-slate-400 uppercase text-[9px]">Tindak Lanjut:</span> {d.tindak_lanjut}</p>
-                            {d.catatan && <p className="text-xs text-indigo-600 italic"><span className="font-bold text-slate-400 uppercase text-[9px] not-italic">Catatan:</span> {d.catatan}</p>}
+                        <td className="px-8 py-6">
+                          <p className="font-black text-slate-800 text-xs uppercase tracking-tight">{d.siswa?.nama}</p>
+                          <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mt-0.5">Kelas {d.siswa?.kelas}</p>
+                        </td>
+                        <td className="px-8 py-6">
+                          <p className="font-bold text-slate-700 text-xs">{d.pelanggaran?.nama_pelanggaran}</p>
+                          <div className="flex gap-2 mt-2">
+                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-black uppercase tracking-widest border border-slate-200">{d.pelanggaran?.kategori}</span>
+                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 font-black uppercase tracking-widest border border-amber-100">{d.pelanggaran?.poin} Poin</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className={`flex items-center gap-1.5 w-fit px-2.5 py-1 rounded-full text-xs font-bold ${
-                            d.status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                        <td className="px-8 py-6 max-w-sm">
+                          <div className="space-y-2">
+                            <p className="text-[11px] leading-relaxed text-slate-600"><span className="font-black text-slate-400 uppercase text-[9px] tracking-widest mr-1">Alasan:</span> {d.alasan}</p>
+                            <p className="text-[11px] leading-relaxed text-slate-600"><span className="font-black text-slate-400 uppercase text-[9px] tracking-widest mr-1">Tindak Lanjut:</span> {d.tindak_lanjut}</p>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                            d.status === 'Selesai' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-amber-50 text-amber-600 border border-amber-100'
                           }`}>
-                            {d.status === 'Selesai' ? <CheckCircle2 size={14} /> : <Clock size={14} />}
+                            <div className={`w-1.5 h-1.5 rounded-full ${d.status === 'Selesai' ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
                             {d.status}
                           </span>
-                          <p className="text-[9px] text-slate-400 mt-1 font-medium">BK: {d.guru_bk}</p>
+                          <p className="text-[9px] font-bold text-slate-400 mt-2 uppercase tracking-widest italic">BK: {d.guru_bk}</p>
                         </td>
                       </tr>
                     ))
                   )}
                 </tbody>
               </>
-            ) : (
+            )}
+            {reportType === 'pivot' && (
               <>
                 <thead>
-                  <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold tracking-widest">
-                    <th className="px-6 py-4">No</th>
-                    <th className="px-6 py-4">Nama Siswa</th>
-                    <th className="px-6 py-4">Kelas</th>
-                    <th className="px-6 py-4 text-center">Total Pelanggaran</th>
-                    <th className="px-6 py-4 text-center">Total Poin</th>
-                    <th className="px-6 py-4">Status Terakhir</th>
+                  <tr className="bg-slate-50/50 text-slate-400 text-[10px] uppercase font-black tracking-[0.2em] border-b border-slate-100">
+                    <th className="px-8 py-6">Nama Siswa</th>
+                    <th className="px-8 py-6">Kelas</th>
+                    <th className="px-8 py-6 text-center">Total Pelanggaran</th>
+                    <th className="px-8 py-6 text-center">Total Poin</th>
+                    <th className="px-8 py-6">Status Terakhir</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-50">
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">Memuat data pivot...</td>
+                      <td colSpan={5} className="px-8 py-20 text-center text-slate-400 font-bold uppercase tracking-widest italic">Memuat data pivot...</td>
                     </tr>
                   ) : getPivotData().length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">Tidak ada data untuk filter yang dipilih.</td>
+                      <td colSpan={5} className="px-8 py-20 text-center text-slate-400 font-bold uppercase tracking-widest italic">Tidak ada data untuk filter yang dipilih.</td>
                     </tr>
                   ) : (
                     getPivotData().map((d: any, index: number) => (
-                      <tr key={index} className="hover:bg-slate-50">
-                        <td className="px-6 py-4">{index + 1}</td>
-                        <td className="px-6 py-4 font-bold text-slate-800">{d.nama}</td>
-                        <td className="px-6 py-4 text-slate-600">{d.kelas}</td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full font-black text-sm border border-blue-100">
-                            {d.count}
-                          </span>
+                      <tr key={index} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="px-8 py-6">
+                          <p className="font-black text-slate-800 uppercase tracking-tight text-sm group-hover:text-blue-600 transition-colors">{d.nama}</p>
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`px-3 py-1 rounded-full font-black text-sm border ${
-                            d.totalPoin >= 50 ? 'bg-rose-50 text-rose-700 border-rose-100' :
-                            d.totalPoin >= 25 ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                            'bg-slate-50 text-slate-700 border-slate-100'
-                          }`}>
-                            {d.totalPoin}
-                          </span>
+                        <td className="px-8 py-6">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{d.kelas}</span>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                            d.lastStatus === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                        <td className="px-8 py-6">
+                          <div className="flex justify-center">
+                            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center font-black text-sm shadow-sm border border-blue-100 group-hover:scale-110 transition-transform">
+                              {d.count}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="flex justify-center">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm shadow-sm border group-hover:scale-110 transition-transform ${
+                              d.totalPoin >= 50 ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                              d.totalPoin >= 25 ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                              'bg-slate-50 text-slate-600 border-slate-100'
+                            }`}>
+                              {d.totalPoin}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
+                            d.lastStatus === 'Selesai' 
+                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                              : 'bg-amber-50 text-amber-700 border border-amber-100'
                           }`}>
                             {d.lastStatus}
                           </span>
@@ -417,6 +462,106 @@ export default function DisiplinLaporan() {
               </>
             )}
           </table>
+
+          {reportType === 'kasus' && (
+            <div className="p-8 space-y-12 bg-slate-50/50">
+              {loading ? (
+                <div className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest italic">Memuat kartu laporan...</div>
+              ) : getGroupedByStudent().length === 0 ? (
+                <div className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest italic">Tidak ada data untuk filter yang dipilih.</div>
+              ) : (
+                <div className="max-w-4xl mx-auto space-y-12">
+                  <header className="bg-[#8DA778] p-8 rounded-t-[2rem] shadow-lg">
+                    <h3 className="text-2xl font-black text-white uppercase tracking-widest flex items-center gap-4">
+                      <FileText size={32} />
+                      Laporan Kasus Siswa
+                    </h3>
+                  </header>
+
+                  <div className="space-y-8 pb-12">
+                    {getGroupedByStudent().map((student: any, sIdx: number) => (
+                      <div key={sIdx} className="space-y-4">
+                        {/* Student Name Bar */}
+                        <div className="bg-[#D8E4D1] p-5 rounded-2xl flex items-center justify-between shadow-sm border border-[#C6D6BD]">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-white/50 rounded-xl flex items-center justify-center text-[#5D6F4D]">
+                              <User size={20} />
+                            </div>
+                            <h4 className="text-lg font-black text-[#4A5D3A] uppercase tracking-tight">{student.studentName}</h4>
+                          </div>
+                          <div className="bg-white/50 px-4 py-2 rounded-xl text-[10px] font-black text-[#5D6F4D] uppercase tracking-widest shadow-inner">
+                            {student.lastDate}
+                          </div>
+                        </div>
+
+                        {/* Categories Group */}
+                        <div className="ml-12 space-y-6">
+                          {Object.entries(student.categories).map(([category, items]: [string, any], cIdx: number) => (
+                            <div key={cIdx} className="space-y-4">
+                              <div className="bg-[#EAF0E7] p-4 rounded-l-2xl border-l-4 border-[#8DA778] flex items-center gap-3">
+                                <div className="p-1.5 bg-white/50 rounded-lg text-[#8DA778]">
+                                  <ShieldAlert size={16} />
+                                </div>
+                                <span className="font-black text-[#5D6F4D] text-xs uppercase tracking-widest">Kelas {student.kelas} • {category}</span>
+                              </div>
+
+                              {/* Case Items */}
+                              <div className="ml-8 space-y-4">
+                                {items.map((item: any, iIdx: number) => (
+                                  <div key={iIdx} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4 group hover:shadow-md transition-shadow">
+                                    <div className="flex gap-4">
+                                      <div className="mt-1 w-6 h-6 bg-slate-50 text-slate-400 rounded-lg flex items-center justify-center shrink-0">
+                                        <AlertCircle size={14} />
+                                      </div>
+                                      <div className="space-y-3">
+                                        <p className="text-sm font-medium italic text-slate-600 leading-relaxed">
+                                          {item.alasan}
+                                        </p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                              <BookOpen size={12} className="text-blue-500" />
+                                              Penanganan
+                                            </p>
+                                            <p className="text-xs text-slate-700 font-medium">{item.penanganan || '-'}</p>
+                                          </div>
+                                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                              <ChevronRight size={12} className="text-emerald-500" />
+                                              Tindak Lanjut
+                                            </p>
+                                            <p className="text-xs text-slate-700 font-medium">{item.tindak_lanjut || '-'}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-6 pt-4 border-t border-slate-50">
+                                      <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                        <UserCheck size={14} className="text-blue-400" />
+                                        BK: <span className="text-slate-600">{item.guru_bk}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                        <Users size={14} className="text-indigo-400" />
+                                        WALI: <span className="text-slate-600">{item.wali_kelas || '-'}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                                        <Activity size={14} className={item.status === 'Selesai' ? 'text-emerald-500' : 'text-amber-500'} />
+                                        STATUS: <span className={item.status === 'Selesai' ? 'text-emerald-600' : 'text-amber-600'}>{item.status}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
