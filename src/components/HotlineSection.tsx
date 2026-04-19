@@ -10,6 +10,7 @@ const HOTLINE_DATA = [
     icon: PhoneCall,
     color: "from-amber-400 to-orange-600",
     shadow: "shadow-orange-200",
+    accent: "bg-orange-50 text-orange-700 border-orange-100",
     link: "tel:0343426845"
   },
   { 
@@ -19,6 +20,7 @@ const HOTLINE_DATA = [
     icon: Mail,
     color: "from-blue-500 to-blue-600",
     shadow: "shadow-blue-200",
+    accent: "bg-blue-50 text-blue-700 border-blue-100",
     link: "mailto:smp7pas@yahoo.co.id"
   },
   { 
@@ -28,6 +30,7 @@ const HOTLINE_DATA = [
     icon: Globe,
     color: "from-emerald-500 to-emerald-600",
     shadow: "shadow-emerald-200",
+    accent: "bg-emerald-50 text-emerald-700 border-emerald-100",
     link: "https://www.smpn7pasuruan.sch.id"
   }
 ];
@@ -45,14 +48,14 @@ export default function HotlineSection({ onBack }: HotlineSectionProps) {
           <div className="w-20 h-20 rounded-3xl bg-white flex items-center justify-center shadow-xl shadow-amber-100 mx-auto overflow-hidden p-2 mb-4 border border-slate-100 rotate-3">
             <Phone size={40} className="text-amber-500" />
           </div>
-          <h2 className="text-3xl md:text-5xl font-black text-slate-800 tracking-tight font-display">Hotline SIAP SPANJU</h2>
-          <p className="text-sm md:text-lg font-bold text-slate-500 uppercase tracking-[0.3em]">Layanan Bantuan & Pengaduan Cepat</p>
+          <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight font-display uppercase">Hotline SIAP SPANJU</h2>
+          <p className="text-sm md:text-lg font-black text-slate-600 uppercase tracking-[0.3em]">Layanan Bantuan & Pengaduan Cepat</p>
           
-          <div className="max-w-2xl mx-auto p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-center gap-4 text-amber-700">
-            <div className="w-10 h-10 rounded-full bg-amber-200 flex items-center justify-center shrink-0">
-               <Shield size={20} />
+          <div className="max-w-2xl mx-auto p-5 bg-orange-50 border-2 border-orange-200 rounded-[2rem] flex items-center gap-5 text-orange-900 shadow-lg shadow-orange-100/50">
+            <div className="w-12 h-12 rounded-2xl bg-orange-200 flex items-center justify-center shrink-0 text-orange-600">
+               <Shield size={24} />
             </div>
-            <p className="text-left text-xs md:text-sm font-bold leading-relaxed">
+            <p className="text-left text-xs md:text-sm font-black leading-relaxed">
               Layanan Hotline tersedia pada jam kerja operasional sekolah. Untuk pengaduan mendesak diluar jam kerja tetap akan kami tampung untuk segera diproses pada hari kerja berikutnya.
             </p>
           </div>
@@ -75,19 +78,21 @@ export default function HotlineSection({ onBack }: HotlineSectionProps) {
               </div>
               
               <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-3">{item.title}</h3>
-              <p className="text-slate-500 text-sm font-medium leading-relaxed mb-8">{item.desc}</p>
+              <p className="text-slate-600 text-sm font-bold leading-relaxed mb-8">{item.desc}</p>
               
-              <div className="mt-auto space-y-3">
+              <div className="mt-auto space-y-4">
                 <a 
                   href={item.link}
                   target={item.link.startsWith('http') ? "_blank" : undefined}
                   rel={item.link.startsWith('http') ? "noopener noreferrer" : undefined}
-                  className={`w-full py-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center gap-3 text-slate-800 font-black text-sm uppercase tracking-widest hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all shadow-sm`}
+                  className={`w-full py-4 rounded-2xl bg-white border-2 border-slate-100 flex items-center justify-center gap-3 text-slate-800 font-black text-sm uppercase tracking-widest hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all shadow-md active:scale-95`}
                 >
                   <item.icon size={18} />
                   {item.title.includes('Hotline') ? 'Hubungi Sekarang' : item.title.includes('Pos-el') ? 'Kirim Email' : 'Buka Website'}
                 </a>
-                <p className="text-center text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">{item.number}</p>
+                <div className={`px-4 py-2 rounded-xl border ${item.accent} text-center`}>
+                  <p className="text-[11px] font-black uppercase tracking-[0.1em]">{item.number}</p>
+                </div>
               </div>
             </motion.div>
           ))}
@@ -127,7 +132,7 @@ export default function HotlineSection({ onBack }: HotlineSectionProps) {
                 <div className="text-xs font-black">SPANJU</div>
             </div>
           </div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">© 2024 SMP Negeri 7 Pasuruan • All Rights Reserved</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">© 2024 SMP Negeri 7 Pasuruan • All Rights Reserved</p>
         </div>
       </div>
     </div>
