@@ -230,12 +230,12 @@ const SipenaApp: React.FC<SipenaAppProps & { user?: any }> = ({ onBack, onOpenSi
         <div className="max-w-[1600px] mx-auto">
       <AnimatePresence mode="wait">
         {activeSection === 'dashboard' && <SipenaDashboard key="dashboard" />}
-        {activeSection === 'master' && <SipenaMaster key="master" user={user} />}
-        {activeSection === 'kunjungan_siswa' && <SipenaKunjunganSiswa key="kunjungan_siswa" user={user} />}
-        {activeSection === 'kunjungan_warta' && <SipenaKunjunganWarta key="kunjungan_warta" user={user} />}
-        {activeSection === 'peminjaman' && <SipenaPeminjaman key="peminjaman" user={user} />}
-        {activeSection === 'pengembalian' && <SipenaPengembalian key="pengembalian" user={user} />}
-        {activeSection === 'laporan' && <SipenaLaporan key="laporan" user={user} />}
+        {activeSection === 'master' && <SipenaMaster key="master" user={user} setMessage={setMessage} />}
+        {activeSection === 'kunjungan_siswa' && <SipenaKunjunganSiswa key="kunjungan_siswa" user={user} setMessage={setMessage} />}
+        {activeSection === 'kunjungan_warta' && <SipenaKunjunganWarta key="kunjungan_warta" user={user} setMessage={setMessage} />}
+        {activeSection === 'peminjaman' && <SipenaPeminjaman key="peminjaman" user={user} setMessage={setMessage} />}
+        {activeSection === 'pengembalian' && <SipenaPengembalian key="pengembalian" user={user} setMessage={setMessage} />}
+        {activeSection === 'laporan' && <SipenaLaporan key="laporan" user={user} setMessage={setMessage} />}
       </AnimatePresence>
         </div>
       </div>
@@ -488,7 +488,7 @@ const SipenaDashboard = () => {
   );
 };
 
-const SipenaMaster: React.FC<{ user?: any }> = ({ user }) => {
+const SipenaMaster: React.FC<{ user?: any, setMessage?: (msg: { type: 'success' | 'error', text: string } | null) => void }> = ({ user, setMessage }) => {
   const isAdmin = user?.role === 'full';
   const isEditor = user?.role === 'entry';
   const [books, setBooks] = useState<any[]>([]);
@@ -565,16 +565,29 @@ const SipenaMaster: React.FC<{ user?: any }> = ({ user }) => {
           .update(formData)
           .eq('id', editingBook.id);
         if (error) throw error;
+        if (setMessage) {
+          setMessage({ type: 'success', text: 'Buku berhasil diperbarui' });
+          setTimeout(() => setMessage(null), 3000);
+        }
       } else {
         const { error } = await supabase
           .from('sipena_buku')
           .insert([formData]);
         if (error) throw error;
+        if (setMessage) {
+          setMessage({ type: 'success', text: 'Buku berhasil ditambahkan' });
+          setTimeout(() => setMessage(null), 3000);
+        }
       }
       setIsModalOpen(false);
       fetchBooks();
     } catch (error: any) {
-      alert(error.message);
+      if (setMessage) {
+        setMessage({ type: 'error', text: error.message });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        alert(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -585,9 +598,18 @@ const SipenaMaster: React.FC<{ user?: any }> = ({ user }) => {
     try {
       const { error } = await supabase.from('sipena_buku').delete().eq('id', id);
       if (error) throw error;
+      if (setMessage) {
+        setMessage({ type: 'success', text: 'Buku berhasil dihapus' });
+        setTimeout(() => setMessage(null), 3000);
+      }
       fetchBooks();
     } catch (error: any) {
-      alert(error.message);
+      if (setMessage) {
+        setMessage({ type: 'error', text: error.message });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        alert(error.message);
+      }
     }
   };
 
@@ -983,7 +1005,7 @@ const SipenaMaster: React.FC<{ user?: any }> = ({ user }) => {
   );
 };
 
-const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
+const SipenaKunjunganSiswa: React.FC<{ user?: any, setMessage?: (msg: { type: 'success' | 'error', text: string } | null) => void }> = ({ user, setMessage }) => {
   const isAdmin = user?.role === 'full';
   const isEditor = user?.role === 'entry';
   const [visits, setVisits] = useState<any[]>([]);
@@ -1041,15 +1063,28 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
           .update(formData)
           .eq('id', editingVisit.id);
         if (error) throw error;
+        if (setMessage) {
+          setMessage({ type: 'success', text: 'Kunjungan siswa berhasil diperbarui' });
+          setTimeout(() => setMessage(null), 3000);
+        }
       } else {
         const { error } = await supabase.from('sipena_kunjungan_siswa').insert([formData]);
         if (error) throw error;
+        if (setMessage) {
+          setMessage({ type: 'success', text: 'Kunjungan siswa berhasil disimpan' });
+          setTimeout(() => setMessage(null), 3000);
+        }
       }
       setIsModalOpen(false);
       setEditingVisit(null);
       fetchVisits();
     } catch (error: any) {
-      alert(error.message);
+      if (setMessage) {
+        setMessage({ type: 'error', text: error.message });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        alert(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -1297,7 +1332,7 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any }> = ({ user }) => {
   );
 };
 
-const SipenaKunjunganWarta: React.FC<{ user?: any }> = ({ user }) => {
+const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 'success' | 'error', text: string } | null) => void }> = ({ user, setMessage }) => {
   const isAdmin = user?.role === 'full';
   const isEditor = user?.role === 'entry';
   const [visits, setVisits] = useState<any[]>([]);
@@ -1360,12 +1395,32 @@ const SipenaKunjunganWarta: React.FC<{ user?: any }> = ({ user }) => {
     e.preventDefault();
     try {
       setLoading(true);
-      const { error } = await supabase.from('sipena_kunjungan_warta').insert([formData]);
+      
+      // Ensure tanggal_akhir is same as tanggal_awal since we removed it from UI
+      const submitData = {
+        ...formData,
+        tanggal_akhir: formData.tanggal_awal
+      };
+      
+      const { error } = await supabase.from('sipena_kunjungan_warta').insert([submitData]);
       if (error) throw error;
+      
+      if (setMessage) {
+        setMessage({ type: 'success', text: 'Kunjungan berhasil disimpan' });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        alert('Kunjungan berhasil disimpan');
+      }
+      
       setIsModalOpen(false);
       fetchVisits();
     } catch (error: any) {
-      alert(error.message);
+      if (setMessage) {
+        setMessage({ type: 'error', text: error.message });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        alert(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -1495,27 +1550,15 @@ const SipenaKunjunganWarta: React.FC<{ user?: any }> = ({ user }) => {
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8">
               <h4 className="text-xl font-black text-slate-800 uppercase mb-6">Catat Kunjungan Warta</h4>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Tanggal Awal</label>
-                    <input 
-                      type="date"
-                      required
-                      value={formData.tanggal_awal}
-                      onChange={(e) => setFormData({...formData, tanggal_awal: e.target.value})}
-                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-500 transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Tanggal Akhir</label>
-                    <input 
-                      type="date"
-                      required
-                      value={formData.tanggal_akhir}
-                      onChange={(e) => setFormData({...formData, tanggal_akhir: e.target.value})}
-                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-500 transition-all"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Tanggal</label>
+                  <input 
+                    type="date"
+                    required
+                    value={formData.tanggal_awal}
+                    onChange={(e) => setFormData({...formData, tanggal_awal: e.target.value, tanggal_akhir: e.target.value})}
+                    className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-500 transition-all"
+                  />
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Jam</label>
@@ -1576,7 +1619,7 @@ const SipenaKunjunganWarta: React.FC<{ user?: any }> = ({ user }) => {
   );
 };
 
-const SipenaPeminjaman: React.FC<{ user?: any }> = ({ user }) => {
+const SipenaPeminjaman: React.FC<{ user?: any, setMessage?: (msg: { type: 'success' | 'error', text: string } | null) => void }> = ({ user, setMessage }) => {
   const isAdmin = user?.role === 'full';
   const isEditor = user?.role === 'entry';
   const [loans, setLoans] = useState<any[]>([]);
@@ -1693,13 +1736,23 @@ const SipenaPeminjaman: React.FC<{ user?: any }> = ({ user }) => {
       const { error: itemError } = await supabase.from('sipena_peminjaman_item').insert(items);
       if (itemError) throw itemError;
 
+      if (setMessage) {
+        setMessage({ type: 'success', text: `Berhasil memproses peminjaman untuk ${finalBooks.length} buku` });
+        setTimeout(() => setMessage(null), 3000);
+      }
+
       setIsModalOpen(false);
       setEditingLoan(null);
       setSelectedBooks([]);
       setCurrentBookId('');
       fetchLoans();
     } catch (error: any) {
-      alert(error.message);
+      if (setMessage) {
+        setMessage({ type: 'error', text: error.message });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        alert(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -1957,7 +2010,7 @@ const SipenaPeminjaman: React.FC<{ user?: any }> = ({ user }) => {
   );
 };
 
-const SipenaPengembalian: React.FC<{ user?: any }> = ({ user }) => {
+const SipenaPengembalian: React.FC<{ user?: any, setMessage?: (msg: { type: 'success' | 'error', text: string } | null) => void }> = ({ user, setMessage }) => {
   const isAdmin = user?.role === 'full';
   const isEditor = user?.role === 'entry';
   const [loans, setLoans] = useState<any[]>([]);
@@ -2015,11 +2068,21 @@ const SipenaPengembalian: React.FC<{ user?: any }> = ({ user }) => {
       }
       // Update loan status
       await supabase.from('sipena_peminjaman').update({ status: 'Kembali' }).eq('id', loanId);
+      
+      if (setMessage) {
+        setMessage({ type: 'success', text: 'Buku berhasil dikembalikan' });
+        setTimeout(() => setMessage(null), 3000);
+      }
+
       fetchActiveLoans();
       fetchReturnedLoans();
-      alert('Buku berhasil dikembalikan!');
     } catch (error: any) {
-      alert(error.message);
+      if (setMessage) {
+        setMessage({ type: 'error', text: error.message });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        alert(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -2034,11 +2097,20 @@ const SipenaPengembalian: React.FC<{ user?: any }> = ({ user }) => {
       // Update loan status
       await supabase.from('sipena_peminjaman').update({ status: 'Dipinjam' }).eq('id', loanId);
       
+      if (setMessage) {
+        setMessage({ type: 'success', text: 'Pengembalian berhasil dibatalkan' });
+        setTimeout(() => setMessage(null), 3000);
+      }
+
       fetchActiveLoans();
       fetchReturnedLoans();
-      alert('Pengembalian berhasil dibatalkan!');
     } catch (error: any) {
-      alert(error.message);
+      if (setMessage) {
+        setMessage({ type: 'error', text: error.message });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        alert(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -2184,7 +2256,7 @@ const SipenaPengembalian: React.FC<{ user?: any }> = ({ user }) => {
   );
 };
 
-const SipenaLaporan: React.FC<{ user?: any }> = ({ user }) => {
+const SipenaLaporan: React.FC<{ user?: any, setMessage?: (msg: { type: 'success' | 'error', text: string } | null) => void }> = ({ user, setMessage }) => {
   const isAdmin = user?.role === 'full';
   const [reportType, setReportType] = useState<'buku' | 'kunjungan' | 'kunjungan_warta' | 'peminjaman'>('buku');
   const [data, setData] = useState<any[]>([]);

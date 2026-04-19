@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS public.bk_transaksi_kasus (
     kasus_kategori TEXT NOT NULL, -- Kedisiplinan, Etika, Akademi, Bullying, Perkelahian, merokok, Narkoba, Lain-Lain
     kronologi TEXT, -- Up to 500 words
     bukti_fisik TEXT[], -- Array of URLs/Paths
+    penanganan TEXT,
+    konsekuensi TEXT,
+    catatan TEXT,
     wali_kelas TEXT,
     guru_bk TEXT, -- Wiwik Ismiati S.pd, Eki Febriani S.pd
     status TEXT DEFAULT 'Proses', -- Proses, Selesai
