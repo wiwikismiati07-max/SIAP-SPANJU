@@ -262,7 +262,7 @@ export default function App() {
             <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain drop-shadow-md" referrerPolicy="no-referrer" />
           </motion.div>
           
-          <h1 className="text-4xl md:text-7xl font-black text-slate-800 tracking-tight mb-4 font-display">SIAP SPANJU</h1>
+          <h1 className="text-4xl md:text-7xl font-black text-slate-800 tracking-tight mb-4 font-display leading-[0.9]">8 PROGRAM PRIORITAS SPANJU</h1>
           <p className="text-base md:text-xl font-bold text-slate-600 uppercase tracking-[0.2em] mb-8">Sistem Integrasi Aplikasi Pembinaan Siswa</p>
           <p className="text-slate-500 text-base md:text-lg max-w-lg mb-12 leading-relaxed font-medium">
             Platform terpadu untuk mempermudah pendataan, pemantauan, dan tindak lanjut permasalahan siswa di SMP Negeri 7 Pasuruan.
@@ -340,7 +340,10 @@ export default function App() {
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-pink-100 rotate-3 overflow-hidden p-1 border border-slate-100">
                 <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
               </div>
-              <span className="text-2xl font-black tracking-tighter text-black">SIAP SPANJU</span>
+              <div className="flex flex-col gap-0">
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest leading-none">8 PROGRAM PRIORITAS</span>
+                <span className="text-2xl font-black tracking-tighter text-black leading-none">SPANJU</span>
+              </div>
             </div>
             <span className="text-[9px] font-black text-slate-600 uppercase tracking-[0.15em] leading-none ml-12">
               Sistem Integrasi Aplikasi Pembinaan Siswa
@@ -432,25 +435,6 @@ export default function App() {
                     <div className={`h-1.5 bg-indigo-500 rounded-full mt-2 transition-all duration-500 ${selectedLinkId === link.id ? 'w-3/4' : 'w-8 group-hover:w-1/2'}`} />
                   </div>
                 </button>
-                <button
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    const updated = userLinks.filter(l => l.id !== link.id);
-                    setUserLinks(updated);
-                    if (selectedLinkId === link.id) setSelectedLinkId(null);
-                    
-                    if (supabase) {
-                      try {
-                        await supabase.from('app_links').delete().eq('id', link.id);
-                      } catch (error) {
-                        console.error('Error deleting link from Supabase:', error);
-                      }
-                    }
-                  }}
-                  className="absolute -right-2 -top-2 opacity-0 group-hover:opacity-100 p-2 text-rose-500 hover:text-white bg-white hover:bg-rose-500 rounded-full shadow-lg border border-slate-100 transition-all z-10"
-                >
-                  <Trash2 size={14} />
-                </button>
               </div>
             );
           })}
@@ -475,9 +459,9 @@ export default function App() {
           className="fixed max-md:left-1/2 max-md:-translate-x-1/2 max-md:top-4 md:left-6 md:top-6 z-40 p-2 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-2xl md:rounded-3xl text-slate-600 hover:scale-110 transition-all active:scale-90 shadow-[0_8px_32_0_rgba(0,0,0,0.05)] overflow-hidden flex items-center gap-2"
         >
           <div className="flex flex-col items-end md:hidden">
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">SIAP</span>
-            <span className="text-xs font-black text-slate-800 tracking-tighter leading-none">SPANJU</span>
-          </div>
+              <span className="text-xs font-black text-slate-400 uppercase tracking-widest leading-none">8 PROGRAM PRIORITAS</span>
+              <span className="text-xs font-black text-slate-800 tracking-tighter leading-none">SPANJU</span>
+            </div>
           <img src={LOGO_URL} alt="Logo" className="w-8 h-8 md:w-12 md:h-12 object-contain" referrerPolicy="no-referrer" />
           <Menu size={18} className="md:hidden text-slate-400" />
         </motion.button>
@@ -946,7 +930,7 @@ export default function App() {
               <div className="w-24 h-24 bg-white/60 rounded-full flex items-center justify-center mb-6 shadow-inner border border-white/50 backdrop-blur-md">
                 <LayoutDashboard className="w-12 h-12 text-pink-500" />
               </div>
-              <h3 className="text-2xl font-black text-slate-800 mb-2">Selamat Datang di SIAP SPANJU</h3>
+              <h3 className="text-2xl font-black text-slate-800 mb-2">Selamat Datang di 8 PROGRAM PRIORITAS SPANJU</h3>
               <p className="max-w-xs font-medium">Pilih menu di samping untuk mulai menjelajahi sistem integrasi kami.</p>
             </div>
           )}
