@@ -37,7 +37,8 @@ import {
   HeartPulse,
   Library,
   ShieldCheck,
-  LogOut
+  LogOut,
+  Phone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from './lib/supabase';
@@ -91,6 +92,7 @@ import SurveyApp from './components/survey/SurveyApp';
 import DisiplinSiswaApp from './components/disiplinsiswa/DisiplinSiswaApp';
 import GlobalLogin from './components/GlobalLogin';
 import ManagementLogin from './components/ManagementLogin';
+import HotlineSection from './components/HotlineSection';
 
 // --- Components ---
 
@@ -99,7 +101,7 @@ export default function App() {
   const [userLinks, setUserLinks] = useState<AppLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'menu_aplikasi' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | 'survey' | null>(null);
+  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'menu_aplikasi' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | 'survey' | 'hotline' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -209,6 +211,7 @@ export default function App() {
 
   const sidebarItems = [
     { id: 'menu_aplikasi', title: 'MENU APLIKASI', subtitle: 'DAFTAR SEMUA APLIKASI', icon: LayoutDashboard, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
+    { id: 'hotline', title: 'HOTLINE', subtitle: 'LAYANAN BANTUAN & PENGADUAN', icon: Phone, color: 'from-amber-400 to-orange-600', shadow: 'shadow-orange-200', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
     { id: 'survey', title: 'SURVEY APLIKASI', subtitle: 'SURVEY KEPUASAN PENGGUNA', icon: ClipboardList, color: 'from-slate-800 to-black', shadow: 'shadow-slate-400', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
     { id: 'management_login', title: 'MANAGEMENT LOGIN', subtitle: 'KELOLA AKSES USER', icon: ShieldCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', adminOnly: true, roles: ['full'] },
     { id: 'sitelat', title: 'SI-TELAT', subtitle: 'SISTEM KETERLAMBATAN SISWA', icon: Clock, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200', roles: ['view', 'entry', 'full'] },
@@ -265,20 +268,35 @@ export default function App() {
             Platform terpadu untuk mempermudah pendataan, pemantauan, dan tindak lanjut permasalahan siswa di SMP Negeri 7 Pasuruan.
           </p>
           
-          <motion.button
-            whileHover={{ scale: 1.05, translateY: -2 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              setIsDashboard(true);
-              setActiveSection('menu_aplikasi');
-            }}
-            className="group relative px-8 py-4 md:px-12 md:py-5 bg-gradient-to-r from-pink-500 to-blue-500 text-white rounded-full font-bold text-lg md:text-xl shadow-[0_10px_40px_-10px_rgba(236,72,153,0.5)] border border-white/50 overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out" />
-            <span className="relative flex items-center gap-3">
-              Menu Dashboard <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-            </span>
-          </motion.button>
+          <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
+            <motion.button
+              whileHover={{ scale: 1.05, translateY: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setIsDashboard(true);
+                setActiveSection('menu_aplikasi');
+              }}
+              className="group relative px-8 py-4 md:px-12 md:py-5 bg-gradient-to-r from-pink-500 to-blue-500 text-white rounded-full font-bold text-lg md:text-xl shadow-[0_10px_40px_-10px_rgba(236,72,153,0.5)] border border-white/50 overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out" />
+              <span className="relative flex items-center gap-3">
+                Menu Dashboard <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+              </span>
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.05, translateY: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setIsDashboard(true);
+                setActiveSection('hotline');
+              }}
+              className="group px-8 py-4 md:px-12 md:py-5 bg-white text-slate-800 rounded-full font-bold text-lg md:text-xl shadow-xl border border-white/50 flex items-center gap-3 transition-all hover:bg-slate-50"
+            >
+              <Phone className="w-6 h-6 text-amber-500 group-hover:rotate-12 transition-transform" />
+              Hotline Bantuan
+            </motion.button>
+          </div>
         </motion.div>
       </div>
     );
@@ -569,6 +587,11 @@ export default function App() {
               onOpenSidebar={() => setIsSidebarOpen(true)}
               user={user}
             />
+          </div>
+        )}
+        {activeSection === 'hotline' && (
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            <HotlineSection onBack={() => setActiveSection('menu_aplikasi')} />
           </div>
         )}
 
