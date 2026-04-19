@@ -1338,6 +1338,7 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
   const [visits, setVisits] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [gurus, setGurus] = useState<any[]>([]);
   const [mapels, setMapels] = useState<any[]>([]);
   const [historyFilter, setHistoryFilter] = useState({
@@ -1395,17 +1396,26 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
     try {
       setLoading(true);
       
-      const { error } = await supabase.from('sipena_kunjungan_warta').insert([formData]);
-      if (error) throw error;
+      if (editingId) {
+        const { error } = await supabase
+          .from('sipena_kunjungan_warta')
+          .update(formData)
+          .eq('id', editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('sipena_kunjungan_warta').insert([formData]);
+        if (error) throw error;
+      }
       
       if (setMessage) {
-        setMessage({ type: 'success', text: 'Kunjungan berhasil disimpan' });
+        setMessage({ type: 'success', text: editingId ? 'Kunjungan berhasil diperbarui' : 'Kunjungan berhasil disimpan' });
         setTimeout(() => setMessage(null), 3000);
       } else {
-        alert('Kunjungan berhasil disimpan');
+        alert(editingId ? 'Kunjungan berhasil diperbarui' : 'Kunjungan berhasil disimpan');
       }
       
       setIsModalOpen(false);
+      setEditingId(null);
       fetchVisits();
     } catch (error: any) {
       console.error('Error saving visit:', error);
@@ -1418,6 +1428,18 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEdit = (visit: any) => {
+    setFormData({
+      tanggal: visit.tanggal,
+      jam: visit.jam?.substring(0, 5) || '',
+      kelas: visit.kelas || '',
+      guru_id: visit.guru_id || '',
+      mapel_id: visit.mapel_id || ''
+    });
+    setEditingId(visit.id);
+    setIsModalOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -1470,6 +1492,7 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
           {(isAdmin || isEditor) && (
             <button 
               onClick={() => {
+                setEditingId(null);
                 setFormData({
                   tanggal: format(new Date(), 'yyyy-MM-dd'),
                   jam: format(new Date(), 'HH:mm'),
@@ -1521,11 +1544,18 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
                     <p className="text-xs font-black text-slate-800">{v.kelas || '-'}</p>
                   </td>
                   <td className="px-8 py-6 text-right">
-                    {isAdmin && (
-                      <button onClick={() => handleDelete(v.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all">
-                        <Trash2 size={16} />
-                      </button>
-                    )}
+                    <div className="flex items-center justify-end gap-2">
+                      {(isAdmin || isEditor) && (
+                        <button onClick={() => handleEdit(v)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all" title="Edit Data">
+                          <Edit size={16} />
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button onClick={() => handleDelete(v.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all" title="Hapus Data">
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1540,7 +1570,7 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8">
-              <h4 className="text-xl font-black text-slate-800 uppercase mb-6">Catat Kunjungan Warta</h4>
+              <h4 className="text-xl font-black text-slate-800 uppercase mb-6">{editingId ? 'Edit Kunjungan Warta' : 'Catat Kunjungan Warta'}</h4>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Tanggal</label>
@@ -1599,8 +1629,8 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
                     </select>
                   </div>
                 </div>
-                <button type="submit" className="w-full py-4 bg-amber-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-amber-200">
-                  Simpan Kunjungan
+                <button type="submit" disabled={loading} className="w-full py-4 bg-amber-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-amber-200 disabled:opacity-50">
+                  {editingId ? 'Perbarui Kunjungan' : 'Simpan Kunjungan'}
                 </button>
               </form>
             </motion.div>
