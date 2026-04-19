@@ -41,7 +41,7 @@ interface HotlineSectionProps {
 
 export default function HotlineSection({ onBack }: HotlineSectionProps) {
   return (
-    <div className="flex-1 flex flex-col bg-slate-50/80 backdrop-blur-3xl overflow-y-auto custom-scrollbar p-6 md:p-12">
+    <div className="h-full flex flex-col bg-slate-50/80 backdrop-blur-3xl overflow-y-auto custom-scrollbar p-6 md:p-12">
       <div className="max-w-5xl mx-auto w-full space-y-12">
         {/* Header */}
         <div className="text-center space-y-4">
