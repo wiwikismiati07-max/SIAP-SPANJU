@@ -30,6 +30,9 @@ import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 
 interface PengaduanWaliAppProps {
   onBack?: () => void;
@@ -236,6 +239,85 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
       setTimeout(() => setMessage(null), 3000);
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || 'Gagal mengubah status' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const exportToExcel = async () => {
+    try {
+      setLoading(true);
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Daftar Pengaduan');
+
+      const title = 'Laporan Pengaduan Orang Tua / Wali Murid';
+      const headers = [
+        'NO', 
+        'WAKTU LAPOR',
+        'NAMA PELAPOR', 
+        'HUBUNGAN', 
+        'HP/WA', 
+        'ALAMAT',
+        'SISWA', 
+        'KELAS', 
+        'JENIS PENGADUAN', 
+        'URAIAN', 
+        'WAKTU KEJADIAN',
+        'TEMPAT',
+        'HARAPAN',
+        'TINDAKAN DIHARAPKAN',
+        'STATUS'
+      ];
+      const totalCols = headers.length;
+
+      await addExcelHeaderAndLogos(worksheet, workbook, title, totalCols);
+
+      // Table Headers
+      const headerRow = worksheet.getRow(10);
+      headerRow.values = headers;
+      headerRow.height = 30;
+      applyColorfulTableStyle(worksheet, 10, pengaduanList.length, totalCols);
+
+      // Data Rows
+      pengaduanList.forEach((item, index) => {
+        const row = worksheet.addRow([
+          index + 1,
+          format(new Date(item.created_at), 'dd/MM/yyyy HH:mm', { locale: idLocale }),
+          item.nama_pelapor,
+          item.hubungan_siswa,
+          item.hp_pelapor,
+          item.alamat_pelapor,
+          item.siswa?.nama || '-',
+          item.kelas || '-',
+          item.jenis_pengaduan,
+          item.uraian,
+          format(new Date(item.waktu_kejadian), 'dd/MM/yyyy HH:mm', { locale: idLocale }),
+          item.tempat_kejadian,
+          item.harapan_orang_tua,
+          item.tindakan_diharapkan || '-',
+          item.status
+        ]);
+        
+        row.alignment = { vertical: 'middle', wrapText: true };
+      });
+
+      // Adjust column widths
+      worksheet.columns.forEach((col, i) => {
+        if (i === 0) col.width = 5; // NO
+        else if ([1, 10].includes(i)) col.width = 18; // WAKTU
+        else if ([9, 12, 13].includes(i)) col.width = 40; // URAIAN, HARAPAN, TINDAKAN
+        else col.width = 20;
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `Laporan_Pengaduan_Wali_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);
+      
+      setMessage({ type: 'success', text: 'Laporan berhasil diunduh.' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error: any) {
+      console.error('Export error:', error);
+      setMessage({ type: 'error', text: 'Gagal mengunduh laporan: ' + error.message });
     } finally {
       setLoading(false);
     }
@@ -686,7 +768,12 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
                     <button className="p-3 bg-slate-50 text-slate-500 rounded-2xl hover:bg-slate-100 transition-all">
                       <Filter size={20} />
                     </button>
-                    <button className="p-3 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all">
+                    <button 
+                      onClick={exportToExcel}
+                      disabled={loading || pengaduanList.length === 0}
+                      className="p-3 bg-blue-50 text-blue-600 rounded-2xl hover:bg-blue-100 transition-all disabled:opacity-50"
+                      title="Unduh Laporan (Excel)"
+                    >
                       <Download size={20} />
                     </button>
                   </div>
