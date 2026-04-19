@@ -247,7 +247,7 @@ const SipenaApp: React.FC<SipenaAppProps & { user?: any }> = ({ onBack, onOpenSi
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className={`fixed bottom-8 right-8 z-50 px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border ${
+            className={`fixed bottom-8 right-8 z-[100] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border ${
               message.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'
             }`}
           >
@@ -1408,12 +1408,13 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
       setIsModalOpen(false);
       fetchVisits();
     } catch (error: any) {
+      console.error('Error saving visit:', error);
+      const errorMsg = error.message || 'Terjadi kesalahan saat menyimpan data';
       if (setMessage) {
-        setMessage({ type: 'error', text: error.message });
+        setMessage({ type: 'error', text: errorMsg });
         setTimeout(() => setMessage(null), 3000);
-      } else {
-        alert(error.message);
       }
+      alert('Error: ' + errorMsg);
     } finally {
       setLoading(false);
     }
