@@ -1346,8 +1346,7 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
   });
   
   const [formData, setFormData] = useState({
-    tanggal_awal: format(new Date(), 'yyyy-MM-dd'),
-    tanggal_akhir: format(new Date(), 'yyyy-MM-dd'),
+    tanggal: format(new Date(), 'yyyy-MM-dd'),
     jam: format(new Date(), 'HH:mm'),
     kelas: '',
     guru_id: '',
@@ -1367,10 +1366,10 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
       let query = supabase
         .from('sipena_kunjungan_warta')
         .select('*, master_guru(nama_guru), master_mapel(nama_mapel)')
-        .order('tanggal_awal', { ascending: false });
+        .order('tanggal', { ascending: false });
 
-      if (historyFilter.startDate) query = query.gte('tanggal_awal', historyFilter.startDate);
-      if (historyFilter.endDate) query = query.lte('tanggal_awal', historyFilter.endDate);
+      if (historyFilter.startDate) query = query.gte('tanggal', historyFilter.startDate);
+      if (historyFilter.endDate) query = query.lte('tanggal', historyFilter.endDate);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -1396,13 +1395,7 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
     try {
       setLoading(true);
       
-      // Ensure tanggal_akhir is same as tanggal_awal since we removed it from UI
-      const submitData = {
-        ...formData,
-        tanggal_akhir: formData.tanggal_awal
-      };
-      
-      const { error } = await supabase.from('sipena_kunjungan_warta').insert([submitData]);
+      const { error } = await supabase.from('sipena_kunjungan_warta').insert([formData]);
       if (error) throw error;
       
       if (setMessage) {
@@ -1477,8 +1470,7 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
             <button 
               onClick={() => {
                 setFormData({
-                  tanggal_awal: format(new Date(), 'yyyy-MM-dd'),
-                  tanggal_akhir: format(new Date(), 'yyyy-MM-dd'),
+                  tanggal: format(new Date(), 'yyyy-MM-dd'),
                   jam: format(new Date(), 'HH:mm'),
                   kelas: '',
                   guru_id: '',
@@ -1512,8 +1504,7 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
                 <tr key={v.id} className="hover:bg-slate-50/50 transition-colors group">
                   <td className="px-8 py-6">
                     <p className="text-xs font-black text-slate-800">
-                      {safeFormatDate(v.tanggal_awal, 'dd MMM yyyy')}
-                      {v.tanggal_akhir !== v.tanggal_awal && ` - ${safeFormatDate(v.tanggal_akhir, 'dd MMM yyyy')}`}
+                      {safeFormatDate(v.tanggal, 'dd MMM yyyy')}
                     </p>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{v.jam?.substring(0, 5)} WIB</p>
                   </td>
@@ -1555,8 +1546,8 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
                   <input 
                     type="date"
                     required
-                    value={formData.tanggal_awal}
-                    onChange={(e) => setFormData({...formData, tanggal_awal: e.target.value, tanggal_akhir: e.target.value})}
+                    value={formData.tanggal}
+                    onChange={(e) => setFormData({...formData, tanggal: e.target.value})}
                     className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-500 transition-all"
                   />
                 </div>
@@ -2283,9 +2274,9 @@ const SipenaLaporan: React.FC<{ user?: any, setMessage?: (msg: { type: 'success'
         if (filter.startDate) query = query.gte('tanggal', filter.startDate);
         if (filter.endDate) query = query.lte('tanggal', filter.endDate);
       } else if (reportType === 'kunjungan_warta') {
-        query = supabase.from('sipena_kunjungan_warta').select('*, master_guru(nama_guru), master_mapel(nama_mapel)').order('tanggal_awal', { ascending: false });
-        if (filter.startDate) query = query.gte('tanggal_awal', filter.startDate);
-        if (filter.endDate) query = query.lte('tanggal_awal', filter.endDate);
+        query = supabase.from('sipena_kunjungan_warta').select('*, master_guru(nama_guru), master_mapel(nama_mapel)').order('tanggal', { ascending: false });
+        if (filter.startDate) query = query.gte('tanggal', filter.startDate);
+        if (filter.endDate) query = query.lte('tanggal', filter.endDate);
       } else {
         query = supabase.from('sipena_peminjaman').select('*, master_siswa(nama, kelas), sipena_peminjaman_item(*, sipena_buku(judul_buku))').order('tanggal_pinjam', { ascending: false });
         if (filter.startDate) query = query.gte('tanggal_pinjam', filter.startDate);
@@ -2321,8 +2312,8 @@ const SipenaLaporan: React.FC<{ user?: any, setMessage?: (msg: { type: 'success'
         totalCols = 6;
       } else if (reportType === 'kunjungan_warta') {
         title = 'Laporan Kunjungan Warta';
-        headers = ['NO', 'TANGGAL AWAL', 'TANGGAL AKHIR', 'JAM', 'GURU', 'MATA PELAJARAN', 'KELAS'];
-        totalCols = 7;
+        headers = ['NO', 'TANGGAL', 'JAM', 'GURU', 'MATA PELAJARAN', 'KELAS'];
+        totalCols = 6;
       } else {
         title = 'Laporan Peminjaman Buku';
         headers = ['NO', 'TANGGAL PINJAM', 'NAMA SISWA', 'KELAS', 'JUDUL BUKU', 'JUMLAH', 'STATUS'];
@@ -2365,8 +2356,7 @@ const SipenaLaporan: React.FC<{ user?: any, setMessage?: (msg: { type: 'success'
         data.forEach((v, index) => {
           worksheet.addRow([
             index + 1,
-            safeFormatDate(v.tanggal_awal),
-            safeFormatDate(v.tanggal_akhir),
+            safeFormatDate(v.tanggal),
             v.jam,
             v.master_guru?.nama_guru,
             v.master_mapel?.nama_mapel,
