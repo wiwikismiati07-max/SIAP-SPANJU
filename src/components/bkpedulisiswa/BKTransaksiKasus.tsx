@@ -60,13 +60,13 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
   const PENANGANAN_OPTIONS = [
     'Observasi langsung Oleh guru BK',
     'Pendampingan Berkelanjutan oleh guru BK',
-    'Pendekatan Prefentif (Pencegahan)',
+    'Pendekatan Preventif (Pencegahan)',
     'Pendekatan Kuratif (Penanganan langsung)',
     'Pendekatan Kolaboratif',
-    'Pemberian sangsi edukatif',
-    'Pemantauan dan Efaluasi'
+    'Pemberian sanksi edukatif',
+    'Pemantauan dan Evaluasi'
   ];
-  const KONSEKUENSI_OPTIONS = ['Surat pernyataan orang tua', 'Surat pernyataan Siswa', 'Sangsi ditempat', 'Skorsing'];
+  const KONSEKUENSI_OPTIONS = ['Surat pernyataan orang tua', 'Surat pernyataan Siswa', 'Sanksi ditempat', 'Skorsing', 'Pembinaan Karakter', 'Lain-lain'];
   const TINDAK_LANJUT_OPTIONS = [
     'Konseling Individu', 'Konseling Kelompok', 'Panggilan Orang Tua', 
     'Mediasi', 'Home visit', 'Skorsing', 'Lain-lain'
@@ -269,11 +269,14 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
       {
         'Nama Siswa': 'Budi Santoso',
         'Kelas': '7A',
-        'Nama Kasus': 'Terlambat',
+        'Nama Kasus': 'Terlambat Berjamaah',
         'Tanggal': '2023-10-25',
         'Jam': '07:15',
         'Kategori Kasus': 'Kedisiplinan',
         'Kronologi': 'Siswa datang terlambat 15 menit karena macet.',
+        'Penanganan': 'Pemberian sanksi edukatif',
+        'Konsekuensi': 'Surat pernyataan Siswa',
+        'Catatan': 'Sudah diberikan pembinaan',
         'Wali Kelas': 'Nama Wali Kelas',
         'Guru BK': 'Wiwik Ismiati S.pd',
         'Status': 'Selesai'
@@ -342,6 +345,9 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
                 kasus_id: k.id,
                 kasus_kategori: row['Kategori Kasus'] || k.kategori || 'Kedisiplinan',
                 kronologi: row['Kronologi'] || '',
+                penanganan: row['Penanganan'] || '',
+                konsekuensi: row['Konsekuensi'] || '',
+                catatan: row['Catatan'] || '',
                 wali_kelas: row['Wali Kelas'] || '',
                 guru_bk: row['Guru BK'] || 'Wiwik Ismiati S.pd',
                 status: row['Status'] || 'Selesai'
@@ -696,14 +702,32 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Konsikuensi</label>
-              <select 
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none transition-all"
-                value={formData.konsekuensi}
-                onChange={e => setFormData({...formData, konsekuensi: e.target.value})}
-              >
-                {KONSEKUENSI_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Konsekuensi (Bisa pilih lebih dari 1)</label>
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                {KONSEKUENSI_OPTIONS.map(o => {
+                  const isChecked = formData.konsekuensi?.split(', ').includes(o);
+                  return (
+                    <label key={o} className={`flex items-center gap-2 p-2 rounded-xl border transition-all cursor-pointer ${isChecked ? 'bg-pink-50 border-pink-200 text-pink-700' : 'bg-white border-slate-200 text-slate-600 hover:border-pink-200'}`}>
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded text-pink-600 focus:ring-pink-500 border-slate-300"
+                        checked={isChecked}
+                        onChange={() => {
+                          const currentValues = formData.konsekuensi ? formData.konsekuensi.split(', ').filter(v => v) : [];
+                          let newValues;
+                          if (currentValues.includes(o)) {
+                            newValues = currentValues.filter(v => v !== o);
+                          } else {
+                            newValues = [...currentValues, o];
+                          }
+                          setFormData({...formData, konsekuensi: newValues.join(', ')});
+                        }}
+                      />
+                      <span className="text-xs font-medium leading-tight">{o}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
