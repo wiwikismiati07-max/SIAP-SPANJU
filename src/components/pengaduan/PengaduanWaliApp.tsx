@@ -21,6 +21,7 @@ import {
   Eye,
   Filter,
   Download,
+  LayoutTemplate,
   ClipboardList,
   MoreVertical,
   Menu,
@@ -43,7 +44,7 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
   const isAdmin = user?.role === 'full';
   const isEditor = user?.role === 'entry';
   const isViewer = user?.role === 'view';
-  const [view, setView] = useState<'form' | 'list'>(isViewer ? 'list' : 'form');
+  const [view, setView] = useState<'form' | 'list' | 'pivot'>(isViewer ? 'list' : 'form');
   const [siswa, setSiswa] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -77,7 +78,7 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
 
   useEffect(() => {
     fetchSiswa();
-    if (view === 'list') {
+    if (view === 'list' || view === 'pivot') {
       fetchPengaduan();
     }
   }, [view]);
@@ -244,6 +245,39 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
     }
   };
 
+  const getGroupedData = () => {
+    const grouped: Record<string, {
+      nama_siswa: string;
+      kelas: string;
+      siswa_id: string;
+      categories: Record<string, any[]>;
+    }> = {};
+
+    pengaduanList.forEach(item => {
+      const studentName = item.siswa?.nama || 'Tanpa Nama Siswa';
+      const studentKelas = item.kelas || '-';
+      const studentId = item.siswa_id || 'no-id';
+      const key = `${studentName}-${studentKelas}-${studentId}`;
+
+      if (!grouped[key]) {
+        grouped[key] = {
+          nama_siswa: studentName,
+          kelas: studentKelas,
+          siswa_id: studentId,
+          categories: {}
+        };
+      }
+
+      const category = item.jenis_pengaduan || 'Lainnya';
+      if (!grouped[key].categories[category]) {
+        grouped[key].categories[category] = [];
+      }
+      grouped[key].categories[category].push(item);
+    });
+
+    return Object.values(grouped).sort((a, b) => a.nama_siswa.localeCompare(b.nama_siswa));
+  };
+
   const exportToExcel = async () => {
     try {
       setLoading(true);
@@ -366,6 +400,16 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
               )}
               {(isAdmin || isEditor || isViewer) && (
                 <button
+                  onClick={() => setView('pivot')}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                    view === 'pivot' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  }`}
+                >
+                  Pivot View
+                </button>
+              )}
+              {(isAdmin || isEditor || isViewer) && (
+                <button
                   onClick={() => setView('list')}
                   className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
                     view === 'list' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
@@ -435,6 +479,17 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
                 >
                   <Plus size={20} />
                   <span>Form Laporan</span>
+                </button>
+              )}
+              {(isAdmin || isEditor || isViewer) && (
+                <button
+                  onClick={() => { setView('pivot'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
+                    view === 'pivot' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : 'text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  <LayoutTemplate size={20} />
+                  <span>Pivot Laporan</span>
                 </button>
               )}
               {(isAdmin || isEditor || isViewer) && (
@@ -743,7 +798,7 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
                 </form>
               </div>
             </div>
-          ) : (
+          ) : view === 'list' ? (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -871,6 +926,141 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
                   </table>
                 </div>
               </div>
+            </div>
+          ) : (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 mb-20">
+               {/* Pivot Header */}
+               <div className="bg-[#8AA36E] p-6 rounded-[24px] shadow-sm flex items-center justify-between">
+                 <div>
+                   <h2 className="text-white font-black uppercase tracking-widest text-lg md:text-xl">Laporan Pengaduan Wali Murid</h2>
+                   <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest mt-1">Grup berdasarkan Siswa & Kategori</p>
+                 </div>
+                 <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-white/40">
+                    <LayoutTemplate size={24} />
+                 </div>
+               </div>
+               
+               <div className="space-y-8 mt-8">
+                 {getGroupedData().map((group, gIdx) => (
+                   <div key={gIdx} className="space-y-4">
+                     {/* Student Level */}
+                     <div className="bg-white px-6 py-5 rounded-2xl flex items-center justify-between border-l-[12px] border-[#8AA36E] shadow-sm">
+                       <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight flex items-center gap-4">
+                         <div className="w-10 h-10 rounded-xl bg-[#8AA36E]/10 flex items-center justify-center text-[#8AA36E]">
+                            <User size={20} />
+                         </div>
+                         {group.nama_siswa}
+                       </h3>
+                       <div className="flex items-center gap-3">
+                         <span className="text-[10px] font-black text-[#8AA36E] bg-[#E9F0E1] px-4 py-1.5 rounded-full border border-[#8AA36E]/10 uppercase tracking-widest hidden sm:block">
+                           KELAS {group.kelas}
+                         </span>
+                         <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-4 py-1.5 rounded-full border border-slate-100 uppercase tracking-widest">
+                           {format(new Date(), 'dd MMM yyyy')}
+                         </span>
+                       </div>
+                     </div>
+                     
+                     {/* Category Level */}
+                     <div className="pl-4 md:pl-12 space-y-8 border-l-4 border-[#8AA36E]/10 ml-5 py-4">
+                       {Object.entries(group.categories).map(([category, items], cIdx) => (
+                         <div key={cIdx} className="space-y-4">
+                           <div className="bg-[#E9F0E1] px-6 py-3 rounded-xl border border-[#8AA36E]/20 inline-flex items-center gap-4 shadow-sm">
+                             <div className="w-2.5 h-2.5 rounded-full bg-[#8AA36E] animate-pulse" />
+                             <h4 className="font-black text-[#5A6D47] text-xs uppercase tracking-widest lg:text-sm">
+                               Kelas {group.kelas} • {category}
+                             </h4>
+                           </div>
+                           
+                           {/* Details Level */}
+                           <div className="pl-4 md:pl-10 space-y-6">
+                             {items.map((item, iIdx) => (
+                               <div key={iIdx} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm relative overflow-hidden group/card hover:shadow-xl hover:shadow-[#8AA36E]/5 transition-all duration-500">
+                                 <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-bl-full -mr-6 -mt-6 opacity-30 group-hover/card:bg-[#E9F0E1]/50 group-hover/card:opacity-60 transition-all duration-700" />
+                                 
+                                 <div className="relative space-y-8">
+                                   <div className="flex items-start gap-4 p-4 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                                     <MessageSquare className="text-[#8AA36E] mt-1 shrink-0" size={20} />
+                                     <p className="text-sm font-medium text-slate-600 italic leading-relaxed">
+                                       "{item.uraian}"
+                                     </p>
+                                   </div>
+                                    
+                                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                     <div className="bg-rose-50/30 p-6 rounded-3xl border border-rose-100/40 group-hover/card:bg-rose-50/60 transition-colors">
+                                       <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest block mb-4 opacity-80 border-b border-rose-200/50 pb-2">Uraian / Kronologi</span>
+                                       <p className="text-sm font-bold text-slate-700 leading-relaxed truncate-2-lines">{item.uraian}</p>
+                                     </div>
+                                     <div className="bg-amber-50/30 p-6 rounded-3xl border border-amber-100/40 group-hover/card:bg-amber-50/60 transition-colors">
+                                       <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest block mb-4 opacity-80 border-b border-amber-200/50 pb-2">Harapan Orang Tua</span>
+                                       <p className="text-sm font-bold text-slate-700 leading-relaxed">{item.harapan_orang_tua || '-'}</p>
+                                     </div>
+                                     <div className="bg-blue-50/30 p-6 rounded-3xl border border-blue-100/40 group-hover/card:bg-blue-50/60 transition-colors">
+                                       <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest block mb-4 opacity-80 border-b border-blue-200/50 pb-2">Catatan / Tindakan</span>
+                                       <p className="text-sm font-bold text-slate-800 leading-relaxed bg-white/50 p-2 rounded-lg">{item.tindakan_diharapkan || '-'}</p>
+                                     </div>
+                                   </div>
+                                   
+                                   <div className="flex flex-wrap items-center justify-between gap-6 pt-8 border-t border-slate-100">
+                                     <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+                                       <div className="flex items-center gap-3">
+                                          <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center">
+                                            <UserCheck size={14} className="text-slate-400" />
+                                          </div>
+                                          <div>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Pelapor</p>
+                                            <p className="text-[11px] font-black text-slate-700 uppercase tracking-tight">{item.nama_pelapor} ({item.hubungan_siswa})</p>
+                                          </div>
+                                       </div>
+                                       <div className="flex items-center gap-3">
+                                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${item.status === 'Selesai' ? 'bg-emerald-50' : 'bg-amber-50'}`}>
+                                            <div className={`w-2 h-2 rounded-full ${item.status === 'Selesai' ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse`} />
+                                          </div>
+                                          <div>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Status</p>
+                                            <p className={`text-[11px] font-black uppercase tracking-widest ${item.status === 'Selesai' ? 'text-emerald-600' : 'text-amber-600'}`}>{item.status}</p>
+                                          </div>
+                                       </div>
+                                     </div>
+                                     
+                                     <div className="flex items-center gap-3">
+                                       <button 
+                                         onClick={() => { setSelectedItem(item); setIsStatusModalOpen(true); }}
+                                         className="px-6 py-3 bg-slate-900 text-white rounded-2xl hover:bg-black transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-black/10 active:scale-95"
+                                       >
+                                         <Eye size={16} />
+                                         Detail Laporan
+                                       </button>
+                                       {(isAdmin || isEditor) && (
+                                         <button 
+                                           onClick={() => { setSelectedItem(item); setIsStatusModalOpen(true); }}
+                                           className="p-3 text-slate-300 hover:text-slate-900 hover:bg-slate-50 rounded-2xl transition-all"
+                                           title="Pengaturan Status"
+                                         >
+                                           <Settings size={20} />
+                                         </button>
+                                       )}
+                                     </div>
+                                   </div>
+                                 </div>
+                               </div>
+                             ))}
+                           </div>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 ))}
+                 
+                 {pengaduanList.length === 0 && !loading && (
+                   <div className="text-center py-24 bg-white rounded-[40px] border-4 border-dashed border-slate-100 shadow-inner">
+                     <div className="w-24 h-24 bg-slate-50/50 rounded-full flex items-center justify-center mx-auto mb-8 text-slate-200">
+                        <ClipboardList size={48} />
+                     </div>
+                     <p className="text-slate-400 font-black uppercase tracking-widest text-sm letter-spacing-[0.2em]">Belum ada data pengaduan masuk</p>
+                   </div>
+                 )}
+               </div>
             </div>
           )}
         </div>
