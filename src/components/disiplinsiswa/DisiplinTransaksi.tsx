@@ -54,7 +54,7 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
     'Pemberian sangsi edukatif',
     'Pemantauan dan Efaluasi'
   ];
-  const KONSEKUENSI_OPTIONS = ['Surat pernyataan orang tua', 'Surat pernyataan Siswa', 'Sangsi ditempat', 'Skorsing'];
+  const KONSEKUENSI_OPTIONS = ['Teguran Lisan', 'Surat pernyataan orang tua', 'Surat pernyataan Siswa', 'Sangsi ditempat', 'Skorsing'];
   const TINDAK_LANJUT_OPTIONS = ['Konseling Individu', 'Konseling Kelompok', 'Mediasi', 'Home visit', 'Panggilan Orang Tua'];
   const GURU_BK_OPTIONS = ['Wiwik Ismiati S.pd', 'Eki Febriani S.pd'];
 
