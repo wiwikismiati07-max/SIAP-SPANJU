@@ -60,7 +60,7 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar, user: globalUser }
 
   const menuItems: { id: string, label: string, icon: any, staff?: boolean }[] = [
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
-    ...(!isViewer ? [{ id: 'wali', label: 'Form Wali Murid', icon: Users }] : []),
+    { id: 'wali', label: 'Form Wali Murid', icon: Users },
     { id: 'kalender', label: 'Kalender Belajar', icon: Calendar },
   ];
 
