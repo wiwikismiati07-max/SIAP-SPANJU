@@ -72,7 +72,7 @@ const COLORS = [
 ];
 
 const EXTERNAL_APPS = [
-  { id: "tutorial-aplikasi", title: "Tutorial Aplikasi", url: "https://youtu.be/NGNTPlVtm1Q", icon: "Youtube", color: "from-red-500 to-rose-600" },
+  { id: "tutorial-aplikasi", title: "Tutorial Aplikasi", url: "https://youtube.com/shorts/Zal1cHhhE6U?si=7S5GKVb07-Qo2Kav", icon: "Youtube", color: "from-red-500 to-rose-600" },
   { id: "8-program-prioritas-spanju", title: "8 Program Prioritas Spanju", url: "https://7-kaih-nine.vercel.app/", icon: "LayoutDashboard", color: "from-blue-400 to-blue-600" }
 ];
 
@@ -303,7 +303,7 @@ export default function App() {
               whileHover={{ scale: 1.05, translateY: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => {
-                window.open('https://youtu.be/NGNTPlVtm1Q', '_blank');
+                window.open('https://youtube.com/shorts/Zal1cHhhE6U?si=7S5GKVb07-Qo2Kav', '_blank');
               }}
               className="group px-8 py-4 md:px-12 md:py-5 bg-white text-slate-800 rounded-full font-bold text-lg md:text-xl shadow-xl border border-white/50 flex items-center gap-3 transition-all hover:bg-slate-50"
             >
