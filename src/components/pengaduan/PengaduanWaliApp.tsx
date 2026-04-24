@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -54,6 +54,8 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
   
   const [selectedClass, setSelectedClass] = useState('');
@@ -70,6 +72,7 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
     tempat_kejadian: '',
     harapan_orang_tua: '',
     tindakan_diharapkan: '',
+    bukti_url: '',
     pernyataan_benar: false
   });
 
@@ -124,6 +127,49 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
     }
   };
 
+  const handleUploadFile = async (file: File) => {
+    try {
+      setUploadingFile(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+      const filePath = `bukti-pengaduan/${fileName}`;
+
+      const { error: uploadError, data } = await supabase.storage
+        .from('bukti_fisik')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        if (uploadError.message.includes('Bucket not found')) {
+          throw new Error('Sistem belum siap: Bucket "bukti_fisik" tidak ditemukan di storage Supabase. Mohon hubungi admin.');
+        }
+        throw uploadError;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('bukti_fisik')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, bukti_url: publicUrl }));
+      setMessage({ type: 'success', text: 'File berhasil diunggah' });
+    } catch (error: any) {
+      console.error('Error uploading file:', error);
+      setMessage({ type: 'error', text: 'Gagal mengunggah file: ' + error.message });
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        setMessage({ type: 'error', text: 'Ukuran file maksimal 10MB' });
+        return;
+      }
+      handleUploadFile(file);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.pernyataan_benar) {
@@ -171,6 +217,7 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
       tempat_kejadian: '',
       harapan_orang_tua: '',
       tindakan_diharapkan: '',
+      bukti_url: '',
       pernyataan_benar: false
     });
     setSelectedSiswaId('');
@@ -300,6 +347,7 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
         'TEMPAT',
         'HARAPAN',
         'TINDAKAN DIHARAPKAN',
+        'BUKTI URL',
         'STATUS'
       ];
       const totalCols = headers.length;
@@ -329,6 +377,7 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
           item.tempat_kejadian,
           item.harapan_orang_tua,
           item.tindakan_diharapkan || '-',
+          item.bukti_url || '-',
           item.status
         ]);
         
@@ -713,16 +762,49 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
 
                       <div>
                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Bukti Pendukung (Opsional)</label>
-                        <div className="p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[32px] flex flex-col items-center justify-center gap-4 hover:bg-slate-100 transition-all cursor-pointer group">
-                          <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center text-slate-400 group-hover:text-pink-500 shadow-sm transition-colors">
-                            <Upload size={32} />
-                          </div>
-                          <div className="text-center">
-                            <p className="font-black text-slate-700">Klik untuk Unggah</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">JPG, PDF, MP4 (Maks 10MB)</p>
-                          </div>
-                          <input type="file" className="hidden" accept=".jpg,.jpeg,.png,.pdf,.mp4" />
+                        <div 
+                          onClick={() => fileInputRef.current?.click()}
+                          className="p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[32px] flex flex-col items-center justify-center gap-4 hover:bg-slate-100 transition-all cursor-pointer group relative overflow-hidden"
+                        >
+                          {uploadingFile ? (
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="w-10 h-10 border-4 border-pink-100 border-t-pink-600 rounded-full animate-spin" />
+                              <p className="text-[10px] font-black text-pink-600 uppercase tracking-widest">Mengunggah...</p>
+                            </div>
+                          ) : formData.bukti_url ? (
+                            <div className="flex flex-col items-center gap-2">
+                              <CheckCircle2 size={32} className="text-emerald-500" />
+                              <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">File Terunggah</p>
+                              <button 
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setFormData(prev => ({ ...prev, bukti_url: '' }));
+                                }}
+                                className="text-[10px] font-bold text-rose-500 hover:underline"
+                              >
+                                Ganti File
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center text-slate-400 group-hover:text-pink-500 shadow-sm transition-colors">
+                                <Upload size={32} />
+                              </div>
+                              <div className="text-center">
+                                <p className="font-black text-slate-700">Klik untuk Unggah</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">JPG, PDF, MP4 (Maks 10MB)</p>
+                              </div>
+                            </>
+                          )}
                         </div>
+                        <input 
+                          ref={fileInputRef}
+                          type="file" 
+                          className="hidden" 
+                          accept=".jpg,.jpeg,.png,.pdf,.mp4" 
+                          onChange={handleFileChange}
+                        />
                       </div>
                     </div>
                   </div>
@@ -1111,6 +1193,20 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Waktu Kejadian</label>
                       <p className="font-bold text-slate-700 text-sm">{format(new Date(selectedItem.waktu_kejadian), 'dd MMMM yyyy, HH:mm', { locale: idLocale })}</p>
                     </div>
+                    {selectedItem.bukti_url && (
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Bukti Pendukung</label>
+                        <a 
+                          href={selectedItem.bukti_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 p-3 bg-pink-50 text-pink-600 rounded-2xl border border-pink-100 hover:bg-pink-100 transition-all font-bold text-xs"
+                        >
+                          <Eye size={16} />
+                          Lihat Bukti Pendukung
+                        </a>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-6">
                     <div>
