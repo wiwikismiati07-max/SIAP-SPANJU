@@ -38,7 +38,8 @@ import {
   Library,
   ShieldCheck,
   LogOut,
-  Phone
+  Phone,
+  Youtube
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from './lib/supabase';
@@ -57,7 +58,7 @@ interface AppLink {
 const ICON_MAP: Record<string, React.ElementType> = {
   Globe, Shield, Book, Users, Activity, FileText, Calendar, 
   MessageSquare, Briefcase, Zap, Search, ClipboardList, 
-  FileCheck, Award, LayoutDashboard, Sparkles
+  FileCheck, Award, LayoutDashboard, Sparkles, Youtube
 };
 
 const COLORS = [
@@ -71,6 +72,7 @@ const COLORS = [
 ];
 
 const EXTERNAL_APPS = [
+  { id: "tutorial-aplikasi", title: "Tutorial Aplikasi", url: "https://youtu.be/NGNTPlVtm1Q", icon: "Youtube", color: "from-red-500 to-rose-600" },
   { id: "8-program-prioritas-spanju", title: "8 Program Prioritas Spanju", url: "https://7-kaih-nine.vercel.app/", icon: "LayoutDashboard", color: "from-blue-400 to-blue-600" }
 ];
 
@@ -295,6 +297,18 @@ export default function App() {
             >
               <Phone className="w-6 h-6 text-amber-500 group-hover:rotate-12 transition-transform" />
               Hotline Bantuan
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.05, translateY: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                window.open('https://youtu.be/NGNTPlVtm1Q', '_blank');
+              }}
+              className="group px-8 py-4 md:px-12 md:py-5 bg-white text-slate-800 rounded-full font-bold text-lg md:text-xl shadow-xl border border-white/50 flex items-center gap-3 transition-all hover:bg-slate-50"
+            >
+              <Youtube className="w-6 h-6 text-red-500 group-hover:scale-110 transition-transform" />
+              Tutorial Aplikasi
             </motion.button>
           </div>
         </motion.div>
