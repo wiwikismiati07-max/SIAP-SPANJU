@@ -243,8 +243,17 @@ export default function LaporanIzin({ user }: { user?: any }) {
 
           values.forEach((v, i) => {
             const cell = row.getCell(i + 1);
-            cell.value = v;
-            cell.alignment = { horizontal: i === 0 || i === 2 || i === 5 ? 'center' : 'left', vertical: 'middle' };
+            if (i === 8 && item.lampiran_url) {
+              cell.value = {
+                text: 'Lihat Surat',
+                hyperlink: item.lampiran_url,
+                tooltip: 'Klik untuk melihat lampiran'
+              };
+              cell.font = { color: { argb: 'FF0000FF' }, underline: true };
+            } else {
+              cell.value = v;
+            }
+            cell.alignment = { horizontal: i === 0 || i === 2 || i === 5 || i === 8 ? 'center' : 'left', vertical: 'middle' };
           });
           dataRowCount++;
         });
@@ -304,12 +313,12 @@ export default function LaporanIzin({ user }: { user?: any }) {
 
       worksheet.mergeCells(footerStartRow + 6, leftColStart, footerStartRow + 6, leftColEnd);
       const kasekName = worksheet.getCell(footerStartRow + 6, leftColStart);
-      kasekName.value = '........................................';
+      kasekName.value = 'NUR FADILAH, S.Pd';
       kasekName.font = { bold: true, underline: true };
       kasekName.alignment = { horizontal: 'center' };
 
       worksheet.mergeCells(footerStartRow + 7, leftColStart, footerStartRow + 7, leftColEnd);
-      worksheet.getCell(footerStartRow + 7, leftColStart).value = 'NIP. ........................................';
+      worksheet.getCell(footerStartRow + 7, leftColStart).value = 'NIP. 19860410 201001 2 030';
       worksheet.getCell(footerStartRow + 7, leftColStart).alignment = { horizontal: 'center' };
 
       // Right Signature
@@ -326,12 +335,12 @@ export default function LaporanIzin({ user }: { user?: any }) {
 
       worksheet.mergeCells(footerStartRow + 6, rightColStart, footerStartRow + 6, rightColEnd);
       const bkName = worksheet.getCell(footerStartRow + 6, rightColStart);
-      bkName.value = '........................................';
+      bkName.value = 'WIWIK ISMIATI, S.Pd';
       bkName.font = { bold: true, underline: true };
       bkName.alignment = { horizontal: 'center' };
 
       worksheet.mergeCells(footerStartRow + 7, rightColStart, footerStartRow + 7, rightColEnd);
-      worksheet.getCell(footerStartRow + 7, rightColStart).value = 'NIP. ........................................';
+      worksheet.getCell(footerStartRow + 7, rightColStart).value = 'NIP. 19831116 200904 2 003';
       worksheet.getCell(footerStartRow + 7, rightColStart).alignment = { horizontal: 'center' };
 
       // Generate and Save
