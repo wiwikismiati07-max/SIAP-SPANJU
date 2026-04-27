@@ -191,6 +191,54 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
     });
 
     applyColorfulTableStyle(worksheet, headerRowIndex, jadwalList.length, columns.length);
+    
+    // --- SIGNATURE SECTION ---
+    const footerStartRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : (headerRowIndex + jadwalList.length + 2);
+    const leftColStart = 2;
+    const leftColEnd = 4;
+    const rightColStart = 6;
+    const rightColEnd = 8;
+
+    // Left Signature (Kepala Sekolah)
+    worksheet.mergeCells(footerStartRow, leftColStart, footerStartRow, leftColEnd);
+    worksheet.getCell(footerStartRow, leftColStart).value = 'Mengetahui';
+    worksheet.getCell(footerStartRow, leftColStart).alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 1, leftColStart, footerStartRow + 1, leftColEnd);
+    worksheet.getCell(footerStartRow + 1, leftColStart).value = 'Kepala Sekolah';
+    worksheet.getCell(footerStartRow + 1, leftColStart).alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 6, leftColStart, footerStartRow + 6, leftColEnd);
+    const kasekName = worksheet.getCell(footerStartRow + 6, leftColStart);
+    kasekName.value = 'NUR FADILAH, S.Pd';
+    kasekName.font = { bold: true, underline: true };
+    kasekName.alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 7, leftColStart, footerStartRow + 7, leftColEnd);
+    worksheet.getCell(footerStartRow + 7, leftColStart).value = 'NIP. 19860410 201001 2 030';
+    worksheet.getCell(footerStartRow + 7, leftColStart).alignment = { horizontal: 'center' };
+
+    // Right Signature (Guru Agama)
+    const today = new Date();
+    const formattedDate = format(today, 'd MMMM yyyy', { locale: id });
+    
+    worksheet.mergeCells(footerStartRow, rightColStart, footerStartRow, rightColEnd);
+    worksheet.getCell(footerStartRow, rightColStart).value = `Pasuruan, ${formattedDate}`;
+    worksheet.getCell(footerStartRow, rightColStart).alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 1, rightColStart, footerStartRow + 1, rightColEnd);
+    worksheet.getCell(footerStartRow + 1, rightColStart).value = 'Guru Agama';
+    worksheet.getCell(footerStartRow + 1, rightColStart).alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 6, rightColStart, footerStartRow + 6, rightColEnd);
+    const agName = worksheet.getCell(footerStartRow + 6, rightColStart);
+    agName.value = '........................................';
+    agName.font = { bold: true, underline: true };
+    agName.alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 7, rightColStart, footerStartRow + 7, rightColEnd);
+    worksheet.getCell(footerStartRow + 7, rightColStart).value = 'NIP. ............................';
+    worksheet.getCell(footerStartRow + 7, rightColStart).alignment = { horizontal: 'center' };
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });

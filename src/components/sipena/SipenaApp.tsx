@@ -2474,12 +2474,12 @@ const SipenaLaporan: React.FC<{ user?: any, setMessage?: (msg: { type: 'success'
 
       worksheet.mergeCells(footerStartRow + 6, totalCols - 2, footerStartRow + 6, totalCols);
       const petugasName = worksheet.getCell(footerStartRow + 6, totalCols - 2);
-      petugasName.value = 'WIWIK ISMIATI, S.Pd';
+      petugasName.value = '........................................';
       petugasName.font = { bold: true, underline: true };
       petugasName.alignment = { horizontal: 'center' };
 
       worksheet.mergeCells(footerStartRow + 7, totalCols - 2, footerStartRow + 7, totalCols);
-      worksheet.getCell(footerStartRow + 7, totalCols - 2).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(footerStartRow + 7, totalCols - 2).value = 'NIP. ............................';
       worksheet.getCell(footerStartRow + 7, totalCols - 2).alignment = { horizontal: 'center' };
 
       const buffer = await workbook.xlsx.writeBuffer();
@@ -2649,9 +2649,9 @@ const SipenaLaporan: React.FC<{ user?: any, setMessage?: (msg: { type: 'success'
                   <p className="text-[10px] font-bold text-slate-500">NIP. 19860410 201001 2 030</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-xs font-bold text-slate-800 mb-20">Pasuruan, {format(new Date(), 'd MMMM yyyy')}<br/>Petugas Perpustakaan</p>
-                  <p className="text-xs font-black text-slate-900 underline">WIWIK ISMIATI, S.Pd</p>
-                  <p className="text-[10px] font-bold text-slate-500">NIP. 19831116 200904 2 003</p>
+                  <p className="text-xs font-bold text-slate-800 mb-20">Pasuruan, {format(new Date(), 'd MMMM yyyy', { locale: idLocale })}<br/>Petugas Perpustakaan</p>
+                  <p className="text-xs font-black text-slate-900 underline">........................................</p>
+                  <p className="text-[10px] font-bold text-slate-500">NIP. ............................</p>
                 </div>
               </div>
             </div>
