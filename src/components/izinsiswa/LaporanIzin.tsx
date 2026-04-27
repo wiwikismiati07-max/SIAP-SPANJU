@@ -22,7 +22,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipe, setFilterTipe] = useState<'Semua' | 'Wali Murid'>('Semua');
-  const [reportType, setReportType] = useState<'detail' | 'absensi' | 'statistik'>('detail');
+  const [reportType, setReportType] = useState<'detail' | 'statistik' | 'bulanan'>('detail');
   const [selectedKelas, setSelectedKelas] = useState('');
   const [dateRange, setDateRange] = useState({
     start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
@@ -70,7 +70,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
   }, [dateRange]);
 
   useEffect(() => {
-    if (reportType === 'absensi' && selectedKelas) {
+    if (reportType === 'bulanan' && selectedKelas) {
       fetchStudentsInClass();
     }
   }, [reportType, selectedKelas]);
@@ -159,7 +159,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
     setLoading(true);
     try {
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet(reportType === 'detail' ? 'Detail Izin' : 'Absensi Harian');
+      const worksheet = workbook.addWorksheet(reportType === 'detail' ? 'Detail Izin' : 'Rekap Bulanan');
 
       // Set Column Widths
       if (reportType === 'detail') {
@@ -173,20 +173,31 @@ export default function LaporanIzin({ user }: { user?: any }) {
           { width: 20 },  // Diajukan Oleh
           { width: 25 },  // Guru/Wali
         ];
+      } else if (reportType === 'bulanan') {
+        worksheet.columns = [
+          { width: 5 },   // No
+          { width: 40 },  // Nama Siswa
+          { width: 12 },  // Sakit
+          { width: 12 },  // Izin
+          { width: 12 },  // Alpha
+          { width: 12 },  // Total
+        ];
       } else {
         worksheet.columns = [
           { width: 5 },   // No
           { width: 40 },  // Nama Siswa
-          { width: 12 },  // Masuk
-          { width: 12 },  // Izin
-          { width: 12 },  // Sakit
-          { width: 12 },  // Alpha
+          { width: 10 },  // Masuk
+          { width: 10 },  // Sakit
+          { width: 10 },  // Izin
+          { width: 10 },  // Alpha
+          { width: 10 },  // Total
         ];
       }
 
       // --- HEADER SECTION ---
       const totalCols = reportType === 'detail' ? 8 : 6;
-      const title = reportType === 'detail' ? 'Laporan Izin Siswa' : `Laporan Absensi Harian - Kelas ${selectedKelas || 'Semua'}`;
+      const title = reportType === 'detail' ? 'Laporan Izin Siswa' : 
+                    `Rekap Bulanan Izin Siswa - Kelas ${selectedKelas || 'Semua'}`;
       
       await addExcelHeaderAndLogos(worksheet, workbook, title, totalCols);
 
@@ -202,7 +213,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
       if (reportType === 'detail') {
         headers = ['NO', 'NAMA SISWA', 'KELAS', 'TANGGAL', 'ALASAN', 'STATUS', 'PENGAJU', 'GURU/WALI'];
       } else {
-        headers = ['NO', 'NAMA SISWA', 'MASUK (X)', 'IZIN (JML)', 'SAKIT (JML)', 'ALPHA (JML)'];
+        headers = ['NO', 'NAMA SISWA', 'SAKIT', 'IZIN', 'ALPHA', 'TOTAL'];
       }
       
       headerRow.values = headers;
@@ -235,37 +246,31 @@ export default function LaporanIzin({ user }: { user?: any }) {
           dataRowCount++;
         });
       } else {
-        // Absensi Logic
-        let studentsInClass: any[] = [];
-        if (supabase) {
-          const { data: sData } = await supabase
-            .from('master_siswa')
-            .select('*')
-            .eq('kelas', selectedKelas)
-            .order('nama', { ascending: true });
-          studentsInClass = sData || [];
+        // Bulanan Logic
+        let studentsToReport: any[] = [];
+        if (selectedKelas) {
+          studentsToReport = studentsInClass;
         } else {
-          const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
-          studentsInClass = localSiswa
-            .filter((s: any) => s.kelas === selectedKelas)
-            .sort((a: any, b: any) => a.nama.localeCompare(b.nama));
+          // If no class selected, maybe take from filtered data students
+          const studentIds = [...new Set(data.map(i => i.siswa_id))];
+          studentsToReport = studentIds.map(id => data.find(i => i.siswa_id === id)?.siswa).filter(Boolean);
         }
 
-        studentsInClass.forEach((student, index) => {
+        studentsToReport.forEach((student, index) => {
           const studentIzins = data.filter(i => i.siswa_id === student.id && i.status === 'Disetujui');
           const countSakit = studentIzins.filter(i => i.alasan === 'Sakit').length;
-          const countIzin = studentIzins.filter(i => i.alasan === 'Izin' || i.alasan === 'Acara Keluarga' || i.alasan === 'Keperluan Mendesak').length;
           const countAlpa = studentIzins.filter(i => i.alasan === 'Alpa').length;
-          const isMasuk = studentIzins.length === 0;
+          const countIzin = studentIzins.filter(i => i.alasan === 'Izin' || i.alasan === 'Acara Keluarga' || i.alasan === 'Keperluan Mendesak').length;
+          const total = countSakit + countAlpa + countIzin;
 
           const row = worksheet.getRow(12 + index);
           const values = [
             index + 1,
             student.nama,
-            isMasuk ? 'X' : '',
-            countIzin > 0 ? countIzin : '',
-            countSakit > 0 ? countSakit : '',
-            countAlpa > 0 ? countAlpa : ''
+            countSakit > 0 ? countSakit : 0,
+            countIzin > 0 ? countIzin : 0,
+            countAlpa > 0 ? countAlpa : 0,
+            total > 0 ? total : 0
           ];
 
           values.forEach((v, i) => {
@@ -273,6 +278,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
             cell.value = v;
             cell.alignment = { horizontal: i === 1 ? 'left' : 'center', vertical: 'middle' };
           });
+          dataRowCount++;
         });
       }
 
@@ -418,13 +424,13 @@ export default function LaporanIzin({ user }: { user?: any }) {
                 Detail Izin
               </button>
               <button
-                onClick={() => setReportType('absensi')}
+                onClick={() => setReportType('bulanan')}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-bold transition-all ${
-                  reportType === 'absensi' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  reportType === 'bulanan' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                <Users size={16} />
-                Absensi Harian
+                <FileText size={16} />
+                Rekap Bulanan
               </button>
               <button
                 onClick={() => setReportType('statistik')}
@@ -584,16 +590,16 @@ export default function LaporanIzin({ user }: { user?: any }) {
               </tbody>
             </table>
           </div>
-        ) : reportType === 'absensi' ? (
+        ) : reportType === 'bulanan' ? (
           <div className="flex flex-col">
             {!selectedKelas ? (
               <div className="p-12 text-center">
                 <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Users size={32} className="text-emerald-600" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-800">Laporan Absensi Harian</h3>
+                <h3 className="text-lg font-bold text-slate-800">Laporan Rekap Bulanan</h3>
                 <p className="text-slate-500 max-w-md mx-auto mt-2">
-                  Silakan pilih kelas terlebih dahulu untuk menampilkan laporan absensi harian.
+                  Silakan pilih kelas terlebih dahulu untuk menampilkan laporan.
                 </p>
               </div>
             ) : (
@@ -603,10 +609,10 @@ export default function LaporanIzin({ user }: { user?: any }) {
                     <tr className="bg-slate-50 border-b border-slate-200">
                       <th className="p-4 text-sm font-semibold text-slate-600 w-16 text-center">No</th>
                       <th className="p-4 text-sm font-semibold text-slate-600">Nama Siswa</th>
-                      <th className="p-4 text-sm font-semibold text-slate-600 text-center">Masuk (X)</th>
-                      <th className="p-4 text-sm font-semibold text-slate-600 text-center">Izin</th>
-                      <th className="p-4 text-sm font-semibold text-slate-600 text-center">Sakit</th>
-                      <th className="p-4 text-sm font-semibold text-slate-600 text-center">Alpha</th>
+                      <th className="p-4 text-sm font-semibold text-slate-600 text-center">Sakit (S)</th>
+                      <th className="p-4 text-sm font-semibold text-slate-600 text-center">Izin (I)</th>
+                      <th className="p-4 text-sm font-semibold text-slate-600 text-center">Alpha (A)</th>
+                      <th className="p-4 text-sm font-semibold text-slate-600 text-center">Total (S+I+A)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -615,31 +621,34 @@ export default function LaporanIzin({ user }: { user?: any }) {
                       const countSakit = studentIzins.filter(i => i.alasan === 'Sakit').length;
                       const countIzin = studentIzins.filter(i => i.alasan === 'Izin' || i.alasan === 'Acara Keluarga' || i.alasan === 'Keperluan Mendesak').length;
                       const countAlpa = studentIzins.filter(i => i.alasan === 'Alpa').length;
-                      const isMasuk = studentIzins.length === 0;
+                      const totalAbsen = countSakit + countIzin + countAlpa;
 
                       return (
                         <tr key={student.id} className="hover:bg-slate-50 transition-colors">
                           <td className="p-4 text-center text-sm text-slate-600">{index + 1}</td>
                           <td className="p-4 font-bold text-slate-800">{student.nama}</td>
-                          <td className="p-4 text-center font-black text-emerald-600">{isMasuk ? 'X' : ''}</td>
-                          <td className="p-4 text-center font-black text-amber-600">{countIzin > 0 ? countIzin : ''}</td>
                           <td className="p-4 text-center font-black text-blue-600">{countSakit > 0 ? countSakit : ''}</td>
+                          <td className="p-4 text-center font-black text-amber-600">{countIzin > 0 ? countIzin : ''}</td>
                           <td className="p-4 text-center font-black text-rose-600">{countAlpa > 0 ? countAlpa : ''}</td>
+                          <td className="p-4 text-center font-black text-slate-700">{totalAbsen > 0 ? totalAbsen : ''}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                   <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
                     <tr>
-                      <td colSpan={3} className="p-4 text-right text-slate-700">Total Izin Siswa (Izin/Sakit/Alpha):</td>
-                      <td className="p-4 text-center text-amber-600">
-                        {studentsInClass.filter(s => data.some(i => i.siswa_id === s.id && i.status === 'Disetujui' && (i.alasan === 'Izin' || i.alasan === 'Acara Keluarga' || i.alasan === 'Keperluan Mendesak'))).length}
-                      </td>
+                      <td colSpan={2} className="p-4 text-right text-slate-700">Total Keseluruhan:</td>
                       <td className="p-4 text-center text-blue-600">
-                        {studentsInClass.filter(s => data.some(i => i.siswa_id === s.id && i.status === 'Disetujui' && i.alasan === 'Sakit')).length}
+                        {studentsInClass.reduce((acc, s) => acc + data.filter(i => i.siswa_id === s.id && i.status === 'Disetujui' && i.alasan === 'Sakit').length, 0)}
+                      </td>
+                      <td className="p-4 text-center text-amber-600">
+                        {studentsInClass.reduce((acc, s) => acc + data.filter(i => i.siswa_id === s.id && i.status === 'Disetujui' && (i.alasan === 'Izin' || i.alasan === 'Acara Keluarga' || i.alasan === 'Keperluan Mendesak')).length, 0)}
                       </td>
                       <td className="p-4 text-center text-rose-600">
-                        {studentsInClass.filter(s => data.some(i => i.siswa_id === s.id && i.status === 'Disetujui' && i.alasan === 'Alpa')).length}
+                        {studentsInClass.reduce((acc, s) => acc + data.filter(i => i.siswa_id === s.id && i.status === 'Disetujui' && i.alasan === 'Alpa').length, 0)}
+                      </td>
+                      <td className="p-4 text-center text-slate-800">
+                        {studentsInClass.reduce((acc, s) => acc + data.filter(i => i.siswa_id === s.id && i.status === 'Disetujui').length, 0)}
                       </td>
                     </tr>
                   </tfoot>
