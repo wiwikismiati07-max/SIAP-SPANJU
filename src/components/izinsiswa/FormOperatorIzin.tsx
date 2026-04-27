@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { IzinWithSiswa, Siswa, Guru } from '../../types/izinsiswa';
-import { Check, X, Clock, Plus, Search, Calendar, User, BookOpen, Upload, FileDown, AlertCircle } from 'lucide-react';
+import { Check, X, Clock, Plus, Search, Calendar, User, BookOpen, Upload, FileDown, AlertCircle, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -842,11 +842,17 @@ export default function FormOperatorIzin() {
                     </td>
                     <td className="p-4">
                       {izin.lampiran_url ? (
-                        <a href={izin.lampiran_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm font-medium">
+                        <a 
+                          href={izin.lampiran_url} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition-all border border-blue-100"
+                        >
+                          <ExternalLink size={14} />
                           Lihat Surat
                         </a>
                       ) : (
-                        <span className="text-slate-400 text-sm">-</span>
+                        <span className="text-slate-400 text-xs">-</span>
                       )}
                     </td>
                     <td className="p-4 text-right space-x-2">

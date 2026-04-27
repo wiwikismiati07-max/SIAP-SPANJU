@@ -2,7 +2,7 @@ import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excel
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { IzinWithSiswa } from '../../types/izinsiswa';
-import { Download, Search, Calendar as CalendarIcon, Edit, Trash2, X, FileText, Users, BarChart3, AlertTriangle } from 'lucide-react';
+import { Download, Search, Calendar as CalendarIcon, Edit, Trash2, X, FileText, Users, BarChart3, AlertTriangle, ExternalLink, Upload } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, startOfYear } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
@@ -60,7 +60,8 @@ export default function LaporanIzin({ user }: { user?: any }) {
     tanggal_mulai: '',
     tanggal_selesai: '',
     alasan: '',
-    status: 'Menunggu' as 'Menunggu' | 'Disetujui' | 'Ditolak'
+    status: 'Menunggu' as 'Menunggu' | 'Disetujui' | 'Ditolak',
+    lampiran_url: ''
   });
 
   const [studentsInClass, setStudentsInClass] = useState<any[]>([]);
@@ -172,6 +173,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
           { width: 15 },  // Status
           { width: 20 },  // Diajukan Oleh
           { width: 25 },  // Guru/Wali
+          { width: 40 },  // Lampiran
         ];
       } else if (reportType === 'bulanan') {
         worksheet.columns = [
@@ -195,7 +197,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
       }
 
       // --- HEADER SECTION ---
-      const totalCols = reportType === 'detail' ? 8 : 6;
+      const totalCols = reportType === 'detail' ? 9 : 6;
       const title = reportType === 'detail' ? 'Laporan Izin Siswa' : 
                     `Rekap Bulanan Izin Siswa - Kelas ${selectedKelas || 'Semua'}`;
       
@@ -211,7 +213,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
       const headerRow = worksheet.getRow(11);
       let headers = [];
       if (reportType === 'detail') {
-        headers = ['NO', 'NAMA SISWA', 'KELAS', 'TANGGAL', 'ALASAN', 'STATUS', 'PENGAJU', 'GURU/WALI'];
+        headers = ['NO', 'NAMA SISWA', 'KELAS', 'TANGGAL', 'ALASAN', 'STATUS', 'PENGAJU', 'GURU/WALI', 'LAMPIRAN'];
       } else {
         headers = ['NO', 'NAMA SISWA', 'SAKIT', 'IZIN', 'ALPHA', 'TOTAL'];
       }
@@ -235,7 +237,8 @@ export default function LaporanIzin({ user }: { user?: any }) {
             item.alasan,
             item.status,
             item.diajukan_oleh,
-            item.diajukan_oleh === 'Wali Murid' ? item.nama_wali : (item.guru?.nama_guru || '-')
+            item.diajukan_oleh === 'Wali Murid' ? item.nama_wali : (item.guru?.nama_guru || '-'),
+            item.lampiran_url || '-'
           ];
 
           values.forEach((v, i) => {
@@ -366,7 +369,8 @@ export default function LaporanIzin({ user }: { user?: any }) {
       tanggal_mulai: izin.tanggal_mulai,
       tanggal_selesai: izin.tanggal_selesai,
       alasan: izin.alasan,
-      status: izin.status
+      status: izin.status,
+      lampiran_url: izin.lampiran_url || ''
     });
   };
 
@@ -558,11 +562,17 @@ export default function LaporanIzin({ user }: { user?: any }) {
                     </td>
                     <td className="p-4">
                       {izin.lampiran_url ? (
-                        <a href={izin.lampiran_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm font-medium">
+                        <a 
+                          href={izin.lampiran_url} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition-all border border-blue-100"
+                        >
+                          <ExternalLink size={14} />
                           Lihat Surat
                         </a>
                       ) : (
-                        <span className="text-slate-400 text-sm">-</span>
+                        <span className="text-slate-400 text-xs">-</span>
                       )}
                     </td>
                     <td className="p-4 text-right space-x-2">
@@ -782,6 +792,46 @@ export default function LaporanIzin({ user }: { user?: any }) {
                   <option value="Disetujui">Disetujui</option>
                   <option value="Ditolak">Ditolak</option>
                 </select>
+              </div>
+              {editForm.lampiran_url && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Lampiran Saat Ini</label>
+                  <div className="mt-2">
+                    <a 
+                      href={editForm.lampiran_url} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-100 transition-all border border-blue-100"
+                    >
+                      <Upload size={16} />
+                      Lihat Lampiran
+                    </a>
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  {editForm.lampiran_url ? 'Ganti Lampiran' : 'Tambah Lampiran (Max 1MB)'}
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 1024 * 1024) {
+                      alert('Ukuran file maksimal 1 MB');
+                      return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      setEditForm({ ...editForm, lampiran_url: reader.result as string });
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                  className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
               </div>
             </div>
             <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
