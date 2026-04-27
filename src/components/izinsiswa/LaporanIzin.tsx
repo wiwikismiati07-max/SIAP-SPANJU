@@ -330,17 +330,17 @@ export default function LaporanIzin({ user }: { user?: any }) {
       worksheet.getCell(footerStartRow, rightColStart).alignment = { horizontal: 'center' };
 
       worksheet.mergeCells(footerStartRow + 1, rightColStart, footerStartRow + 1, rightColEnd);
-      worksheet.getCell(footerStartRow + 1, rightColStart).value = 'Guru BK';
+      worksheet.getCell(footerStartRow + 1, rightColStart).value = 'Kesiswaan';
       worksheet.getCell(footerStartRow + 1, rightColStart).alignment = { horizontal: 'center' };
 
       worksheet.mergeCells(footerStartRow + 6, rightColStart, footerStartRow + 6, rightColEnd);
       const bkName = worksheet.getCell(footerStartRow + 6, rightColStart);
-      bkName.value = 'WIWIK ISMIATI, S.Pd';
+      bkName.value = '........................................';
       bkName.font = { bold: true, underline: true };
       bkName.alignment = { horizontal: 'center' };
 
       worksheet.mergeCells(footerStartRow + 7, rightColStart, footerStartRow + 7, rightColEnd);
-      worksheet.getCell(footerStartRow + 7, rightColStart).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(footerStartRow + 7, rightColStart).value = 'NIP. ............................';
       worksheet.getCell(footerStartRow + 7, rightColStart).alignment = { horizontal: 'center' };
 
       // Generate and Save

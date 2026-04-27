@@ -124,17 +124,17 @@ const PrestasiLaporan: React.FC = () => {
       worksheet.getCell(footerStartRow, 8).alignment = { horizontal: 'center' };
 
       worksheet.mergeCells(footerStartRow + 1, 8, footerStartRow + 1, 11);
-      worksheet.getCell(footerStartRow + 1, 8).value = 'Guru BK';
+      worksheet.getCell(footerStartRow + 1, 8).value = 'Kesiswaan';
       worksheet.getCell(footerStartRow + 1, 8).alignment = { horizontal: 'center' };
 
       worksheet.mergeCells(footerStartRow + 6, 8, footerStartRow + 6, 11);
       const bkName = worksheet.getCell(footerStartRow + 6, 8);
-      bkName.value = 'WIWIK ISMIATI, S.Pd';
+      bkName.value = '........................................';
       bkName.font = { bold: true, underline: true };
       bkName.alignment = { horizontal: 'center' };
 
       worksheet.mergeCells(footerStartRow + 7, 8, footerStartRow + 7, 11);
-      worksheet.getCell(footerStartRow + 7, 8).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(footerStartRow + 7, 8).value = 'NIP. ............................';
       worksheet.getCell(footerStartRow + 7, 8).alignment = { horizontal: 'center' };
 
       // Generate and Save

@@ -358,17 +358,17 @@ export default function Laporan({ user }: { user?: any }) {
       
       worksheet.getCell(`B${lastRow + 1}`).value = 'Kepala Sekolah';
       worksheet.getCell(`B${lastRow + 1}`).font = { name: 'Times New Roman' };
-      worksheet.getCell(`F${lastRow + 1}`).value = 'Guru BK';
+      worksheet.getCell(`F${lastRow + 1}`).value = 'Kesiswaan';
       worksheet.getCell(`F${lastRow + 1}`).font = { name: 'Times New Roman' };
       
       worksheet.getCell(`B${lastRow + 5}`).value = 'NUR FADILAH, S.Pd';
       worksheet.getCell(`B${lastRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
-      worksheet.getCell(`F${lastRow + 5}`).value = 'WIWIK ISMIATI, S.Pd';
+      worksheet.getCell(`F${lastRow + 5}`).value = '........................................';
       worksheet.getCell(`F${lastRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
       
       worksheet.getCell(`B${lastRow + 6}`).value = 'NIP. 19860410 201001 2 030';
       worksheet.getCell(`B${lastRow + 6}`).font = { name: 'Times New Roman' };
-      worksheet.getCell(`F${lastRow + 6}`).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(`F${lastRow + 6}`).value = 'NIP. ............................';
       worksheet.getCell(`F${lastRow + 6}`).font = { name: 'Times New Roman' };
 
       // Save File
@@ -508,17 +508,17 @@ export default function Laporan({ user }: { user?: any }) {
       
       worksheet.getCell(`B${footerStartRow + 1}`).value = 'Kepala Sekolah';
       worksheet.getCell(`B${footerStartRow + 1}`).font = { name: 'Times New Roman' };
-      worksheet.getCell(`E${footerStartRow + 1}`).value = 'Guru BK';
+      worksheet.getCell(`E${footerStartRow + 1}`).value = 'Kesiswaan';
       worksheet.getCell(`E${footerStartRow + 1}`).font = { name: 'Times New Roman' };
       
       worksheet.getCell(`B${footerStartRow + 5}`).value = 'NUR FADILAH, S.Pd';
       worksheet.getCell(`B${footerStartRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
-      worksheet.getCell(`E${footerStartRow + 5}`).value = 'WIWIK ISMIATI, S.Pd';
+      worksheet.getCell(`E${footerStartRow + 5}`).value = '........................................';
       worksheet.getCell(`E${footerStartRow + 5}`).font = { bold: true, underline: true, name: 'Times New Roman' };
       
       worksheet.getCell(`B${footerStartRow + 6}`).value = 'NIP. 19860410 201001 2 030';
       worksheet.getCell(`B${footerStartRow + 6}`).font = { name: 'Times New Roman' };
-      worksheet.getCell(`E${footerStartRow + 6}`).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(`E${footerStartRow + 6}`).value = 'NIP. ............................';
       worksheet.getCell(`E${footerStartRow + 6}`).font = { name: 'Times New Roman' };
 
       // Save File

@@ -392,6 +392,49 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
         else col.width = 20;
       });
 
+      // --- FOOTER SECTION ---
+      const lastDataRow = 11 + pengaduanList.length;
+      const footerStartRow = lastDataRow + 3;
+
+      // Left Signature
+      worksheet.mergeCells(footerStartRow, 2, footerStartRow, 4);
+      worksheet.getCell(footerStartRow, 2).value = 'Mengetahui';
+      worksheet.getCell(footerStartRow, 2).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 1, 2, footerStartRow + 1, 4);
+      worksheet.getCell(footerStartRow + 1, 2).value = 'Kepala Sekolah';
+      worksheet.getCell(footerStartRow + 1, 2).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 6, 2, footerStartRow + 6, 4);
+      const kasekName = worksheet.getCell(footerStartRow + 6, 2);
+      kasekName.value = 'NUR FADILAH, S.Pd';
+      kasekName.font = { bold: true, underline: true };
+      kasekName.alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 7, 2, footerStartRow + 7, 4);
+      worksheet.getCell(footerStartRow + 7, 2).value = 'NIP. 19860410 201001 2 030';
+      worksheet.getCell(footerStartRow + 7, 2).alignment = { horizontal: 'center' };
+
+      // Right Signature
+      const today = format(new Date(), 'd MMMM yyyy', { locale: idLocale });
+      worksheet.mergeCells(footerStartRow, 11, footerStartRow, 14);
+      worksheet.getCell(footerStartRow, 11).value = `Pasuruan, ${today}`;
+      worksheet.getCell(footerStartRow, 11).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 1, 11, footerStartRow + 1, 14);
+      worksheet.getCell(footerStartRow + 1, 11).value = 'Petugas Pengaduan';
+      worksheet.getCell(footerStartRow + 1, 11).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 6, 11, footerStartRow + 6, 14);
+      const petugasName = worksheet.getCell(footerStartRow + 6, 11);
+      petugasName.value = '........................................';
+      petugasName.font = { bold: true, underline: true };
+      petugasName.alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 7, 11, footerStartRow + 7, 14);
+      worksheet.getCell(footerStartRow + 7, 11).value = 'NIP. ............................';
+      worksheet.getCell(footerStartRow + 7, 11).alignment = { horizontal: 'center' };
+
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       saveAs(blob, `Laporan_Pengaduan_Wali_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);

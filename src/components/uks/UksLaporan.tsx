@@ -164,25 +164,48 @@ const UksLaporan: React.FC = () => {
 
     // Signature
     const footerStartRow = 12 + data.length + 3;
-    const rightColStart = totalCols - 2;
+    const leftColStart = 2;
+    const leftColEnd = 3;
+    const rightColStart = totalCols - 1;
     const rightColEnd = totalCols;
 
+    // Left Signature (Kepala Sekolah)
+    worksheet.mergeCells(footerStartRow, leftColStart, footerStartRow, leftColEnd);
+    worksheet.getCell(footerStartRow, leftColStart).value = 'Mengetahui';
+    worksheet.getCell(footerStartRow, leftColStart).alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 1, leftColStart, footerStartRow + 1, leftColEnd);
+    worksheet.getCell(footerStartRow + 1, leftColStart).value = 'Kepala Sekolah';
+    worksheet.getCell(footerStartRow + 1, leftColStart).alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 6, leftColStart, footerStartRow + 6, leftColEnd);
+    const kasekName = worksheet.getCell(footerStartRow + 6, leftColStart);
+    kasekName.value = 'NUR FADILAH, S.Pd';
+    kasekName.font = { bold: true, underline: true };
+    kasekName.alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 7, leftColStart, footerStartRow + 7, leftColEnd);
+    worksheet.getCell(footerStartRow + 7, leftColStart).value = 'NIP. 19860410 201001 2 030';
+    worksheet.getCell(footerStartRow + 7, leftColStart).alignment = { horizontal: 'center' };
+
+    // Right Signature (Petugas UKS)
     worksheet.mergeCells(footerStartRow, rightColStart, footerStartRow, rightColEnd);
     worksheet.getCell(footerStartRow, rightColStart).value = `Pasuruan, ${format(new Date(), 'dd MMMM yyyy', { locale: id })}`;
     worksheet.getCell(footerStartRow, rightColStart).alignment = { horizontal: 'center' };
 
     worksheet.mergeCells(footerStartRow + 1, rightColStart, footerStartRow + 1, rightColEnd);
-    worksheet.getCell(footerStartRow + 1, rightColStart).value = 'Kepala SMP Negeri 7 Pasuruan';
+    worksheet.getCell(footerStartRow + 1, rightColStart).value = 'Petugas UKS';
     worksheet.getCell(footerStartRow + 1, rightColStart).alignment = { horizontal: 'center' };
 
-    worksheet.mergeCells(footerStartRow + 5, rightColStart, footerStartRow + 5, rightColEnd);
-    worksheet.getCell(footerStartRow + 5, rightColStart).value = '................................................';
-    worksheet.getCell(footerStartRow + 5, rightColStart).font = { bold: true };
-    worksheet.getCell(footerStartRow + 5, rightColStart).alignment = { horizontal: 'center' };
-
     worksheet.mergeCells(footerStartRow + 6, rightColStart, footerStartRow + 6, rightColEnd);
-    worksheet.getCell(footerStartRow + 6, rightColStart).value = 'NIP. ........................................';
-    worksheet.getCell(footerStartRow + 6, rightColStart).alignment = { horizontal: 'center' };
+    const petugasName = worksheet.getCell(footerStartRow + 6, rightColStart);
+    petugasName.value = '................................................';
+    petugasName.font = { bold: true, underline: true };
+    petugasName.alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 7, rightColStart, footerStartRow + 7, rightColEnd);
+    worksheet.getCell(footerStartRow + 7, rightColStart).value = 'NIP. ........................................';
+    worksheet.getCell(footerStartRow + 7, rightColStart).alignment = { horizontal: 'center' };
 
     // Column Widths
     worksheet.columns.forEach(column => {
