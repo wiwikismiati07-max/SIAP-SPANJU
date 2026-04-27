@@ -5,6 +5,7 @@ import { FileText, Download, Search, Filter, Calendar, CheckCircle2, Clock } fro
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
 import { TransaksiKasus } from '../../types/bkpedulisiswa';
 
 export default function BKLaporan() {
@@ -142,22 +143,55 @@ export default function BKLaporan() {
     worksheet.getColumn(11).width = 20;
     worksheet.getColumn(12).width = 15;
 
-    // Footer
-    const footerRow = 11 + dataRowCount + 2;
+    // --- SIGNATURE SECTION ---
+    const footerStartRow = 11 + dataRowCount + 2;
+    const leftColStart = 2;
+    const leftColEnd = 4;
+    const rightColStart = reportType === 'kasus' ? 8 : 7;
+    const rightColEnd = reportType === 'kasus' ? 10 : 9;
+
+    // Left Signature (Kepala Sekolah)
+    worksheet.mergeCells(footerStartRow, leftColStart, footerStartRow, leftColEnd);
+    worksheet.getCell(footerStartRow, leftColStart).value = 'Mengetahui';
+    worksheet.getCell(footerStartRow, leftColStart).alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 1, leftColStart, footerStartRow + 1, leftColEnd);
+    worksheet.getCell(footerStartRow + 1, leftColStart).value = 'Kepala Sekolah';
+    worksheet.getCell(footerStartRow + 1, leftColStart).alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 5, leftColStart, footerStartRow + 5, leftColEnd);
+    const kasekName = worksheet.getCell(footerStartRow + 5, leftColStart);
+    kasekName.value = 'NUR FADILAH, S.Pd';
+    kasekName.font = { bold: true, underline: true };
+    kasekName.alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 6, leftColStart, footerStartRow + 6, leftColEnd);
+    const kasekNip = worksheet.getCell(footerStartRow + 6, leftColStart);
+    kasekNip.value = 'NIP. 19860410 201001 2 030';
+    kasekNip.alignment = { horizontal: 'center' };
+
+    // Right Signature (Guru BK)
+    const today = new Date();
+    const formattedDate = format(today, 'd MMMM yyyy', { locale: idLocale });
     
-    worksheet.getCell(`B${footerRow}`).value = 'Mengetahui';
-    worksheet.getCell(`G${footerRow}`).value = `Pasuruan, ${format(new Date(), 'd MMMM yyyy')}`;
-    
-    worksheet.getCell(`B${footerRow + 1}`).value = 'Kepala Sekolah';
-    worksheet.getCell(`G${footerRow + 1}`).value = 'Guru BK';
-    
-    worksheet.getCell(`B${footerRow + 5}`).value = 'NUR FADILAH, S.Pd';
-    worksheet.getCell(`B${footerRow + 5}`).font = { bold: true, underline: true };
-    worksheet.getCell(`G${footerRow + 5}`).value = 'WIWIK ISMIATI, S.Pd';
-    worksheet.getCell(`G${footerRow + 5}`).font = { bold: true, underline: true };
-    
-    worksheet.getCell(`B${footerRow + 6}`).value = 'NIP. 19860410 201001 2 030';
-    worksheet.getCell(`G${footerRow + 6}`).value = 'NIP. 19831116 200904 2 003';
+    worksheet.mergeCells(footerStartRow, rightColStart, footerStartRow, rightColEnd);
+    worksheet.getCell(footerStartRow, rightColStart).value = `Pasuruan, ${formattedDate}`;
+    worksheet.getCell(footerStartRow, rightColStart).alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 1, rightColStart, footerStartRow + 1, rightColEnd);
+    worksheet.getCell(footerStartRow + 1, rightColStart).value = 'Guru BK';
+    worksheet.getCell(footerStartRow + 1, rightColStart).alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 5, rightColStart, footerStartRow + 5, rightColEnd);
+    const bkName = worksheet.getCell(footerStartRow + 5, rightColStart);
+    bkName.value = 'WIWIK ISMIATI, S.Pd';
+    bkName.font = { bold: true, underline: true };
+    bkName.alignment = { horizontal: 'center' };
+
+    worksheet.mergeCells(footerStartRow + 6, rightColStart, footerStartRow + 6, rightColEnd);
+    const bkNip = worksheet.getCell(footerStartRow + 6, rightColStart);
+    bkNip.value = 'NIP. 19831116 200904 2 003';
+    bkNip.alignment = { horizontal: 'center' };
 
     // Save File
     const buffer = await workbook.xlsx.writeBuffer();

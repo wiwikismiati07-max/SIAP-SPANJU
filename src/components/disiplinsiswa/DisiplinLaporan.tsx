@@ -163,6 +163,54 @@ export default function DisiplinLaporan() {
         ];
       }
 
+      // --- SIGNATURE SECTION ---
+      const footerStartRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : 12;
+      const leftColStart = 2;
+      const leftColEnd = 4;
+      const rightColStart = reportType === 'pivot' ? 5 : 10;
+      const rightColEnd = reportType === 'pivot' ? 6 : 14;
+
+      // Left Signature (Kepala Sekolah)
+      worksheet.mergeCells(footerStartRow, leftColStart, footerStartRow, leftColEnd);
+      worksheet.getCell(footerStartRow, leftColStart).value = 'Mengetahui';
+      worksheet.getCell(footerStartRow, leftColStart).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 1, leftColStart, footerStartRow + 1, leftColEnd);
+      worksheet.getCell(footerStartRow + 1, leftColStart).value = 'Kepala Sekolah';
+      worksheet.getCell(footerStartRow + 1, leftColStart).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 6, leftColStart, footerStartRow + 6, leftColEnd);
+      const kasekName = worksheet.getCell(footerStartRow + 6, leftColStart);
+      kasekName.value = 'NUR FADILAH, S.Pd';
+      kasekName.font = { bold: true, underline: true };
+      kasekName.alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 7, leftColStart, footerStartRow + 7, leftColEnd);
+      worksheet.getCell(footerStartRow + 7, leftColStart).value = 'NIP. 19860410 201001 2 030';
+      worksheet.getCell(footerStartRow + 7, leftColStart).alignment = { horizontal: 'center' };
+
+      // Right Signature (Guru BK)
+      const today = new Date();
+      const formattedDate = format(today, 'd MMMM yyyy', { locale: idLocale });
+      
+      worksheet.mergeCells(footerStartRow, rightColStart, footerStartRow, rightColEnd);
+      worksheet.getCell(footerStartRow, rightColStart).value = `Pasuruan, ${formattedDate}`;
+      worksheet.getCell(footerStartRow, rightColStart).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 1, rightColStart, footerStartRow + 1, rightColEnd);
+      worksheet.getCell(footerStartRow + 1, rightColStart).value = 'Guru BK';
+      worksheet.getCell(footerStartRow + 1, rightColStart).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 6, rightColStart, footerStartRow + 6, rightColEnd);
+      const bkName = worksheet.getCell(footerStartRow + 6, rightColStart);
+      bkName.value = 'WIWIK ISMIATI, S.Pd';
+      bkName.font = { bold: true, underline: true };
+      bkName.alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 7, rightColStart, footerStartRow + 7, rightColEnd);
+      worksheet.getCell(footerStartRow + 7, rightColStart).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(footerStartRow + 7, rightColStart).alignment = { horizontal: 'center' };
+
       // Generate Excel File
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
