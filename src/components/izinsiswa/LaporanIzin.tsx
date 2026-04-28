@@ -182,6 +182,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
           { width: 12 },  // Sakit
           { width: 12 },  // Izin
           { width: 12 },  // Alpha
+          { width: 12 },  // Lainnya
           { width: 12 },  // Total
         ];
       } else {
@@ -192,12 +193,13 @@ export default function LaporanIzin({ user }: { user?: any }) {
           { width: 10 },  // Sakit
           { width: 10 },  // Izin
           { width: 10 },  // Alpha
+          { width: 10 },  // Lainnya
           { width: 10 },  // Total
         ];
       }
 
       // --- HEADER SECTION ---
-      const totalCols = reportType === 'detail' ? 9 : 6;
+      const totalCols = reportType === 'detail' ? 9 : (reportType === 'bulanan' ? 7 : 8);
       const title = reportType === 'detail' ? 'Laporan Izin Siswa' : 
                     `Rekap Bulanan Izin Siswa - Kelas ${selectedKelas || 'Semua'}`;
       
@@ -215,7 +217,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
       if (reportType === 'detail') {
         headers = ['NO', 'NAMA SISWA', 'KELAS', 'TANGGAL', 'ALASAN', 'STATUS', 'PENGAJU', 'GURU/WALI', 'LAMPIRAN'];
       } else {
-        headers = ['NO', 'NAMA SISWA', 'SAKIT', 'IZIN', 'ALPHA', 'TOTAL'];
+        headers = ['NO', 'NAMA SISWA', 'SAKIT', 'IZIN', 'ALPHA', 'LAINNYA', 'TOTAL'];
       }
       
       headerRow.values = headers;
@@ -272,8 +274,20 @@ export default function LaporanIzin({ user }: { user?: any }) {
           const studentIzins = data.filter(i => i.siswa_id === student.id && i.status === 'Disetujui');
           const countSakit = studentIzins.filter(i => i.alasan === 'Sakit').length;
           const countAlpa = studentIzins.filter(i => i.alasan === 'Alpa').length;
-          const countIzin = studentIzins.filter(i => i.alasan === 'Izin' || i.alasan === 'Acara Keluarga' || i.alasan === 'Keperluan Mendesak').length;
-          const total = countSakit + countAlpa + countIzin;
+          const countIzin = studentIzins.filter(i => 
+            i.alasan === 'Izin' || 
+            i.alasan === 'Acara Keluarga' || 
+            i.alasan === 'Keperluan Mendesak'
+          ).length;
+          const countLainnya = studentIzins.filter(i => 
+            i.alasan !== 'Sakit' && 
+            i.alasan !== 'Alpa' && 
+            i.alasan !== 'Izin' && 
+            i.alasan !== 'Acara Keluarga' && 
+            i.alasan !== 'Keperluan Mendesak' &&
+            i.alasan.toLowerCase() !== 'dispensasi'
+          ).length;
+          const total = countSakit + countAlpa + countIzin + countLainnya;
 
           const row = worksheet.getRow(12 + index);
           const values = [
@@ -282,6 +296,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
             countSakit > 0 ? countSakit : 0,
             countIzin > 0 ? countIzin : 0,
             countAlpa > 0 ? countAlpa : 0,
+            countLainnya > 0 ? countLainnya : 0,
             total > 0 ? total : 0
           ];
 
@@ -631,16 +646,29 @@ export default function LaporanIzin({ user }: { user?: any }) {
                       <th className="p-4 text-sm font-semibold text-slate-600 text-center">Sakit (S)</th>
                       <th className="p-4 text-sm font-semibold text-slate-600 text-center">Izin (I)</th>
                       <th className="p-4 text-sm font-semibold text-slate-600 text-center">Alpha (A)</th>
-                      <th className="p-4 text-sm font-semibold text-slate-600 text-center">Total (S+I+A)</th>
+                      <th className="p-4 text-sm font-semibold text-slate-600 text-center">Lainnya (L)</th>
+                      <th className="p-4 text-sm font-semibold text-slate-600 text-center">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {studentsInClass.map((student, index) => {
                       const studentIzins = data.filter(i => i.siswa_id === student.id && i.status === 'Disetujui');
                       const countSakit = studentIzins.filter(i => i.alasan === 'Sakit').length;
-                      const countIzin = studentIzins.filter(i => i.alasan === 'Izin' || i.alasan === 'Acara Keluarga' || i.alasan === 'Keperluan Mendesak').length;
+                      const countIzin = studentIzins.filter(i => 
+                        i.alasan === 'Izin' || 
+                        i.alasan === 'Acara Keluarga' || 
+                        i.alasan === 'Keperluan Mendesak'
+                      ).length;
                       const countAlpa = studentIzins.filter(i => i.alasan === 'Alpa').length;
-                      const totalAbsen = countSakit + countIzin + countAlpa;
+                      const countLainnya = studentIzins.filter(i => 
+                        i.alasan !== 'Sakit' && 
+                        i.alasan !== 'Alpa' && 
+                        i.alasan !== 'Izin' && 
+                        i.alasan !== 'Acara Keluarga' && 
+                        i.alasan !== 'Keperluan Mendesak' &&
+                        i.alasan.toLowerCase() !== 'dispensasi'
+                      ).length;
+                      const totalAbsen = countSakit + countIzin + countAlpa + countLainnya;
 
                       return (
                         <tr key={student.id} className="hover:bg-slate-50 transition-colors">
@@ -649,6 +677,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
                           <td className="p-4 text-center font-black text-blue-600">{countSakit > 0 ? countSakit : ''}</td>
                           <td className="p-4 text-center font-black text-amber-600">{countIzin > 0 ? countIzin : ''}</td>
                           <td className="p-4 text-center font-black text-rose-600">{countAlpa > 0 ? countAlpa : ''}</td>
+                          <td className="p-4 text-center font-black text-slate-500">{countLainnya > 0 ? countLainnya : ''}</td>
                           <td className="p-4 text-center font-black text-slate-700">{totalAbsen > 0 ? totalAbsen : ''}</td>
                         </tr>
                       );
@@ -661,13 +690,33 @@ export default function LaporanIzin({ user }: { user?: any }) {
                         {studentsInClass.reduce((acc, s) => acc + data.filter(i => i.siswa_id === s.id && i.status === 'Disetujui' && i.alasan === 'Sakit').length, 0)}
                       </td>
                       <td className="p-4 text-center text-amber-600">
-                        {studentsInClass.reduce((acc, s) => acc + data.filter(i => i.siswa_id === s.id && i.status === 'Disetujui' && (i.alasan === 'Izin' || i.alasan === 'Acara Keluarga' || i.alasan === 'Keperluan Mendesak')).length, 0)}
+                        {studentsInClass.reduce((acc, s) => acc + data.filter(i => 
+                          i.siswa_id === s.id && 
+                          i.status === 'Disetujui' && 
+                          (i.alasan === 'Izin' || i.alasan === 'Acara Keluarga' || i.alasan === 'Keperluan Mendesak')
+                        ).length, 0)}
                       </td>
                       <td className="p-4 text-center text-rose-600">
                         {studentsInClass.reduce((acc, s) => acc + data.filter(i => i.siswa_id === s.id && i.status === 'Disetujui' && i.alasan === 'Alpa').length, 0)}
                       </td>
+                      <td className="p-4 text-center text-slate-500">
+                        {studentsInClass.reduce((acc, s) => acc + data.filter(i => 
+                          i.siswa_id === s.id && 
+                          i.status === 'Disetujui' && 
+                          i.alasan !== 'Sakit' && 
+                          i.alasan !== 'Alpa' && 
+                          i.alasan !== 'Izin' && 
+                          i.alasan !== 'Acara Keluarga' && 
+                          i.alasan !== 'Keperluan Mendesak' &&
+                          i.alasan.toLowerCase() !== 'dispensasi'
+                        ).length, 0)}
+                      </td>
                       <td className="p-4 text-center text-slate-800">
-                        {studentsInClass.reduce((acc, s) => acc + data.filter(i => i.siswa_id === s.id && i.status === 'Disetujui').length, 0)}
+                        {studentsInClass.reduce((acc, s) => acc + data.filter(i => 
+                          i.siswa_id === s.id && 
+                          i.status === 'Disetujui' && 
+                          i.alasan.toLowerCase() !== 'dispensasi'
+                        ).length, 0)}
                       </td>
                     </tr>
                   </tfoot>

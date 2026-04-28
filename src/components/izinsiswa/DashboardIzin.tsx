@@ -90,7 +90,8 @@ export default function DashboardIzin() {
       const todayAbsent = allData.filter(d => 
         d.status === 'Disetujui' && 
         today >= d.tanggal_mulai && 
-        today <= d.tanggal_selesai
+        today <= d.tanggal_selesai &&
+        d.alasan?.toLowerCase() !== 'dispensasi'
       );
       const uniqueTodayAbsent = new Set(todayAbsent.map(d => d.siswa_id)).size;
       const siswaMasuk = totalSiswaCount - uniqueTodayAbsent;
@@ -98,7 +99,7 @@ export default function DashboardIzin() {
       setStats({
         totalIzin: filteredData.length,
         menunggu: filteredData.filter((d: any) => d.status === 'Menunggu').length,
-        disetujui: filteredData.filter((d: any) => d.status === 'Disetujui').length,
+        disetujui: filteredData.filter((d: any) => d.status === 'Disetujui' && d.alasan?.toLowerCase() !== 'dispensasi').length,
         ditolak: filteredData.filter((d: any) => d.status === 'Ditolak').length,
         totalSiswa: totalSiswaCount,
         siswaMasuk: siswaMasuk
@@ -144,12 +145,13 @@ export default function DashboardIzin() {
     }))
     .sort((a, b) => b.count - a.count);
 
-  // Group today's absentees by class and reason
+  // Group today's absentees by class and reason (excluding Dispensasi)
   const today = format(new Date(), 'yyyy-MM-dd');
   const todayAbsentees = data.filter(d => 
     d.status === 'Disetujui' && 
     today >= d.tanggal_mulai && 
-    today <= d.tanggal_selesai
+    today <= d.tanggal_selesai &&
+    d.alasan?.toLowerCase() !== 'dispensasi'
   );
 
   const groupedTodayAbsentees = todayAbsentees.reduce((acc: any, curr) => {
