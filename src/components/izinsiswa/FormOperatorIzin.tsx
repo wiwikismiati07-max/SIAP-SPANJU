@@ -10,7 +10,7 @@ const ALASAN_OPTIONS = [
   "Sakit",
   "Izin",
   "Alpa",
-  "Lainnya"
+  "Dispensasi"
 ];
 
 const KELAS_OPTIONS = [
@@ -350,9 +350,12 @@ export default function FormOperatorIzin() {
       return;
     }
 
-    const finalAlasan = alasan === 'Lainnya' ? alasanLainnya : alasan;
-    if (alasan === 'Lainnya' && !alasanLainnya) {
-      alert('Mohon ketik alasan lainnya');
+    const isDispensasi = alasan === 'Dispensasi';
+    const finalAlasan = isDispensasi ? 'Dispensasi' : alasan;
+    const finalKeterangan = isDispensasi ? alasanLainnya : '';
+    
+    if (isDispensasi && !alasanLainnya) {
+      alert('Mohon ketik keterangan dispensasi');
       return;
     }
 
@@ -384,6 +387,7 @@ export default function FormOperatorIzin() {
         tanggal_mulai: tanggalMulai,
         tanggal_selesai: tanggalSelesai,
         alasan: finalAlasan,
+        keterangan: finalKeterangan,
         lampiran_url: lampiranUrl,
         status: 'Disetujui',
         diajukan_oleh: 'Wiwik Ismiati, S.Pd',
@@ -732,13 +736,13 @@ export default function FormOperatorIzin() {
                   ))}
                 </div>
                 
-                {alasan === 'Lainnya' && (
+                {alasan === 'Dispensasi' && (
                   <div className="mt-3">
                     <input
                       type="text"
                       value={alasanLainnya}
                       onChange={(e) => setAlasanLainnya(e.target.value)}
-                      placeholder="Tuliskan alasan..."
+                      placeholder="Tuliskan keterangan dispensasi..."
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                       required
                     />
@@ -829,6 +833,7 @@ export default function FormOperatorIzin() {
                     </td>
                     <td className="p-4">
                       <div className="text-sm text-slate-700">{izin.alasan}</div>
+                      {izin.keterangan && <div className="text-xs text-emerald-600 font-medium mt-1">Ket: {izin.keterangan}</div>}
                     </td>
                     <td className="p-4">
                       <div className="flex flex-col gap-1">

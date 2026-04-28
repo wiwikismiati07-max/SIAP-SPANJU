@@ -8,7 +8,7 @@ const ALASAN_OPTIONS = [
   "Sakit",
   "Izin",
   "Alpa",
-  "Lainnya"
+  "Dispensasi"
 ];
 
 const KELAS_OPTIONS = [
@@ -75,9 +75,12 @@ export default function FormWaliMurid() {
       return;
     }
 
-    const finalAlasan = alasan === 'Lainnya' ? alasanLainnya : alasan;
-    if (alasan === 'Lainnya' && !alasanLainnya) {
-      alert('Mohon ketik alasan lainnya');
+    const isDispensasi = alasan === 'Dispensasi';
+    const finalAlasan = isDispensasi ? 'Dispensasi' : alasan;
+    const finalKeterangan = isDispensasi ? alasanLainnya : '';
+
+    if (isDispensasi && !alasanLainnya) {
+      alert('Mohon ketik keterangan dispensasi');
       return;
     }
 
@@ -90,6 +93,7 @@ export default function FormWaliMurid() {
       tanggal_mulai: tanggalMulai,
       tanggal_selesai: tanggalSelesai,
       alasan: finalAlasan,
+      keterangan: finalKeterangan,
       lampiran_url: lampiran,
       status: 'Menunggu',
       diajukan_oleh: 'Wali Murid',
@@ -278,13 +282,13 @@ export default function FormWaliMurid() {
             ))}
           </div>
           
-          {alasan === 'Lainnya' && (
+          {alasan === 'Dispensasi' && (
             <div className="mt-3 relative">
               <FileText className="absolute left-3 top-3 text-slate-400" size={20} />
               <textarea
                 value={alasanLainnya}
                 onChange={(e) => setAlasanLainnya(e.target.value)}
-                placeholder="Tuliskan alasan secara detail..."
+                placeholder="Tuliskan keterangan dispensasi secara detail..."
                 className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all min-h-[100px]"
                 required
               />
