@@ -193,8 +193,8 @@ export default function DashboardIzin() {
   }, {});
 
   const sortedHierarchicalKelas = Object.keys(hierarchicalData).sort();
-
   const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
+  const nihilClasses = KELAS_OPTIONS.filter(kelas => !groupedTodayAbsentees[kelas]);
 
   if (loading) {
     return (
@@ -459,6 +459,39 @@ export default function DashboardIzin() {
                     );
                   })}
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 100% Attendance Classes (Nihil) */}
+      <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-50/50 rounded-full blur-3xl -mr-32 -mt-32 z-0" />
+        
+        <div className="flex items-center gap-4 mb-8 relative z-10">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-sm">
+            <UserCheck size={24} />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-slate-800">Kelas 100% Nihil (Kehadiran Penuh)</h3>
+            <p className="text-sm text-slate-500 font-medium">Kelas yang seluruh siswanya masuk (Tidak ada izin hari ini)</p>
+          </div>
+        </div>
+
+        {nihilClasses.length === 0 ? (
+          <div className="py-8 text-center bg-slate-50/50 rounded-[2rem] border border-dashed border-slate-200 relative z-10">
+            <p className="text-slate-500 font-bold">Semua kelas memiliki setidaknya satu siswa yang izin hari ini.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 relative z-10">
+            {nihilClasses.map(kelas => (
+              <div key={kelas} className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 flex flex-col items-center justify-center group hover:bg-emerald-50 hover:shadow-md transition-all duration-300">
+                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-emerald-600 mb-2 shadow-sm border border-emerald-50 group-hover:scale-110 transition-transform">
+                  <UserCheck size={18} />
+                </div>
+                <span className="text-sm font-black text-emerald-800 tracking-tight">{kelas}</span>
+                <span className="text-[10px] font-bold text-emerald-500 uppercase mt-1">NIHIL</span>
               </div>
             ))}
           </div>
