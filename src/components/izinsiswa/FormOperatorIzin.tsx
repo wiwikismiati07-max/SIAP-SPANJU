@@ -8,8 +8,7 @@ import { saveAs } from 'file-saver';
 
 const ALASAN_OPTIONS = [
   "Sakit",
-  "Acara Keluarga",
-  "Keperluan Mendesak",
+  "Izin",
   "Alpa",
   "Lainnya"
 ];

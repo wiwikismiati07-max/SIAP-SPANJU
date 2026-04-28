@@ -6,8 +6,7 @@ import { Search, Calendar, FileText, Upload, User, Phone } from 'lucide-react';
 
 const ALASAN_OPTIONS = [
   "Sakit",
-  "Acara Keluarga",
-  "Keperluan Mendesak",
+  "Izin",
   "Alpa",
   "Lainnya"
 ];
