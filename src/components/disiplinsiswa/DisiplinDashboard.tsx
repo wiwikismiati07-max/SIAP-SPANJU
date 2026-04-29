@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Users, AlertCircle, TrendingUp, BarChart3, UserX, CheckCircle2, Clock, PieChart as PieChartIcon } from 'lucide-react';
+import { Users, AlertCircle, TrendingUp, BarChart3, UserX, CheckCircle2, Clock, PieChart as PieChartIcon, Trophy, Star } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 
 export default function DisiplinDashboard() {
@@ -16,6 +16,7 @@ export default function DisiplinDashboard() {
   const [classData, setClassData] = useState<any[]>([]);
   const [categoryData, setCategoryData] = useState<any[]>([]);
   const [frequentViolators, setFrequentViolators] = useState<any[]>([]);
+  const [perfectClasses, setPerfectClasses] = useState<string[]>([]);
 
   const KELAS_OPTIONS = [
     '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
@@ -41,6 +42,9 @@ export default function DisiplinDashboard() {
         
         if (pError) throw pError;
 
+        // Fetch master siswa to calculate perfect classes
+        const { data: sData } = await supabase.from('master_siswa').select('*');
+
         const safeKasus = allKasus || [];
         const totalKasus = safeKasus.length;
         const kasusBaru = safeKasus.filter(k => k.tanggal === today).length;
@@ -54,6 +58,18 @@ export default function DisiplinDashboard() {
           kasusSelesai,
           persentase: totalKasus > 0 ? (kasusSelesai / totalKasus) * 100 : 0
         });
+
+        // Calculate perfect classes today
+        if (sData) {
+          const allUniqueClasses = KELAS_OPTIONS.sort();
+          const violatingSiswaIdsToday = new Set(safeKasus.filter(k => k.tanggal === today).map(k => k.siswa_id));
+          const perfectClassesToday = allUniqueClasses.filter(kelas => {
+            const siswaInClass = sData.filter(s => s.kelas === kelas);
+            // Class is perfect if it has students AND none of them violated today
+            return siswaInClass.length > 0 && !siswaInClass.some(s => violatingSiswaIdsToday.has(s.id));
+          });
+          setPerfectClasses(perfectClassesToday);
+        }
 
         // Chart Data (Per Kelas)
         const perKelas = KELAS_OPTIONS.map(kelas => {
@@ -199,6 +215,40 @@ export default function DisiplinDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Classes with 100% Discipline */}
+      {perfectClasses.length > 0 && (
+        <div className="bg-gradient-to-br from-indigo-500 to-violet-600 p-6 rounded-3xl shadow-lg relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
+            <Trophy size={120} />
+          </div>
+          <div className="relative flex flex-col md:flex-row md:items-center gap-6">
+            <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white border border-white/30 shadow-xl">
+              <Star size={32} className="animate-pulse" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-black text-white flex items-center gap-2">
+                Zona Hijau: Kelas Paling Disiplin Hari Ini
+                <span>🏆</span>
+              </h3>
+              <p className="text-indigo-50 text-sm font-medium mt-1">
+                Apresiasi untuk kelas dengan 0 pelanggaran disiplin hari ini. Terus tingkatkan kedisiplinan!
+              </p>
+              <div className="flex flex-wrap gap-2 mt-4">
+                {perfectClasses.map((kelas) => (
+                  <div 
+                    key={kelas} 
+                    className="px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white text-sm font-black flex items-center gap-2 hover:bg-white/20 transition-colors cursor-default"
+                  >
+                    <Trophy size={14} className="text-yellow-300" />
+                    {kelas}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Chart Per Kelas */}
