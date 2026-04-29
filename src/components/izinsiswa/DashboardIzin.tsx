@@ -85,15 +85,11 @@ export default function DashboardIzin() {
       // Selected range stats
       const filteredData = allData.filter(d => d.tanggal_mulai >= dateRange.start && d.tanggal_mulai <= dateRange.end);
 
-      // Calculate Siswa Masuk (Today)
-      const today = format(new Date(), 'yyyy-MM-dd');
-      const todayAbsent = allData.filter(d => 
-        d.status === 'Disetujui' && 
-        today >= d.tanggal_mulai && 
-        today <= d.tanggal_selesai
-      );
-      const uniqueTodayAbsent = new Set(todayAbsent.map(d => d.siswa_id)).size;
-      const siswaMasuk = totalSiswaCount - uniqueTodayAbsent;
+      // Calculate Attendance within Period
+      // We'll calculate unique absentees within the period. 
+      // Note: This shows total unique students who were absent at least once in the period.
+      const uniqueAbsenteesInRange = new Set(filteredData.filter(d => d.status === 'Disetujui').map(d => d.siswa_id)).size;
+      const avgSiswaMasuk = totalSiswaCount - uniqueAbsenteesInRange;
 
       setStats({
         totalIzin: filteredData.length,
@@ -101,7 +97,7 @@ export default function DashboardIzin() {
         disetujui: filteredData.filter((d: any) => d.status === 'Disetujui').length,
         ditolak: filteredData.filter((d: any) => d.status === 'Ditolak').length,
         totalSiswa: totalSiswaCount,
-        siswaMasuk: siswaMasuk
+        siswaMasuk: avgSiswaMasuk
       });
 
     } catch (error: any) {
@@ -144,15 +140,10 @@ export default function DashboardIzin() {
     }))
     .sort((a, b) => b.count - a.count);
 
-  // Group today's absentees by class and reason (excluding Dispensasi)
-  const today = format(new Date(), 'yyyy-MM-dd');
-  const todayAbsentees = data.filter(d => 
-    d.status === 'Disetujui' && 
-    today >= d.tanggal_mulai && 
-    today <= d.tanggal_selesai
-  );
+  // Group absentees by class and reason within Period
+  const periodAbsentees = filteredData.filter(d => d.status === 'Disetujui');
 
-  const groupedTodayAbsentees = todayAbsentees.reduce((acc: any, curr) => {
+  const groupedPeriodAbsentees = periodAbsentees.reduce((acc: any, curr) => {
     const kelas = curr.siswa?.kelas || 'Tanpa Kelas';
     if (!acc[kelas]) acc[kelas] = {};
     if (!acc[kelas][curr.alasan]) acc[kelas][curr.alasan] = [];
@@ -160,15 +151,42 @@ export default function DashboardIzin() {
     return acc;
   }, {});
 
-  const sortedClasses = Object.keys(groupedTodayAbsentees).sort();
+  const sortedClasses = Object.keys(groupedPeriodAbsentees).sort();
 
-  const topAbsentees = Array.from(new Set(filteredData.map(i => i.siswa_id)))
+  const topAlpa = Array.from(new Set(filteredData.filter(i => i.alasan === 'Alpa' && i.status === 'Disetujui').map(i => i.siswa_id)))
     .map(id => {
       const student = filteredData.find(i => i.siswa_id === id)?.siswa;
-      const count = filteredData.filter(i => i.siswa_id === id).length;
+      const count = filteredData.filter(i => i.siswa_id === id && i.alasan === 'Alpa' && i.status === 'Disetujui').length;
       return { ...student, id, count };
     })
-    .filter(s => s.count >= 3)
+    .filter(s => s.count > 3)
+    .sort((a, b) => b.count - a.count);
+
+  const topSakit = Array.from(new Set(filteredData.filter(i => i.alasan === 'Sakit' && i.status === 'Disetujui').map(i => i.siswa_id)))
+    .map(id => {
+      const student = filteredData.find(i => i.siswa_id === id)?.siswa;
+      const count = filteredData.filter(i => i.siswa_id === id && i.alasan === 'Sakit' && i.status === 'Disetujui').length;
+      return { ...student, id, count };
+    })
+    .filter(s => s.count > 3)
+    .sort((a, b) => b.count - a.count);
+
+  const topIzin = Array.from(new Set(filteredData.filter(i => i.alasan === 'Izin' && i.status === 'Disetujui').map(i => i.siswa_id)))
+    .map(id => {
+      const student = filteredData.find(i => i.siswa_id === id)?.siswa;
+      const count = filteredData.filter(i => i.siswa_id === id && i.alasan === 'Izin' && i.status === 'Disetujui').length;
+      return { ...student, id, count };
+    })
+    .filter(s => s.count > 3)
+    .sort((a, b) => b.count - a.count);
+
+  const topDispensasi = Array.from(new Set(filteredData.filter(i => i.alasan.toLowerCase() === 'dispensasi' && i.status === 'Disetujui').map(i => i.siswa_id)))
+    .map(id => {
+      const student = filteredData.find(i => i.siswa_id === id)?.siswa;
+      const count = filteredData.filter(i => i.siswa_id === id && i.alasan.toLowerCase() === 'dispensasi' && i.status === 'Disetujui').length;
+      return { ...student, id, count };
+    })
+    .filter(s => s.count > 3)
     .sort((a, b) => b.count - a.count);
 
   const hierarchicalData = filteredData.reduce((acc: any, curr) => {
@@ -194,7 +212,7 @@ export default function DashboardIzin() {
 
   const sortedHierarchicalKelas = Object.keys(hierarchicalData).sort();
   const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
-  const nihilClasses = KELAS_OPTIONS.filter(kelas => !groupedTodayAbsentees[kelas]);
+  const nihilClasses = KELAS_OPTIONS.filter(kelas => !groupedPeriodAbsentees[kelas]);
 
   if (loading) {
     return (
@@ -262,14 +280,14 @@ export default function DashboardIzin() {
           </div>
         </div>
 
-        {/* Siswa Masuk - Blue Soft */}
+        {/* Siswa Pernah Masuk - Blue Soft */}
         <div className="bg-blue-50 p-6 rounded-[2rem] shadow-sm border border-blue-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-200/30 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
           <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-blue-600 shadow-sm z-10 border border-blue-100">
             <UserCheck size={28} />
           </div>
           <div className="z-10">
-            <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.15em] mb-1">Siswa Masuk</p>
+            <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.15em] mb-1">Siswa Hadir</p>
             <p className="text-3xl font-black text-blue-900 leading-none">{stats.siswaMasuk}</p>
           </div>
         </div>
@@ -403,8 +421,8 @@ export default function DashboardIzin() {
             <Users size={24} />
           </div>
           <div>
-            <h3 className="text-xl font-black text-slate-800">Siswa Tidak Masuk Hari Ini</h3>
-            <p className="text-sm text-slate-500 font-medium">Monitoring kehadiran real-time (Status: Disetujui)</p>
+            <h3 className="text-xl font-black text-slate-800">Siswa Tidak Masuk (Periode Terpilih)</h3>
+            <p className="text-sm text-slate-500 font-medium">Rekapitulasi ketidakhadiran (Status: Disetujui)</p>
           </div>
         </div>
 
@@ -413,8 +431,8 @@ export default function DashboardIzin() {
             <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-emerald-500 mx-auto mb-4 shadow-sm border border-emerald-50">
               <UserCheck size={32} />
             </div>
-            <p className="text-slate-500 font-bold text-lg">Luar Biasa!</p>
-            <p className="text-slate-400">Semua siswa hadir di sekolah hari ini.</p>
+            <p className="text-slate-500 font-bold text-lg">Semua Hadir!</p>
+            <p className="text-slate-400">Tidak ada catatan ketidakhadiran pada periode ini.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 relative z-10">
@@ -423,11 +441,11 @@ export default function DashboardIzin() {
                 <div className="bg-white px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                   <h4 className="font-black text-slate-700 tracking-tight">KELAS {kelas}</h4>
                   <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-3 py-1 rounded-full uppercase">
-                    {Object.values(groupedTodayAbsentees[kelas]).flat().length} Siswa
+                    {Object.values(groupedPeriodAbsentees[kelas]).flat().length} Catatan
                   </span>
                 </div>
                 <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {Object.keys(groupedTodayAbsentees[kelas]).map((alasan, idx) => {
+                  {Object.keys(groupedPeriodAbsentees[kelas]).map((alasan, idx) => {
                     const softColors = [
                       { bg: 'bg-rose-50', text: 'text-rose-600', dot: 'bg-rose-400', badge: 'bg-rose-100' },
                       { bg: 'bg-amber-50', text: 'text-amber-600', dot: 'bg-amber-400', badge: 'bg-amber-100' },
@@ -444,14 +462,14 @@ export default function DashboardIzin() {
                             <span className={`text-[10px] font-black uppercase tracking-widest ${color.text}`}>{alasan}</span>
                           </div>
                           <span className={`text-[10px] ${color.badge} ${color.text} px-2 py-0.5 rounded-lg font-black`}>
-                            {groupedTodayAbsentees[kelas][alasan].length}
+                            {groupedPeriodAbsentees[kelas][alasan].length}
                           </span>
                         </div>
                         <ul className="space-y-2">
-                          {groupedTodayAbsentees[kelas][alasan].map((item: any) => (
+                          {groupedPeriodAbsentees[kelas][alasan].map((item: any) => (
                             <li key={item.id} className="text-xs font-bold text-slate-600 flex items-center gap-2">
                               <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-                              {item.siswa?.nama}
+                              <span className="truncate">{item.siswa?.nama}</span>
                             </li>
                           ))}
                         </ul>
@@ -474,14 +492,14 @@ export default function DashboardIzin() {
             <UserCheck size={24} />
           </div>
           <div>
-            <h3 className="text-xl font-black text-slate-800">Kelas 100% Nihil (Kehadiran Penuh)</h3>
-            <p className="text-sm text-slate-500 font-medium">Kelas yang seluruh siswanya masuk (Tidak ada izin hari ini)</p>
+            <h3 className="text-xl font-black text-slate-800">Kelas 100% Nihil (Periode)</h3>
+            <p className="text-sm text-slate-500 font-medium">Kelas yang seluruh siswanya selalu hadir (Tidak ada izin di periode ini)</p>
           </div>
         </div>
 
         {nihilClasses.length === 0 ? (
           <div className="py-8 text-center bg-slate-50/50 rounded-[2rem] border border-dashed border-slate-200 relative z-10">
-            <p className="text-slate-500 font-bold">Semua kelas memiliki setidaknya satu siswa yang izin hari ini.</p>
+            <p className="text-slate-500 font-bold">Semua kelas memiliki setidaknya satu catatan izin pada periode ini.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 relative z-10">
@@ -654,37 +672,139 @@ export default function DashboardIzin() {
         </div>
       </div>
 
-      {/* Top Absentees List */}
-      <div className="bg-rose-50 p-6 rounded-2xl border border-rose-100">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-lg bg-rose-100 flex items-center justify-center text-rose-600">
-            <AlertTriangle size={20} />
+      {/* Frequent Absence Lists */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Top Alpa List */}
+        <div className="bg-rose-50 p-6 rounded-2xl border border-rose-100 h-full">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-lg bg-rose-100 flex items-center justify-center text-rose-600">
+              <AlertTriangle size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-rose-800">Siswa Sering Alpa (&gt; 3x)</h3>
+              <p className="text-xs text-rose-600/70">Frekuensi Alpa tinggi di periode ini</p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-bold text-rose-800">Siswa Sering Izin (≥ 3x Periode)</h3>
-            <p className="text-xs text-rose-600/70">Daftar siswa dengan frekuensi izin tinggi</p>
-          </div>
+
+          {topAlpa.length === 0 ? (
+            <div className="bg-white/50 p-8 rounded-xl text-center text-rose-600/70 italic border border-dashed border-rose-200">
+              Tidak ada siswa dengan frekuensi Alpa tinggi (&gt; 3x).
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {topAlpa.map((s: any) => (
+                <div key={s.id} className="bg-white p-4 rounded-xl shadow-sm border border-rose-200 flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-slate-800 truncate max-w-[150px]">{s.nama}</div>
+                    <div className="text-xs text-slate-500">Kelas {s.kelas}</div>
+                  </div>
+                  <div className="bg-rose-100 text-rose-700 px-3 py-1 rounded-full text-sm font-bold">
+                    {s.count}x
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {topAbsentees.length === 0 ? (
-          <div className="bg-white/50 p-8 rounded-xl text-center text-rose-600/70 italic border border-dashed border-rose-200">
-            Tidak ada siswa dengan frekuensi izin tinggi pada periode ini.
+        {/* Top Sakit List */}
+        <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100 h-full">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600">
+              <Clock size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-amber-800">Siswa Sering Sakit (&gt; 3x)</h3>
+              <p className="text-xs text-amber-600/70">Frekuensi Sakit tinggi di periode ini</p>
+            </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {topAbsentees.map((s: any) => (
-              <div key={s.id} className="bg-white p-4 rounded-xl shadow-sm border border-rose-200 flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-slate-800">{s.nama}</div>
-                  <div className="text-xs text-slate-500">Kelas {s.kelas}</div>
+
+          {topSakit.length === 0 ? (
+            <div className="bg-white/50 p-8 rounded-xl text-center text-amber-600/70 italic border border-dashed border-amber-200">
+              Tidak ada siswa dengan frekuensi Sakit tinggi (&gt; 3x).
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {topSakit.map((s: any) => (
+                <div key={s.id} className="bg-white p-4 rounded-xl shadow-sm border border-amber-200 flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-slate-800 truncate max-w-[150px]">{s.nama}</div>
+                    <div className="text-xs text-slate-500">Kelas {s.kelas}</div>
+                  </div>
+                  <div className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-sm font-bold">
+                    {s.count}x
+                  </div>
                 </div>
-                <div className="bg-rose-100 text-rose-700 px-3 py-1 rounded-full text-sm font-bold">
-                  {s.count}x
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Top Izin List */}
+        <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 h-full">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+              <Users size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-blue-800">Siswa Sering Izin (&gt; 3x)</h3>
+              <p className="text-xs text-blue-600/70">Frekuensi Izin tinggi di periode ini</p>
+            </div>
           </div>
-        )}
+
+          {topIzin.length === 0 ? (
+            <div className="bg-white/50 p-8 rounded-xl text-center text-blue-600/70 italic border border-dashed border-blue-200">
+              Tidak ada siswa dengan frekuensi Izin tinggi (&gt; 3x).
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {topIzin.map((s: any) => (
+                <div key={s.id} className="bg-white p-4 rounded-xl shadow-sm border border-blue-200 flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-slate-800 truncate max-w-[150px]">{s.nama}</div>
+                    <div className="text-xs text-slate-500">Kelas {s.kelas}</div>
+                  </div>
+                  <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-bold">
+                    {s.count}x
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Top Dispensasi List */}
+        <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100 h-full">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
+              <TrendingUp size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-emerald-800">Siswa Sering Dispensasi (&gt; 3x)</h3>
+              <p className="text-xs text-emerald-600/70">Frekuensi Dispensasi tinggi di periode ini</p>
+            </div>
+          </div>
+
+          {topDispensasi.length === 0 ? (
+            <div className="bg-white/50 p-8 rounded-xl text-center text-emerald-600/70 italic border border-dashed border-emerald-200">
+              Tidak ada siswa dengan frekuensi Dispensasi tinggi (&gt; 3x).
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {topDispensasi.map((s: any) => (
+                <div key={s.id} className="bg-white p-4 rounded-xl shadow-sm border border-emerald-200 flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-slate-800 truncate max-w-[150px]">{s.nama}</div>
+                    <div className="text-xs text-slate-500">Kelas {s.kelas}</div>
+                  </div>
+                  <div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-sm font-bold">
+                    {s.count}x
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
