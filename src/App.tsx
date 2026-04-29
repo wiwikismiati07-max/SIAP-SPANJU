@@ -77,7 +77,7 @@ const EXTERNAL_APPS = [
 ];
 
 const LOGO_URL = "https://iili.io/KDFk4fI.png";
-const IMAGE_KILAS = "https://i.ibb.co.com/RTQ46yKG/Gemini-Generated-Image-dmq00ddmq00ddmq0.png";
+const IMAGE_KILAS = "https://i.ibb.co.com/gZMGhsGm/Gemini-Generated-Image-6i9kqx6i9kqx6i9k.png";
 const IMAGE_8_PROGRAM = "https://i.ibb.co.com/FLfhS872/Gemini-Generated-Image-1jgck21jgck21jgc.png";
 const IMAGE_KORELASI_SRA = "https://wsrv.nl/?url=i.ibb.co/5wM2Bd4/gambar-3.jpg";
 
