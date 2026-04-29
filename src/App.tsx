@@ -73,7 +73,7 @@ const COLORS = [
 
 const EXTERNAL_APPS = [
   { id: "tutorial-aplikasi", title: "Tutorial Aplikasi", url: "https://youtube.com/shorts/Zal1cHhhE6U?si=7S5GKVb07-Qo2Kav", icon: "Youtube", color: "from-red-500 to-rose-600" },
-  { id: "8-program-prioritas-spanju", title: "8 Program Prioritas SMPN 7 Pasuruan", url: "https://7-kaih-nine.vercel.app/", icon: "LayoutDashboard", color: "from-blue-400 to-blue-600" }
+  { id: "8-program-prioritas-spanju", title: "Arsip Digital 8 Program Prioritas Spanju", url: "https://7-kaih-nine.vercel.app/", icon: "LayoutDashboard", color: "from-blue-400 to-blue-600" }
 ];
 
 const LOGO_URL = "https://iili.io/KDFk4fI.png";
@@ -227,7 +227,7 @@ export default function App() {
     { id: 'disiplinsiswa', title: 'DISIPLIN SISWA', subtitle: 'KASUS RINGAN (GURU)', icon: ClipboardList, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200', roles: ['view', 'entry', 'full'] },
     { id: 'bkpedulisiswa', title: 'BK PEDULI SISWA', subtitle: 'KASUS BERAT (GURU BK)', icon: Users, color: 'from-pink-500 to-pink-600', shadow: 'shadow-pink-200', roles: ['view', 'entry', 'full'] },
     { id: 'kilas', title: 'KILAS APLIKASI', subtitle: 'REFERENSI DASAR', icon: Book, color: 'from-amber-500 to-amber-600', shadow: 'shadow-amber-200', roles: ['view', 'entry', 'full'] },
-    { id: 'program', title: '8 PROGRAM PRIORITAS', subtitle: 'SMPN 7 PASURUAN', icon: LayoutDashboard, color: 'from-cyan-500 to-cyan-600', shadow: 'shadow-cyan-200', roles: ['view', 'entry', 'full'] },
+    { id: 'program', title: 'Arsip Digital 8 Program Prioritas Spanju', subtitle: 'SMPN 7 PASURUAN', icon: LayoutDashboard, color: 'from-cyan-500 to-cyan-600', shadow: 'shadow-cyan-200', roles: ['view', 'entry', 'full'] },
     { id: 'spip', title: '15 INDIKATOR SPIP', subtitle: 'ANTI KORUPSI', icon: Shield, color: 'from-violet-500 to-violet-600', shadow: 'shadow-violet-200', roles: ['view', 'entry', 'full'] },
     { id: 'korelasi_program', title: 'KORELASI PROGRAM', subtitle: 'SPIP & SIAP SPANJU', icon: ClipboardList, color: 'from-orange-500 to-orange-600', shadow: 'shadow-orange-200', roles: ['view', 'entry', 'full'] },
     { id: 'korelasi_sra', title: 'KORELASI SRA', subtitle: 'SEKOLAH RAMAH ANAK', icon: Activity, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', roles: ['view', 'entry', 'full'] },
