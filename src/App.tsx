@@ -77,8 +77,8 @@ const EXTERNAL_APPS = [
 ];
 
 const LOGO_URL = "https://iili.io/KDFk4fI.png";
-const IMAGE_KILAS = "https://wsrv.nl/?url=i.ibb.co.com/3yssw38v/Gemini-Generated-Image-gporzagporzagpor.png";
-const IMAGE_8_PROGRAM = "https://wsrv.nl/?url=i.ibb.co.com/VWYCc9Cc/Gemini-Generated-Image-a54l2ma54l2ma54l.png";
+const IMAGE_KILAS = "https://i.ibb.co.com/DHLfpb0t/Gemini-Generated-Image-52o3c52o3c52o3c5.png";
+const IMAGE_8_PROGRAM = "https://i.ibb.co.com/FLfhS872/Gemini-Generated-Image-1jgck21jgck21jgc.png";
 const IMAGE_KORELASI_SRA = "https://wsrv.nl/?url=i.ibb.co/5wM2Bd4/gambar-3.jpg";
 
 import SiTelatApp from './components/sitelat/SiTelatApp';
@@ -218,7 +218,7 @@ export default function App() {
     { id: 'management_login', title: 'MANAGEMENT LOGIN', subtitle: 'KELOLA AKSES USER', icon: ShieldCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', adminOnly: true, roles: ['full'] },
     { id: 'sitelat', title: 'SI-TELAT', subtitle: 'SISTEM KETERLAMBATAN SISWA', icon: Clock, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200', roles: ['view', 'entry', 'full'] },
     { id: 'izinsiswa', title: 'IZIN SISWA', subtitle: 'SISTEM PERIZINAN SISWA', icon: UserCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', roles: ['view', 'entry', 'full'] },
-    { id: 'sipena', title: 'SIPENA', subtitle: 'PERPUSTAKAAN SISWA (BARU)', icon: Library, color: 'from-slate-800 to-black', shadow: 'shadow-slate-300', roles: ['view', 'entry', 'full'] },
+    { id: 'sipena', title: 'SIPENA', subtitle: 'SISTEM INFORMASI PERPUSTAKAAN (BARU)', icon: Library, color: 'from-slate-800 to-black', shadow: 'shadow-slate-300', roles: ['view', 'entry', 'full'] },
     { id: 'pengaduan', title: 'PENGADUAN WALI MURID', subtitle: 'LAYANAN PENGADUAN (BARU)', icon: MessageSquare, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200', roles: ['view', 'entry', 'full'] },
     { id: 'dispensasi', title: 'SI-DISPENSASI', subtitle: 'DISPENSASI SISWA (BARU)', icon: FileCheck, color: 'from-indigo-500 to-indigo-600', shadow: 'shadow-indigo-200', roles: ['view', 'entry', 'full'] },
     { id: 'prestasi', title: 'SI-PRESTASI', subtitle: 'PRESTASI SISWA (BARU)', icon: Trophy, color: 'from-purple-500 to-purple-600', shadow: 'shadow-purple-200', roles: ['view', 'entry', 'full'] },
@@ -614,7 +614,9 @@ export default function App() {
                 </div>
 
                 <motion.div variants={fadeInVariants} initial="hidden" whileInView="visible" viewport={{ once: true }} className="p-4 md:p-8 bg-white/80 rounded-[2.5rem] border border-white/50 shadow-xl shadow-pink-100/30 flex flex-col items-center justify-center relative group">
-                  <img src={IMAGE_KILAS} alt="Kilas" className="w-full max-w-3xl h-auto rounded-2xl shadow-md object-contain" />
+                  <div className="relative w-full max-w-3xl">
+                    <img src={IMAGE_KILAS} alt="Kilas" className="w-full h-auto rounded-2xl shadow-md object-contain" />
+                  </div>
                 </motion.div>
 
                 <div className="p-10 bg-gradient-to-br from-pink-50 to-blue-50 rounded-[2.5rem] text-slate-800 shadow-2xl relative overflow-hidden group border border-white/50">
