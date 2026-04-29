@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { TransaksiWithSiswa } from '../../types/sitelat';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Users, UserX, Clock, PhoneCall, Download, BarChart as BarChartIcon, ChevronDown, ChevronRight, FileText } from 'lucide-react';
+import { Users, UserX, Clock, PhoneCall, Download, BarChart as BarChartIcon, ChevronDown, ChevronRight, FileText, Trophy, Star } from 'lucide-react';
 import { format, subDays, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 
 export default function Dashboard() {
   const [transaksi, setTransaksi] = useState<TransaksiWithSiswa[]>([]);
   const [totalSiswa, setTotalSiswa] = useState(0);
   const [terlambatHariIni, setTerlambatHariIni] = useState(0);
+  const [perfectClasses, setPerfectClasses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [selectedKelas, setSelectedKelas] = useState<string>('All');
@@ -53,11 +54,22 @@ export default function Dashboard() {
 
         if (transData) {
           const { data: sData } = await supabase.from('master_siswa').select('*');
-          const joinedData = transData.map(t => ({
-            ...t,
-            siswa: sData?.find(s => s.id === t.siswa_id) || { id: t.siswa_id, nama: 'Unknown', kelas: '-' }
-          }));
-          setTransaksi(joinedData as TransaksiWithSiswa[]);
+          if (sData) {
+            const joinedData = transData.map(t => ({
+              ...t,
+              siswa: sData.find(s => s.id === t.siswa_id) || { id: t.siswa_id, nama: 'Unknown', kelas: '-' }
+            }));
+            setTransaksi(joinedData as TransaksiWithSiswa[]);
+
+            // Calculate perfect classes today
+            const allUniqueClasses = Array.from(new Set(sData.map(s => s.kelas))).sort();
+            const lateSiswaIdsToday = new Set(todayData?.map(t => t.siswa_id));
+            const perfectClassesToday = allUniqueClasses.filter(kelas => {
+              const siswaInClass = sData.filter(s => s.kelas === kelas);
+              return !siswaInClass.some(s => lateSiswaIdsToday.has(s.id));
+            });
+            setPerfectClasses(perfectClassesToday);
+          }
         }
       } else {
         // Fallback to local storage
@@ -74,10 +86,19 @@ export default function Dashboard() {
           t.tanggal >= dateRange.start && t.tanggal <= dateRange.end
         ).map((t: any) => ({
           ...t,
-          siswa: localSiswa.find((s: any) => s.id === t.siswa_id)
+          siswa: localSiswa.find((s: any) => s.id === t.id) || localSiswa.find((s: any) => s.id === t.siswa_id)
         })).sort((a: any, b: any) => new Date(`${b.tanggal}T${b.jam}`).getTime() - new Date(`${a.tanggal}T${a.jam}`).getTime());
         
         setTransaksi(filteredTrans);
+
+        // Calculate perfect classes today (local)
+        const allUniqueClasses = Array.from(new Set(localSiswa.map((s: any) => s.kelas))).sort() as string[];
+        const lateSiswaIdsToday = new Set(todayTrans.map((t: any) => t.siswa_id));
+        const perfectClassesToday = allUniqueClasses.filter(kelas => {
+          const siswaInClass = localSiswa.filter((s: any) => s.kelas === kelas);
+          return !siswaInClass.some((s: any) => lateSiswaIdsToday.has(s.id));
+        });
+        setPerfectClasses(perfectClassesToday);
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -254,6 +275,40 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Classes with 100% On-time Attendance */}
+      {perfectClasses.length > 0 && (
+        <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-6 rounded-3xl shadow-lg relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
+            <Trophy size={120} />
+          </div>
+          <div className="relative flex flex-col md:flex-row md:items-center gap-6">
+            <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white border border-white/30 shadow-xl">
+              <Star size={32} className="animate-pulse" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-black text-white flex items-center gap-2">
+                Zona Hijau: Kelas Paling Disiplin Hari Ini
+                <span>🎉</span>
+              </h3>
+              <p className="text-emerald-50 text-sm font-medium mt-1">
+                Apresiasi untuk kelas dengan tingkat kehadiran tepat waktu 100% (0 Siswa Terlambat).
+              </p>
+              <div className="flex flex-wrap gap-2 mt-4">
+                {perfectClasses.map((kelas) => (
+                  <div 
+                    key={kelas} 
+                    className="px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white text-sm font-black flex items-center gap-2 hover:bg-white/20 transition-colors cursor-default"
+                  >
+                    <Trophy size={14} className="text-yellow-300" />
+                    {kelas}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bar Chart: Terlambat Per Kelas */}
       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
