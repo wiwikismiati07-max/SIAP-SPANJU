@@ -73,6 +73,7 @@ const COLORS = [
 
 const EXTERNAL_APPS = [
   { id: "tutorial-aplikasi", title: "Tutorial Aplikasi", url: "https://youtube.com/shorts/Zal1cHhhE6U?si=7S5GKVb07-Qo2Kav", icon: "Youtube", color: "from-red-500 to-rose-600" },
+  { id: "tutorial-izin-wali", title: "Tutorial Izin Wali Murid", url: "https://youtube.com/shorts/YwtdCSp7Drk?si=CEkeCirD0uMyOWDM", icon: "Youtube", color: "from-rose-500 to-pink-600" },
   { id: "8-program-prioritas-spanju", title: "Arsip Digital 8 Program Prioritas Spanju", url: "https://7-kaih-nine.vercel.app/", icon: "LayoutDashboard", color: "from-blue-400 to-blue-600" }
 ];
 
