@@ -97,6 +97,8 @@ import DisiplinSiswaApp from './components/disiplinsiswa/DisiplinSiswaApp';
 import KelulusanApp from './components/kelulusan/KelulusanApp';
 import KelulusanAdmin from './components/kelulusan/KelulusanAdmin';
 import KelulusanSetup from './components/kelulusan/KelulusanSetup';
+import AlumniTracingApp from './components/alumni/AlumniTracingApp';
+import AlumniTracingAdmin from './components/alumni/AlumniTracingAdmin';
 import GlobalLogin from './components/GlobalLogin';
 import ManagementLogin from './components/ManagementLogin';
 import HotlineSection from './components/HotlineSection';
@@ -108,11 +110,12 @@ export default function App() {
   const [userLinks, setUserLinks] = useState<AppLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'menu_aplikasi' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | 'survey' | 'hotline' | 'kelulusan' | 'setup_kelulusan' | null>(null);
+  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'menu_aplikasi' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | 'survey' | 'hotline' | 'kelulusan' | 'setup_kelulusan' | 'tracing_alumni' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showKelulusanPublic, setShowKelulusanPublic] = useState(false);
+  const [showTracingPublic, setShowTracingPublic] = useState(false);
   const [user, setUser] = useState<any>(null);
 
   // Responsive handling
@@ -232,6 +235,7 @@ export default function App() {
     { id: 'keagamaan', title: 'KEAGAMAAN', subtitle: 'KEGIATAN KEAGAMAAN (BARU)', icon: Book, color: 'from-teal-500 to-teal-600', shadow: 'shadow-teal-200', roles: ['view', 'entry', 'full'] },
     { id: 'uks', title: 'UKS SMPN7', subtitle: 'UNIT KESEHATAN SEKOLAH (BARU)', icon: HeartPulse, color: 'from-rose-500 to-rose-600', shadow: 'shadow-rose-200', roles: ['view', 'entry', 'full'] },
     { id: 'kelulusan', title: 'CEK KELULUSAN', subtitle: 'KELULUSAN KELAS 9', icon: GraduationCap, color: 'from-blue-600 to-indigo-700', shadow: 'shadow-blue-300', roles: ['view', 'entry', 'full'] },
+    { id: 'tracing_alumni', title: 'TRACING ALUMNI', subtitle: 'PENELUSURAN ALUMNI', icon: Users, color: 'from-indigo-600 to-purple-600', shadow: 'shadow-indigo-300', roles: ['view', 'entry', 'full'] },
     { id: 'disiplinsiswa', title: 'DISIPLIN SISWA', subtitle: 'KASUS RINGAN (GURU)', icon: ClipboardList, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200', roles: ['view', 'entry', 'full'] },
     { id: 'bkpedulisiswa', title: 'BK PEDULI SISWA', subtitle: 'KASUS BERAT (GURU BK)', icon: Users, color: 'from-pink-500 to-pink-600', shadow: 'shadow-pink-200', roles: ['view', 'entry', 'full'] },
     { id: 'kilas', title: 'KILAS APLIKASI', subtitle: 'REFERENSI DASAR', icon: Book, color: 'from-amber-500 to-amber-600', shadow: 'shadow-amber-200', roles: ['view', 'entry', 'full'] },
@@ -245,6 +249,9 @@ export default function App() {
     if (showKelulusanPublic) {
       return <KelulusanApp onBack={() => setShowKelulusanPublic(false)} />;
     }
+    if (showTracingPublic) {
+      return <AlumniTracingApp onBack={() => setShowTracingPublic(false)} />;
+    }
     return <GlobalLogin 
       onLoginSuccess={(userData) => {
         setUser(userData);
@@ -253,6 +260,7 @@ export default function App() {
         setActiveSection('menu_aplikasi');
       }} 
       onShowKelulusan={() => setShowKelulusanPublic(true)}
+      onShowTracing={() => setShowTracingPublic(true)}
     />;
   }
 
@@ -596,6 +604,15 @@ export default function App() {
               <KelulusanAdmin />
             ) : (
               <KelulusanApp onBack={() => setActiveSection('menu_aplikasi')} />
+            )}
+          </div>
+        )}
+        {activeSection === 'tracing_alumni' && (
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-y-auto rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            {user?.role === 'full' ? (
+              <AlumniTracingAdmin />
+            ) : (
+              <AlumniTracingApp onBack={() => setActiveSection('menu_aplikasi')} />
             )}
           </div>
         )}

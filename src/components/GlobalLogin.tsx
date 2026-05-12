@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { LogIn, User, Lock, AlertCircle, ShieldCheck } from 'lucide-react';
+import { LogIn, User, Lock, AlertCircle, ShieldCheck, Users } from 'lucide-react';
 
 interface GlobalLoginProps {
   onLoginSuccess: (userData: any) => void;
   onShowKelulusan: () => void;
+  onShowTracing: () => void;
 }
 
-export default function GlobalLogin({ onLoginSuccess, onShowKelulusan }: GlobalLoginProps) {
+export default function GlobalLogin({ onLoginSuccess, onShowKelulusan, onShowTracing }: GlobalLoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -130,14 +131,24 @@ export default function GlobalLogin({ onLoginSuccess, onShowKelulusan }: GlobalL
                 )}
               </button>
 
-              <button
-                type="button"
-                onClick={onShowKelulusan}
-                className="w-full py-5 bg-blue-50 text-blue-700 rounded-2xl font-black hover:bg-blue-100 transition-all uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3 border border-blue-100 shadow-sm shadow-blue-100/50"
-              >
-                <LogIn size={18} className="rotate-90" />
-                Cek Kelulusan Kelas 9
-              </button>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={onShowKelulusan}
+                  className="py-5 bg-blue-50 text-blue-700 rounded-2xl font-black hover:bg-blue-100 transition-all uppercase tracking-[0.1em] text-[10px] flex flex-col items-center justify-center gap-2 border border-blue-100 shadow-sm shadow-blue-100/50"
+                >
+                  <LogIn size={20} className="rotate-90" />
+                  Cek Kelulusan
+                </button>
+                <button
+                  type="button"
+                  onClick={onShowTracing}
+                  className="py-5 bg-indigo-50 text-indigo-700 rounded-2xl font-black hover:bg-indigo-100 transition-all uppercase tracking-[0.1em] text-[10px] flex flex-col items-center justify-center gap-2 border border-indigo-100 shadow-sm shadow-indigo-100/50"
+                >
+                  <Users size={20} />
+                  Tracing Alumni
+                </button>
+              </div>
               
               <div className="text-center">
                 <p className="text-[10px] font-black text-slate-500 tracking-widest">
