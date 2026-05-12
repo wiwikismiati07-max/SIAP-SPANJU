@@ -186,7 +186,7 @@ export default function KelulusanApp({ onBack }: KelulusanAppProps) {
                       className="bg-emerald-600/10 border border-emerald-600/20 p-4 rounded-2xl"
                     >
                       <p className="text-emerald-700 font-black text-sm uppercase tracking-tight">
-                        📢 Ambil SKL tanggal 3 di Sekolah
+                        📢 Ambil SKL tanggal 3 Juni 2026 di Sekolah
                       </p>
                     </motion.div>
                   )}
