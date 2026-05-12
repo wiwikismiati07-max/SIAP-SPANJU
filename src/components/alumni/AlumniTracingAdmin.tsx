@@ -33,7 +33,12 @@ export default function AlumniTracingAdmin() {
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (queryError) throw queryError;
+      if (queryError) {
+        if (queryError.message.includes('relation "public.alumni_tracing" does not exist') || queryError.message.includes('schema cache')) {
+          throw new Error('Tabel "alumni_tracing" tidak ditemukan. Pastikan Anda sudah menjalankan script SQL di Supabase SQL Editor.');
+        }
+        throw queryError;
+      }
       setData(tracings || []);
     } catch (err: any) {
       setError(err.message);
@@ -153,6 +158,10 @@ export default function AlumniTracingAdmin() {
                 <th className="px-8 py-6">Alasan</th>
               </tr>
             </thead>
+          </table>
+        </div>
+        <div className="overflow-y-auto max-h-[600px] scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+          <table className="w-full text-left border-collapse min-w-[1000px]">
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (

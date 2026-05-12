@@ -56,7 +56,12 @@ export default function AlumniTracingApp({ onBack }: AlumniTracingAppProps) {
         .from('alumni_tracing')
         .upsert(dataToSubmit, { onConflict: 'wa_number' });
 
-      if (submitError) throw submitError;
+      if (submitError) {
+        if (submitError.message.includes('relation "public.alumni_tracing" does not exist') || submitError.message.includes('schema cache')) {
+          throw new Error('Tabel "alumni_tracing" belum dibuat di Supabase. Silakan hubungi admin untuk menjalankan script SQL setup.');
+        }
+        throw submitError;
+      }
 
       setSuccess(true);
       // Reset form or scroll to top is handled by success state UI

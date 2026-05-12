@@ -35,6 +35,9 @@ export default function KelulusanApp({ onBack }: KelulusanAppProps) {
         if (queryError.code === 'PGRST116') {
           throw new Error('Data NIS tidak ditemukan. Pastikan NIS yang Anda masukkan benar.');
         }
+        if (queryError.message.includes('relation "public.kelulusan" does not exist') || queryError.message.includes('schema cache')) {
+          throw new Error('Database kelulusan belum siap. Silakan hubungi admin sekolah.');
+        }
         throw queryError;
       }
 

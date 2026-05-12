@@ -20,7 +20,12 @@ export default function KelulusanAdmin() {
         .select('*')
         .order('nama', { ascending: true });
       
-      if (queryError) throw queryError;
+      if (queryError) {
+        if (queryError.message.includes('relation "public.kelulusan" does not exist') || queryError.message.includes('schema cache')) {
+          throw new Error('Tabel "kelulusan" tidak ditemukan. Pastikan data sudah diupload melalui menu Setup Kelulusan.');
+        }
+        throw queryError;
+      }
       setData(students || []);
     } catch (err: any) {
       setError(err.message);
@@ -104,7 +109,7 @@ export default function KelulusanAdmin() {
             </thead>
           </table>
         </div>
-        <div className="overflow-y-auto max-h-[600px] scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+        <div className="overflow-y-auto max-h-[500px] scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
           <table className="w-full text-left border-collapse min-w-[800px]">
             <tbody className="divide-y divide-slate-100">
               {loading ? (
