@@ -1,5 +1,5 @@
 {
   "name": "SIAP SPANJU",
-  "description": "Sistem Integrasi Aplikasi Pembinaan Siswa - Sekolah Sigap Menangani Permasalahan Siswa Secara Cepat dan Terdata",
+  "description": "Sistem Integrasi Aplikasi Pembinaan Siswa. Dilengkapi dengan fitur Cek Kelulusan Siswa Kelas 9 secara publik.",
   "requestFramePermissions": []
 }

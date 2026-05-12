@@ -4,9 +4,10 @@ import { LogIn, User, Lock, AlertCircle, ShieldCheck } from 'lucide-react';
 
 interface GlobalLoginProps {
   onLoginSuccess: (userData: any) => void;
+  onShowKelulusan: () => void;
 }
 
-export default function GlobalLogin({ onLoginSuccess }: GlobalLoginProps) {
+export default function GlobalLogin({ onLoginSuccess, onShowKelulusan }: GlobalLoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -127,6 +128,15 @@ export default function GlobalLogin({ onLoginSuccess }: GlobalLoginProps) {
                     Masuk Aplikasi
                   </>
                 )}
+              </button>
+
+              <button
+                type="button"
+                onClick={onShowKelulusan}
+                className="w-full py-5 bg-blue-50 text-blue-700 rounded-2xl font-black hover:bg-blue-100 transition-all uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3 border border-blue-100 shadow-sm shadow-blue-100/50"
+              >
+                <LogIn size={18} className="rotate-90" />
+                Cek Kelulusan Kelas 9
               </button>
               
               <div className="text-center">
