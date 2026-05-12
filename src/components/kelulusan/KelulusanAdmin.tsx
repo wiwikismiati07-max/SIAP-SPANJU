@@ -88,11 +88,11 @@ export default function KelulusanAdmin() {
       </AnimatePresence>
 
       {/* Data Table */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden flex flex-col">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
-              <tr className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-200 text-center">
+              <tr className="bg-slate-50 text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] border-b border-slate-200 text-center sticky top-0 z-10">
                 <th className="px-6 py-4">NIS</th>
                 <th className="px-6 py-4 text-left">Nama Lengkap</th>
                 <th className="px-6 py-4">Kelas</th>
@@ -102,24 +102,32 @@ export default function KelulusanAdmin() {
                 <th className="px-6 py-4">Keterangan</th>
               </tr>
             </thead>
+          </table>
+        </div>
+        <div className="overflow-y-auto max-h-[600px] scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+          <table className="w-full text-left border-collapse min-w-[800px]">
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    {Array.from({ length: 7 }).map((_, j) => (
-                      <td key={j} className="px-6 py-4"><div className="h-4 bg-slate-100 rounded" /></td>
-                    ))}
+                    <td className="px-6 py-4 w-[100px]"><div className="h-4 bg-slate-100 rounded" /></td>
+                    <td className="px-6 py-4 w-[250px]"><div className="h-4 bg-slate-100 rounded" /></td>
+                    <td className="px-6 py-4 w-[80px]"><div className="h-4 bg-slate-100 rounded" /></td>
+                    <td className="px-6 py-4 w-[80px]"><div className="h-4 bg-slate-100 rounded" /></td>
+                    <td className="px-6 py-4 w-[120px]"><div className="h-4 bg-slate-100 rounded" /></td>
+                    <td className="px-6 py-4 w-[80px]"><div className="h-4 bg-slate-100 rounded" /></td>
+                    <td className="px-6 py-4"><div className="h-4 bg-slate-100 rounded" /></td>
                   </tr>
                 ))
               ) : filteredData.length > 0 ? (
                 filteredData.map((student) => (
                   <tr key={student.nis} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 text-center font-bold text-slate-800">{student.nis}</td>
-                    <td className="px-6 py-4 font-black text-slate-800 uppercase text-xs">{student.nama}</td>
-                    <td className="px-6 py-4 text-center text-xs font-bold">{student.kelas}</td>
-                    <td className="px-6 py-4 text-center text-xs font-bold">{student.jenis_kelamin}</td>
-                    <td className="px-6 py-4 text-center text-xs font-bold font-mono tracking-tight">{student.no_peserta}</td>
-                    <td className="px-6 py-4 text-center text-xs font-bold">{student.ruang}</td>
+                    <td className="px-6 py-4 text-center font-bold text-slate-800 w-[100px]">{student.nis}</td>
+                    <td className="px-6 py-4 font-black text-slate-800 uppercase text-xs w-[250px]">{student.nama}</td>
+                    <td className="px-6 py-4 text-center text-xs font-bold w-[80px]">{student.kelas}</td>
+                    <td className="px-6 py-4 text-center text-xs font-bold w-[80px]">{student.jenis_kelamin}</td>
+                    <td className="px-6 py-4 text-center text-xs font-bold font-mono tracking-tight w-[120px]">{student.no_peserta}</td>
+                    <td className="px-6 py-4 text-center text-xs font-bold w-[80px]">{student.ruang}</td>
                     <td className="px-6 py-4 text-center">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
                         student.keterangan.toLowerCase().includes('lulus') && !student.keterangan.toLowerCase().includes('tidak')

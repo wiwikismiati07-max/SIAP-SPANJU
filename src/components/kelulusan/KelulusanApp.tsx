@@ -178,7 +178,18 @@ export default function KelulusanApp({ onBack }: KelulusanAppProps) {
                   </div>
                 </div>
 
-                <div className="pt-4 w-full">
+                <div className="pt-4 w-full space-y-4">
+                  {result.keterangan.toLowerCase().includes('lulus') && !result.keterangan.toLowerCase().includes('tidak') && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-emerald-600/10 border border-emerald-600/20 p-4 rounded-2xl"
+                    >
+                      <p className="text-emerald-700 font-black text-sm uppercase tracking-tight">
+                        📢 Ambil SKL tanggal 3 di Sekolah
+                      </p>
+                    </motion.div>
+                  )}
                   <p className="text-[10px] font-bold opacity-40 uppercase tracking-[0.2em] leading-relaxed">
                     SMP NEGERI 7 PASURUAN - TAHUN PELAJARAN 2025/2026
                   </p>
