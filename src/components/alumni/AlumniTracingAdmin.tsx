@@ -12,7 +12,11 @@ import {
   Phone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+import { format } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
+import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import { supabase } from '../../lib/supabase';
 import { AlumniTracing } from './types';
 
@@ -51,12 +55,124 @@ export default function AlumniTracingAdmin() {
     fetchData();
   }, []);
 
-  const exportToExcel = () => {
-    if (data.length === 0) return;
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Alumni Tracing");
-    XLSX.writeFile(wb, `Tracing_Alumni_Full_${new Date().toISOString().split('T')[0]}.xlsx`);
+  const exportToExcel = async () => {
+    if (filteredData.length === 0) return;
+    
+    setLoading(true);
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Tracing Alumni');
+      const totalCols = 10;
+      
+      await addExcelHeaderAndLogos(worksheet, workbook, 'LAPORAN PENELUSURAN ALUMNI (TRACING ALUMNI)', totalCols);
+
+      // Table Headers
+      const headers = [
+        'NO', 
+        'NAMA LENGKAP', 
+        'JENIS KELAMIN', 
+        'TAHUN LULUS', 
+        'NO. WA / HP', 
+        'LANJUT KE', 
+        'NAMA SEKOLAH LANJUTAN', 
+        'JURUSAN / PROGRAM', 
+        'ALASAN',
+        'ALAMAT'
+      ];
+
+      const headerRow = worksheet.getRow(10);
+      headerRow.values = headers;
+
+      // Table Data
+      filteredData.forEach((item, index) => {
+        worksheet.addRow([
+          index + 1,
+          item.nama_lengkap,
+          item.jenis_kelamin,
+          item.tahun_lulus,
+          item.wa_number,
+          item.lanjut_ke,
+          item.nama_sekolah_lanjutan || '-',
+          item.jurusan || '-',
+          item.alasan || '-',
+          item.alamat || '-'
+        ]);
+      });
+
+      applyColorfulTableStyle(worksheet, 10, filteredData.length, totalCols);
+
+      // Set column widths
+      worksheet.columns = [
+        { width: 5 },   // NO
+        { width: 30 },  // NAMA LENGKAP
+        { width: 15 },  // JENIS KELAMIN
+        { width: 12 },  // TAHUN LULUS
+        { width: 18 },  // WA NUMBER
+        { width: 20 },  // LANJUT KE
+        { width: 30 },  // NAMA SEKOLAH
+        { width: 25 },  // JURUSAN
+        { width: 35 },  // ALASAN
+        { width: 40 }   // ALAMAT
+      ];
+
+      // Signature Section
+      const footerStartRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : 12;
+      const leftColStart = 2;
+      const leftColEnd = 4;
+      const rightColStart = 7;
+      const rightColEnd = 9;
+
+      // Left Signature (Kepala Sekolah)
+      worksheet.mergeCells(footerStartRow, leftColStart, footerStartRow, leftColEnd);
+      worksheet.getCell(footerStartRow, leftColStart).value = 'Mengetahui';
+      worksheet.getCell(footerStartRow, leftColStart).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 1, leftColStart, footerStartRow + 1, leftColEnd);
+      worksheet.getCell(footerStartRow + 1, leftColStart).value = 'Kepala Sekolah';
+      worksheet.getCell(footerStartRow + 1, leftColStart).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 6, leftColStart, footerStartRow + 6, leftColEnd);
+      const kasekName = worksheet.getCell(footerStartRow + 6, leftColStart);
+      kasekName.value = 'NUR FADILAH, S.Pd';
+      kasekName.font = { bold: true, underline: true };
+      kasekName.alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 7, leftColStart, footerStartRow + 7, leftColEnd);
+      worksheet.getCell(footerStartRow + 7, leftColStart).value = 'NIP. 19860410 201001 2 030';
+      worksheet.getCell(footerStartRow + 7, leftColStart).alignment = { horizontal: 'center' };
+
+      // Right Signature (Guru BK)
+      const today = new Date();
+      const formattedDate = format(today, 'd MMMM yyyy', { locale: idLocale });
+      
+      worksheet.mergeCells(footerStartRow, rightColStart, footerStartRow, rightColEnd);
+      worksheet.getCell(footerStartRow, rightColStart).value = `Pasuruan, ${formattedDate}`;
+      worksheet.getCell(footerStartRow, rightColStart).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 1, rightColStart, footerStartRow + 1, rightColEnd);
+      worksheet.getCell(footerStartRow + 1, rightColStart).value = 'Guru BK';
+      worksheet.getCell(footerStartRow + 1, rightColStart).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 6, rightColStart, footerStartRow + 6, rightColEnd);
+      const bkName = worksheet.getCell(footerStartRow + 6, rightColStart);
+      bkName.value = 'WIWIK ISMIATI, S.Pd';
+      bkName.font = { bold: true, underline: true };
+      bkName.alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(footerStartRow + 7, rightColStart, footerStartRow + 7, rightColEnd);
+      worksheet.getCell(footerStartRow + 7, rightColStart).value = 'NIP. 19831116 200904 2 003';
+      worksheet.getCell(footerStartRow + 7, rightColStart).alignment = { horizontal: 'center' };
+
+      // Generate File
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, `Tracing_Alumni_Full_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (err: any) {
+      console.error('Export Error:', err);
+      alert('Gagal mengekspor data.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredData = data.filter(s => {
