@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Instagram, Youtube, ExternalLink, Play, ArrowLeft, Video, Sparkles, Copy, Check, Search, Film } from 'lucide-react';
-import { motion } from 'motion/react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Instagram, Youtube, ExternalLink, Play, ArrowLeft, ArrowDown, ArrowUp, Copy, Check, Search, Film, ChevronDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface TutorialVideo {
   id: string;
@@ -15,90 +15,99 @@ interface TutorialVideo {
 const TUTORIAL_VIDEOS: TutorialVideo[] = [
   {
     id: '1',
-    title: 'Tutorial 1: Pengenalan & Fitur Utama SIAP SPANJU',
-    category: 'Sistem Utama',
-    description: 'Panduan dasar pengenalan ekosistem dan layanan utama aplikasi SIAP SPANJU.',
+    title: 'Tutorial SIPENA',
+    category: 'SIPENA',
+    description: 'Panduan penggunaan Sistem Perpustakaan Digital & Literasi SIAP SPANJU.',
     url: 'https://www.instagram.com/reel/DbE_DO9NYni/?igsh=MTV5OXc5M3BocDA2Zw',
     platform: 'instagram',
     color: 'from-pink-500 to-rose-600'
   },
   {
     id: '2',
-    title: 'Tutorial 2: Panduan Navigasi & Alur Kerja Dashboard',
-    category: 'Navigasi',
-    description: 'Cara menggunakan menu navigasi dashboard dan membuka aplikasi dengan cepat.',
+    title: 'Tutorial Dispensasi dan Prestasi',
+    category: 'Dispensasi & Prestasi',
+    description: 'Panduan pengajuan dispensasi kegiatan siswa serta pencatatan prestasi siswa.',
     url: 'https://www.instagram.com/reel/DbE_SPEN3-d/?igsh=ODV5d2F6MjV1dHU4',
     platform: 'instagram',
     color: 'from-purple-500 to-pink-600'
   },
   {
     id: '3',
-    title: 'Tutorial 3: Layanan Izin Siswa & Perizinan Digital',
-    category: 'Perizinan',
-    description: 'Tata cara pengajuan dan persetujuan surat izin siswa secara online.',
+    title: 'Tutorial SIM-Agama',
+    category: 'SIM-Agama',
+    description: 'Panduan pengisian data pembiasaan keagamaan dan ibadah siswa secara berkala.',
     url: 'https://www.instagram.com/reel/DbE-ynmxc2d/?igsh=dW9zazBwY2VjaWhh',
     platform: 'instagram',
     color: 'from-emerald-500 to-teal-600'
   },
   {
     id: '4',
-    title: 'Tutorial 4: Pencatatan Disiplin & Pelanggaran Siswa',
-    category: 'Kedisiplinan',
-    description: 'Langkah-langkah pencatatan poin pelanggaran dan kedisiplinan siswa oleh guru.',
+    title: 'Tutorial SI-Telat (Siswa Terlambat Hadir)',
+    category: 'SI-Telat',
+    description: 'Panduan pencatatan dan monitoring siswa terlambat hadir di sekolah oleh petugas piket.',
     url: 'https://www.instagram.com/reel/DbE-ZQ5NoY_/?igsh=b3E5Mzd6dzU5MWRz',
     platform: 'instagram',
     color: 'from-blue-500 to-indigo-600'
   },
   {
     id: '5',
-    title: 'Tutorial 5: Layanan Bimbingan Konseling (BK Peduli)',
-    category: 'Konseling',
-    description: 'Panduan penanganan kasus dan bimbingan siswa oleh guru BK.',
+    title: 'Tutorial SIM-DiS (Disiplin Siswa) dan BK Peduli Siswa',
+    category: 'SIM-DiS & BK',
+    description: 'Panduan penanganan kedisiplinan, poin pelanggaran, serta bimbingan konseling siswa.',
     url: 'https://www.instagram.com/reel/DbE93BVtrzz/?igsh=MTl5bTN6Z2Vvc2FnOQ==',
     platform: 'instagram',
     color: 'from-amber-500 to-orange-600'
   },
   {
     id: '6',
-    title: 'Tutorial 6: Pengaduan Wali Murid & Layanan UKS',
-    category: 'Pengaduan & UKS',
-    description: 'Cara pengajuan aspirasi/pengaduan orang tua serta pencatatan kunjungan UKS.',
+    title: 'Tutorial SI-UKS',
+    category: 'SI-UKS',
+    description: 'Panduan layanan pencatatan kesehatan dan penanganan siswa sakit di ruang UKS.',
     url: 'https://www.instagram.com/reel/DbE9j4mtvyM/?igsh=MXB0YnltYXRueWJtYQ',
     platform: 'instagram',
     color: 'from-rose-500 to-pink-600'
   },
   {
     id: '7',
-    title: 'Tutorial 7: Manajemen Data Master Siswa & Kelas',
-    category: 'Master Data',
-    description: 'Cara mengelola database siswa, impor file Excel, dan filter periode ajaran.',
+    title: 'Testimoni Aplikasi SIAP SPANJU',
+    category: 'Testimoni',
+    description: 'Tanggapan dan testimoni penggunaan ekosistem aplikasi SIAP SPANJU oleh pengguna.',
     url: 'https://www.instagram.com/reel/DbE_2VONbY7/?igsh=MTEwd2kyNWZ4M2p3cQ',
     platform: 'instagram',
     color: 'from-blue-600 to-cyan-600'
   },
   {
     id: '8',
-    title: 'Tutorial 8: Layanan Cek Kelulusan & Alumni',
-    category: 'Kelulusan & Alumni',
-    description: 'Panduan pengumuman kelulusan online dan penelusuran data alumni.',
+    title: 'Cara Install Aplikasi SIAP SPANJU',
+    category: 'Instalasi',
+    description: 'Panduan langkah-langkah mudah memasang/menginstall aplikasi SIAP SPANJU di HP dan Laptop.',
     url: 'https://www.instagram.com/reel/DbFJbmyttP6/?igsh=dWg4NGJyMWt5MDd5',
     platform: 'instagram',
     color: 'from-indigo-600 to-purple-700'
   },
   {
     id: '9',
-    title: 'Tutorial Singkat SIAP SPANJU (YouTube)',
-    category: 'Ringkasan',
-    description: 'Penjelasan ringkas seluruh ekosistem SIAP SPANJU versi YouTube Shorts.',
+    title: 'Tutorial Profil Aplikasi SIAP Spanju',
+    category: 'Profil Aplikasi',
+    description: 'Penjelasan lengkap mengenai profil, visi, dan ekosistem aplikasi SIAP SPANJU.',
+    url: 'https://www.instagram.com/reel/DbE9JaGNzO9/?igsh=a2l6bzF3b243MTE5',
+    platform: 'instagram',
+    color: 'from-violet-500 to-purple-600'
+  },
+  {
+    id: '10',
+    title: 'Tutorial Izin Siswa',
+    category: 'Perizinan',
+    description: 'Penjelasan ringkas alur dan pengajuan izin keluar/masuk sekolah untuk siswa.',
     url: 'https://youtube.com/shorts/Zal1cHhhE6U?si=7S5GKVb07-Qo2Kav',
     platform: 'youtube',
     color: 'from-red-500 to-rose-600'
   },
   {
-    id: '10',
-    title: 'Tutorial Izin Wali Murid (YouTube)',
-    category: 'Perizinan',
-    description: 'Panduan lengkap pengisian form perizinan siswa untuk wali murid.',
+    id: '11',
+    title: 'Tutorial Izin Wali Murid',
+    category: 'Perizinan Wali',
+    description: 'Panduan lengkap pengisian form perizinan siswa untuk orang tua / wali murid.',
     url: 'https://youtube.com/shorts/YwtdCSp7Drk?si=CEkeCirD0uMyOWDM',
     platform: 'youtube',
     color: 'from-red-600 to-pink-600'
@@ -114,6 +123,51 @@ export default function TutorialSection({ onBack }: TutorialSectionProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'instagram' | 'youtube'>('all');
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(true);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoGridRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = () => {
+    if (!containerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+    setShowScrollTop(scrollTop > 200);
+    setCanScrollDown(scrollTop + clientHeight < scrollHeight - 100);
+  };
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (el) {
+      el.addEventListener('scroll', handleScroll);
+      handleScroll();
+    }
+    return () => el?.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToBottom = () => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: containerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const scrollToGrid = () => {
+    if (videoGridRef.current) {
+      videoGridRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const scrollToTop = () => {
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   const handleCopy = (url: string, id: string) => {
     navigator.clipboard.writeText(url);
@@ -130,12 +184,15 @@ export default function TutorialSection({ onBack }: TutorialSectionProps) {
   });
 
   return (
-    <div className="min-h-full bg-slate-50 p-4 md:p-8 overflow-y-auto custom-scrollbar">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div 
+      ref={containerRef}
+      className="h-full w-full bg-slate-50 p-4 md:p-8 overflow-y-auto scroll-smooth custom-scrollbar relative"
+    >
+      <div className="max-w-6xl mx-auto space-y-8 pb-16">
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-xl">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-xl relative overflow-hidden">
+          <div className="flex items-center gap-4 relative z-10">
             <button
               onClick={onBack}
               className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl transition-all active:scale-95 shadow-sm"
@@ -161,7 +218,15 @@ export default function TutorialSection({ onBack }: TutorialSectionProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative z-10 flex-wrap">
+            <button
+              onClick={scrollToGrid}
+              className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-all flex items-center gap-2 active:scale-95 shadow-sm"
+              title="Scroll Ke Bawah"
+            >
+              <ArrowDown size={16} className="text-pink-600 animate-bounce" /> Scroll Ke Bawah
+            </button>
+
             <a
               href="https://www.instagram.com/reel/DbE_2VONbY7/"
               target="_blank"
@@ -205,7 +270,7 @@ export default function TutorialSection({ onBack }: TutorialSectionProps) {
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              <Instagram size={14} /> Instagram Reels (8)
+              <Instagram size={14} /> Instagram Reels ({TUTORIAL_VIDEOS.filter(v => v.platform === 'instagram').length})
             </button>
             <button
               onClick={() => setSelectedFilter('youtube')}
@@ -215,13 +280,13 @@ export default function TutorialSection({ onBack }: TutorialSectionProps) {
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              <Youtube size={14} /> YouTube Shorts (2)
+              <Youtube size={14} /> YouTube Shorts ({TUTORIAL_VIDEOS.filter(v => v.platform === 'youtube').length})
             </button>
           </div>
         </div>
 
         {/* Video Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+        <div ref={videoGridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 scroll-mt-6">
           {filteredVideos.map((video, idx) => (
             <motion.div
               key={video.id}
@@ -300,6 +365,36 @@ export default function TutorialSection({ onBack }: TutorialSectionProps) {
         )}
 
       </div>
+
+      {/* Floating Scroll Controls */}
+      <div className="fixed bottom-6 right-6 z-30 flex flex-col gap-2">
+        {canScrollDown && (
+          <motion.button
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            onClick={scrollToBottom}
+            className="p-3.5 bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-2xl shadow-xl hover:shadow-2xl transition-all flex items-center justify-center gap-2 text-xs font-bold active:scale-90"
+            title="Scroll Ke Paling Bawah"
+          >
+            <ArrowDown size={18} className="animate-bounce" />
+            <span className="hidden sm:inline">Scroll Bawah</span>
+          </motion.button>
+        )}
+
+        {showScrollTop && (
+          <motion.button
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            onClick={scrollToTop}
+            className="p-3.5 bg-slate-800 text-white rounded-2xl shadow-xl hover:bg-slate-900 transition-all flex items-center justify-center gap-2 text-xs font-bold active:scale-90"
+            title="Kembali Ke Atas"
+          >
+            <ArrowUp size={18} />
+            <span className="hidden sm:inline">Ke Atas</span>
+          </motion.button>
+        )}
+      </div>
     </div>
   );
 }
+
