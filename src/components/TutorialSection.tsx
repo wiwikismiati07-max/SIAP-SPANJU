@@ -130,42 +130,59 @@ export default function TutorialSection({ onBack }: TutorialSectionProps) {
   const videoGridRef = useRef<HTMLDivElement>(null);
 
   const handleScroll = () => {
-    if (!containerRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-    setShowScrollTop(scrollTop > 200);
-    setCanScrollDown(scrollTop + clientHeight < scrollHeight - 100);
+    const el = containerRef.current;
+    const parentEl = el?.parentElement;
+    
+    const scrollTop = el?.scrollTop || parentEl?.scrollTop || 0;
+    const scrollHeight = el?.scrollHeight || parentEl?.scrollHeight || 0;
+    const clientHeight = el?.clientHeight || parentEl?.clientHeight || 0;
+
+    setShowScrollTop(scrollTop > 150);
+    setCanScrollDown(scrollTop + clientHeight < scrollHeight - 80);
   };
 
   useEffect(() => {
     const el = containerRef.current;
-    if (el) {
-      el.addEventListener('scroll', handleScroll);
-      handleScroll();
-    }
-    return () => el?.removeEventListener('scroll', handleScroll);
+    const parentEl = el?.parentElement;
+
+    el?.addEventListener('scroll', handleScroll);
+    parentEl?.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll);
+
+    handleScroll();
+
+    return () => {
+      el?.removeEventListener('scroll', handleScroll);
+      parentEl?.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   const scrollToBottom = () => {
-    if (containerRef.current) {
-      containerRef.current.scrollTo({
-        top: containerRef.current.scrollHeight,
-        behavior: 'smooth'
-      });
+    const el = containerRef.current;
+    const parentEl = el?.parentElement;
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    }
+    if (parentEl) {
+      parentEl.scrollTo({ top: parentEl.scrollHeight, behavior: 'smooth' });
     }
   };
 
   const scrollToGrid = () => {
     if (videoGridRef.current) {
-      videoGridRef.current.scrollIntoView({ behavior: 'smooth' });
+      videoGridRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
   const scrollToTop = () => {
-    if (containerRef.current) {
-      containerRef.current.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      });
+    const el = containerRef.current;
+    const parentEl = el?.parentElement;
+    if (el) {
+      el.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    if (parentEl) {
+      parentEl.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -186,7 +203,7 @@ export default function TutorialSection({ onBack }: TutorialSectionProps) {
   return (
     <div 
       ref={containerRef}
-      className="h-full w-full bg-slate-50 p-4 md:p-8 overflow-y-auto scroll-smooth custom-scrollbar relative"
+      className="min-h-full h-full w-full bg-slate-50 p-4 md:p-8 overflow-y-auto scroll-smooth touch-pan-y custom-scrollbar relative"
     >
       <div className="max-w-6xl mx-auto space-y-8 pb-16">
         

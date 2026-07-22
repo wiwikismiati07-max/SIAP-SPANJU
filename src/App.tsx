@@ -655,7 +655,7 @@ export default function App() {
           </div>
         )}
         {activeSection === 'tutorial_aplikasi' && (
-          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-y-auto rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
             <TutorialSection 
               onBack={() => setActiveSection('menu_aplikasi')} 
               onOpenSidebar={() => setIsSidebarOpen(true)}
