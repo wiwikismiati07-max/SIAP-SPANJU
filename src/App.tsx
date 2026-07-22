@@ -40,7 +40,8 @@ import {
   ShieldCheck,
   LogOut,
   Phone,
-  Youtube
+  Youtube,
+  Instagram
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from './lib/supabase';
@@ -59,7 +60,7 @@ interface AppLink {
 const ICON_MAP: Record<string, React.ElementType> = {
   Globe, Shield, Book, Users, Activity, FileText, Calendar, 
   MessageSquare, Briefcase, Zap, Search, ClipboardList, 
-  FileCheck, Award, LayoutDashboard, Sparkles, Youtube
+  FileCheck, Award, LayoutDashboard, Sparkles, Youtube, Instagram
 };
 
 const COLORS = [
@@ -73,7 +74,8 @@ const COLORS = [
 ];
 
 const EXTERNAL_APPS = [
-  { id: "tutorial-aplikasi", title: "Tutorial Aplikasi", url: "https://youtube.com/shorts/Zal1cHhhE6U?si=7S5GKVb07-Qo2Kav", icon: "Youtube", color: "from-red-500 to-rose-600" },
+  { id: "tutorial-aplikasi-ig", title: "Tutorial Aplikasi (Instagram)", url: "https://www.instagram.com/reel/DbE_2VONbY7/?igsh=MTEwd2kyNWZ4M2p3cQ", icon: "Instagram", color: "from-pink-500 to-rose-600" },
+  { id: "tutorial-aplikasi", title: "Tutorial Aplikasi (YouTube)", url: "https://youtube.com/shorts/Zal1cHhhE6U?si=7S5GKVb07-Qo2Kav", icon: "Youtube", color: "from-red-500 to-rose-600" },
   { id: "tutorial-izin-wali", title: "Tutorial Izin Wali Murid", url: "https://youtube.com/shorts/YwtdCSp7Drk?si=CEkeCirD0uMyOWDM", icon: "Youtube", color: "from-rose-500 to-pink-600" },
   { id: "buku-manual-siap-spanju", title: "Buku Manual Panduan Penggunaan Aplikasi Siap Spanju", url: "https://heyzine.com/flip-book/2107951e5e.html", icon: "Book", color: "from-indigo-500 to-blue-600" },
   { id: "8-program-prioritas-spanju", title: "Arsip Digital 8 Program Prioritas Spanju", url: "https://7-kaih-nine.vercel.app/", icon: "LayoutDashboard", color: "from-blue-400 to-blue-600" }
@@ -337,11 +339,11 @@ export default function App() {
               whileHover={{ scale: 1.05, translateY: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => {
-                window.open('https://youtube.com/shorts/Zal1cHhhE6U?si=7S5GKVb07-Qo2Kav', '_blank');
+                window.open('https://www.instagram.com/reel/DbE_2VONbY7/?igsh=MTEwd2kyNWZ4M2p3cQ', '_blank');
               }}
               className="group px-8 py-4 md:px-12 md:py-5 bg-white text-slate-800 rounded-full font-bold text-lg md:text-xl shadow-xl border border-white/50 flex items-center gap-3 transition-all hover:bg-slate-50"
             >
-              <Youtube className="w-6 h-6 text-red-500 group-hover:scale-110 transition-transform" />
+              <Instagram className="w-6 h-6 text-pink-600 group-hover:scale-110 transition-transform" />
               Tutorial Aplikasi
             </motion.button>
           </div>
