@@ -106,6 +106,7 @@ import GlobalLogin from './components/GlobalLogin';
 import ManagementLogin from './components/ManagementLogin';
 import HotlineSection from './components/HotlineSection';
 import ManagementSiswaApp from './components/management/ManagementSiswaApp';
+import TutorialSection from './components/TutorialSection';
 
 // --- Components ---
 
@@ -114,7 +115,7 @@ export default function App() {
   const [userLinks, setUserLinks] = useState<AppLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'menu_aplikasi' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | 'survey' | 'hotline' | 'kelulusan' | 'setup_kelulusan' | 'tracing_alumni' | null>(null);
+  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'menu_aplikasi' | 'app' | 'sitelat' | 'izinsiswa' | 'bkpedulisiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | 'survey' | 'hotline' | 'kelulusan' | 'setup_kelulusan' | 'tracing_alumni' | 'tutorial_aplikasi' | 'management_siswa' | 'management_login' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -235,6 +236,7 @@ export default function App() {
 
   const sidebarItems = [
     { id: 'menu_aplikasi', title: 'MENU APLIKASI', subtitle: 'DAFTAR SEMUA APLIKASI', icon: LayoutDashboard, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
+    { id: 'tutorial_aplikasi', title: 'TUTORIAL APLIKASI', subtitle: 'PANDUAN VIDEO INTERAKTIF', icon: Youtube, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
     { id: 'hotline', title: 'HOTLINE', subtitle: 'LAYANAN BANTUAN & PENGADUAN', icon: Phone, color: 'from-amber-400 to-orange-600', shadow: 'shadow-orange-200', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
     { id: 'survey', title: 'SURVEY APLIKASI', subtitle: 'SURVEY KEPUASAN PENGGUNA', icon: ClipboardList, color: 'from-slate-800 to-black', shadow: 'shadow-slate-400', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
     { id: 'management_login', title: 'MANAGEMENT LOGIN', subtitle: 'KELOLA AKSES USER', icon: ShieldCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', adminOnly: true, roles: ['full'] },
@@ -339,7 +341,8 @@ export default function App() {
               whileHover={{ scale: 1.05, translateY: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => {
-                window.open('https://www.instagram.com/reel/DbE_2VONbY7/?igsh=MTEwd2kyNWZ4M2p3cQ', '_blank');
+                setIsDashboard(true);
+                setActiveSection('tutorial_aplikasi');
               }}
               className="group px-8 py-4 md:px-12 md:py-5 bg-white text-slate-800 rounded-full font-bold text-lg md:text-xl shadow-xl border border-white/50 flex items-center gap-3 transition-all hover:bg-slate-50"
             >
@@ -652,6 +655,14 @@ export default function App() {
         {activeSection === 'hotline' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
             <HotlineSection onBack={() => setActiveSection('menu_aplikasi')} />
+          </div>
+        )}
+        {activeSection === 'tutorial_aplikasi' && (
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            <TutorialSection 
+              onBack={() => setActiveSection('menu_aplikasi')} 
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+            />
           </div>
         )}
 
