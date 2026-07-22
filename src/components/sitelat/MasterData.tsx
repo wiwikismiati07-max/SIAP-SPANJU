@@ -17,16 +17,32 @@ export default function MasterData() {
   const fetchSiswa = async () => {
     setLoading(true);
     try {
+      let dbSiswa: Siswa[] = [];
       if (supabase) {
         const { data, error } = await supabase.from('master_siswa').select('*').order('kelas').order('nama');
-        if (error) throw error;
-        if (data) setSiswa(data);
-      } else {
-        const local = localStorage.getItem('sitelat_siswa');
-        if (local) setSiswa(JSON.parse(local));
+        if (!error && data) dbSiswa = data;
+      }
+
+      const local = localStorage.getItem('sitelat_siswa');
+      let localSiswa: Siswa[] = local ? JSON.parse(local) : [];
+
+      const map = new Map<string, Siswa>();
+      localSiswa.forEach(s => {
+        if (s.nama) map.set(`${s.nama.toLowerCase().trim()}_${s.kelas}`, s);
+      });
+      dbSiswa.forEach(s => {
+        if (s.nama) map.set(`${s.nama.toLowerCase().trim()}_${s.kelas}`, s);
+      });
+
+      const merged = Array.from(map.values());
+      setSiswa(merged);
+      if (merged.length > 0) {
+        localStorage.setItem('sitelat_siswa', JSON.stringify(merged));
       }
     } catch (error) {
       console.error('Error fetching siswa:', error);
+      const local = localStorage.getItem('sitelat_siswa');
+      if (local) setSiswa(JSON.parse(local));
     } finally {
       setLoading(false);
     }
@@ -60,12 +76,19 @@ export default function MasterData() {
       if (supabase) {
         // Use upsert to prevent duplicates based on ID
         const { error } = await supabase.from('master_siswa').upsert(newSiswa, { onConflict: 'id' });
-        if (error) throw error;
-      } else {
-        localStorage.setItem('sitelat_siswa', JSON.stringify(newSiswa));
+        if (error) console.warn('Supabase upsert warning:', error.message);
       }
-      
-      fetchSiswa(); // Refresh from DB
+
+      // Always sync to local storage as well
+      const local = localStorage.getItem('sitelat_siswa');
+      let localSiswa: Siswa[] = local ? JSON.parse(local) : [];
+      const map = new Map<string, Siswa>();
+      localSiswa.forEach(s => map.set(`${s.nama.toLowerCase().trim()}_${s.kelas}`, s));
+      newSiswa.forEach(s => map.set(`${s.nama.toLowerCase().trim()}_${s.kelas}`, s));
+      const merged = Array.from(map.values());
+      localStorage.setItem('sitelat_siswa', JSON.stringify(merged));
+
+      fetchSiswa(); // Refresh
       alert('Data siswa berhasil diupload!');
     } catch (error: any) {
       console.error('Error uploading excel:', error);

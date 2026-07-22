@@ -60,6 +60,7 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
   
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSiswaId, setSelectedSiswaId] = useState('');
+  const [selectedPeriode, setSelectedPeriode] = useState('2025');
   const [formData, setFormData] = useState({
     nama_pelapor: '',
     hp_pelapor: '',
@@ -90,7 +91,7 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
     try {
       const { data, error } = await supabase
         .from('master_siswa')
-        .select('id, nama, kelas')
+        .select('id, nama, kelas, periode')
         .order('nama');
       if (error) throw error;
       setSiswa(data || []);
@@ -98,6 +99,14 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
       console.error('Error fetching siswa:', error);
     }
   };
+
+  const availablePeriodes = Array.from(new Set(['2025', ...siswa.map(s => s.periode || '2025')])).sort((a, b) => b.localeCompare(a));
+
+  const filteredSiswa = siswa.filter(s => {
+    const sPeriode = s.periode || '2025';
+    const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
+    return s.kelas === selectedClass && matchPeriode;
+  });
 
   const fetchPengaduan = async () => {
     try {
@@ -449,8 +458,6 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
     }
   };
 
-  const filteredSiswa = siswa.filter(s => s.kelas === selectedClass);
-
   return (
     <div className="h-full bg-slate-50 flex flex-col relative overflow-hidden">
       {/* Header */}
@@ -687,7 +694,18 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
                       <h4 className="font-black text-slate-700 uppercase tracking-widest text-sm">Data Siswa</h4>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Pilih Periode *</label>
+                        <select
+                          value={selectedPeriode}
+                          onChange={(e) => { setSelectedPeriode(e.target.value); setSelectedSiswaId(''); }}
+                          className="w-full px-8 py-5 bg-slate-50 border-2 border-transparent rounded-3xl focus:border-pink-500 focus:bg-white outline-none transition-all duration-300 font-bold text-slate-700"
+                        >
+                          <option value="ALL">Semua Periode</option>
+                          {availablePeriodes.map(p => <option key={p} value={p}>Periode {p}</option>)}
+                        </select>
+                      </div>
                       <div>
                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Pilih Kelas *</label>
                         <select

@@ -18,6 +18,7 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
+  const [selectedPeriode, setSelectedPeriode] = useState('2025');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -329,10 +330,16 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
     e.target.value = '';
   };
 
-  const filteredSiswa = siswa.filter(s => 
-    s.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.kelas.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const availablePeriodes = Array.from(new Set(['2025', ...siswa.map(s => s.periode || '2025')])).sort((a, b) => b.localeCompare(a));
+
+  const filteredSiswa = siswa.filter(s => {
+    const sPeriode = s.periode || '2025';
+    const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
+    const matchSearch = 
+      s.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.kelas.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchPeriode && matchSearch;
+  });
 
   return (
     <div className="space-y-6">
@@ -691,11 +698,23 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
         {/* Sidebar: Cari Siswa */}
         <div className="space-y-4">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[600px]">
-            <div className="p-4 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
-                <Search size={18} className="text-slate-400" />
-                Cari Siswa
-              </h3>
+            <div className="p-4 border-b border-slate-100 bg-slate-50/50 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                  <Search size={18} className="text-slate-400" />
+                  Cari Siswa
+                </h3>
+                <select
+                  value={selectedPeriode}
+                  onChange={(e) => setSelectedPeriode(e.target.value)}
+                  className="bg-white text-xs font-bold py-1 px-2.5 rounded-lg border border-slate-200 text-blue-700 focus:outline-none"
+                >
+                  <option value="ALL">Semua Periode</option>
+                  {availablePeriodes.map(p => (
+                    <option key={p} value={p}>Periode {p}</option>
+                  ))}
+                </select>
+              </div>
               <div className="relative">
                 <input 
                   type="text" 

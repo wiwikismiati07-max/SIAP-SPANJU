@@ -103,6 +103,7 @@ import AlumniTracingAdmin from './components/alumni/AlumniTracingAdmin';
 import GlobalLogin from './components/GlobalLogin';
 import ManagementLogin from './components/ManagementLogin';
 import HotlineSection from './components/HotlineSection';
+import ManagementSiswaApp from './components/management/ManagementSiswaApp';
 
 // --- Components ---
 
@@ -145,42 +146,51 @@ export default function App() {
   // Data persistence with Supabase
   useEffect(() => {
     const fetchLinks = async () => {
-      // Check if supabase is configured
-      if (!supabase) {
-        // Fallback to localStorage if Supabase is not configured yet
+      const defaultLinks: AppLink[] = [
+        { id: '1', title: 'Survey Kepuasan', url: 'https://survey-kepuasan-alpha.vercel.app/', displayMode: 'iframe', color: COLORS[0], icon: 'MessageSquare' }
+      ];
+
+      const getFallbackLinks = () => {
         const saved = localStorage.getItem('dashboard_links');
         if (saved) {
           try {
-            setUserLinks(JSON.parse(saved));
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
           } catch (e) {
-            console.error("Failed to parse links", e);
+            console.error("Failed to parse local links", e);
           }
-        } else {
-          setUserLinks([{ id: '1', title: 'Survey Kepuasan', url: 'https://survey-kepuasan-alpha.vercel.app/', displayMode: 'iframe', color: COLORS[0], icon: 'MessageSquare' }]);
         }
+        return defaultLinks;
+      };
+
+      // Check if supabase is configured
+      if (!supabase) {
+        setUserLinks(getFallbackLinks());
         return;
       }
 
       try {
         const { data, error } = await supabase.from('app_links').select('*');
-        if (error) throw error;
+        if (error) {
+          console.warn('Notice fetching app_links from Supabase (using local fallback):', error.message);
+          setUserLinks(getFallbackLinks());
+          return;
+        }
         if (data && data.length > 0) {
           setUserLinks(data);
         } else {
-          setUserLinks([{ id: '1', title: 'Survey Kepuasan', url: 'https://survey-kepuasan-alpha.vercel.app/', displayMode: 'iframe', color: COLORS[0], icon: 'MessageSquare' }]);
+          setUserLinks(getFallbackLinks());
         }
-      } catch (error) {
-        console.error('Error fetching links from Supabase:', error);
-        // Fallback
-        const saved = localStorage.getItem('dashboard_links');
-        if (saved) setUserLinks(JSON.parse(saved));
+      } catch (error: any) {
+        console.warn('Notice fetching app_links from Supabase (using local fallback):', error?.message || error);
+        setUserLinks(getFallbackLinks());
       }
     };
     fetchLinks();
   }, []);
 
   useEffect(() => {
-    if (!supabase) {
+    if (userLinks && userLinks.length > 0) {
       localStorage.setItem('dashboard_links', JSON.stringify(userLinks));
     }
   }, [userLinks]);
@@ -226,6 +236,7 @@ export default function App() {
     { id: 'hotline', title: 'HOTLINE', subtitle: 'LAYANAN BANTUAN & PENGADUAN', icon: Phone, color: 'from-amber-400 to-orange-600', shadow: 'shadow-orange-200', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
     { id: 'survey', title: 'SURVEY APLIKASI', subtitle: 'SURVEY KEPUASAN PENGGUNA', icon: ClipboardList, color: 'from-slate-800 to-black', shadow: 'shadow-slate-400', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
     { id: 'management_login', title: 'MANAGEMENT LOGIN', subtitle: 'KELOLA AKSES USER', icon: ShieldCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', adminOnly: true, roles: ['full'] },
+    { id: 'management_siswa', title: 'MANAGEMENT SISWA', subtitle: 'DATABASE SISWA & PERIODE', icon: Users, color: 'from-blue-600 to-indigo-700', shadow: 'shadow-blue-300', roles: ['view', 'entry', 'full'] },
     { id: 'setup_kelulusan', title: 'SETUP KELULUSAN', subtitle: 'UPLOAD/CLEAR DATA', icon: Settings, color: 'from-indigo-500 to-indigo-600', shadow: 'shadow-indigo-200', adminOnly: true, roles: ['full'] },
     { id: 'sitelat', title: 'SI-TELAT', subtitle: 'SISTEM KETERLAMBATAN SISWA', icon: Clock, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200', roles: ['view', 'entry', 'full'] },
     { id: 'izinsiswa', title: 'IZIN SISWA', subtitle: 'SISTEM PERIZINAN SISWA', icon: UserCheck, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', roles: ['view', 'entry', 'full'] },
@@ -507,6 +518,11 @@ export default function App() {
         {activeSection === 'management_login' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
             <ManagementLogin />
+          </div>
+        )}
+        {activeSection === 'management_siswa' && (
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50 overflow-y-auto">
+            <ManagementSiswaApp />
           </div>
         )}
         {activeSection === 'sitelat' && (

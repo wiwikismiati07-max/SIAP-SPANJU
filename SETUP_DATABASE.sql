@@ -85,6 +85,57 @@ CREATE TRIGGER update_alumni_tracing_modtime
     BEFORE UPDATE ON alumni_tracing 
     FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
 
+-- 4. TABEL APP LINKS
+CREATE TABLE IF NOT EXISTS public.app_links (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    url TEXT NOT NULL,
+    "displayMode" TEXT DEFAULT 'iframe',
+    color TEXT,
+    icon TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- RLS untuk App Links
+ALTER TABLE public.app_links ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read app_links" ON public.app_links;
+DROP POLICY IF EXISTS "Allow write app_links" ON public.app_links;
+
+CREATE POLICY "Allow public read app_links" ON public.app_links
+    FOR SELECT USING (true);
+
+CREATE POLICY "Allow write app_links" ON public.app_links
+    FOR ALL USING (true) WITH CHECK (true);
+
+
+-- 5. TABEL MASTER SISWA & MIGRASI PERIODE
+CREATE TABLE IF NOT EXISTS public.master_siswa (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    nama TEXT NOT NULL,
+    kelas TEXT NOT NULL,
+    periode TEXT DEFAULT '2025',
+    nis TEXT,
+    jenis_kelamin TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Tambah kolom 'periode' jika tabel sudah ada sebelumnya
+ALTER TABLE public.master_siswa ADD COLUMN IF NOT EXISTS periode TEXT DEFAULT '2025';
+
+-- Set default '2025' untuk data siswa lama yang periode-nya masih NULL atau kosong
+UPDATE public.master_siswa SET periode = '2025' WHERE periode IS NULL OR periode = '';
+
+-- RLS untuk Master Siswa
+ALTER TABLE public.master_siswa ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read master_siswa" ON public.master_siswa;
+DROP POLICY IF EXISTS "Allow public write master_siswa" ON public.master_siswa;
+
+CREATE POLICY "Allow public read master_siswa" ON public.master_siswa FOR SELECT USING (true);
+CREATE POLICY "Allow public write master_siswa" ON public.master_siswa FOR ALL USING (true) WITH CHECK (true);
+
+
 -- ==========================================
 -- SELESAI
 -- Setelah menjalankan script ini:

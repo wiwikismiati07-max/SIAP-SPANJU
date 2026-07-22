@@ -12,6 +12,8 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
   const [siswaList, setSiswaList] = useState<any[]>([]);
   const [recentData, setRecentData] = useState<TransaksiDispensasi[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [periodeFilter, setPeriodeFilter] = useState('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2025']);
   
   const [formData, setFormData] = useState({
     tanggal: format(new Date(), 'yyyy-MM-dd'),
@@ -35,29 +37,39 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
 
   useEffect(() => {
     if (formData.kelas) {
-      fetchSiswaByKelas(formData.kelas);
+      fetchSiswaByKelas(formData.kelas, periodeFilter);
     } else {
       setSiswaList([]);
     }
-  }, [formData.kelas]);
+  }, [formData.kelas, periodeFilter]);
 
   const fetchInitialData = async () => {
     try {
       const { data: jData } = await supabase.from('disp_master_jenis').select('*').order('nama_jenis');
       setJenisList(jData || []);
+      const { data: sAll } = await supabase.from('master_siswa').select('periode');
+      if (sAll) {
+        const pList = Array.from(new Set(['2025', ...sAll.map((s: any) => s.periode || '2025')])).sort((a,b) => b.localeCompare(a));
+        setAvailablePeriodes(pList);
+      }
       fetchRecentData();
     } catch (error) {
       console.error('Error fetching initial data:', error);
     }
   };
 
-  const fetchSiswaByKelas = async (kelas: string) => {
+  const fetchSiswaByKelas = async (kelas: string, periode: string) => {
     try {
-      const { data: sData } = await supabase
+      let query = supabase
         .from('master_siswa')
-        .select('id, nama, kelas')
-        .eq('kelas', kelas)
-        .order('nama');
+        .select('id, nama, kelas, periode')
+        .eq('kelas', kelas);
+      
+      if (periode && periode !== 'ALL') {
+        query = query.eq('periode', periode);
+      }
+
+      const { data: sData } = await query.order('nama');
       setSiswaList(sData || []);
     } catch (error) {
       console.error('Error fetching siswa:', error);
@@ -210,6 +222,25 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
               value={formData.jam}
               onChange={(e) => setFormData({ ...formData, jam: e.target.value })}
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center space-x-2">
+              <Calendar size={14} className="text-indigo-500" />
+              <span>Pilih Periode</span>
+            </label>
+            <select 
+              required
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              value={periodeFilter}
+              onChange={(e) => {
+                setPeriodeFilter(e.target.value);
+                setFormData({ ...formData, siswa_id: '' });
+              }}
+            >
+              <option value="ALL">Semua Periode</option>
+              {availablePeriodes.map(p => <option key={p} value={p}>Periode {p}</option>)}
+            </select>
           </div>
 
           <div className="space-y-2">

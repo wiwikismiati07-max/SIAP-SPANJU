@@ -20,6 +20,7 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterKelas, setFilterKelas] = useState('');
   const [filterKeterangan, setFilterKeterangan] = useState('');
+  const [filterPeriode, setFilterPeriode] = useState('2025');
 
   const [formData, setFormData] = useState({
     siswa_id: '',
@@ -90,13 +91,19 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
     }
   };
 
+  const availablePeriodes = Array.from(new Set(['2025', ...students.map(s => s.periode || '2025')])).sort((a, b) => b.localeCompare(a));
+
   useEffect(() => {
     if (formData.kelas) {
-      setFilteredStudents(students.filter(s => s.kelas === formData.kelas));
+      setFilteredStudents(students.filter(s => {
+        const sPeriode = s.periode || '2025';
+        const matchPeriode = filterPeriode === 'ALL' ? true : sPeriode === filterPeriode;
+        return s.kelas === formData.kelas && matchPeriode;
+      }));
     } else {
       setFilteredStudents([]);
     }
-  }, [formData.kelas, students]);
+  }, [formData.kelas, filterPeriode, students]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -364,6 +371,25 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
                     value={formData.jam}
                     onChange={e => setFormData({ ...formData, jam: e.target.value })}
                   />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Pilih Periode</label>
+                <div className="relative group">
+                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors" size={20} />
+                  <select
+                    required
+                    className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none bg-white"
+                    value={filterPeriode}
+                    onChange={e => {
+                      setFilterPeriode(e.target.value);
+                      setFormData({ ...formData, siswa_id: '' });
+                    }}
+                  >
+                    <option value="ALL">Semua Periode</option>
+                    {availablePeriodes.map(p => <option key={p} value={p}>Periode {p}</option>)}
+                  </select>
                 </div>
               </div>
 

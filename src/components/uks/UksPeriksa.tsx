@@ -19,6 +19,7 @@ const UksPeriksa: React.FC<{ user?: any }> = ({ user }) => {
   
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSiswaId, setSelectedSiswaId] = useState('');
+  const [selectedPeriode, setSelectedPeriode] = useState('2025');
   const [formData, setFormData] = useState({
     tanggal: format(new Date(), 'yyyy-MM-dd'),
     jam: format(new Date(), 'HH:mm'),
@@ -41,7 +42,7 @@ const UksPeriksa: React.FC<{ user?: any }> = ({ user }) => {
       const [keluhanRes, obatRes, siswaRes, kunjunganRes] = await Promise.all([
         supabase.from('uks_keluhan').select('*').order('nama_keluhan'),
         supabase.from('uks_obat').select('*').order('nama_obat'),
-        supabase.from('master_siswa').select('id, nama, kelas').order('nama'),
+        supabase.from('master_siswa').select('id, nama, kelas, periode').order('nama'),
         supabase.from('uks_kunjungan').select(`
           *,
           siswa:master_siswa(nama, kelas),
@@ -206,7 +207,13 @@ const UksPeriksa: React.FC<{ user?: any }> = ({ user }) => {
     setIsEditing(null);
   };
 
-  const filteredSiswa = siswa.filter(s => s.kelas === selectedClass);
+  const availablePeriodes = Array.from(new Set(['2025', ...siswa.map(s => s.periode || '2025')])).sort((a, b) => b.localeCompare(a));
+
+  const filteredSiswa = siswa.filter(s => {
+    const sPeriode = s.periode || '2025';
+    const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
+    return s.kelas === selectedClass && matchPeriode;
+  });
 
   const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -386,7 +393,7 @@ const UksPeriksa: React.FC<{ user?: any }> = ({ user }) => {
 
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Basic Info */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Tanggal</label>
               <input
@@ -404,6 +411,17 @@ const UksPeriksa: React.FC<{ user?: any }> = ({ user }) => {
                 onChange={(e) => setFormData({ ...formData, jam: e.target.value })}
                 className="w-full px-8 py-5 bg-slate-50 border-2 border-transparent rounded-3xl focus:border-rose-500 focus:bg-white outline-none transition-all duration-300 font-bold text-slate-700"
               />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Pilih Periode</label>
+              <select
+                value={selectedPeriode}
+                onChange={(e) => { setSelectedPeriode(e.target.value); setSelectedSiswaId(''); }}
+                className="w-full px-8 py-5 bg-slate-50 border-2 border-transparent rounded-3xl focus:border-rose-500 focus:bg-white outline-none transition-all duration-300 font-bold text-slate-700"
+              >
+                <option value="ALL">Semua Periode</option>
+                {availablePeriodes.map(p => <option key={p} value={p}>Periode {p}</option>)}
+              </select>
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Pilih Kelas</label>

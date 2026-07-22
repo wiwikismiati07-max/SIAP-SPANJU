@@ -19,6 +19,7 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
+  const [selectedPeriode, setSelectedPeriode] = useState('2025');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showOtherKasus, setShowOtherKasus] = useState(false);
@@ -425,10 +426,15 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const filteredSiswa = siswa.filter(s => 
-    (formData.kelas ? s.kelas === formData.kelas : true) &&
-    (s.nama.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const availablePeriodes = Array.from(new Set(['2025', ...siswa.map(s => s.periode || '2025')])).sort((a, b) => b.localeCompare(a));
+
+  const filteredSiswa = siswa.filter(s => {
+    const sPeriode = s.periode || '2025';
+    const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
+    const matchKelas = formData.kelas ? s.kelas === formData.kelas : true;
+    const matchSearch = s.nama.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchPeriode && matchKelas && matchSearch;
+  });
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -455,7 +461,23 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
             <User size={16} /> Data Siswa
           </h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Pilih Periode</label>
+              <select 
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none transition-all font-bold text-slate-800"
+                value={selectedPeriode}
+                onChange={e => {
+                  setSelectedPeriode(e.target.value);
+                  setFormData({...formData, siswa_id: ''});
+                  setSelectedSiswa(null);
+                  setSearchTerm('');
+                }}
+              >
+                <option value="ALL">Semua Periode</option>
+                {availablePeriodes.map(p => <option key={p} value={p}>Periode {p}</option>)}
+              </select>
+            </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Pilih Kelas</label>
               <select 

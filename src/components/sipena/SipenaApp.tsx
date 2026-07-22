@@ -1013,6 +1013,7 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any, setMessage?: (msg: { type: 's
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [siswa, setSiswa] = useState<any[]>([]);
   const [editingVisit, setEditingVisit] = useState<any>(null);
+  const [selectedPeriode, setSelectedPeriode] = useState('2025');
   
   const [formData, setFormData] = useState({
     tanggal: format(new Date(), 'yyyy-MM-dd'),
@@ -1264,16 +1265,32 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any, setMessage?: (msg: { type: 's
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Periode</label>
+                    <select 
+                      value={selectedPeriode}
+                      onChange={(e) => {
+                        setSelectedPeriode(e.target.value);
+                        setFormData({...formData, siswa_id: ''});
+                      }}
+                      className="w-full px-3 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                    >
+                      <option value="ALL">Semua Thn</option>
+                      {Array.from(new Set(['2025', ...siswa.map(s => s.periode || '2025')])).sort((a,b) => b.localeCompare(a)).map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Kelas</label>
                     <select 
                       required
                       value={formData.kelas}
-                      onChange={(e) => setFormData({...formData, kelas: e.target.value})}
-                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                      onChange={(e) => setFormData({...formData, kelas: e.target.value, siswa_id: ''})}
+                      className="w-full px-3 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
                     >
-                      <option value="">Pilih Kelas</option>
+                      <option value="">Kelas</option>
                       {classes.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
@@ -1283,10 +1300,14 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any, setMessage?: (msg: { type: 's
                       required
                       value={formData.siswa_id}
                       onChange={(e) => setFormData({...formData, siswa_id: e.target.value})}
-                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                      className="w-full px-3 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
                     >
                       <option value="">Pilih Siswa</option>
-                      {siswa.filter(s => s.kelas === formData.kelas).map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
+                      {siswa.filter(s => {
+                        const sPeriode = s.periode || '2025';
+                        const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
+                        return s.kelas === formData.kelas && matchPeriode;
+                      }).map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
                     </select>
                   </div>
                 </div>
@@ -1652,6 +1673,7 @@ const SipenaPeminjaman: React.FC<{ user?: any, setMessage?: (msg: { type: 'succe
   const [editingLoan, setEditingLoan] = useState<any>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [loanToDelete, setLoanToDelete] = useState<string | null>(null);
+  const [selectedPeriode, setSelectedPeriode] = useState('2025');
   
   const [formData, setFormData] = useState({
     tanggal_pinjam: format(new Date(), 'yyyy-MM-dd'),
@@ -1923,19 +1945,39 @@ const SipenaPeminjaman: React.FC<{ user?: any, setMessage?: (msg: { type: 'succe
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl p-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
               <h4 className="text-xl font-black text-slate-800 uppercase mb-6 tracking-tight">Form Peminjaman</h4>
               <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Periode</label>
+                    <select 
+                      value={selectedPeriode} 
+                      onChange={(e) => {
+                        setSelectedPeriode(e.target.value);
+                        setFormData({...formData, siswa_id: ''});
+                      }} 
+                      className="w-full px-3 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none"
+                    >
+                      <option value="ALL">Semua Thn</option>
+                      {Array.from(new Set(['2025', ...siswa.map(s => s.periode || '2025')])).sort((a,b) => b.localeCompare(a)).map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Kelas</label>
-                    <select required value={formData.kelas} onChange={(e) => setFormData({...formData, kelas: e.target.value, siswa_id: ''})} className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none">
-                      <option value="">Pilih Kelas</option>
+                    <select required value={formData.kelas} onChange={(e) => setFormData({...formData, kelas: e.target.value, siswa_id: ''})} className="w-full px-3 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none">
+                      <option value="">Kelas</option>
                       {['7A','7B','7C','7D','7E','7F','7G','7H','8A','8B','8C','8D','8E','8F','8G','8H','9A','9B','9C','9D','9E','9F','9G','9H'].map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Siswa</label>
-                    <select required value={formData.siswa_id} onChange={(e) => setFormData({...formData, siswa_id: e.target.value})} className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none">
+                    <select required value={formData.siswa_id} onChange={(e) => setFormData({...formData, siswa_id: e.target.value})} className="w-full px-3 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none">
                       <option value="">Pilih Siswa</option>
-                      {siswa.filter(s => s.kelas === formData.kelas).map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
+                      {siswa.filter(s => {
+                        const sPeriode = s.periode || '2025';
+                        const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
+                        return s.kelas === formData.kelas && matchPeriode;
+                      }).map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
                     </select>
                   </div>
                 </div>

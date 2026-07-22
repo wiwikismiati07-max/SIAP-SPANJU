@@ -18,6 +18,8 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
   const [students, setStudents] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
+  const [selectedPeriode, setSelectedPeriode] = useState('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2025']);
   
   const [formData, setFormData] = useState({
     tanggal: format(new Date(), 'yyyy-MM-dd'),
@@ -40,15 +42,28 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
   useEffect(() => {
     fetchData();
     fetchTeachers();
+    fetchPeriodes();
   }, []);
 
   useEffect(() => {
     if (selectedClass) {
-      fetchStudents(selectedClass);
+      fetchStudents(selectedClass, selectedPeriode);
     } else {
       setStudents([]);
     }
-  }, [selectedClass]);
+  }, [selectedClass, selectedPeriode]);
+
+  const fetchPeriodes = async () => {
+    try {
+      const { data: sAll } = await supabase.from('master_siswa').select('periode');
+      if (sAll) {
+        const pList = Array.from(new Set(['2025', ...sAll.map((s: any) => s.periode || '2025')])).sort((a, b) => b.localeCompare(a));
+        setAvailablePeriodes(pList);
+      }
+    } catch (e) {
+      console.error('Error fetching periodes:', e);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -78,13 +93,18 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
     }
   };
 
-  const fetchStudents = async (className: string) => {
+  const fetchStudents = async (className: string, periode: string) => {
     try {
-      const { data: studentData } = await supabase
+      let query = supabase
         .from('master_siswa')
-        .select('id, nama')
-        .eq('kelas', className)
-        .order('nama');
+        .select('id, nama, periode')
+        .eq('kelas', className);
+
+      if (periode && periode !== 'ALL') {
+        query = query.eq('periode', periode);
+      }
+
+      const { data: studentData } = await query.order('nama');
       setStudents(studentData || []);
     } catch (error) {
       console.error('Error fetching students:', error);
@@ -481,10 +501,22 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
                   </div>
                 </div>
 
-                {/* Kelas & Siswa */}
+                {/* Periode, Kelas & Siswa */}
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Kelas & Nama Siswa</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Periode, Kelas & Nama Siswa</label>
                   <div className="flex space-x-2">
+                    <select 
+                      required
+                      className="w-28 px-2 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all appearance-none"
+                      value={selectedPeriode}
+                      onChange={(e) => {
+                        setSelectedPeriode(e.target.value);
+                        setFormData({ ...formData, siswa_id: '' });
+                      }}
+                    >
+                      <option value="ALL">Semua Thn</option>
+                      {availablePeriodes.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
                     <select 
                       required
                       className="w-24 px-3 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all appearance-none"

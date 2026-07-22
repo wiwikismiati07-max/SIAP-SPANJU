@@ -29,6 +29,7 @@ export default function FormOperatorIzin() {
   const [guruList, setGuruList] = useState<Guru[]>([]);
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPeriode, setSelectedPeriode] = useState('2025');
   const [selectedKelas, setSelectedKelas] = useState('');
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
   const [selectedGuru, setSelectedGuru] = useState('');
@@ -421,10 +422,14 @@ export default function FormOperatorIzin() {
     }
   };
 
+  const availablePeriodes = Array.from(new Set(['2025', ...siswaList.map(s => s.periode || '2025')])).sort((a, b) => b.localeCompare(a));
+
   const filteredSiswa = siswaList.filter(s => {
+    const sPeriode = s.periode || '2025';
+    const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
     const matchKelas = selectedKelas ? s.kelas === selectedKelas : true;
     const matchSearch = s.nama.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchKelas && matchSearch;
+    return matchPeriode && matchKelas && matchSearch;
   });
 
   return (
@@ -604,7 +609,24 @@ export default function FormOperatorIzin() {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6">
           <h3 className="text-lg font-bold text-slate-800 mb-4">Input Manual Izin</h3>
           <form onSubmit={handleManualSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Periode <span className="text-rose-500">*</span></label>
+                <select
+                  value={selectedPeriode}
+                  onChange={(e) => {
+                    setSelectedPeriode(e.target.value);
+                    setSelectedSiswa(null);
+                    setSearchTerm('');
+                  }}
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all appearance-none"
+                >
+                  {availablePeriodes.map(p => (
+                    <option key={p} value={p}>Periode {p}</option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">Pilih Kelas <span className="text-rose-500">*</span></label>
                 <select

@@ -25,10 +25,14 @@ export default function Pencatatan() {
   const [isConnected, setIsConnected] = useState(false);
   
   // Selection State
+  const [selectedPeriode, setSelectedPeriode] = useState('2025');
   const [selectedKelas, setSelectedKelas] = useState('');
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
   const [selectedAlasan, setSelectedAlasan] = useState('');
   const [alasanLainnya, setAlasanLainnya] = useState('');
+
+  // Extract available periods
+  const availablePeriodes = Array.from(new Set(['2025', ...siswaList.map(s => s.periode || '2025')])).sort((a,b) => b.localeCompare(a));
 
   useEffect(() => {
     fetchSiswa();
@@ -125,7 +129,7 @@ export default function Pencatatan() {
     setAlasanLainnya('');
   };
 
-  const filteredSiswaList = siswaList.filter(s => s.kelas === selectedKelas);
+  const filteredSiswaList = siswaList.filter(s => (s.periode || '2025') === selectedPeriode && s.kelas === selectedKelas);
 
   return (
     <div className="max-w-4xl mx-auto bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden min-h-[600px] flex flex-col relative">
@@ -139,7 +143,7 @@ export default function Pencatatan() {
 
       <div className="p-8 md:p-12 text-center space-y-4 border-b border-slate-100">
         <h2 className="text-3xl font-black text-slate-800 tracking-tight">Input Kehadiran Mandiri</h2>
-        <p className="text-slate-500">Silakan ikuti langkah-langkah di bawah ini.</p>
+        <p className="text-slate-500">Silakan pilih Periode Tahun Ajaran, Kelas, dan Nama Siswa.</p>
         
         {/* Stepper */}
         <div className="flex items-center justify-center gap-4 mt-8">
@@ -173,6 +177,22 @@ export default function Pencatatan() {
 
         {step === 1 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Periode Selector Header */}
+            <div className="max-w-xs mx-auto mb-6">
+              <label className="block text-center text-xs font-black uppercase text-slate-400 tracking-wider mb-2">
+                Pilih Periode / Tahun Ajaran
+              </label>
+              <select
+                value={selectedPeriode}
+                onChange={(e) => setSelectedPeriode(e.target.value)}
+                className="w-full text-center font-black text-sm bg-blue-50 text-blue-800 border-2 border-blue-200 py-2.5 px-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {availablePeriodes.map(p => (
+                  <option key={p} value={p}>Periode {p}</option>
+                ))}
+              </select>
+            </div>
+
             <h3 className="text-xl font-bold text-center text-slate-800 uppercase tracking-widest mb-8">Pilih Kelas Kamu</h3>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
               {KELAS_OPTIONS.map(k => (
