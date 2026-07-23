@@ -43,7 +43,19 @@ export default function DisiplinDashboard() {
         if (pError) throw pError;
 
         // Fetch master siswa to calculate perfect classes
-        const { data: sData } = await supabase.from('master_siswa').select('*');
+        let sData: any[] = [];
+        let page = 0;
+        let keepGoing = true;
+        while (keepGoing) {
+          const { data, error } = await supabase.from('master_siswa').select('*').range(page * 1000, (page + 1) * 1000 - 1);
+          if (error || !data || data.length === 0) {
+            keepGoing = false;
+          } else {
+            sData = [...sData, ...data];
+            if (data.length < 1000) keepGoing = false;
+            else page++;
+          }
+        }
 
         const safeKasus = allKasus || [];
         const totalKasus = safeKasus.length;

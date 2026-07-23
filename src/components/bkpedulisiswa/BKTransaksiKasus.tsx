@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Siswa } from '../../types/izinsiswa';
 import { MasterKasus, TransaksiKasus, TindakLanjutKasus } from '../../types/bkpedulisiswa';
-import { Save, Search, User, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, CheckCircle2, Trash2, Edit2, X, ClipboardList, Plus, Paperclip, FileText as FileIcon, Upload, Download } from 'lucide-react';
+import { Save, Search, User, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, CheckCircle2, Trash2, Edit2, X, ClipboardList, Plus, Paperclip, FileText as FileIcon, Upload, Download, RotateCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function BKTransaksiKasus({ user }: { user?: any }) {
   const isAdmin = user?.role === 'full';
   const canEdit = user?.role === 'entry' || user?.role === 'full';
   const [loading, setLoading] = useState(false);
+  const [isRefreshingSiswa, setIsRefreshingSiswa] = useState(false);
   const [siswa, setSiswa] = useState<Siswa[]>([]);
   const [kasus, setKasus] = useState<MasterKasus[]>([]);
   const [guru, setGuru] = useState<any[]>([]);
@@ -19,7 +20,8 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
-  const [selectedPeriode, setSelectedPeriode] = useState('2025');
+  const [selectedPeriode, setSelectedPeriode] = useState('ALL');
+
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showOtherKasus, setShowOtherKasus] = useState(false);
@@ -82,20 +84,55 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
     fetchTransaksi();
   }, [historyFilter]);
 
+  const fetchAllMasterSiswa = async () => {
+    if (!supabase) return [];
+    let allData: Siswa[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let keepGoing = true;
+
+    while (keepGoing) {
+      const start = page * pageSize;
+      const end = (page + 1) * pageSize - 1;
+      const { data, error } = await supabase
+        .from('master_siswa')
+        .select('*')
+        .range(start, end)
+        .order('nama', { ascending: true });
+
+      if (error || !data || data.length === 0) {
+        keepGoing = false;
+      } else {
+        allData = [...allData, ...data];
+        if (data.length < pageSize) {
+          keepGoing = false;
+        } else {
+          page++;
+        }
+      }
+    }
+    return allData;
+  };
+
   const fetchInitialData = async () => {
+    setIsRefreshingSiswa(true);
     try {
       if (supabase) {
-        const { data: sData } = await supabase.from('master_siswa').select('*').order('nama', { ascending: true });
-        const { data: kData } = await supabase.from('bk_master_kasus').select('*').order('nama_kasus', { ascending: true });
-        const { data: gData } = await supabase.from('master_guru').select('*').order('nama_guru', { ascending: true });
-        
+        const [sData, kRes, gRes] = await Promise.all([
+          fetchAllMasterSiswa(),
+          supabase.from('bk_master_kasus').select('*').order('nama_kasus', { ascending: true }),
+          supabase.from('master_guru').select('*').order('nama_guru', { ascending: true })
+        ]);
+
         setSiswa(sData || []);
-        setKasus(kData || []);
-        setGuru(gData || []);
+        setKasus(kRes.data || []);
+        setGuru(gRes.data || []);
         fetchTransaksi();
       }
     } catch (error) {
       console.error('Error fetching initial data:', error);
+    } finally {
+      setIsRefreshingSiswa(false);
     }
   };
 
@@ -426,14 +463,43 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const availablePeriodes = Array.from(new Set(['2025', ...siswa.map(s => s.periode || '2025')])).sort((a, b) => b.localeCompare(a));
+  const norm = (str?: string) => (str || '').toString().trim().toLowerCase();
+
+  const availablePeriodes = Array.from(
+    new Set(['2026', '2025', ...siswa.map(s => s.periode).filter(Boolean)])
+  ).sort((a, b) => String(b).localeCompare(String(a)));
 
   const filteredSiswa = siswa.filter(s => {
-    const sPeriode = s.periode || '2025';
-    const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
-    const matchKelas = formData.kelas ? s.kelas === formData.kelas : true;
-    const matchSearch = s.nama.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchPeriode && matchKelas && matchSearch;
+    const searchLower = searchTerm.trim().toLowerCase();
+    
+    const sP = norm(s.periode);
+    const selP = norm(selectedPeriode);
+    const matchPeriode = selP === 'all' || !s.periode || sP.includes(selP) || selP.includes(sP);
+
+    const sK = norm(s.kelas);
+    const formK = norm(formData.kelas);
+    const matchKelas = !formK || sK === formK;
+
+    if (searchLower) {
+      return (
+        norm(s.nama).includes(searchLower) ||
+        norm(s.kelas).includes(searchLower) ||
+        norm(s.nis).includes(searchLower)
+      );
+    }
+
+    return matchPeriode && matchKelas;
+  }).sort((a, b) => {
+    const searchLower = searchTerm.trim().toLowerCase();
+    if (searchLower) {
+      const formK = norm(formData.kelas);
+      const selP = norm(selectedPeriode);
+      const aInScope = (!formK || norm(a.kelas) === formK) && (selP === 'all' || !a.periode || norm(a.periode).includes(selP));
+      const bInScope = (!formK || norm(b.kelas) === formK) && (selP === 'all' || !b.periode || norm(b.periode).includes(selP));
+      if (aInScope && !bInScope) return -1;
+      if (!aInScope && bInScope) return 1;
+    }
+    return norm(a.nama).localeCompare(norm(b.nama));
   });
 
   return (
@@ -494,7 +560,19 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Pilih Siswa</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-500 uppercase">Pilih Siswa</label>
+                <button
+                  type="button"
+                  onClick={() => fetchInitialData()}
+                  disabled={isRefreshingSiswa}
+                  title="Refresh Data Siswa dari Database"
+                  className="text-[11px] font-medium text-pink-600 hover:text-pink-700 flex items-center gap-1 disabled:opacity-50"
+                >
+                  <RotateCw size={12} className={isRefreshingSiswa ? 'animate-spin' : ''} />
+                  {isRefreshingSiswa ? 'Memuat...' : 'Refresh Siswa'}
+                </button>
+              </div>
               <select 
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none transition-all"
                 value={formData.siswa_id}
