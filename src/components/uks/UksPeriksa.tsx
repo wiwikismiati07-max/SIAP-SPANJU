@@ -36,13 +36,43 @@ const UksPeriksa: React.FC<{ user?: any }> = ({ user }) => {
     fetchInitialData();
   }, []);
 
+  const fetchAllMasterSiswa = async () => {
+    if (!supabase) return [];
+    let allData: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let keepGoing = true;
+
+    while (keepGoing) {
+      const start = page * pageSize;
+      const end = (page + 1) * pageSize - 1;
+      const { data, error } = await supabase
+        .from('master_siswa')
+        .select('id, nama, kelas, periode')
+        .range(start, end)
+        .order('nama', { ascending: true });
+
+      if (error || !data || data.length === 0) {
+        keepGoing = false;
+      } else {
+        allData = [...allData, ...data];
+        if (data.length < pageSize) {
+          keepGoing = false;
+        } else {
+          page++;
+        }
+      }
+    }
+    return allData;
+  };
+
   const fetchInitialData = async () => {
     try {
       setLoading(true);
-      const [keluhanRes, obatRes, siswaRes, kunjunganRes] = await Promise.all([
+      const [keluhanRes, obatRes, siswaData, kunjunganRes] = await Promise.all([
         supabase.from('uks_keluhan').select('*').order('nama_keluhan'),
         supabase.from('uks_obat').select('*').order('nama_obat'),
-        supabase.from('master_siswa').select('id, nama, kelas, periode').order('nama'),
+        fetchAllMasterSiswa(),
         supabase.from('uks_kunjungan').select(`
           *,
           siswa:master_siswa(nama, kelas),
@@ -57,7 +87,7 @@ const UksPeriksa: React.FC<{ user?: any }> = ({ user }) => {
 
       setKeluhan(keluhanRes.data || []);
       setObat(obatRes.data || []);
-      setSiswa(siswaRes.data || []);
+      setSiswa(siswaData || []);
       setKunjunganList(kunjunganRes.data || []);
     } catch (error) {
       console.error('Error fetching initial data:', error);

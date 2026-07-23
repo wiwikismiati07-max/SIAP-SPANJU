@@ -28,18 +28,47 @@ const UksScreeningView: React.FC<{ user?: any }> = ({ user }) => {
     fetchInitialData();
   }, []);
 
+  const fetchAllMasterSiswa = async () => {
+    if (!supabase) return [];
+    let allData: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let keepGoing = true;
+
+    while (keepGoing) {
+      const start = page * pageSize;
+      const end = (page + 1) * pageSize - 1;
+      const { data, error } = await supabase
+        .from('master_siswa')
+        .select('id, nama, kelas')
+        .range(start, end)
+        .order('nama', { ascending: true });
+
+      if (error || !data || data.length === 0) {
+        keepGoing = false;
+      } else {
+        allData = [...allData, ...data];
+        if (data.length < pageSize) {
+          keepGoing = false;
+        } else {
+          page++;
+        }
+      }
+    }
+    return allData;
+  };
+
   const fetchInitialData = async () => {
     try {
       setLoading(true);
-      const [siswaRes, screeningRes] = await Promise.all([
-        supabase.from('master_siswa').select('id, nama, kelas').order('nama'),
+      const [siswaData, screeningRes] = await Promise.all([
+        fetchAllMasterSiswa(),
         supabase.from('uks_screening').select('*, siswa:master_siswa(nama, kelas)').order('created_at', { ascending: false }).limit(10)
       ]);
       
-      if (siswaRes.error) throw siswaRes.error;
       if (screeningRes.error) throw screeningRes.error;
 
-      setSiswa(siswaRes.data || []);
+      setSiswa(siswaData || []);
       setScreeningList(screeningRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);

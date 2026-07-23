@@ -52,17 +52,47 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
     fetchAbsensi();
   }, []);
 
+  const fetchAllMasterSiswa = async () => {
+    if (!supabase) return [];
+    let allData: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let keepGoing = true;
+
+    while (keepGoing) {
+      const start = page * pageSize;
+      const end = (page + 1) * pageSize - 1;
+      const { data, error } = await supabase
+        .from('master_siswa')
+        .select('*')
+        .range(start, end)
+        .order('nama', { ascending: true });
+
+      if (error || !data || data.length === 0) {
+        keepGoing = false;
+      } else {
+        allData = [...allData, ...data];
+        if (data.length < pageSize) {
+          keepGoing = false;
+        } else {
+          page++;
+        }
+      }
+    }
+    return allData;
+  };
+
   const fetchInitialData = async () => {
     try {
-      const [pRes, tRes, sRes] = await Promise.all([
+      const [pRes, tRes, sData] = await Promise.all([
         supabase.from('agama_program').select('*').order('nama_kegiatan'),
         supabase.from('master_guru').select('*').order('nama_guru'),
-        supabase.from('master_siswa').select('*').order('nama')
+        fetchAllMasterSiswa()
       ]);
 
       setPrograms(pRes.data || []);
       setTeachers(tRes.data || []);
-      setStudents(sRes.data || []);
+      setStudents(sData || []);
     } catch (error) {
       console.error('Error fetching initial data:', error);
     }
