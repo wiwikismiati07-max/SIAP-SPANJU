@@ -2,7 +2,7 @@ export interface AlumniTracing {
   id?: string;
   nama_lengkap: string;
   jenis_kelamin: string;
-  tahun_lulus: string;
+  tahun_lulus: string | number;
   wa_number: string;
   alamat: string;
   lanjut_ke: string;

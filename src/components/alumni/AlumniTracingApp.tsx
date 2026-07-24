@@ -11,17 +11,21 @@ import {
   ChevronLeft, 
   CheckCircle2, 
   AlertCircle,
-  Clock
+  Clock,
+  PieChart as PieChartIcon,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { AlumniTracing } from './types';
+import AlumniReport from './AlumniReport';
 
 interface AlumniTracingAppProps {
   onBack: () => void;
 }
 
 export default function AlumniTracingApp({ onBack }: AlumniTracingAppProps) {
+  const [activeTab, setActiveTab] = useState<'form' | 'report'>('form');
   const [formData, setFormData] = useState<AlumniTracing>({
     nama_lengkap: '',
     jenis_kelamin: '',
@@ -102,22 +106,55 @@ export default function AlumniTracingApp({ onBack }: AlumniTracingAppProps) {
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans overflow-y-auto">
-      <div className="max-w-3xl mx-auto space-y-8">
+      <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <button 
-            onClick={onBack}
-            className="p-3 bg-white shadow-md rounded-2xl text-slate-600 hover:text-slate-900 transition-all hover:scale-110 active:scale-95"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <div className="text-right">
-            <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Tracing Alumni</h1>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">SMP Negeri 7 Pasuruan</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onBack}
+              className="p-3 bg-white shadow-md rounded-2xl text-slate-600 hover:text-slate-900 transition-all hover:scale-105 active:scale-95"
+            >
+              <ChevronLeft size={24} />
+            </button>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Tracing Alumni</h1>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">SMP Negeri 7 Pasuruan</p>
+            </div>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className="flex items-center gap-2 bg-slate-200/70 p-1.5 rounded-2xl shrink-0">
+            <button
+              type="button"
+              onClick={() => setActiveTab('form')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${
+                activeTab === 'form'
+                  ? 'bg-white text-slate-900 shadow-md'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <FileText size={16} />
+              Form Input
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('report')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${
+                activeTab === 'report'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <PieChartIcon size={16} />
+              Report Alumni
+            </button>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8 pb-12">
+        {activeTab === 'report' ? (
+          <AlumniReport />
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-8 pb-12">
           {/* Section A: Identitas */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -347,6 +384,7 @@ export default function AlumniTracingApp({ onBack }: AlumniTracingAppProps) {
             )}
           </button>
         </form>
+        )}
       </div>
     </div>
   );
