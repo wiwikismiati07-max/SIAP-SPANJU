@@ -15,7 +15,17 @@ import {
   Pencil,
   X,
   Save,
-  CheckCircle2
+  CheckCircle2,
+  Plus,
+  FileText,
+  User,
+  MapPin,
+  School,
+  GraduationCap,
+  BookOpen,
+  MessageSquare,
+  Send,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ExcelJS from 'exceljs';
@@ -34,13 +44,77 @@ export default function AlumniTracingAdmin() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'data' | 'report'>('data');
+  const [activeTab, setActiveTab] = useState<'data' | 'form' | 'report'>('data');
 
   // Edit & Delete states
   const [editingItem, setEditingItem] = useState<AlumniTracing | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingItem, setDeletingItem] = useState<AlumniTracing | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Add Alumni states
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSubmittingNew, setIsSubmittingNew] = useState(false);
+  const [newAlumni, setNewAlumni] = useState<AlumniTracing>({
+    nama_lengkap: '',
+    jenis_kelamin: 'Laki-laki',
+    tahun_lulus: new Date().getFullYear().toString(),
+    wa_number: '',
+    alamat: '',
+    lanjut_ke: 'SMA',
+    nama_sekolah_lanjutan: '',
+    jurusan: '',
+    alasan: ''
+  });
+
+  const handleCreateAlumni = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingNew(true);
+    setError(null);
+    try {
+      if (!supabase) throw new Error('Database tidak terhubung.');
+
+      const dataToSubmit = {
+        ...newAlumni,
+        nama_lengkap: newAlumni.nama_lengkap.toUpperCase(),
+        tahun_lulus: parseInt(String(newAlumni.tahun_lulus)) || new Date().getFullYear()
+      };
+
+      const { data: insertedData, error: insertError } = await supabase
+        .from('alumni_tracing')
+        .insert([dataToSubmit])
+        .select();
+
+      if (insertError) throw insertError;
+
+      if (insertedData && insertedData.length > 0) {
+        setData(prev => [insertedData[0], ...prev]);
+      } else {
+        await fetchData();
+      }
+
+      setIsAddModalOpen(false);
+      setSuccessMsg('Data alumni baru berhasil ditambahkan!');
+      setTimeout(() => setSuccessMsg(null), 3000);
+
+      // Reset form
+      setNewAlumni({
+        nama_lengkap: '',
+        jenis_kelamin: 'Laki-laki',
+        tahun_lulus: new Date().getFullYear().toString(),
+        wa_number: '',
+        alamat: '',
+        lanjut_ke: 'SMA',
+        nama_sekolah_lanjutan: '',
+        jurusan: '',
+        alasan: ''
+      });
+    } catch (err: any) {
+      setError(err.message || 'Gagal menambahkan data alumni.');
+    } finally {
+      setIsSubmittingNew(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -286,6 +360,17 @@ export default function AlumniTracingAdmin() {
             Data Alumni
           </button>
           <button
+            onClick={() => setActiveTab('form')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${
+              activeTab === 'form'
+                ? 'bg-white text-slate-900 shadow-md'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <FileText size={18} />
+            Form Input Baru
+          </button>
+          <button
             onClick={() => setActiveTab('report')}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${
               activeTab === 'report'
@@ -301,10 +386,184 @@ export default function AlumniTracingAdmin() {
 
       {activeTab === 'report' ? (
         <AlumniReport />
+      ) : activeTab === 'form' ? (
+        <div className="max-w-3xl mx-auto space-y-6">
+          <form onSubmit={handleCreateAlumni} className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8">
+            <div className="flex items-center gap-4 pb-6 border-b border-slate-100">
+              <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
+                <Plus size={28} />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-slate-800 tracking-tight">Form Input Data Alumni Baru</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Masukkan informasi tracing kelanjutan studi alumni</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Nama Lengkap</label>
+                <div className="relative">
+                  <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    required
+                    value={newAlumni.nama_lengkap}
+                    onChange={(e) => setNewAlumni({ ...newAlumni, nama_lengkap: e.target.value })}
+                    placeholder="NAMA LENGKAP ALUMNI"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Jenis Kelamin</label>
+                <select
+                  value={newAlumni.jenis_kelamin}
+                  onChange={(e) => setNewAlumni({ ...newAlumni, jenis_kelamin: e.target.value })}
+                  className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all cursor-pointer"
+                >
+                  <option value="Laki-laki">Laki-laki</option>
+                  <option value="Perempuan">Perempuan</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Tahun Lulus</label>
+                <div className="relative">
+                  <Clock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="number"
+                    required
+                    min="1990"
+                    max="2030"
+                    value={newAlumni.tahun_lulus}
+                    onChange={(e) => setNewAlumni({ ...newAlumni, tahun_lulus: e.target.value })}
+                    placeholder="e.g. 2024"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-600 uppercase tracking-wider">No. WhatsApp / HP</label>
+                <div className="relative">
+                  <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="tel"
+                    required
+                    value={newAlumni.wa_number}
+                    onChange={(e) => setNewAlumni({ ...newAlumni, wa_number: e.target.value })}
+                    placeholder="0812XXXXXXXX"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Melanjutkan Ke</label>
+                <select
+                  value={newAlumni.lanjut_ke}
+                  onChange={(e) => setNewAlumni({ ...newAlumni, lanjut_ke: e.target.value })}
+                  className="w-full px-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all cursor-pointer"
+                >
+                  <option value="SMA">SMA</option>
+                  <option value="SMK">SMK</option>
+                  <option value="MA">MA</option>
+                  <option value="Pondok Pesantren">Pondok Pesantren</option>
+                  <option value="Perguruan Tinggi">Perguruan Tinggi</option>
+                  <option value="Bekerja">Bekerja</option>
+                  <option value="Tidak Melanjutkan">Tidak Melanjutkan</option>
+                  <option value="Lainnya">Lainnya</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Nama Sekolah / Instansi Lanjutan</label>
+                <div className="relative">
+                  <School size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={newAlumni.nama_sekolah_lanjutan || ''}
+                    onChange={(e) => setNewAlumni({ ...newAlumni, nama_sekolah_lanjutan: e.target.value })}
+                    placeholder="e.g. SMAN 1 Pasuruan"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Jurusan / Program</label>
+                <div className="relative">
+                  <GraduationCap size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={newAlumni.jurusan || ''}
+                    onChange={(e) => setNewAlumni({ ...newAlumni, jurusan: e.target.value })}
+                    placeholder="e.g. MIPA / Teknik Komputer"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Alamat Tempat Tinggal</label>
+                <div className="relative">
+                  <MapPin size={18} className="absolute left-4 top-4 text-slate-400" />
+                  <textarea
+                    rows={2}
+                    value={newAlumni.alamat || ''}
+                    onChange={(e) => setNewAlumni({ ...newAlumni, alamat: e.target.value })}
+                    placeholder="ALAMAT LENGKAP SAAT INI"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Alasan Memilih</label>
+                <div className="relative">
+                  <MessageSquare size={18} className="absolute left-4 top-4 text-slate-400" />
+                  <textarea
+                    rows={2}
+                    value={newAlumni.alasan || ''}
+                    onChange={(e) => setNewAlumni({ ...newAlumni, alasan: e.target.value })}
+                    placeholder="ALASAN MEMILIH SEKOLAH / INSTANSI TERSEBUT"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-slate-100 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setActiveTab('data')}
+                className="px-8 py-4 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-2xl font-black text-xs uppercase tracking-wider transition-all"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmittingNew}
+                className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-3 shadow-xl shadow-indigo-200 transition-all disabled:opacity-50"
+              >
+                {isSubmittingNew ? <RefreshCw size={20} className="animate-spin" /> : <Send size={20} />}
+                {isSubmittingNew ? 'Menyimpan...' : 'Simpan Data Alumni'}
+              </button>
+            </div>
+          </form>
+        </div>
       ) : (
         <>
           {/* Header Action Tools */}
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 active:scale-95"
+            >
+              <Plus size={20} />
+              Tambah Alumni Baru
+            </button>
             <button 
               onClick={fetchData}
               className="p-4 bg-white border border-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-all shadow-sm"
@@ -683,6 +942,183 @@ export default function AlumniTracingAdmin() {
                   {isDeleting ? 'Menghapus...' : 'Ya, Hapus'}
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL TAMBAH ALUMNI BARU */}
+      <AnimatePresence>
+        {isAddModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+            >
+              {/* Modal Header */}
+              <div className="p-6 md:p-8 bg-indigo-600 text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-white/10 text-white rounded-2xl">
+                    <Plus size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black tracking-tight">Tambah Alumni Baru</h3>
+                    <p className="text-xs text-indigo-200 font-bold uppercase tracking-wider">Input Tracing Kelanjutan Studi</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="p-2 text-indigo-200 hover:text-white rounded-xl hover:bg-white/10 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Modal Body Form */}
+              <form onSubmit={handleCreateAlumni} className="p-6 md:p-8 overflow-y-auto space-y-6 flex-1 font-sans">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Nama Lengkap */}
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Nama Lengkap</label>
+                    <input
+                      type="text"
+                      required
+                      value={newAlumni.nama_lengkap}
+                      onChange={(e) => setNewAlumni({ ...newAlumni, nama_lengkap: e.target.value })}
+                      placeholder="NAMA LENGKAP"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+
+                  {/* Jenis Kelamin */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Jenis Kelamin</label>
+                    <select
+                      value={newAlumni.jenis_kelamin}
+                      onChange={(e) => setNewAlumni({ ...newAlumni, jenis_kelamin: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all cursor-pointer"
+                    >
+                      <option value="Laki-laki">Laki-laki</option>
+                      <option value="Perempuan">Perempuan</option>
+                    </select>
+                  </div>
+
+                  {/* Tahun Lulus */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Tahun Lulus</label>
+                    <input
+                      type="number"
+                      required
+                      min="1990"
+                      max="2030"
+                      value={newAlumni.tahun_lulus}
+                      onChange={(e) => setNewAlumni({ ...newAlumni, tahun_lulus: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+
+                  {/* No. WhatsApp */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-slate-600 uppercase tracking-wider">No. WhatsApp / HP</label>
+                    <input
+                      type="tel"
+                      required
+                      value={newAlumni.wa_number}
+                      onChange={(e) => setNewAlumni({ ...newAlumni, wa_number: e.target.value })}
+                      placeholder="0812XXXXXXXX"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+
+                  {/* Melanjutkan Ke */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Melanjutkan Ke</label>
+                    <select
+                      value={newAlumni.lanjut_ke}
+                      onChange={(e) => setNewAlumni({ ...newAlumni, lanjut_ke: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all cursor-pointer"
+                    >
+                      <option value="SMA">SMA</option>
+                      <option value="SMK">SMK</option>
+                      <option value="MA">MA</option>
+                      <option value="Pondok Pesantren">Pondok Pesantren</option>
+                      <option value="Perguruan Tinggi">Perguruan Tinggi</option>
+                      <option value="Bekerja">Bekerja</option>
+                      <option value="Tidak Melanjutkan">Tidak Melanjutkan</option>
+                      <option value="Lainnya">Lainnya</option>
+                    </select>
+                  </div>
+
+                  {/* Nama Sekolah / Instansi Lanjutan */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Nama Sekolah / Instansi</label>
+                    <input
+                      type="text"
+                      value={newAlumni.nama_sekolah_lanjutan || ''}
+                      onChange={(e) => setNewAlumni({ ...newAlumni, nama_sekolah_lanjutan: e.target.value })}
+                      placeholder="e.g. SMAN 1 Pasuruan"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+
+                  {/* Jurusan */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Jurusan / Program</label>
+                    <input
+                      type="text"
+                      value={newAlumni.jurusan || ''}
+                      onChange={(e) => setNewAlumni({ ...newAlumni, jurusan: e.target.value })}
+                      placeholder="e.g. MIPA / Teknik Komputer"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+
+                  {/* Alamat */}
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Alamat Lengkap</label>
+                    <input
+                      type="text"
+                      value={newAlumni.alamat || ''}
+                      onChange={(e) => setNewAlumni({ ...newAlumni, alamat: e.target.value })}
+                      placeholder="Alamat lengkap saat ini"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+
+                  {/* Alasan */}
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <label className="text-xs font-black text-slate-600 uppercase tracking-wider">Alasan Memilih</label>
+                    <textarea
+                      rows={2}
+                      value={newAlumni.alasan || ''}
+                      onChange={(e) => setNewAlumni({ ...newAlumni, alasan: e.target.value })}
+                      placeholder="Alasan memilih sekolah/instansi tersebut"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-800 focus:bg-white focus:border-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddModalOpen(false)}
+                    className="px-6 py-3 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-2xl font-black text-xs uppercase tracking-wider transition-all"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingNew}
+                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-indigo-200 transition-all disabled:opacity-50"
+                  >
+                    {isSubmittingNew ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
+                    {isSubmittingNew ? 'Menyimpan...' : 'Simpan Data'}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}
