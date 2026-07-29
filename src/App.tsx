@@ -146,16 +146,16 @@ export default function App() {
   // Data persistence with Supabase
   useEffect(() => {
     const fetchLinks = async () => {
-      const defaultLinks: AppLink[] = [
-        { id: '1', title: 'Survey Kepuasan', url: 'https://survey-kepuasan-alpha.vercel.app/', displayMode: 'iframe', color: COLORS[0], icon: 'MessageSquare' }
-      ];
+      const defaultLinks: AppLink[] = [];
 
       const getFallbackLinks = () => {
         const saved = localStorage.getItem('dashboard_links');
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+            if (Array.isArray(parsed)) {
+              return parsed.filter((l: any) => l.id !== '1' && !l.title?.toLowerCase().includes('survey') && !l.url?.includes('survey-kepuasan'));
+            }
           } catch (e) {
             console.error("Failed to parse local links", e);
           }
@@ -177,7 +177,8 @@ export default function App() {
           return;
         }
         if (data && data.length > 0) {
-          setUserLinks(data);
+          const filtered = data.filter((l: any) => l.id !== '1' && !l.title?.toLowerCase().includes('survey') && !l.url?.includes('survey-kepuasan'));
+          setUserLinks(filtered);
         } else {
           setUserLinks(getFallbackLinks());
         }
@@ -190,9 +191,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (userLinks && userLinks.length > 0) {
-      localStorage.setItem('dashboard_links', JSON.stringify(userLinks));
-    }
+    localStorage.setItem('dashboard_links', JSON.stringify(userLinks));
   }, [userLinks]);
 
   // Loading simulation for iframe
@@ -460,33 +459,38 @@ export default function App() {
             );
           })}
 
-          <div className="h-px bg-black/5 mx-2 my-4" />
-          
-          <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Menu Tambahan</p>
-          {userLinks.map((link) => {
-            const Icon = ICON_MAP[link.icon] || Globe;
-            return (
-              <div key={link.id} className="relative group mb-3">
-                <button
-                  onClick={() => handleAppSelect(link)}
-                  className={`w-full text-left p-4 rounded-[1.5rem] flex items-center gap-4 transition-all duration-300 border-b-[6px] border-r-[2px] ${
-                    selectedLinkId === link.id 
-                      ? 'bg-white border-slate-200 shadow-[0_5px_15px_rgba(0,0,0,0.05)] translate-y-[4px]' 
-                      : 'bg-white/80 border-slate-100 hover:bg-white hover:border-slate-200 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-1'
-                  }`}
-                >
-                  <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${link.color} flex items-center justify-center text-white shadow-lg shrink-0 transition-all duration-500 group-hover:scale-110`}>
-                    <Icon size={24} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-black tracking-tight truncate text-[14px] uppercase ${selectedLinkId === link.id ? 'text-slate-900' : 'text-slate-700 group-hover:text-slate-900'}`}>{link.title}</p>
-                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">{link.displayMode === 'iframe' ? 'DASHBOARD' : 'NEW TAB'}</p>
-                    <div className={`h-1.5 bg-indigo-500 rounded-full mt-2 transition-all duration-500 ${selectedLinkId === link.id ? 'w-3/4' : 'w-8 group-hover:w-1/2'}`} />
-                  </div>
-                </button>
-              </div>
-            );
-          })}
+          {userLinks.filter(l => l.id !== '1' && !l.title?.toLowerCase().includes('survey') && !l.url?.includes('survey-kepuasan')).length > 0 && (
+            <>
+              <div className="h-px bg-black/5 mx-2 my-4" />
+              <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Menu Tambahan</p>
+              {userLinks
+                .filter(l => l.id !== '1' && !l.title?.toLowerCase().includes('survey') && !l.url?.includes('survey-kepuasan'))
+                .map((link) => {
+                  const Icon = ICON_MAP[link.icon] || Globe;
+                  return (
+                    <div key={link.id} className="relative group mb-3">
+                      <button
+                        onClick={() => handleAppSelect(link)}
+                        className={`w-full text-left p-4 rounded-[1.5rem] flex items-center gap-4 transition-all duration-300 border-b-[6px] border-r-[2px] ${
+                          selectedLinkId === link.id 
+                            ? 'bg-white border-slate-200 shadow-[0_5px_15px_rgba(0,0,0,0.05)] translate-y-[4px]' 
+                            : 'bg-white/80 border-slate-100 hover:bg-white hover:border-slate-200 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-1'
+                        }`}
+                      >
+                        <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${link.color} flex items-center justify-center text-white shadow-lg shrink-0 transition-all duration-500 group-hover:scale-110`}>
+                          <Icon size={24} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-black tracking-tight truncate text-[14px] uppercase ${selectedLinkId === link.id ? 'text-slate-900' : 'text-slate-700 group-hover:text-slate-900'}`}>{link.title}</p>
+                          <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">{link.displayMode === 'iframe' ? 'DASHBOARD' : 'NEW TAB'}</p>
+                          <div className={`h-1.5 bg-indigo-500 rounded-full mt-2 transition-all duration-500 ${selectedLinkId === link.id ? 'w-3/4' : 'w-8 group-hover:w-1/2'}`} />
+                        </div>
+                      </button>
+                    </div>
+                  );
+                })}
+            </>
+          )}
         </div>
         <div className="p-4 border-t border-white/50 min-w-[280px]">
           <button 
