@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { IzinWithSiswa, Siswa, Guru } from '../../types/izinsiswa';
 import { Check, X, Clock, Plus, Search, Calendar, User, BookOpen, Upload, FileDown, AlertCircle, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
@@ -241,7 +241,7 @@ export default function FormOperatorIzin() {
   const fetchMasterData = async () => {
     try {
       if (supabase) {
-        const { data: sData } = await supabase.from('master_siswa').select('*');
+        const sData = await fetchAllSiswa();
         if (sData) setSiswaList(sData);
         const { data: gData } = await supabase.from('master_guru').select('*');
         if (gData) setGuruList(gData);

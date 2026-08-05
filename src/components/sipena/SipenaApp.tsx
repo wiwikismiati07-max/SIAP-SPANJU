@@ -34,7 +34,7 @@ import {
   GraduationCap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
@@ -1012,6 +1012,7 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any, setMessage?: (msg: { type: 's
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [siswa, setSiswa] = useState<any[]>([]);
+  const [searchSiswa, setSearchSiswa] = useState('');
   const [editingVisit, setEditingVisit] = useState<any>(null);
   const [selectedPeriode, setSelectedPeriode] = useState('2025');
   
@@ -1050,8 +1051,12 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any, setMessage?: (msg: { type: 's
   };
 
   const fetchSiswa = async () => {
-    const { data } = await supabase.from('master_siswa').select('*').order('nama');
-    setSiswa(data || []);
+    try {
+      const data = await fetchAllSiswa();
+      setSiswa(data || []);
+    } catch (err) {
+      console.error('Error fetching siswa:', err);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1295,22 +1300,73 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any, setMessage?: (msg: { type: 's
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Siswa</label>
+                    <div className="flex items-center justify-between mb-2 ml-2">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase">Siswa</label>
+                      {formData.kelas && (
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                          {siswa.filter(s => {
+                            const sKelas = (s.kelas || '').toString().trim().toUpperCase();
+                            const fKelas = (formData.kelas || '').toString().trim().toUpperCase();
+                            const matchKelas = !fKelas || sKelas === fKelas;
+
+                            const sPeriode = (s.periode || '').toString().trim();
+                            const fPeriode = (selectedPeriode || '').toString().trim();
+                            const matchPeriode = fPeriode === 'ALL' || !fPeriode || !sPeriode || sPeriode === fPeriode;
+
+                            return matchKelas && matchPeriode;
+                          }).length} Siswa
+                        </span>
+                      )}
+                    </div>
                     <select 
                       required
                       value={formData.siswa_id}
                       onChange={(e) => setFormData({...formData, siswa_id: e.target.value})}
-                      className="w-full px-3 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                      className="w-full px-3 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer"
                     >
                       <option value="">Pilih Siswa</option>
                       {siswa.filter(s => {
-                        const sPeriode = s.periode || '2025';
-                        const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
-                        return s.kelas === formData.kelas && matchPeriode;
+                        const sKelas = (s.kelas || '').toString().trim().toUpperCase();
+                        const fKelas = (formData.kelas || '').toString().trim().toUpperCase();
+                        const matchKelas = !fKelas || sKelas === fKelas;
+
+                        const sPeriode = (s.periode || '').toString().trim();
+                        const fPeriode = (selectedPeriode || '').toString().trim();
+                        const matchPeriode = fPeriode === 'ALL' || !fPeriode || !sPeriode || sPeriode === fPeriode;
+
+                        const matchSearch = !searchSiswa || (s.nama || '').toLowerCase().includes(searchSiswa.toLowerCase());
+
+                        return matchKelas && matchPeriode && matchSearch;
                       }).map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
                     </select>
                   </div>
                 </div>
+
+                {/* Filter Cari Nama Siswa */}
+                {formData.kelas && (
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1.5 ml-2">Cari Nama Siswa (Opsional)</label>
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <input 
+                        type="text"
+                        placeholder="Ketik nama siswa untuk menyaring..."
+                        value={searchSiswa}
+                        onChange={(e) => setSearchSiswa(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                      />
+                      {searchSiswa && (
+                        <button 
+                          type="button" 
+                          onClick={() => setSearchSiswa('')} 
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Keperluan</label>
                   <select 
@@ -1674,6 +1730,7 @@ const SipenaPeminjaman: React.FC<{ user?: any, setMessage?: (msg: { type: 'succe
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [loanToDelete, setLoanToDelete] = useState<string | null>(null);
   const [selectedPeriode, setSelectedPeriode] = useState('2025');
+  const [searchSiswa, setSearchSiswa] = useState('');
   
   const [formData, setFormData] = useState({
     tanggal_pinjam: format(new Date(), 'yyyy-MM-dd'),
@@ -1709,12 +1766,16 @@ const SipenaPeminjaman: React.FC<{ user?: any, setMessage?: (msg: { type: 'succe
   };
 
   const fetchMasters = async () => {
-    const [s, b] = await Promise.all([
-      supabase.from('master_siswa').select('*').order('nama'),
-      supabase.from('sipena_buku').select('*').gt('stok_eksemplar', 0).order('judul_buku')
-    ]);
-    setSiswa(s.data || []);
-    setBooks(b.data || []);
+    try {
+      const [sData, b] = await Promise.all([
+        fetchAllSiswa(),
+        supabase ? supabase.from('sipena_buku').select('*').gt('stok_eksemplar', 0).order('judul_buku') : Promise.resolve({ data: [] })
+      ]);
+      setSiswa(sData || []);
+      setBooks(b?.data || []);
+    } catch (err) {
+      console.error('Error fetching masters:', err);
+    }
   };
 
   const handleAddBook = () => {
@@ -1970,17 +2031,68 @@ const SipenaPeminjaman: React.FC<{ user?: any, setMessage?: (msg: { type: 'succe
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Siswa</label>
-                    <select required value={formData.siswa_id} onChange={(e) => setFormData({...formData, siswa_id: e.target.value})} className="w-full px-3 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none">
+                    <div className="flex items-center justify-between mb-2 ml-2">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase">Siswa</label>
+                      {formData.kelas && (
+                        <span className="text-[10px] font-bold text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full">
+                          {siswa.filter(s => {
+                            const sKelas = (s.kelas || '').toString().trim().toUpperCase();
+                            const fKelas = (formData.kelas || '').toString().trim().toUpperCase();
+                            const matchKelas = !fKelas || sKelas === fKelas;
+
+                            const sPeriode = (s.periode || '').toString().trim();
+                            const fPeriode = (selectedPeriode || '').toString().trim();
+                            const matchPeriode = fPeriode === 'ALL' || !fPeriode || !sPeriode || sPeriode === fPeriode;
+
+                            return matchKelas && matchPeriode;
+                          }).length} Siswa
+                        </span>
+                      )}
+                    </div>
+                    <select required value={formData.siswa_id} onChange={(e) => setFormData({...formData, siswa_id: e.target.value})} className="w-full px-3 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none cursor-pointer">
                       <option value="">Pilih Siswa</option>
                       {siswa.filter(s => {
-                        const sPeriode = s.periode || '2025';
-                        const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
-                        return s.kelas === formData.kelas && matchPeriode;
+                        const sKelas = (s.kelas || '').toString().trim().toUpperCase();
+                        const fKelas = (formData.kelas || '').toString().trim().toUpperCase();
+                        const matchKelas = !fKelas || sKelas === fKelas;
+
+                        const sPeriode = (s.periode || '').toString().trim();
+                        const fPeriode = (selectedPeriode || '').toString().trim();
+                        const matchPeriode = fPeriode === 'ALL' || !fPeriode || !sPeriode || sPeriode === fPeriode;
+
+                        const matchSearch = !searchSiswa || (s.nama || '').toLowerCase().includes(searchSiswa.toLowerCase());
+
+                        return matchKelas && matchPeriode && matchSearch;
                       }).map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
                     </select>
                   </div>
                 </div>
+
+                {/* Filter Cari Nama Siswa */}
+                {formData.kelas && (
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1.5 ml-2">Cari Nama Siswa (Opsional)</label>
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <input 
+                        type="text"
+                        placeholder="Ketik nama siswa untuk menyaring..."
+                        value={searchSiswa}
+                        onChange={(e) => setSearchSiswa(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-pink-500 transition-all"
+                      />
+                      {searchSiswa && (
+                        <button 
+                          type="button" 
+                          onClick={() => setSearchSiswa('')} 
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Pilih Buku</label>

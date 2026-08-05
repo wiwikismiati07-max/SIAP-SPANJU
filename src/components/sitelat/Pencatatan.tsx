@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { Siswa } from '../../types/sitelat';
 import { CheckCircle2, ArrowLeft, Database } from 'lucide-react';
 import { format } from 'date-fns';
@@ -42,13 +42,9 @@ export default function Pencatatan() {
     setLoading(true);
     try {
       if (supabase) {
-        const { data: sData, error } = await supabase.from('master_siswa').select('*');
-        if (!error) {
-          setIsConnected(true);
-          if (sData) setSiswaList(sData);
-        } else {
-          setIsConnected(false);
-        }
+        const sData = await fetchAllSiswa();
+        setIsConnected(true);
+        if (sData) setSiswaList(sData);
       } else {
         setIsConnected(false);
         const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
