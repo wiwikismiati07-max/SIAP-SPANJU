@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <linearGradient id="badgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#4f46e5" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background Card -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+  
+  <!-- Shield Badge -->
+  <path d="M256 64 L384 112 V240 C384 336 328 416 256 448 C184 416 128 336 128 240 V112 Z" fill="url(#badgeGrad)" />
+  
+  <!-- Inner Shield Highlight -->
+  <path d="M256 96 L352 132 V232 C352 308 308 372 256 398 C204 372 160 308 160 232 V132 Z" fill="#3b82f6" opacity="0.3" />
+
+  <!-- Graduation Cap Icon -->
+  <path d="M256 160 L352 208 L256 256 L160 208 Z" fill="#ffffff" />
+  <path d="M192 232 V272 C192 296 220 312 256 312 C292 312 320 296 320 272 V232" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M336 216 V288 C336 296 344 304 352 304" fill="none" stroke="url(#goldGrad)" stroke-width="12" stroke-linecap="round" />
+  <circle cx="352" cy="308" r="10" fill="url(#goldGrad)" />
+  
+  <!-- Text SIAP SPANJU -->
+  <text x="256" y="380" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-weight="900" font-size="32" fill="#ffffff" text-anchor="middle" letter-spacing="2">SIAP SPANJU</text>
+</svg>

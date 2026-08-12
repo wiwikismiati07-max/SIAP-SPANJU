@@ -1,5 +1,7 @@
 {
   "name": "SIAP SPANJU",
-  "description": "Sistem Integrasi Aplikasi Pembinaan Siswa. Dilengkapi dengan fitur Cek Kelulusan Siswa Kelas 9 secara publik.",
-  "requestFramePermissions": []
+  "description": "Sistem Integrasi Aplikasi Pembinaan Siswa. Aplikasi PWA siap dipasang di HP (Android/iOS) dan Laptop (Windows/Mac).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
+

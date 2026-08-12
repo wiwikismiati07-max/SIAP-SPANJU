@@ -1,13 +1,42 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>SIAP SPANJU - Sistem Integrasi Aplikasi Pembinaan Siswa</title>
+    
+    <!-- PWA Primary Meta Tags -->
+    <meta name="title" content="SIAP SPANJU" />
+    <meta name="description" content="Sistem Integrasi Aplikasi Pembinaan Siswa SMP Negeri 7 Pasuruan - Aplikasi Web Terintegrasi untuk HP dan Laptop" />
+    <meta name="theme-color" content="#0f172a" />
+    
+    <!-- Mobile & PWA App Capabilities -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="SIAP SPANJU" />
+    <meta name="application-name" content="SIAP SPANJU" />
+    
+    <!-- Icons and Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="alternate icon" type="image/png" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('SIAP SPANJU ServiceWorker Registered:', reg.scope))
+            .catch(err => console.error('SIAP SPANJU ServiceWorker Registration failed:', err));
+        });
+      }
+    </script>
   </body>
 </html>
+
 

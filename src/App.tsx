@@ -104,6 +104,7 @@ import ManagementLogin from './components/ManagementLogin';
 import HotlineSection from './components/HotlineSection';
 import ManagementSiswaApp from './components/management/ManagementSiswaApp';
 import TutorialSection from './components/TutorialSection';
+import InstallPWA from './components/pwa/InstallPWA';
 
 // --- Components ---
 
@@ -403,6 +404,9 @@ export default function App() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3 min-w-[280px] custom-scrollbar">
+          {/* PWA Install Promo in Sidebar */}
+          <InstallPWA variant="sidebar" className="mb-3" />
+
           {/* Static Sections */}
           {sidebarItems.filter(item => item.roles.includes(user?.role)).map((section) => (
             <button
@@ -881,6 +885,8 @@ export default function App() {
                   <p className="text-sm font-medium text-slate-500">Silakan pilih aplikasi yang ingin Anda buka dari daftar di bawah ini.</p>
                 </div>
 
+                {/* Install PWA Banner */}
+                <InstallPWA variant="banner" className="w-full" />
 
                 {/* Survey Banner */}
                 <div className="bg-gradient-to-r from-pink-50 via-purple-50 to-indigo-50 p-8 md:p-12 rounded-[2.5rem] border border-white shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8 group hover:shadow-2xl transition-all duration-500">
