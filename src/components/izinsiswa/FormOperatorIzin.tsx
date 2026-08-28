@@ -41,6 +41,7 @@ export default function FormOperatorIzin() {
   const [lampiranPreview, setLampiranPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [previewSuratModalUrl, setPreviewSuratModalUrl] = useState<string | null>(null);
 
   // Upload State
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -868,15 +869,14 @@ export default function FormOperatorIzin() {
                     </td>
                     <td className="p-4">
                       {izin.lampiran_url ? (
-                        <a 
-                          href={izin.lampiran_url} 
-                          target="_blank" 
-                          rel="noreferrer" 
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition-all border border-blue-100"
+                        <button 
+                          type="button"
+                          onClick={() => setPreviewSuratModalUrl(izin.lampiran_url || null)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition-all border border-blue-100 cursor-pointer shadow-2xs"
                         >
                           <ExternalLink size={14} />
                           Lihat Surat
-                        </a>
+                        </button>
                       ) : (
                         <span className="text-slate-400 text-xs">-</span>
                       )}
@@ -904,6 +904,60 @@ export default function FormOperatorIzin() {
           </div>
         )}
       </div>
+
+      {/* Modal Preview Surat Izin */}
+      {previewSuratModalUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                <span>Dokumen / Foto Surat Izin</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setPreviewSuratModalUrl(null)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-4 bg-slate-100 flex-1 overflow-auto flex items-center justify-center min-h-[300px]">
+              {previewSuratModalUrl.startsWith('data:application/pdf') || previewSuratModalUrl.toLowerCase().endsWith('.pdf') ? (
+                <iframe src={previewSuratModalUrl} className="w-full h-[500px] rounded-xl border border-slate-200" title="PDF Preview" />
+              ) : (
+                <img 
+                  src={previewSuratModalUrl} 
+                  alt="Surat Izin" 
+                  className="max-h-[70vh] w-auto max-w-full object-contain rounded-xl shadow-md"
+                />
+              )}
+            </div>
+
+            <div className="p-3 bg-white border-t border-slate-100 flex items-center justify-between">
+              {previewSuratModalUrl.startsWith('http') ? (
+                <a
+                  href={previewSuratModalUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1"
+                >
+                  <ExternalLink size={14} /> Buka di Tab Baru
+                </a>
+              ) : (
+                <span className="text-xs text-slate-400 font-medium">Foto Lampiran Tersimpan</span>
+              )}
+              <button
+                type="button"
+                onClick={() => setPreviewSuratModalUrl(null)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
