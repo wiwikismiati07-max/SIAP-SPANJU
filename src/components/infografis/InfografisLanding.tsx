@@ -218,53 +218,8 @@ export default function InfografisLanding({
   return (
     <div className="min-h-screen bg-gradient-to-b from-pink-100/60 via-pink-50/40 to-slate-50 text-slate-800 font-sans flex flex-col items-center relative selection:bg-pink-200">
       
-      {/* Top Floating Mini Bar for Quick Navigation */}
-      <div className="w-full sticky top-0 z-30 bg-white/85 backdrop-blur-md border-b border-pink-100/80 px-4 py-2.5 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-2 max-w-7xl mx-auto w-full justify-between">
-          <div className="flex items-center gap-2">
-            <img src={LOGO_URL} alt="Logo" className="w-7 h-7 object-contain" referrerPolicy="no-referrer" />
-            <span className="text-sm font-black text-slate-800 tracking-tight">
-              SIAP <span className="text-pink-600">SPANJU</span>
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {onShowKelulusan && (
-              <button
-                type="button"
-                onClick={onShowKelulusan}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-all cursor-pointer border border-blue-100"
-              >
-                <GraduationCap size={14} />
-                <span>Cek Kelulusan</span>
-              </button>
-            )}
-
-            {onShowTracing && (
-              <button
-                type="button"
-                onClick={onShowTracing}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all cursor-pointer border border-indigo-100"
-              >
-                <Users size={14} />
-                <span>Tracing Alumni</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={onEnterAksesTerpusat}
-              className="px-4 py-1.5 bg-gradient-to-r from-pink-500 via-rose-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm shadow-pink-500/20 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <LogIn size={14} />
-              <span>Akses Terpusat</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Header Matching Screenshot Exactly */}
-      <header className="w-full max-w-4xl px-4 sm:px-6 pt-6 sm:pt-10 pb-4 sm:pb-6 text-center flex flex-col items-center">
+      {/* Main Header */}
+      <header className="w-full max-w-4xl px-4 sm:px-6 pt-8 sm:pt-12 pb-4 sm:pb-6 text-center flex flex-col items-center">
         {/* Center Logo in Rounded White Card */}
         <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-white rounded-3xl sm:rounded-[2rem] flex items-center justify-center p-3 sm:p-4 shadow-xl shadow-pink-200/50 border border-slate-100 mb-4 sm:mb-5 hover:scale-105 transition-transform">
           <img 
@@ -338,8 +293,8 @@ export default function InfografisLanding({
         </div>
       </main>
 
-      {/* FLOATING ACTION BUTTON (BOTTOM RIGHT) */}
-      <div className="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-2.5">
+      {/* FLOATING SCROLL TOP BUTTON (BOTTOM RIGHT) */}
+      <div className="fixed bottom-6 right-6 z-30 flex flex-col items-end">
         <AnimatePresence>
           {showScrollTop && (
             <motion.button
@@ -355,15 +310,6 @@ export default function InfografisLanding({
             </motion.button>
           )}
         </AnimatePresence>
-
-        <button
-          type="button"
-          onClick={onEnterAksesTerpusat}
-          className="flex items-center gap-2 px-5 py-3.5 bg-gradient-to-r from-pink-500 via-rose-500 to-indigo-600 text-white rounded-2xl font-black text-xs md:text-sm uppercase tracking-wider shadow-2xl shadow-pink-500/30 hover:from-pink-600 hover:to-indigo-700 active:scale-95 transition-all border border-white/40 cursor-pointer"
-        >
-          <LogIn size={16} />
-          <span>Akses Terpusat</span>
-        </button>
       </div>
 
       {/* Image Fullscreen Lightbox Modal */}
