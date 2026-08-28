@@ -5,11 +5,9 @@ import {
   GraduationCap, 
   Users, 
   X, 
-  Sparkles, 
   ExternalLink,
   ArrowUp,
-  ChevronRight,
-  ShieldCheck
+  ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -63,7 +61,6 @@ export default function InfografisLanding({
   onShowTracing 
 }: InfografisLandingProps) {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [showPopupAkses, setShowPopupAkses] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
@@ -122,7 +119,7 @@ export default function InfografisLanding({
 
             <button
               type="button"
-              onClick={() => setShowPopupAkses(true)}
+              onClick={onEnterAksesTerpusat}
               className="px-4 py-1.5 bg-gradient-to-r from-pink-500 via-rose-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm shadow-pink-500/20 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <LogIn size={14} />
@@ -165,7 +162,7 @@ export default function InfografisLanding({
         {/* Big Action Button directly below description */}
         <button
           type="button"
-          onClick={() => setShowPopupAkses(true)}
+          onClick={onEnterAksesTerpusat}
           className="px-6 py-3.5 bg-gradient-to-r from-pink-500 via-rose-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white rounded-2xl text-xs md:text-sm font-black uppercase tracking-wider shadow-lg shadow-pink-500/25 active:scale-95 transition-all flex items-center gap-2 cursor-pointer mb-2"
         >
           <LogIn size={16} />
@@ -228,7 +225,7 @@ export default function InfografisLanding({
 
           <button
             type="button"
-            onClick={() => setShowPopupAkses(true)}
+            onClick={onEnterAksesTerpusat}
             className="w-full sm:w-auto px-8 py-3.5 bg-white text-slate-900 hover:bg-pink-50 rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest shadow-xl active:scale-95 transition-all inline-flex items-center justify-center gap-2 cursor-pointer"
           >
             <LogIn size={16} className="text-pink-600" />
@@ -257,112 +254,13 @@ export default function InfografisLanding({
 
         <button
           type="button"
-          onClick={() => setShowPopupAkses(true)}
+          onClick={onEnterAksesTerpusat}
           className="flex items-center gap-2 px-5 py-3.5 bg-gradient-to-r from-pink-500 via-rose-500 to-indigo-600 text-white rounded-2xl font-black text-xs md:text-sm uppercase tracking-wider shadow-2xl shadow-pink-500/30 hover:from-pink-600 hover:to-indigo-700 active:scale-95 transition-all border border-white/40 cursor-pointer"
         >
           <LogIn size={16} />
           <span>Akses Terpusat</span>
         </button>
       </div>
-
-      {/* POPUP MODAL: MASUK KE AKSES TERPUSAT SIAP SPANJU */}
-      <AnimatePresence>
-        {showPopupAkses && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.92, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.92, y: 20 }}
-              transition={{ type: "spring", duration: 0.4 }}
-              className="bg-white border border-pink-100 rounded-[2.5rem] shadow-2xl max-w-md w-full p-6 md:p-8 relative overflow-hidden text-center"
-            >
-              <button
-                type="button"
-                onClick={() => setShowPopupAkses(false)}
-                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-all cursor-pointer"
-              >
-                <X size={20} />
-              </button>
-
-              {/* Icon & Brand */}
-              <div className="w-20 h-20 bg-gradient-to-tr from-pink-50 to-rose-50 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg p-2.5 rotate-2 border border-pink-100">
-                <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-              </div>
-
-              <span className="inline-block px-3 py-1 bg-pink-100 text-pink-700 rounded-full text-[10px] font-black uppercase tracking-widest mb-2">
-                PORTAL LAYANAN TERPADU
-              </span>
-
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight font-display mb-1.5">
-                Akses Terpusat SIAP SPANJU
-              </h3>
-
-              <p className="text-slate-500 text-xs md:text-sm font-medium leading-relaxed mb-6">
-                Silakan masuk ke portal login terpadu untuk mengakses layanan pembinaan, presensi, kedisiplinan, dan bimbingan siswa SMP Negeri 7 Pasuruan.
-              </p>
-
-              {/* Actions */}
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPopupAkses(false);
-                    onEnterAksesTerpusat();
-                  }}
-                  className="w-full py-4 bg-gradient-to-r from-pink-500 via-rose-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white rounded-2xl font-black text-xs md:text-sm uppercase tracking-widest shadow-xl shadow-pink-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <LogIn size={18} />
-                  <span>Masuk ke Akses Terpusat</span>
-                </button>
-
-                <div className="grid grid-cols-2 gap-2.5 pt-1">
-                  {onShowKelulusan && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPopupAkses(false);
-                        onShowKelulusan();
-                      }}
-                      className="py-3 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold border border-blue-100 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                    >
-                      <GraduationCap size={15} />
-                      <span>Cek Kelulusan</span>
-                    </button>
-                  )}
-
-                  {onShowTracing && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPopupAkses(false);
-                        onShowTracing();
-                      }}
-                      className="py-3 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-100 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                    >
-                      <Users size={15} />
-                      <span>Tracing Alumni</span>
-                    </button>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowPopupAkses(false)}
-                  className="w-full py-2 text-slate-400 hover:text-slate-600 text-xs font-bold transition-colors cursor-pointer"
-                >
-                  Tutup / Lanjut Lihat Infografis
-                </button>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100">
-                <p className="text-[10px] text-slate-400 font-semibold tracking-wider">
-                  (Akun Tamu: Username = Tamu | Password = Tamu)
-                </p>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* Image Fullscreen Lightbox Modal */}
       <AnimatePresence>
