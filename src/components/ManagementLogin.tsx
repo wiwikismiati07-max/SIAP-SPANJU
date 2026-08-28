@@ -64,8 +64,8 @@ export default function ManagementLogin() {
   };
 
   const handleDeleteUser = async (id: string, uname: string) => {
-    if (uname === 'admin') {
-      alert('User admin utama tidak dapat dihapus!');
+    if (uname === 'admin' || uname.toLowerCase() === 'tamu') {
+      alert('Akun sistem utama (admin & Tamu) tidak dapat dihapus!');
       return;
     }
 

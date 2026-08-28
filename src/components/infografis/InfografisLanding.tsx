@@ -130,12 +130,9 @@ export default function InfografisLanding({
       </div>
 
       {/* Main Header Matching Screenshot Exactly */}
-      <header className="w-full max-w-3xl px-4 pt-10 pb-6 text-center flex flex-col items-center">
-        {/* Soft Orange/Pink Accent Pill at Top */}
-        <div className="w-10 h-2 bg-gradient-to-r from-orange-400 to-pink-500 rounded-full mb-4 shadow-sm" />
-
+      <header className="w-full max-w-4xl px-4 sm:px-6 pt-6 sm:pt-10 pb-4 sm:pb-6 text-center flex flex-col items-center">
         {/* Center Logo in Rounded White Card */}
-        <div className="w-20 h-20 md:w-24 md:h-24 bg-white rounded-3xl flex items-center justify-center p-3 shadow-xl shadow-pink-200/50 border border-slate-100 mb-5 rotate-0 hover:scale-105 transition-transform">
+        <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 bg-white rounded-3xl sm:rounded-[2rem] flex items-center justify-center p-3 sm:p-4 shadow-xl shadow-pink-200/50 border border-slate-100 mb-4 sm:mb-5 hover:scale-105 transition-transform">
           <img 
             src={LOGO_URL} 
             alt="Logo SMP Negeri 7 Pasuruan" 
@@ -145,17 +142,17 @@ export default function InfografisLanding({
         </div>
 
         {/* Big Bold Title */}
-        <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-slate-900 tracking-tight font-display mb-1.5">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight font-display mb-1.5 leading-tight">
           SIAP SPANJU
         </h1>
 
         {/* Subtitle */}
-        <h2 className="text-xs md:text-sm font-extrabold uppercase tracking-[0.18em] text-slate-600 mb-3">
+        <h2 className="text-[11px] sm:text-xs md:text-sm font-extrabold uppercase tracking-[0.15em] sm:tracking-[0.2em] text-slate-600 mb-3 px-2">
           SISTEM INTEGRASI APLIKASI PEMBINAAN SISWA
         </h2>
 
         {/* Description */}
-        <p className="text-xs md:text-sm text-slate-500 font-medium max-w-lg mx-auto leading-relaxed mb-6">
+        <p className="text-xs sm:text-sm md:text-base text-slate-500 font-medium max-w-md sm:max-w-lg md:max-w-xl mx-auto leading-relaxed mb-6 px-2">
           Platform terpadu untuk mempermudah pendataan, pemantauan, dan tindak lanjut permasalahan siswa di SMP Negeri 7 Pasuruan.
         </p>
 
@@ -163,7 +160,7 @@ export default function InfografisLanding({
         <button
           type="button"
           onClick={onEnterAksesTerpusat}
-          className="px-6 py-3.5 bg-gradient-to-r from-pink-500 via-rose-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white rounded-2xl text-xs md:text-sm font-black uppercase tracking-wider shadow-lg shadow-pink-500/25 active:scale-95 transition-all flex items-center gap-2 cursor-pointer mb-2"
+          className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 bg-gradient-to-r from-pink-500 via-rose-500 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white rounded-2xl text-xs sm:text-sm font-black uppercase tracking-wider shadow-lg shadow-pink-500/25 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer mb-2"
         >
           <LogIn size={16} />
           <span>Buka Akses Terpusat SIAP SPANJU</span>
@@ -171,8 +168,8 @@ export default function InfografisLanding({
         </button>
       </header>
 
-      {/* CONTINUOUS VERTICAL STACK OF WHITE CARDS LIKE IN SCREENSHOT */}
-      <main className="w-full max-w-xl md:max-w-2xl px-4 pb-16 space-y-6 md:space-y-8">
+      {/* CONTINUOUS VERTICAL STACK OF WHITE CARDS - RESPONSIVE FOR PHONE & LAPTOP */}
+      <main className="w-full max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl px-3 sm:px-4 md:px-6 pb-16 space-y-4 sm:space-y-6 md:space-y-8">
         {INFOGRAFIS_IMAGES.map((item, index) => (
           <motion.div
             key={item.id}
@@ -180,28 +177,28 @@ export default function InfografisLanding({
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-40px" }}
             transition={{ duration: 0.4 }}
-            className="bg-white rounded-3xl md:rounded-[2.5rem] p-3 sm:p-4 md:p-5 shadow-xl shadow-pink-100/60 border border-pink-100/80 flex flex-col items-center justify-center relative group"
+            className="bg-white rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] p-2.5 sm:p-4 md:p-6 shadow-lg sm:shadow-xl shadow-pink-100/60 border border-pink-100/80 flex flex-col items-center justify-center relative group"
           >
             {/* Click to Zoom Hint Button */}
             <button
               type="button"
               onClick={() => setPreviewImage(item.imageUrl)}
-              className="absolute top-6 right-6 z-10 px-3 py-1.5 bg-white/90 hover:bg-white text-slate-700 rounded-xl text-xs font-bold shadow-md border border-slate-200/80 flex items-center gap-1.5 cursor-pointer backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute top-4 sm:top-6 right-4 sm:right-6 z-10 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-white/90 hover:bg-white text-slate-700 rounded-xl text-[11px] sm:text-xs font-bold shadow-md border border-slate-200/80 flex items-center gap-1.5 cursor-pointer backdrop-blur-xs opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity"
               title="Perbesar Gambar"
             >
               <Maximize2 size={13} className="text-pink-600" />
-              <span>Perbesar</span>
+              <span className="hidden sm:inline">Perbesar</span>
             </button>
 
             {/* Infographic Image */}
             <div 
               onClick={() => setPreviewImage(item.imageUrl)}
-              className="w-full flex items-center justify-center cursor-zoom-in rounded-2xl md:rounded-3xl overflow-hidden bg-slate-50/50"
+              className="w-full flex items-center justify-center cursor-zoom-in rounded-xl sm:rounded-2xl md:rounded-3xl overflow-hidden bg-slate-50/40"
             >
               <img
                 src={item.imageUrl}
                 alt={item.title}
-                className="w-full h-auto object-contain rounded-2xl md:rounded-3xl shadow-xs transition-transform duration-300 group-hover:scale-[1.01]"
+                className="w-full h-auto object-contain rounded-xl sm:rounded-2xl md:rounded-3xl shadow-xs transition-transform duration-300 group-hover:scale-[1.01]"
                 referrerPolicy="no-referrer"
                 loading={index === 0 ? "eager" : "lazy"}
               />
