@@ -79,13 +79,13 @@ const EXTERNAL_APPS = [
 ];
 
 const LOGO_URL = "https://iili.io/KDFk4fI.png";
-const IMAGE_KILAS = "https://i.ibb.co.com/1J2CvZVh/kilas-siap-spanju.png";
-const IMAGE_8_PROGRAM = "https://i.ibb.co.com/hJH9B3vQ/8-program-prioritas.png";
-const IMAGE_SPIP_1 = "https://i.ibb.co.com/FbrL78ws/1.png";
-const IMAGE_SPIP_2 = "https://i.ibb.co.com/Y4cpFsdC/2.png";
-const IMAGE_SPIP_3 = "https://i.ibb.co.com/DDqRQwCr/3.png";
-const IMAGE_KORELASI_SPIP = "https://i.ibb.co.com/nM7xrHj6/korelasi-8-program-dg-15-indikator-pip-anti-korupsi.png";
-const IMAGE_KORELASI_SRA = "https://i.ibb.co.com/svM8w1FY/korelasi-integrasi-siap-spanju-dg-sekolah-ramah-anak.jpg";
+const IMAGE_KILAS = "https://i.ibb.co/1J2CvZVh/kilas-siap-spanju.png";
+const IMAGE_8_PROGRAM = "https://i.ibb.co/hJH9B3vQ/8-program-prioritas.png";
+const IMAGE_SPIP_1 = "https://i.ibb.co/FbrL78ws/1.png";
+const IMAGE_SPIP_2 = "https://i.ibb.co/Y4cpFsdC/2.png";
+const IMAGE_SPIP_3 = "https://i.ibb.co/DDqRQwCr/3.png";
+const IMAGE_KORELASI_SPIP = "https://i.ibb.co/nM7xrHj6/korelasi-8-program-dg-15-indikator-pip-anti-korupsi.png";
+const IMAGE_KORELASI_SRA = "https://i.ibb.co/svM8w1FY/korelasi-integrasi-siap-spanju-dg-sekolah-ramah-anak.jpg";
 
 import SiTelatApp from './components/sitelat/SiTelatApp';
 import IzinSiswaApp from './components/izinsiswa/IzinSiswaApp';

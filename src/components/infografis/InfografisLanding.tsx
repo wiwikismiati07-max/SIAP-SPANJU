@@ -7,7 +7,9 @@ import {
   X, 
   ExternalLink,
   ArrowUp,
-  ChevronRight
+  ChevronRight,
+  RefreshCw,
+  ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -17,43 +19,175 @@ interface InfografisLandingProps {
   onShowTracing?: () => void;
 }
 
-export const INFOGRAFIS_IMAGES = [
+export interface InfografisData {
+  id: string;
+  title: string;
+  imageUrl: string;
+}
+
+export const INFOGRAFIS_IMAGES: InfografisData[] = [
   {
     id: '9-aplikasi',
     title: 'Kilas 9 Aplikasi SIAP SPANJU',
-    imageUrl: 'https://i.ibb.co.com/1J2CvZVh/kilas-siap-spanju.png',
+    imageUrl: 'https://i.ibb.co/1J2CvZVh/kilas-siap-spanju.png',
   },
   {
     id: '8-program',
     title: '8 Program Prioritas SMPN 7 Pasuruan',
-    imageUrl: 'https://i.ibb.co.com/hJH9B3vQ/8-program-prioritas.png',
+    imageUrl: 'https://i.ibb.co/hJH9B3vQ/8-program-prioritas.png',
   },
   {
     id: '15-spip-1',
     title: '15 Indikator SPIP Anti Korupsi (Bagian 1)',
-    imageUrl: 'https://i.ibb.co.com/FbrL78ws/1.png',
+    imageUrl: 'https://i.ibb.co/FbrL78ws/1.png',
   },
   {
     id: '15-spip-2',
     title: '15 Indikator SPIP Anti Korupsi (Bagian 2)',
-    imageUrl: 'https://i.ibb.co.com/Y4cpFsdC/2.png',
+    imageUrl: 'https://i.ibb.co/Y4cpFsdC/2.png',
   },
   {
     id: '15-spip-3',
     title: '15 Indikator SPIP Anti Korupsi (Bagian 3)',
-    imageUrl: 'https://i.ibb.co.com/DDqRQwCr/3.png',
+    imageUrl: 'https://i.ibb.co/DDqRQwCr/3.png',
   },
   {
     id: 'korelasi-spip',
     title: 'Korelasi 8 Program Prioritas dg 15 Indikator SPIP Anti Korupsi dengan 9 Aplikasi SIAP SPANJU',
-    imageUrl: 'https://i.ibb.co.com/nM7xrHj6/korelasi-8-program-dg-15-indikator-pip-anti-korupsi.png',
+    imageUrl: 'https://i.ibb.co/nM7xrHj6/korelasi-8-program-dg-15-indikator-pip-anti-korupsi.png',
   },
   {
     id: 'korelasi-sra',
     title: 'Korelasi Integrasi SIAP SPANJU dg Sekolah Ramah Anak (SRA)',
-    imageUrl: 'https://i.ibb.co.com/svM8w1FY/korelasi-integrasi-siap-spanju-dg-sekolah-ramah-anak.jpg',
+    imageUrl: 'https://i.ibb.co/svM8w1FY/korelasi-integrasi-siap-spanju-dg-sekolah-ramah-anak.jpg',
   }
 ];
+
+// Helper to generate fallback URLs
+function getFallbackUrls(originalUrl: string): string[] {
+  // Normalize url
+  const clean = originalUrl.replace('i.ibb.co.com', 'i.ibb.co');
+  return [
+    clean,
+    `https://wsrv.nl/?url=${encodeURIComponent(clean)}`,
+    `https://images.weserv.nl/?url=${encodeURIComponent(clean)}`,
+    originalUrl.includes('i.ibb.co.com') ? originalUrl : originalUrl.replace('i.ibb.co', 'i.ibb.co.com')
+  ];
+}
+
+interface ResilientCardProps {
+  item: InfografisData;
+  index: number;
+  onZoom: (url: string) => void;
+}
+
+// Resilient Infografis Image Component with auto fallback and smooth loading
+const ResilientInfografisCard: React.FC<ResilientCardProps> = ({ 
+  item, 
+  index, 
+  onZoom 
+}) => {
+  const fallbackList = getFallbackUrls(item.imageUrl);
+  const [fallbackIndex, setFallbackIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasFailedAll, setHasFailedAll] = useState(false);
+
+  const currentSrc = fallbackList[fallbackIndex] || item.imageUrl;
+
+  const handleImageError = () => {
+    if (fallbackIndex < fallbackList.length - 1) {
+      setFallbackIndex(prev => prev + 1);
+    } else {
+      setHasFailedAll(true);
+      setIsLoading(false);
+    }
+  };
+
+  const handleRetry = () => {
+    setHasFailedAll(false);
+    setIsLoading(true);
+    setFallbackIndex(0);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 25 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-30px" }}
+      transition={{ duration: 0.4 }}
+      className="bg-white rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] p-2.5 sm:p-4 md:p-6 shadow-lg sm:shadow-xl shadow-pink-100/60 border border-pink-100/80 flex flex-col items-center justify-center relative group overflow-hidden"
+    >
+      {/* Click to Zoom Button */}
+      {!hasFailedAll && (
+        <button
+          type="button"
+          onClick={() => onZoom(currentSrc)}
+          className="absolute top-3.5 sm:top-5 right-3.5 sm:right-5 z-20 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-white/95 hover:bg-white text-slate-700 rounded-xl text-[11px] sm:text-xs font-bold shadow-md border border-slate-200/80 flex items-center gap-1.5 cursor-pointer backdrop-blur-xs transition-all opacity-85 sm:opacity-0 group-hover:opacity-100"
+          title="Perbesar Gambar"
+        >
+          <Maximize2 size={13} className="text-pink-600" />
+          <span className="hidden sm:inline">Perbesar</span>
+        </button>
+      )}
+
+      {/* Infographic Frame */}
+      <div 
+        onClick={() => !hasFailedAll && onZoom(currentSrc)}
+        className="w-full relative flex items-center justify-center cursor-zoom-in rounded-xl sm:rounded-2xl md:rounded-3xl overflow-hidden bg-slate-50/50 min-h-[140px] sm:min-h-[220px]"
+      >
+        {/* Skeleton Shimmer while loading */}
+        {isLoading && !hasFailedAll && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-100/80 animate-pulse p-4">
+            <div className="w-10 h-10 border-3 border-pink-300 border-t-pink-600 rounded-full animate-spin mb-2" />
+            <p className="text-xs font-bold text-slate-500">Memuat infografis...</p>
+          </div>
+        )}
+
+        {/* Failed State */}
+        {hasFailedAll ? (
+          <div className="p-8 text-center flex flex-col items-center justify-center gap-3">
+            <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center">
+              <ImageIcon size={24} />
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm font-bold text-slate-700">{item.title}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Gagal memuat gambar dari server hosting.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleRetry}
+                className="px-3 py-1.5 bg-pink-50 hover:bg-pink-100 text-pink-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw size={12} />
+                <span>Coba Lagi</span>
+              </button>
+              <a
+                href={item.imageUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+              >
+                <ExternalLink size={12} />
+                <span>Buka Link</span>
+              </a>
+            </div>
+          </div>
+        ) : (
+          <img
+            src={currentSrc}
+            alt={item.title}
+            onError={handleImageError}
+            onLoad={() => setIsLoading(false)}
+            className={`w-full h-auto object-contain rounded-xl sm:rounded-2xl md:rounded-3xl shadow-xs transition-transform duration-300 group-hover:scale-[1.01] ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+            referrerPolicy="no-referrer"
+            loading={index === 0 ? "eager" : "lazy"}
+          />
+        )}
+      </div>
+    </motion.div>
+  );
+}
 
 export default function InfografisLanding({ 
   onEnterAksesTerpusat, 
@@ -171,39 +305,12 @@ export default function InfografisLanding({
       {/* CONTINUOUS VERTICAL STACK OF WHITE CARDS - RESPONSIVE FOR PHONE & LAPTOP */}
       <main className="w-full max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl px-3 sm:px-4 md:px-6 pb-16 space-y-4 sm:space-y-6 md:space-y-8">
         {INFOGRAFIS_IMAGES.map((item, index) => (
-          <motion.div
+          <ResilientInfografisCard
             key={item.id}
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-40px" }}
-            transition={{ duration: 0.4 }}
-            className="bg-white rounded-2xl sm:rounded-3xl md:rounded-[2.5rem] p-2.5 sm:p-4 md:p-6 shadow-lg sm:shadow-xl shadow-pink-100/60 border border-pink-100/80 flex flex-col items-center justify-center relative group"
-          >
-            {/* Click to Zoom Hint Button */}
-            <button
-              type="button"
-              onClick={() => setPreviewImage(item.imageUrl)}
-              className="absolute top-4 sm:top-6 right-4 sm:right-6 z-10 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-white/90 hover:bg-white text-slate-700 rounded-xl text-[11px] sm:text-xs font-bold shadow-md border border-slate-200/80 flex items-center gap-1.5 cursor-pointer backdrop-blur-xs opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity"
-              title="Perbesar Gambar"
-            >
-              <Maximize2 size={13} className="text-pink-600" />
-              <span className="hidden sm:inline">Perbesar</span>
-            </button>
-
-            {/* Infographic Image */}
-            <div 
-              onClick={() => setPreviewImage(item.imageUrl)}
-              className="w-full flex items-center justify-center cursor-zoom-in rounded-xl sm:rounded-2xl md:rounded-3xl overflow-hidden bg-slate-50/40"
-            >
-              <img
-                src={item.imageUrl}
-                alt={item.title}
-                className="w-full h-auto object-contain rounded-xl sm:rounded-2xl md:rounded-3xl shadow-xs transition-transform duration-300 group-hover:scale-[1.01]"
-                referrerPolicy="no-referrer"
-                loading={index === 0 ? "eager" : "lazy"}
-              />
-            </div>
-          </motion.div>
+            item={item}
+            index={index}
+            onZoom={(url) => setPreviewImage(url)}
+          />
         ))}
 
         {/* BOTTOM CARD: MASUK KE AKSES TERPUSAT */}
