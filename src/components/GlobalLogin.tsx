@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { LogIn, User, Lock, AlertCircle, ShieldCheck, Users } from 'lucide-react';
+import { LogIn, User, Lock, AlertCircle, ShieldCheck, Users, BookOpen } from 'lucide-react';
 
 interface GlobalLoginProps {
   onLoginSuccess: (userData: any) => void;
   onShowKelulusan: () => void;
   onShowTracing: () => void;
+  onShowInfografis?: () => void;
 }
 
-export default function GlobalLogin({ onLoginSuccess, onShowKelulusan, onShowTracing }: GlobalLoginProps) {
+export default function GlobalLogin({ onLoginSuccess, onShowKelulusan, onShowTracing, onShowInfografis }: GlobalLoginProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -135,20 +136,31 @@ export default function GlobalLogin({ onLoginSuccess, onShowKelulusan, onShowTra
                 <button
                   type="button"
                   onClick={onShowKelulusan}
-                  className="py-5 bg-blue-50 text-blue-700 rounded-2xl font-black hover:bg-blue-100 transition-all uppercase tracking-[0.1em] text-[10px] flex flex-col items-center justify-center gap-2 border border-blue-100 shadow-sm shadow-blue-100/50"
+                  className="py-4 bg-blue-50 text-blue-700 rounded-2xl font-black hover:bg-blue-100 transition-all uppercase tracking-[0.1em] text-[10px] flex flex-col items-center justify-center gap-1.5 border border-blue-100 shadow-sm shadow-blue-100/50 cursor-pointer"
                 >
-                  <LogIn size={20} className="rotate-90" />
+                  <LogIn size={18} className="rotate-90" />
                   Cek Kelulusan
                 </button>
                 <button
                   type="button"
                   onClick={onShowTracing}
-                  className="py-5 bg-indigo-50 text-indigo-700 rounded-2xl font-black hover:bg-indigo-100 transition-all uppercase tracking-[0.1em] text-[10px] flex flex-col items-center justify-center gap-2 border border-indigo-100 shadow-sm shadow-indigo-100/50"
+                  className="py-4 bg-indigo-50 text-indigo-700 rounded-2xl font-black hover:bg-indigo-100 transition-all uppercase tracking-[0.1em] text-[10px] flex flex-col items-center justify-center gap-1.5 border border-indigo-100 shadow-sm shadow-indigo-100/50 cursor-pointer"
                 >
-                  <Users size={20} />
+                  <Users size={18} />
                   Tracing Alumni
                 </button>
               </div>
+
+              {onShowInfografis && (
+                <button
+                  type="button"
+                  onClick={onShowInfografis}
+                  className="w-full py-3 bg-gradient-to-r from-amber-50 via-orange-50 to-pink-50 text-slate-800 rounded-2xl font-bold hover:from-amber-100 hover:to-pink-100 transition-all text-xs flex items-center justify-center gap-2 border border-amber-200/60 shadow-xs cursor-pointer"
+                >
+                  <BookOpen size={16} className="text-amber-600" />
+                  <span>Lihat Infografis SIAP SPANJU</span>
+                </button>
+              )}
               
               <div className="text-center">
                 <p className="text-[10px] font-black text-slate-500 tracking-widest">

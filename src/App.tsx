@@ -79,9 +79,13 @@ const EXTERNAL_APPS = [
 ];
 
 const LOGO_URL = "https://iili.io/KDFk4fI.png";
-const IMAGE_KILAS = "https://i.ibb.co.com/gZMGhsGm/Gemini-Generated-Image-6i9kqx6i9kqx6i9k.png";
-const IMAGE_8_PROGRAM = "https://i.ibb.co.com/FLfhS872/Gemini-Generated-Image-1jgck21jgck21jgc.png";
-const IMAGE_KORELASI_SRA = "https://wsrv.nl/?url=i.ibb.co/5wM2Bd4/gambar-3.jpg";
+const IMAGE_KILAS = "https://i.ibb.co.com/1J2CvZVh/kilas-siap-spanju.png";
+const IMAGE_8_PROGRAM = "https://i.ibb.co.com/hJH9B3vQ/8-program-prioritas.png";
+const IMAGE_SPIP_1 = "https://i.ibb.co.com/FbrL78ws/1.png";
+const IMAGE_SPIP_2 = "https://i.ibb.co.com/Y4cpFsdC/2.png";
+const IMAGE_SPIP_3 = "https://i.ibb.co.com/DDqRQwCr/3.png";
+const IMAGE_KORELASI_SPIP = "https://i.ibb.co.com/nM7xrHj6/korelasi-8-program-dg-15-indikator-pip-anti-korupsi.png";
+const IMAGE_KORELASI_SRA = "https://i.ibb.co.com/svM8w1FY/korelasi-integrasi-siap-spanju-dg-sekolah-ramah-anak.jpg";
 
 import SiTelatApp from './components/sitelat/SiTelatApp';
 import IzinSiswaApp from './components/izinsiswa/IzinSiswaApp';
@@ -100,6 +104,7 @@ import KelulusanSetup from './components/kelulusan/KelulusanSetup';
 import AlumniTracingApp from './components/alumni/AlumniTracingApp';
 import AlumniTracingAdmin from './components/alumni/AlumniTracingAdmin';
 import GlobalLogin from './components/GlobalLogin';
+import InfografisLanding from './components/infografis/InfografisLanding';
 import ManagementLogin from './components/ManagementLogin';
 import HotlineSection from './components/HotlineSection';
 import ManagementSiswaApp from './components/management/ManagementSiswaApp';
@@ -117,6 +122,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showInfografisLanding, setShowInfografisLanding] = useState(true);
   const [showKelulusanPublic, setShowKelulusanPublic] = useState(false);
   const [showTracingPublic, setShowTracingPublic] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -265,6 +271,15 @@ export default function App() {
     if (showTracingPublic) {
       return <AlumniTracingApp onBack={() => setShowTracingPublic(false)} />;
     }
+    if (showInfografisLanding) {
+      return (
+        <InfografisLanding 
+          onEnterAksesTerpusat={() => setShowInfografisLanding(false)}
+          onShowKelulusan={() => setShowKelulusanPublic(true)}
+          onShowTracing={() => setShowTracingPublic(true)}
+        />
+      );
+    }
     return <GlobalLogin 
       onLoginSuccess={(userData) => {
         setUser(userData);
@@ -274,6 +289,7 @@ export default function App() {
       }} 
       onShowKelulusan={() => setShowKelulusanPublic(true)}
       onShowTracing={() => setShowTracingPublic(true)}
+      onShowInfografis={() => setShowInfografisLanding(true)}
     />;
   }
 
@@ -769,13 +785,13 @@ export default function App() {
 
                 <div className="flex flex-col gap-8 relative z-10 max-w-4xl mx-auto w-full">
                   <motion.div variants={fadeInVariants} initial="hidden" whileInView="visible" viewport={{ once: true }} custom={0} className="p-4 bg-white/80 rounded-[2rem] border border-white/50 shadow-xl shadow-purple-100/30 flex flex-col items-center justify-center group">
-                    <img src="https://wsrv.nl/?url=i.ibb.co.com/YFn0zsDJ/Gemini-Generated-Image-ncurlcncurlcncur.png" alt="SPIP 1" className="w-full h-auto rounded-xl shadow-sm object-contain" />
+                    <img src={IMAGE_SPIP_1} alt="SPIP 1" className="w-full h-auto rounded-xl shadow-sm object-contain" />
                   </motion.div>
                   <motion.div variants={fadeInVariants} initial="hidden" whileInView="visible" viewport={{ once: true }} custom={1} className="p-4 bg-white/80 rounded-[2rem] border border-white/50 shadow-xl shadow-purple-100/30 flex flex-col items-center justify-center group">
-                    <img src="https://wsrv.nl/?url=i.ibb.co.com/k2vVysT8/Gemini-Generated-Image-qg440qqg440qqg44.png" alt="SPIP 2" className="w-full h-auto rounded-xl shadow-sm object-contain" />
+                    <img src={IMAGE_SPIP_2} alt="SPIP 2" className="w-full h-auto rounded-xl shadow-sm object-contain" />
                   </motion.div>
                   <motion.div variants={fadeInVariants} initial="hidden" whileInView="visible" viewport={{ once: true }} custom={2} className="p-4 bg-white/80 rounded-[2rem] border border-white/50 shadow-xl shadow-purple-100/30 flex flex-col items-center justify-center group">
-                    <img src="https://wsrv.nl/?url=i.ibb.co.com/ZpFWcqq1/Gemini-Generated-Image-dqdjpdqdjpdqdjpd.png" alt="SPIP 3" className="w-full h-auto rounded-xl shadow-sm object-contain" />
+                    <img src={IMAGE_SPIP_3} alt="SPIP 3" className="w-full h-auto rounded-xl shadow-sm object-contain" />
                   </motion.div>
                 </div>
 
@@ -807,7 +823,7 @@ export default function App() {
                 </div>
 
                 <motion.div variants={fadeInVariants} initial="hidden" whileInView="visible" viewport={{ once: true }} className="p-4 md:p-8 bg-white/80 rounded-[2.5rem] border border-white/50 shadow-xl shadow-orange-100/30 flex flex-col items-center justify-center relative group z-10">
-                  <img src="https://wsrv.nl/?url=i.ibb.co.com/99vdYcf5/Gemini-Generated-Image-kbsmjdkbsmjdkbsm.png" alt="Korelasi Program" className="w-full max-w-4xl h-auto rounded-2xl shadow-md object-contain" />
+                  <img src={IMAGE_KORELASI_SPIP} alt="Korelasi Program" className="w-full max-w-4xl h-auto rounded-2xl shadow-md object-contain" />
                 </motion.div>
 
                 <div className="text-center pt-8">
