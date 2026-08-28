@@ -97,7 +97,7 @@ export default function GlobalLogin({ onLoginSuccess, onShowKelulusan, onShowTra
             <p className="text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em]">Sistem Integrasi Aplikasi Pembinaan SISWA</p>
           </div>
 
-          <form onSubmit={handleLogin} className="p-6 sm:p-10 space-y-6 sm:space-y-8">
+          <form onSubmit={handleLogin} autoComplete="off" className="p-6 sm:p-10 space-y-6 sm:space-y-8">
             <div className="text-center">
               <h2 className="text-lg sm:text-xl font-black text-slate-800 uppercase tracking-tight">Akses Terpusat</h2>
               <p className="text-slate-500 text-[11px] sm:text-xs font-bold mt-1 uppercase tracking-widest">Silakan login untuk melanjutkan</p>
@@ -117,6 +117,11 @@ export default function GlobalLogin({ onLoginSuccess, onShowKelulusan, onShowTra
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-slate-800 transition-colors" size={20} />
                   <input
                     type="text"
+                    name="spanju_login_user"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck="false"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full pl-12 pr-4 py-3.5 sm:py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-slate-800 focus:bg-white outline-none transition-all font-bold text-slate-800 text-sm"
@@ -132,6 +137,8 @@ export default function GlobalLogin({ onLoginSuccess, onShowKelulusan, onShowTra
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-slate-800 transition-colors" size={20} />
                   <input
                     type="password"
+                    name="spanju_login_pass"
+                    autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pl-12 pr-4 py-3.5 sm:py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-slate-800 focus:bg-white outline-none transition-all font-bold text-slate-800 text-sm"
