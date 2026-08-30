@@ -1,11 +1,13 @@
 // Service Worker for SIAP SPANJU PWA
-const CACHE_NAME = 'siap-spanju-v1';
+const CACHE_NAME = 'siap-spanju-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/logo-smpn7.png',
   '/icon-192.png',
-  '/icon-512.png'
+  '/icon-512.png',
+  '/icon.svg'
 ];
 
 // Install Event

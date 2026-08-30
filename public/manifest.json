@@ -1,8 +1,14 @@
 {
   "short_name": "SIAP SPANJU",
-  "name": "SIAP SPANJU - Sistem Integrasi Aplikasi Pembinaan Siswa",
-  "description": "Sistem Integrasi Aplikasi Pembinaan Siswa SMP Negeri 7 Pasuruan. Bisa diinstall di HP dan Laptop.",
+  "name": "SIAP SPANJU - SMPN 7 Pasuruan",
+  "description": "Sistem Integrasi Aplikasi Pembinaan Siswa SMP Negeri 7 Pasuruan.",
   "icons": [
+    {
+      "src": "/logo-smpn7.png",
+      "type": "image/png",
+      "sizes": "192x192 512x512",
+      "purpose": "any"
+    },
     {
       "src": "/icon-192.png",
       "type": "image/png",
