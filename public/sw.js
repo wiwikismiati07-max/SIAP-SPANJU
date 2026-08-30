@@ -1,13 +1,25 @@
 // Service Worker for SIAP SPANJU PWA
-const CACHE_NAME = 'siap-spanju-v2';
+const CACHE_NAME = 'siap-spanju-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/logo-smpn7.png',
+  '/favicon.ico',
+  '/favicon-32x32.png',
+  '/favicon-16x16.png',
+  '/icon-48.png',
+  '/icon-72.png',
+  '/icon-96.png',
+  '/icon-128.png',
+  '/icon-144.png',
+  '/icon-152.png',
   '/icon-192.png',
+  '/icon-256.png',
+  '/icon-384.png',
   '/icon-512.png',
-  '/icon.svg'
+  '/icon-maskable-192.png',
+  '/icon-maskable-512.png',
+  '/apple-touch-icon.png'
 ];
 
 // Install Event
