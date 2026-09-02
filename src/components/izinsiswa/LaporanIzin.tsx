@@ -8,6 +8,7 @@ import { id as idLocale } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import PeriodeFilterModal from '../common/PeriodeFilterModal';
 
 export default function LaporanIzin({ user }: { user?: any }) {
   const canDelete = user?.role === 'full';
@@ -481,7 +482,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
             <input
@@ -493,27 +494,36 @@ export default function LaporanIzin({ user }: { user?: any }) {
             />
           </div>
           
-          <div className="flex items-center gap-2">
-            <CalendarIcon className="text-slate-400" size={20} />
-            <input
-              type="date"
-              value={dateRange.start}
-              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+          <div className="flex flex-wrap items-center gap-2">
+            <PeriodeFilterModal
+              startDate={dateRange.start}
+              endDate={dateRange.end}
+              themeColor="emerald"
+              title="Periode Izin"
+              onChange={(start, end) => setDateRange({ start, end })}
             />
-            <span className="text-slate-400">-</span>
-            <input
-              type="date"
-              value={dateRange.end}
-              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
-            />
+
+            <div className="hidden sm:flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200">
+              <input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                className="px-2 py-1 bg-transparent text-xs font-semibold text-slate-700 outline-none"
+              />
+              <span className="text-slate-400 text-xs">-</span>
+              <input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                className="px-2 py-1 bg-transparent text-xs font-semibold text-slate-700 outline-none"
+              />
+            </div>
           </div>
 
           <select
             value={filterTipe}
             onChange={(e) => setFilterTipe(e.target.value as any)}
-            className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+            className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-medium"
           >
             <option value="Semua">Semua Pengajuan</option>
             <option value="Wali Murid">Laporan Izin Wali</option>

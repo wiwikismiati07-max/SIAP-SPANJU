@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import PeriodeFilterModal from '../common/PeriodeFilterModal';
 
 const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
@@ -265,7 +266,21 @@ const UksLaporan: React.FC = () => {
           </div>
 
           {/* Date Filter & Export */}
-          <div className="lg:col-span-2 bg-slate-50 p-10 rounded-[40px] border border-slate-100 space-y-8">
+          <div className="lg:col-span-2 bg-slate-50 p-8 sm:p-10 rounded-[40px] border border-slate-100 space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200/60">
+              <div className="flex items-center gap-2">
+                <Filter size={16} className="text-rose-600" />
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Rentang Waktu Laporan UKS</span>
+              </div>
+              <PeriodeFilterModal
+                startDate={dateRange.from}
+                endDate={dateRange.to}
+                themeColor="rose"
+                title="Periode UKS"
+                onChange={(start, end) => setDateRange({ from: start, to: end })}
+              />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Dari Tanggal</label>

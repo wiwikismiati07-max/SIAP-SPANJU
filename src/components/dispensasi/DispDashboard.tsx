@@ -3,8 +3,8 @@ import { Users, FileText, TrendingUp, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { TransaksiDispensasi, SiswaSeringDispensasi } from '../../types/dispensasi';
-
 import { format, subDays } from 'date-fns';
+import PeriodeFilterModal from '../common/PeriodeFilterModal';
 
 const COLORS = ['#3b82f6', '#ec4899', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
 
@@ -134,20 +134,30 @@ const DispDashboard: React.FC = () => {
           <p className="text-slate-500 text-sm">Statistik dispensasi siswa periode terpilih</p>
         </div>
         
-        <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
-          <input 
-            type="date" 
-            value={dateRange.start}
-            onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-            className="px-3 py-1.5 outline-none text-sm font-medium text-slate-700 bg-transparent"
+        <div className="flex flex-wrap items-center gap-3">
+          <PeriodeFilterModal
+            startDate={dateRange.start}
+            endDate={dateRange.end}
+            themeColor="blue"
+            title="Periode Dashboard"
+            onChange={(start, end) => setDateRange({ start, end })}
           />
-          <span className="text-slate-400">-</span>
-          <input 
-            type="date" 
-            value={dateRange.end}
-            onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-            className="px-3 py-1.5 outline-none text-sm font-medium text-slate-700 bg-transparent"
-          />
+
+          <div className="hidden sm:flex items-center gap-1.5 bg-white px-2 py-1 rounded-xl border border-slate-200 shadow-sm">
+            <input 
+              type="date" 
+              value={dateRange.start}
+              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+              className="px-1 outline-none text-xs font-semibold text-slate-700 bg-transparent"
+            />
+            <span className="text-slate-400 text-xs">-</span>
+            <input 
+              type="date" 
+              value={dateRange.end}
+              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+              className="px-1 outline-none text-xs font-semibold text-slate-700 bg-transparent"
+            />
+          </div>
         </div>
       </div>
       

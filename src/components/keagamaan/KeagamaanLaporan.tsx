@@ -7,6 +7,7 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { id as idLocale } from 'date-fns/locale';
+import PeriodeFilterModal from '../common/PeriodeFilterModal';
 
 const KeagamaanLaporan: React.FC = () => {
   const [data, setData] = useState<AgamaAbsensi[]>([]);
@@ -186,12 +187,21 @@ const KeagamaanLaporan: React.FC = () => {
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
       {/* Filter Section */}
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-        <div className="flex items-center justify-between mb-8">
-          <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
-            <Filter size={24} className="text-emerald-600" />
-            Filter Laporan
-          </h3>
+      <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+              <Filter size={24} className="text-emerald-600" />
+              Filter Laporan
+            </h3>
+            <PeriodeFilterModal
+              startDate={filters.startDate}
+              endDate={filters.endDate}
+              themeColor="emerald"
+              title="Periode Keagamaan"
+              onChange={(start, end) => setFilters(prev => ({ ...prev, startDate: start, endDate: end }))}
+            />
+          </div>
           <button
             onClick={downloadExcel}
             disabled={loading}

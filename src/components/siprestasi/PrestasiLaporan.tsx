@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import PeriodeFilterModal from '../common/PeriodeFilterModal';
 
 const PrestasiLaporan: React.FC = () => {
   const [dateRange, setDateRange] = useState({
@@ -158,7 +159,21 @@ const PrestasiLaporan: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+      <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <Filter size={16} className="text-purple-600" />
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Pilih Rentang Waktu Prestasi</span>
+          </div>
+          <PeriodeFilterModal
+            startDate={dateRange.from}
+            endDate={dateRange.to}
+            themeColor="purple"
+            title="Periode Prestasi"
+            onChange={(start, end) => setDateRange({ from: start, to: end })}
+          />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Dari Tanggal</label>
@@ -187,14 +202,14 @@ const PrestasiLaporan: React.FC = () => {
           <div className="flex space-x-3">
             <button 
               onClick={fetchReport}
-              className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-purple-600 text-white rounded-2xl hover:bg-purple-700 transition-all shadow-xl shadow-purple-200"
+              className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-purple-600 text-white rounded-2xl hover:bg-purple-700 transition-all shadow-xl shadow-purple-200 active:scale-95"
             >
               <Filter size={18} />
               <span className="text-sm font-black uppercase tracking-widest">Tampilkan</span>
             </button>
             <button 
               onClick={downloadExcel}
-              className="flex items-center justify-center space-x-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200"
+              className="flex items-center justify-center space-x-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200 active:scale-95"
             >
               <Download size={18} />
               <span className="text-sm font-black uppercase tracking-widest">Excel</span>

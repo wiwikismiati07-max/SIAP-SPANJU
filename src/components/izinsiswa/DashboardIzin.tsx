@@ -4,6 +4,7 @@ import { IzinWithSiswa } from '../../types/izinsiswa';
 import { Users, UserCheck, AlertTriangle, Clock, BarChart3, TrendingUp, FileText, ChevronDown, ChevronRight, Download } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, parseISO, subMonths } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import PeriodeFilterModal from '../common/PeriodeFilterModal';
 
 export default function DashboardIzin() {
   const [loading, setLoading] = useState(true);
@@ -229,14 +230,22 @@ export default function DashboardIzin() {
         <h2 className="text-2xl font-bold text-slate-800">Dashboard Izin Siswa</h2>
         
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
+          <PeriodeFilterModal
+            startDate={dateRange.start}
+            endDate={dateRange.end}
+            themeColor="emerald"
+            title="Periode Dashboard"
+            onChange={(start, end) => setDateRange({ start, end })}
+          />
+
+          <div className="hidden sm:flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Tgl Awal</span>
               <input 
                 type="date" 
                 value={dateRange.start}
                 onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                className="text-sm font-bold text-slate-700 outline-none bg-transparent"
+                className="text-xs font-bold text-slate-700 outline-none bg-transparent"
               />
             </div>
             <div className="w-px h-8 bg-slate-100 mx-1" />
@@ -246,7 +255,7 @@ export default function DashboardIzin() {
                 type="date" 
                 value={dateRange.end}
                 onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                className="text-sm font-bold text-slate-700 outline-none bg-transparent"
+                className="text-xs font-bold text-slate-700 outline-none bg-transparent"
               />
             </div>
           </div>

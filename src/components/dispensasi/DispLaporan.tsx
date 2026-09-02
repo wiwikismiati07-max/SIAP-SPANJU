@@ -7,6 +7,7 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { id as idLocale } from 'date-fns/locale';
+import PeriodeFilterModal from '../common/PeriodeFilterModal';
 
 const DispLaporan: React.FC = () => {
   const [data, setData] = useState<TransaksiDispensasi[]>([]);
@@ -194,62 +195,79 @@ const DispLaporan: React.FC = () => {
       </div>
 
       {/* Filter Section */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-1">
-            <Calendar size={12} />
-            <span>Mulai</span>
-          </label>
-          <input 
-            type="date" 
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all"
-            value={filters.startDate}
-            onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <Filter size={16} className="text-pink-600" />
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Filter Periode & Kriteria</span>
+          </div>
+          <PeriodeFilterModal
+            startDate={filters.startDate}
+            endDate={filters.endDate}
+            themeColor="pink"
+            title="Periode Dispensasi"
+            onChange={(start, end) => setFilters(prev => ({ ...prev, startDate: start, endDate: end }))}
           />
         </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-1">
-            <Calendar size={12} />
-            <span>Sampai</span>
-          </label>
-          <input 
-            type="date" 
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all"
-            value={filters.endDate}
-            onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-          />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-1">
+              <Calendar size={12} />
+              <span>Dari Tanggal</span>
+            </label>
+            <input 
+              type="date" 
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all"
+              value={filters.startDate}
+              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-1">
+              <Calendar size={12} />
+              <span>Sampai Tanggal</span>
+            </label>
+            <input 
+              type="date" 
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all"
+              value={filters.endDate}
+              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-1">
+              <Filter size={12} />
+              <span>Kelas</span>
+            </label>
+            <select 
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all"
+              value={filters.kelas}
+              onChange={(e) => setFilters({ ...filters, kelas: e.target.value })}
+            >
+              <option value="">Semua Kelas</option>
+              {classes.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-1">
+              <User size={12} />
+              <span>Nama Siswa</span>
+            </label>
+            <input 
+              type="text" 
+              placeholder="Cari nama..."
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all"
+              value={filters.siswaName}
+              onChange={(e) => setFilters({ ...filters, siswaName: e.target.value })}
+            />
+          </div>
         </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-1">
-            <Filter size={12} />
-            <span>Kelas</span>
-          </label>
-          <select 
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all"
-            value={filters.kelas}
-            onChange={(e) => setFilters({ ...filters, kelas: e.target.value })}
-          >
-            <option value="">Semua Kelas</option>
-            {classes.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-1">
-            <User size={12} />
-            <span>Nama Siswa</span>
-          </label>
-          <input 
-            type="text" 
-            placeholder="Cari nama..."
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all"
-            value={filters.siswaName}
-            onChange={(e) => setFilters({ ...filters, siswaName: e.target.value })}
-          />
-        </div>
-        <div className="flex items-end">
+
+        <div className="flex justify-end pt-2">
           <button 
             onClick={fetchReport}
-            className="w-full py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition-all font-bold text-sm"
+            className="px-6 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition-all font-bold text-sm shadow-sm"
           >
             Terapkan Filter
           </button>

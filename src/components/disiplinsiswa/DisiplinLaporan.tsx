@@ -6,6 +6,7 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import PeriodeFilterModal from '../common/PeriodeFilterModal';
 
 export default function DisiplinLaporan() {
   const [loading, setLoading] = useState(true);
@@ -326,10 +327,19 @@ export default function DisiplinLaporan() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-        <div className="flex items-center gap-2 mb-4 text-slate-800 font-bold">
-          <Filter size={18} className="text-blue-600" />
-          Filter Laporan
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 text-slate-800 font-bold">
+            <Filter size={18} className="text-blue-600" />
+            <span>Filter Laporan & Periode</span>
+          </div>
+          <PeriodeFilterModal
+            startDate={filter.startDate}
+            endDate={filter.endDate}
+            themeColor="blue"
+            title="Periode Disiplin"
+            onChange={(start, end) => setFilter(prev => ({ ...prev, startDate: start, endDate: end }))}
+          />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>

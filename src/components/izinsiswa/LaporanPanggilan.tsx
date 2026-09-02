@@ -4,16 +4,20 @@ import { saveAs } from 'file-saver';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { IzinWithSiswa } from '../../types/izinsiswa';
-import { AlertTriangle, Download } from 'lucide-react';
+import { AlertTriangle, Download, Filter } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
+import PeriodeFilterModal from '../common/PeriodeFilterModal';
 
 export default function LaporanPanggilan() {
   const [data, setData] = useState<{ siswa: any, totalIzin: number }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [startDate, endDate]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -22,13 +26,21 @@ export default function LaporanPanggilan() {
       let allSiswa: any[] = [];
 
       if (supabase) {
-        const { data: iData } = await supabase.from('izin_siswa').select('*').eq('status', 'Disetujui');
+        let query = supabase.from('izin_siswa').select('*').eq('status', 'Disetujui');
+        if (startDate) query = query.gte('tanggal_mulai', startDate);
+        if (endDate) query = query.lte('tanggal_mulai', endDate);
+        const { data: iData } = await query;
         const { data: sData } = await supabase.from('master_siswa').select('*');
         if (iData) allIzin = iData;
         if (sData) allSiswa = sData;
       } else {
         const localData = JSON.parse(localStorage.getItem('izinsiswa_data') || '[]');
-        allIzin = localData.filter((d: any) => d.status === 'Disetujui');
+        allIzin = localData.filter((d: any) => {
+          if (d.status !== 'Disetujui') return false;
+          if (startDate && d.tanggal_mulai < startDate) return false;
+          if (endDate && d.tanggal_mulai > endDate) return false;
+          return true;
+        });
         allSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
       }
 
@@ -154,13 +166,28 @@ export default function LaporanPanggilan() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-slate-800">Laporan Panggilan Orang Tua</h2>
-        <button
-          onClick={handleDownloadExcel}
-          className="flex items-center justify-center gap-2 px-4 py-2 bg-rose-600 text-white hover:bg-rose-700 rounded-xl font-medium transition-colors"
-        >
-          <Download size={18} /> Download Excel
-        </button>
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Laporan Panggilan Orang Tua</h2>
+          <p className="text-xs text-slate-500 mt-1">Daftar siswa dengan frekuensi izin lebih dari 5 kali</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <PeriodeFilterModal
+            startDate={startDate}
+            endDate={endDate}
+            themeColor="rose"
+            title="Periode Panggilan"
+            onChange={(start, end) => {
+              setStartDate(start);
+              setEndDate(end);
+            }}
+          />
+          <button
+            onClick={handleDownloadExcel}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 text-white hover:bg-rose-700 rounded-xl font-bold text-sm transition-colors shadow-sm"
+          >
+            <Download size={18} /> Download Excel
+          </button>
+        </div>
       </div>
 
       <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl flex items-start gap-3 text-rose-800">
