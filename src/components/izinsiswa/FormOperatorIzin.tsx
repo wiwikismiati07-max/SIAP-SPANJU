@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { IzinWithSiswa, Siswa, Guru } from '../../types/izinsiswa';
-import { Check, X, Clock, Plus, Search, Calendar, User, BookOpen, Upload, FileDown, AlertCircle, ExternalLink } from 'lucide-react';
+import { Check, X, Clock, Plus, Search, Calendar, User, BookOpen, Upload, FileDown, AlertCircle, AlertTriangle, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -42,6 +42,11 @@ export default function FormOperatorIzin() {
   const [submitting, setSubmitting] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [previewSuratModalUrl, setPreviewSuratModalUrl] = useState<string | null>(null);
+
+  // Duplicate / Conflict Detection State
+  const [activeIzinMap, setActiveIzinMap] = useState<Record<string, any>>({});
+  const [conflictIzin, setConflictIzin] = useState<any | null>(null);
+  const [checkingConflict, setCheckingConflict] = useState(false);
 
   // Upload State
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -239,6 +244,93 @@ export default function FormOperatorIzin() {
     fetchMasterData();
   }, []);
 
+  const fetchActiveIzinForDateRange = async (startDate: string, endDate: string) => {
+    try {
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('izin_siswa')
+          .select('*')
+          .neq('status', 'Ditolak');
+
+        if (!error && data) {
+          const map: Record<string, any> = {};
+          data.forEach((item: any) => {
+            const iStart = item.tanggal_mulai;
+            const iEnd = item.tanggal_selesai || item.tanggal_mulai;
+            // Overlapping logic: startA <= endB && endA >= startB
+            if (iStart <= endDate && iEnd >= startDate) {
+              map[item.siswa_id] = item;
+            }
+          });
+          setActiveIzinMap(map);
+          return map;
+        }
+      } else {
+        const localData = JSON.parse(localStorage.getItem('izinsiswa_data') || '[]');
+        const map: Record<string, any> = {};
+        localData.forEach((item: any) => {
+          if (item.status === 'Ditolak') return;
+          const iStart = item.tanggal_mulai;
+          const iEnd = item.tanggal_selesai || item.tanggal_mulai;
+          if (iStart <= endDate && iEnd >= startDate) {
+            map[item.siswa_id] = item;
+          }
+        });
+        setActiveIzinMap(map);
+        return map;
+      }
+    } catch (err) {
+      console.error('Error fetching active izin:', err);
+    }
+    return {};
+  };
+
+  useEffect(() => {
+    fetchActiveIzinForDateRange(tanggalMulai, tanggalSelesai);
+  }, [tanggalMulai, tanggalSelesai]);
+
+  useEffect(() => {
+    if (selectedSiswa) {
+      const existing = activeIzinMap[selectedSiswa.id];
+      setConflictIzin(existing || null);
+    } else {
+      setConflictIzin(null);
+    }
+  }, [selectedSiswa, activeIzinMap]);
+
+  const checkStudentDuplicate = async (siswaId: string, startDate: string, endDate: string) => {
+    try {
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('izin_siswa')
+          .select('*')
+          .eq('siswa_id', siswaId)
+          .neq('status', 'Ditolak');
+
+        if (!error && data) {
+          const match = data.find((item: any) => {
+            const iStart = item.tanggal_mulai;
+            const iEnd = item.tanggal_selesai || item.tanggal_mulai;
+            return iStart <= endDate && iEnd >= startDate;
+          });
+          return match || null;
+        }
+      } else {
+        const localData = JSON.parse(localStorage.getItem('izinsiswa_data') || '[]');
+        const match = localData.find((item: any) => {
+          if (item.siswa_id !== siswaId || item.status === 'Ditolak') return false;
+          const iStart = item.tanggal_mulai;
+          const iEnd = item.tanggal_selesai || item.tanggal_mulai;
+          return iStart <= endDate && iEnd >= startDate;
+        });
+        return match || null;
+      }
+    } catch (err) {
+      console.error('Error checking duplicate:', err);
+    }
+    return null;
+  };
+
   const fetchMasterData = async () => {
     try {
       if (supabase) {
@@ -352,6 +444,14 @@ export default function FormOperatorIzin() {
       return;
     }
 
+    // Check duplicate attendance / permission
+    const existingConflict = await checkStudentDuplicate(selectedSiswa.id, tanggalMulai, tanggalSelesai);
+    if (existingConflict) {
+      alert(`❌ Data Ganda Terdeteksi!\n\nSiswa "${selectedSiswa.nama}" sudah terdaftar izin (${existingConflict.alasan}) untuk tanggal ${existingConflict.tanggal_mulai} s/d ${existingConflict.tanggal_selesai || existingConflict.tanggal_mulai} melalui ${existingConflict.diajukan_oleh || 'Form Wali Murid'} (Status: ${existingConflict.status}).\n\nData tidak dapat diinput kembali pada hari/tanggal yang sama agar tidak terjadi data ganda.`);
+      setConflictIzin(existingConflict);
+      return;
+    }
+
     const isDispensasi = alasan === 'Dispensasi';
     const finalAlasan = isDispensasi ? 'Dispensasi' : alasan;
     const finalKeterangan = isDispensasi ? alasanLainnya : '';
@@ -415,6 +515,7 @@ export default function FormOperatorIzin() {
       setLampiranFile(null);
       setLampiranPreview(null);
       fetchPending();
+      fetchActiveIzinForDateRange(tanggalMulai, tanggalSelesai);
     } catch (error: any) {
       console.error('Error saving:', error);
       alert(`Gagal menyimpan absensi: ${error.message}`);
@@ -668,21 +769,32 @@ export default function FormOperatorIzin() {
                 {isDropdownOpen && !selectedSiswa && (
                   <div className="mt-2 border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white absolute z-10 w-full max-w-md max-h-60 overflow-y-auto">
                     {filteredSiswa.length > 0 ? (
-                      filteredSiswa.map(siswa => (
-                        <button
-                          key={siswa.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedSiswa(siswa);
-                            setSearchTerm(`${siswa.nama} - ${siswa.kelas}`);
-                            setIsDropdownOpen(false);
-                          }}
-                          className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors"
-                        >
-                          <div className="font-medium text-slate-800">{siswa.nama}</div>
-                          <div className="text-sm text-slate-500">Kelas {siswa.kelas}</div>
-                        </button>
-                      ))
+                      filteredSiswa.map(siswa => {
+                        const existing = activeIzinMap[siswa.id];
+                        return (
+                          <button
+                            key={siswa.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedSiswa(siswa);
+                              setSearchTerm(`${siswa.nama} - ${siswa.kelas}`);
+                              setIsDropdownOpen(false);
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors flex items-center justify-between gap-2"
+                          >
+                            <div>
+                              <div className="font-medium text-slate-800">{siswa.nama}</div>
+                              <div className="text-sm text-slate-500">Kelas {siswa.kelas}</div>
+                            </div>
+                            {existing && (
+                              <span className="text-[10px] bg-rose-50 border border-rose-200 text-rose-700 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                                <AlertTriangle size={10} className="text-rose-500" />
+                                {existing.alasan} ({existing.status})
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })
                     ) : (
                       <div className="px-4 py-3 text-slate-500 text-sm">Siswa tidak ditemukan</div>
                     )}

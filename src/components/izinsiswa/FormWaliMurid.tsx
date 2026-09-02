@@ -16,7 +16,8 @@ import {
   Eye, 
   Loader2,
   ExternalLink,
-  Info
+  Info,
+  AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -55,11 +56,100 @@ export default function FormWaliMurid() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [activeIzinMap, setActiveIzinMap] = useState<Record<string, any>>({});
+  const [conflictIzin, setConflictIzin] = useState<any | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchSiswa();
   }, []);
+
+  const fetchActiveIzinForDateRange = async (startDate: string, endDate: string) => {
+    try {
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('izin_siswa')
+          .select('*')
+          .neq('status', 'Ditolak');
+
+        if (!error && data) {
+          const map: Record<string, any> = {};
+          data.forEach((item: any) => {
+            const iStart = item.tanggal_mulai;
+            const iEnd = item.tanggal_selesai || item.tanggal_mulai;
+            if (iStart <= endDate && iEnd >= startDate) {
+              map[item.siswa_id] = item;
+            }
+          });
+          setActiveIzinMap(map);
+          return map;
+        }
+      } else {
+        const localData = JSON.parse(localStorage.getItem('izinsiswa_data') || '[]');
+        const map: Record<string, any> = {};
+        localData.forEach((item: any) => {
+          if (item.status === 'Ditolak') return;
+          const iStart = item.tanggal_mulai;
+          const iEnd = item.tanggal_selesai || item.tanggal_mulai;
+          if (iStart <= endDate && iEnd >= startDate) {
+            map[item.siswa_id] = item;
+          }
+        });
+        setActiveIzinMap(map);
+        return map;
+      }
+    } catch (err) {
+      console.error('Error fetching active izin:', err);
+    }
+    return {};
+  };
+
+  useEffect(() => {
+    fetchActiveIzinForDateRange(tanggalMulai, tanggalSelesai);
+  }, [tanggalMulai, tanggalSelesai]);
+
+  useEffect(() => {
+    if (selectedSiswa) {
+      const existing = activeIzinMap[selectedSiswa.id];
+      setConflictIzin(existing || null);
+    } else {
+      setConflictIzin(null);
+    }
+  }, [selectedSiswa, activeIzinMap]);
+
+  const checkStudentDuplicate = async (siswaId: string, startDate: string, endDate: string) => {
+    try {
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('izin_siswa')
+          .select('*')
+          .eq('siswa_id', siswaId)
+          .neq('status', 'Ditolak');
+
+        if (!error && data) {
+          const match = data.find((item: any) => {
+            const iStart = item.tanggal_mulai;
+            const iEnd = item.tanggal_selesai || item.tanggal_mulai;
+            return iStart <= endDate && iEnd >= startDate;
+          });
+          return match || null;
+        }
+      } else {
+        const localData = JSON.parse(localStorage.getItem('izinsiswa_data') || '[]');
+        const match = localData.find((item: any) => {
+          if (item.siswa_id !== siswaId || item.status === 'Ditolak') return false;
+          const iStart = item.tanggal_mulai;
+          const iEnd = item.tanggal_selesai || item.tanggal_mulai;
+          return iStart <= endDate && iEnd >= startDate;
+        });
+        return match || null;
+      }
+    } catch (err) {
+      console.error('Error checking duplicate:', err);
+    }
+    return null;
+  };
 
   const fetchSiswa = async () => {
     try {
@@ -202,6 +292,14 @@ export default function FormWaliMurid() {
       return;
     }
 
+    // Check duplicate attendance / permission
+    const existingConflict = await checkStudentDuplicate(selectedSiswa.id, tanggalMulai, tanggalSelesai);
+    if (existingConflict) {
+      alert(`❌ Data Ganda Terdeteksi!\n\nSiswa "${selectedSiswa.nama}" sudah terdaftar izin (${existingConflict.alasan}) untuk tanggal ${existingConflict.tanggal_mulai} s/d ${existingConflict.tanggal_selesai || existingConflict.tanggal_mulai} melalui ${existingConflict.diajukan_oleh || 'Form Wali Murid'} (Status: ${existingConflict.status}).\n\nData tidak dapat diinput kembali pada hari/tanggal yang sama agar tidak terjadi data ganda.`);
+      setConflictIzin(existingConflict);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -284,6 +382,8 @@ export default function FormWaliMurid() {
       setLampiranFile(null);
       setLampiranUrlInput('');
       if (fileInputRef.current) fileInputRef.current.value = '';
+
+      fetchActiveIzinForDateRange(tanggalMulai, tanggalSelesai);
     } catch (error: any) {
       console.error('Error saving:', error);
       alert(`Gagal mengirim pengajuan: ${error.message || 'Terjadi kesalahan'}`);
@@ -390,26 +490,37 @@ export default function FormWaliMurid() {
             {isDropdownOpen && !selectedSiswa && (
               <div className="mt-2 border border-slate-200 rounded-2xl overflow-hidden shadow-xl bg-white absolute z-30 w-full max-h-60 overflow-y-auto">
                 {filteredSiswa.length > 0 ? (
-                  filteredSiswa.slice(0, 50).map(siswa => (
-                    <button
-                      key={siswa.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedSiswa(siswa);
-                        setSearchTerm(`${siswa.nama} - Kelas ${siswa.kelas}`);
-                        setIsDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-3 hover:bg-emerald-50 border-b border-slate-100 last:border-0 transition-colors flex items-center justify-between group cursor-pointer"
-                    >
-                      <div>
-                        <div className="font-bold text-slate-800 group-hover:text-emerald-700 text-sm">{siswa.nama}</div>
-                        <div className="text-xs text-slate-500 font-semibold">Kelas {siswa.kelas}</div>
-                      </div>
-                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
-                        PILIH
-                      </span>
-                    </button>
-                  ))
+                  filteredSiswa.slice(0, 50).map(siswa => {
+                    const existing = activeIzinMap[siswa.id];
+                    return (
+                      <button
+                        key={siswa.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSiswa(siswa);
+                          setSearchTerm(`${siswa.nama} - Kelas ${siswa.kelas}`);
+                          setIsDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-3 hover:bg-emerald-50 border-b border-slate-100 last:border-0 transition-colors flex items-center justify-between group cursor-pointer"
+                      >
+                        <div>
+                          <div className="font-bold text-slate-800 group-hover:text-emerald-700 text-sm">{siswa.nama}</div>
+                          <div className="text-xs text-slate-500 font-semibold">Kelas {siswa.kelas}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {existing && (
+                            <span className="text-[10px] bg-rose-50 border border-rose-200 text-rose-700 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
+                              <AlertTriangle size={10} className="text-rose-500" />
+                              {existing.alasan} ({existing.status})
+                            </span>
+                          )}
+                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                            PILIH
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })
                 ) : (
                   <div className="px-4 py-3 text-slate-500 text-xs text-center font-medium">Siswa tidak ditemukan</div>
                 )}
@@ -634,10 +745,23 @@ export default function FormWaliMurid() {
           </div>
         </div>
 
+        {conflictIzin && (
+          <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl flex items-start gap-3 mt-4">
+            <AlertTriangle size={20} className="shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-sm">Data Ganda Terdeteksi!</p>
+              <p className="text-xs mt-1 leading-relaxed">
+                Siswa <strong>{selectedSiswa?.nama}</strong> sudah terdaftar izin ({conflictIzin.alasan}) untuk tanggal {conflictIzin.tanggal_mulai} s/d {conflictIzin.tanggal_selesai || conflictIzin.tanggal_mulai} melalui {conflictIzin.diajukan_oleh || 'Form Wali Murid'} (Status: {conflictIzin.status}).
+              </p>
+              <p className="text-xs mt-1 font-semibold text-rose-600">Data tidak dapat diinput kembali pada hari/tanggal yang sama.</p>
+            </div>
+          </div>
+        )}
+
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={loading || isProcessingFile}
+          disabled={loading || isProcessingFile || !!conflictIzin}
           className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white rounded-2xl font-black text-base uppercase tracking-wider shadow-lg shadow-emerald-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
         >
           {loading ? (
