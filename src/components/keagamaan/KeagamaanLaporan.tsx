@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
-import { Calendar, Search, Download, FileText, Filter, ChevronRight } from 'lucide-react';
+import { Calendar, Search, Download, FileText, Filter, ChevronRight, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AgamaAbsensi } from '../../types/keagamaan';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
@@ -8,10 +8,13 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { id as idLocale } from 'date-fns/locale';
 import PeriodeFilterModal from '../common/PeriodeFilterModal';
+import TahunAjaranModal from '../common/TahunAjaranModal';
 
 const KeagamaanLaporan: React.FC = () => {
   const [data, setData] = useState<AgamaAbsensi[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [filters, setFilters] = useState({
     startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
     endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
@@ -30,7 +33,30 @@ const KeagamaanLaporan: React.FC = () => {
   useEffect(() => {
     fetchInitialData();
     fetchReport();
-  }, []);
+  }, [selectedPeriode]);
+
+  const handlePeriodeChange = (newPeriode: string) => {
+    setSelectedPeriode(newPeriode);
+    if (newPeriode !== 'ALL') {
+      const year = parseInt(newPeriode, 10);
+      if (!isNaN(year)) {
+        const currentYear = new Date().getFullYear();
+        if (year === currentYear) {
+          setFilters(prev => ({
+            ...prev,
+            startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+            endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd')
+          }));
+        } else {
+          setFilters(prev => ({
+            ...prev,
+            startDate: `${year}-01-01`,
+            endDate: `${year}-12-31`
+          }));
+        }
+      }
+    }
+  };
 
   const fetchInitialData = async () => {
     const { data: pData } = await supabase.from('agama_program').select('*').order('nama_kegiatan');
@@ -40,11 +66,21 @@ const KeagamaanLaporan: React.FC = () => {
   const fetchReport = async () => {
     try {
       setLoading(true);
+
+      // Fetch distinct periodes
+      const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
+      if (siswaPeriodeData && siswaPeriodeData.length > 0) {
+        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+          .filter(Boolean)
+          .sort((a, b) => b.localeCompare(a));
+        setAvailablePeriodes(distinctPeriodes);
+      }
+
       let query = supabase
         .from('agama_absensi')
         .select(`
           *,
-          siswa:master_siswa(nama, kelas),
+          siswa:master_siswa(nama, kelas, periode),
           kegiatan:agama_program(nama_kegiatan),
           wali_kelas:master_guru(nama_guru)
         `)
@@ -59,10 +95,16 @@ const KeagamaanLaporan: React.FC = () => {
       const { data: rData, error } = await query;
       if (error) throw error;
 
-      let filtered = rData || [];
+      let filtered = (rData || []).filter(d => {
+        if (selectedPeriode !== 'ALL') {
+          return (d.siswa?.periode || '2025') === selectedPeriode;
+        }
+        return true;
+      });
+
       if (filters.siswaName) {
         filtered = filtered.filter(d => 
-          d.siswa?.nama.toLowerCase().includes(filters.siswaName.toLowerCase())
+          d.siswa?.nama?.toLowerCase().includes(filters.siswaName.toLowerCase())
         );
       }
 
@@ -189,11 +231,21 @@ const KeagamaanLaporan: React.FC = () => {
       {/* Filter Section */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-4">
             <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
               <Filter size={24} className="text-emerald-600" />
               Filter Laporan
             </h3>
+
+            {/* Popup Periode Tahun Ajaran */}
+            <TahunAjaranModal
+              selectedPeriode={selectedPeriode}
+              onChange={handlePeriodeChange}
+              availablePeriodes={availablePeriodes}
+              themeColor="emerald"
+              label="Periode Tahun Ajaran"
+            />
+
             <PeriodeFilterModal
               startDate={filters.startDate}
               endDate={filters.endDate}

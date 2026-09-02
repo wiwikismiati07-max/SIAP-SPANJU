@@ -4,20 +4,40 @@ import { saveAs } from 'file-saver';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { IzinWithSiswa } from '../../types/izinsiswa';
-import { AlertTriangle, Download, Filter } from 'lucide-react';
+import { AlertTriangle, Download, Filter, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import PeriodeFilterModal from '../common/PeriodeFilterModal';
+import TahunAjaranModal from '../common/TahunAjaranModal';
 
 export default function LaporanPanggilan() {
   const [data, setData] = useState<{ siswa: any, totalIzin: number }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
   useEffect(() => {
     fetchData();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, selectedPeriode]);
+
+  const handlePeriodeChange = (newPeriode: string) => {
+    setSelectedPeriode(newPeriode);
+    if (newPeriode !== 'ALL') {
+      const year = parseInt(newPeriode, 10);
+      if (!isNaN(year)) {
+        const currentYear = new Date().getFullYear();
+        if (year === currentYear) {
+          setStartDate(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+          setEndDate(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+        } else {
+          setStartDate(`${year}-01-01`);
+          setEndDate(`${year}-12-31`);
+        }
+      }
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -26,11 +46,26 @@ export default function LaporanPanggilan() {
       let allSiswa: any[] = [];
 
       if (supabase) {
+        // Fetch distinct periodes
+        const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
+        if (siswaPeriodeData && siswaPeriodeData.length > 0) {
+          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+            .filter(Boolean)
+            .sort((a, b) => b.localeCompare(a));
+          setAvailablePeriodes(distinctPeriodes);
+        }
+
         let query = supabase.from('izin_siswa').select('*').eq('status', 'Disetujui');
         if (startDate) query = query.gte('tanggal_mulai', startDate);
         if (endDate) query = query.lte('tanggal_mulai', endDate);
         const { data: iData } = await query;
-        const { data: sData } = await supabase.from('master_siswa').select('*');
+        
+        let sQuery = supabase.from('master_siswa').select('*');
+        if (selectedPeriode !== 'ALL') {
+          sQuery = sQuery.eq('periode', selectedPeriode);
+        }
+        const { data: sData } = await sQuery;
+        
         if (iData) allIzin = iData;
         if (sData) allSiswa = sData;
       } else {
@@ -41,7 +76,8 @@ export default function LaporanPanggilan() {
           if (endDate && d.tanggal_mulai > endDate) return false;
           return true;
         });
-        allSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
+        allSiswa = (JSON.parse(localStorage.getItem('sitelat_siswa') || '[]'))
+          .filter((s: any) => selectedPeriode === 'ALL' || (s.periode || '2025') === selectedPeriode);
       }
 
       // Group by siswa_id
@@ -52,7 +88,10 @@ export default function LaporanPanggilan() {
 
       // Filter > 5
       const panggilanList = Object.entries(counts)
-        .filter(([_, count]) => count > 5)
+        .filter(([siswa_id, count]) => {
+          const studentExists = allSiswa.some(s => s.id === siswa_id);
+          return count > 5 && studentExists;
+        })
         .map(([siswa_id, count]) => {
           const siswa = allSiswa.find(s => s.id === siswa_id) || { id: siswa_id, nama: 'Unknown', kelas: '-' };
           return { siswa, totalIzin: count };
@@ -171,6 +210,15 @@ export default function LaporanPanggilan() {
           <p className="text-xs text-slate-500 mt-1">Daftar siswa dengan frekuensi izin lebih dari 5 kali</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          {/* Popup Periode Tahun Ajaran */}
+          <TahunAjaranModal
+            selectedPeriode={selectedPeriode}
+            onChange={handlePeriodeChange}
+            availablePeriodes={availablePeriodes}
+            themeColor="rose"
+            label="Periode Tahun Ajaran"
+          />
+
           <PeriodeFilterModal
             startDate={startDate}
             endDate={endDate}

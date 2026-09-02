@@ -2,13 +2,14 @@ import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excel
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { IzinWithSiswa } from '../../types/izinsiswa';
-import { Download, Search, Calendar as CalendarIcon, Edit, Trash2, X, FileText, Users, BarChart3, AlertTriangle, ExternalLink, Upload } from 'lucide-react';
+import { Download, Search, Calendar as CalendarIcon, Edit, Trash2, X, FileText, Users, BarChart3, AlertTriangle, ExternalLink, Upload, ChevronDown } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, startOfYear } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import PeriodeFilterModal from '../common/PeriodeFilterModal';
+import TahunAjaranModal from '../common/TahunAjaranModal';
 
 export default function LaporanIzin({ user }: { user?: any }) {
   const canDelete = user?.role === 'full';
@@ -21,6 +22,8 @@ export default function LaporanIzin({ user }: { user?: any }) {
 
   const [data, setData] = useState<IzinWithSiswa[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTipe, setFilterTipe] = useState<'Semua' | 'Wali Murid'>('Semua');
   const [reportType, setReportType] = useState<'detail' | 'statistik' | 'bulanan'>('detail');
@@ -70,22 +73,48 @@ export default function LaporanIzin({ user }: { user?: any }) {
 
   useEffect(() => {
     fetchData();
-  }, [dateRange]);
+  }, [dateRange, selectedPeriode]);
 
   useEffect(() => {
     if (reportType === 'bulanan' && selectedKelas) {
       fetchStudentsInClass();
     }
-  }, [reportType, selectedKelas]);
+  }, [reportType, selectedKelas, selectedPeriode]);
+
+  const handlePeriodeChange = (newPeriode: string) => {
+    setSelectedPeriode(newPeriode);
+    if (newPeriode !== 'ALL') {
+      const year = parseInt(newPeriode, 10);
+      if (!isNaN(year)) {
+        const currentYear = new Date().getFullYear();
+        if (year === currentYear) {
+          setDateRange({
+            start: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+            end: format(endOfMonth(new Date()), 'yyyy-MM-dd')
+          });
+        } else {
+          setDateRange({
+            start: `${year}-01-01`,
+            end: `${year}-12-31`
+          });
+        }
+      }
+    }
+  };
 
   const fetchStudentsInClass = async () => {
     try {
       if (supabase) {
-        const { data: sData } = await supabase
+        let query = supabase
           .from('master_siswa')
           .select('*')
           .eq('kelas', selectedKelas)
           .order('nama', { ascending: true });
+        
+        if (selectedPeriode !== 'ALL') {
+          query = query.eq('periode', selectedPeriode);
+        }
+        const { data: sData } = await query;
         
         // Safeguard: Ensure unique students by name and class in UI
         const uniqueStudents = sData ? Array.from(new Map(sData.map(s => [`${s.nama}-${s.kelas}`.toUpperCase(), s])).values()) : [];
@@ -93,7 +122,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
       } else {
         const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
         const filtered = localSiswa
-          .filter((s: any) => s.kelas === selectedKelas)
+          .filter((s: any) => s.kelas === selectedKelas && (selectedPeriode === 'ALL' || (s.periode || '2025') === selectedPeriode))
           .sort((a: any, b: any) => a.nama.localeCompare(b.nama));
           
         const uniqueStudents = Array.from(new Map(filtered.map((s: any) => [`${s.nama}-${s.kelas}`.toUpperCase(), s])).values());
@@ -108,6 +137,15 @@ export default function LaporanIzin({ user }: { user?: any }) {
     setLoading(true);
     try {
       if (supabase) {
+        // Fetch distinct periodes
+        const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
+        if (siswaPeriodeData && siswaPeriodeData.length > 0) {
+          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+            .filter(Boolean)
+            .sort((a, b) => b.localeCompare(a));
+          setAvailablePeriodes(distinctPeriodes);
+        }
+
         const { data: iData } = await supabase
           .from('izin_siswa')
           .select('*')
@@ -116,16 +154,21 @@ export default function LaporanIzin({ user }: { user?: any }) {
           .order('tanggal_mulai', { ascending: false });
           
         if (iData) {
-          const { data: sData } = await supabase.from('master_siswa').select('*');
+          let siswaQuery = supabase.from('master_siswa').select('*');
+          if (selectedPeriode !== 'ALL') {
+            siswaQuery = siswaQuery.eq('periode', selectedPeriode);
+          }
+          const { data: sData } = await siswaQuery;
           const { data: gData } = await supabase.from('master_guru').select('*');
           const { data: mData } = await supabase.from('master_mapel').select('*');
           
           const joinedData = iData.map(i => ({
             ...i,
-            siswa: sData?.find(s => s.id === i.siswa_id) || { id: i.siswa_id, nama: 'Unknown', kelas: '-' },
+            siswa: sData?.find(s => s.id === i.siswa_id),
             guru: gData?.find(g => g.id === i.guru_id),
             mapel: mData?.find(m => m.id === i.mapel_id)
-          }));
+          })).filter(i => i.siswa !== undefined);
+          
           setData(joinedData as IzinWithSiswa[]);
         }
       } else {
@@ -138,10 +181,11 @@ export default function LaporanIzin({ user }: { user?: any }) {
           .filter((d: any) => d.tanggal_mulai >= dateRange.start && d.tanggal_mulai <= dateRange.end)
           .map((d: any) => ({
             ...d,
-            siswa: localSiswa.find((s: any) => s.id === d.siswa_id) || { id: d.siswa_id, nama: 'Unknown', kelas: '-' },
+            siswa: localSiswa.find((s: any) => s.id === d.siswa_id && (selectedPeriode === 'ALL' || (s.periode || '2025') === selectedPeriode)),
             guru: localGuru.find((g: any) => g.id === d.guru_id),
             mapel: localMapel.find((m: any) => m.id === d.mapel_id)
           }))
+          .filter((d: any) => d.siswa !== undefined)
           .sort((a: any, b: any) => new Date(b.tanggal_mulai).getTime() - new Date(a.tanggal_mulai).getTime());
           
         setData(filtered);
@@ -433,8 +477,8 @@ export default function LaporanIzin({ user }: { user?: any }) {
       </div>
 
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex-1 min-w-[200px]">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex-1 min-w-[280px]">
             <label className="block text-sm font-semibold text-slate-700 mb-2">Tipe Laporan</label>
             <div className="flex bg-slate-100 p-1 rounded-xl">
               <button
@@ -467,7 +511,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
             </div>
           </div>
 
-          <div className="w-full sm:w-auto">
+          <div className="w-full sm:w-auto min-w-[140px]">
             <label className="block text-sm font-semibold text-slate-700 mb-2">Filter Kelas</label>
             <select
               value={selectedKelas}
@@ -493,31 +537,30 @@ export default function LaporanIzin({ user }: { user?: any }) {
               className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
             />
           </div>
-          
-          <div className="flex flex-wrap items-center gap-2">
-            <PeriodeFilterModal
-              startDate={dateRange.start}
-              endDate={dateRange.end}
-              themeColor="emerald"
-              title="Periode Izin"
-              onChange={(start, end) => setDateRange({ start, end })}
-            />
 
-            <div className="hidden sm:flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200">
-              <input
-                type="date"
-                value={dateRange.start}
-                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                className="px-2 py-1 bg-transparent text-xs font-semibold text-slate-700 outline-none"
-              />
-              <span className="text-slate-400 text-xs">-</span>
-              <input
-                type="date"
-                value={dateRange.end}
-                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                className="px-2 py-1 bg-transparent text-xs font-semibold text-slate-700 outline-none"
-              />
-            </div>
+          {/* Popup Periode Tahun Ajaran */}
+          <TahunAjaranModal
+            selectedPeriode={selectedPeriode}
+            onChange={handlePeriodeChange}
+            availablePeriodes={availablePeriodes}
+            themeColor="emerald"
+            label="Periode Tahun Ajaran"
+          />
+          
+          <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+            <input
+              type="date"
+              value={dateRange.start}
+              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+              className="px-2 py-1 bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer"
+            />
+            <span className="text-slate-400 text-xs font-bold">-</span>
+            <input
+              type="date"
+              value={dateRange.end}
+              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+              className="px-2 py-1 bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer"
+            />
           </div>
 
           <select

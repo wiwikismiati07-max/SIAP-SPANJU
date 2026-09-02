@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
-import { FileText, Download, Calendar, Search, Filter, HeartPulse, Pill, ClipboardList } from 'lucide-react';
+import { FileText, Download, Calendar, Search, Filter, HeartPulse, Pill, ClipboardList, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import PeriodeFilterModal from '../common/PeriodeFilterModal';
+import TahunAjaranModal from '../common/TahunAjaranModal';
 
 const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
 const UksLaporan: React.FC = () => {
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [dateRange, setDateRange] = useState({
     from: format(new Date(), 'yyyy-MM-01'),
     to: format(new Date(), 'yyyy-MM-dd')
@@ -22,7 +25,28 @@ const UksLaporan: React.FC = () => {
 
   useEffect(() => {
     loadPreview();
-  }, [dateRange, reportType]);
+  }, [dateRange, reportType, selectedPeriode]);
+
+  const handlePeriodeChange = (newPeriode: string) => {
+    setSelectedPeriode(newPeriode);
+    if (newPeriode !== 'ALL') {
+      const year = parseInt(newPeriode, 10);
+      if (!isNaN(year)) {
+        const currentYear = new Date().getFullYear();
+        if (year === currentYear) {
+          setDateRange({
+            from: format(new Date(), 'yyyy-MM-01'),
+            to: format(new Date(), 'yyyy-MM-dd')
+          });
+        } else {
+          setDateRange({
+            from: `${year}-01-01`,
+            to: `${year}-12-31`
+          });
+        }
+      }
+    }
+  };
 
   const loadPreview = async () => {
     setPreviewLoading(true);
@@ -34,12 +58,21 @@ const UksLaporan: React.FC = () => {
   const fetchReportData = async () => {
     setLoading(true);
     try {
+      // Fetch distinct periodes
+      const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
+      if (siswaPeriodeData && siswaPeriodeData.length > 0) {
+        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+          .filter(Boolean)
+          .sort((a, b) => b.localeCompare(a));
+        setAvailablePeriodes(distinctPeriodes);
+      }
+
       if (reportType === 'kunjungan') {
         const { data, error } = await supabase
           .from('uks_kunjungan')
           .select(`
             *,
-            siswa:master_siswa(nama, kelas),
+            siswa:master_siswa(nama, kelas, periode),
             keluhan:uks_keluhan(nama_keluhan),
             obat_digunakan:uks_kunjungan_obat(
               jumlah,
@@ -51,17 +84,17 @@ const UksLaporan: React.FC = () => {
           .order('tanggal', { ascending: false });
         
         if (error) throw error;
-        return data;
+        return (data || []).filter(item => selectedPeriode === 'ALL' || (item.siswa?.periode || '2025') === selectedPeriode);
       } else if (reportType === 'screening') {
         const { data, error } = await supabase
           .from('uks_screening')
-          .select('*, siswa:master_siswa(nama, kelas)')
+          .select('*, siswa:master_siswa(nama, kelas, periode)')
           .gte('tanggal', dateRange.from)
           .lte('tanggal', dateRange.to)
           .order('tanggal', { ascending: false });
         
         if (error) throw error;
-        return data;
+        return (data || []).filter(item => selectedPeriode === 'ALL' || (item.siswa?.periode || '2025') === selectedPeriode);
       } else {
         const { data, error } = await supabase
           .from('uks_kunjungan_obat')
@@ -70,14 +103,14 @@ const UksLaporan: React.FC = () => {
             obat:uks_obat(nama_obat, satuan),
             kunjungan:uks_kunjungan(
               tanggal,
-              siswa:master_siswa(nama, kelas)
+              siswa:master_siswa(nama, kelas, periode)
             )
           `)
           .gte('kunjungan(tanggal)', dateRange.from)
           .lte('kunjungan(tanggal)', dateRange.to);
         
         if (error) throw error;
-        return data;
+        return (data || []).filter(item => selectedPeriode === 'ALL' || (item.kunjungan?.siswa?.periode || '2025') === selectedPeriode);
       }
     } catch (error) {
       console.error('Error fetching report data:', error);
@@ -272,13 +305,25 @@ const UksLaporan: React.FC = () => {
                 <Filter size={16} className="text-rose-600" />
                 <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Rentang Waktu Laporan UKS</span>
               </div>
-              <PeriodeFilterModal
-                startDate={dateRange.from}
-                endDate={dateRange.to}
-                themeColor="rose"
-                title="Periode UKS"
-                onChange={(start, end) => setDateRange({ from: start, to: end })}
-              />
+
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Popup Periode Tahun Ajaran */}
+                <TahunAjaranModal
+                  selectedPeriode={selectedPeriode}
+                  onChange={handlePeriodeChange}
+                  availablePeriodes={availablePeriodes}
+                  themeColor="rose"
+                  label="Periode Tahun Ajaran"
+                />
+
+                <PeriodeFilterModal
+                  startDate={dateRange.from}
+                  endDate={dateRange.to}
+                  themeColor="rose"
+                  title="Periode UKS"
+                  onChange={(start, end) => setDateRange({ from: start, to: end })}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

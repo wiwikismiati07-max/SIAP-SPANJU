@@ -1,14 +1,17 @@
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
-import React, { useState } from 'react';
-import { Calendar, Search, Download, FileText, Filter, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Search, Download, FileText, Filter, ChevronRight, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import PeriodeFilterModal from '../common/PeriodeFilterModal';
+import TahunAjaranModal from '../common/TahunAjaranModal';
 
 const PrestasiLaporan: React.FC = () => {
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [dateRange, setDateRange] = useState({
     from: format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'),
     to: format(new Date(), 'yyyy-MM-dd')
@@ -17,19 +20,62 @@ const PrestasiLaporan: React.FC = () => {
   const [reportData, setReportData] = useState<any[]>([]);
   const [hasFetched, setHasFetched] = useState(false);
 
+  useEffect(() => {
+    fetchReport();
+  }, [selectedPeriode]);
+
+  const handlePeriodeChange = (newPeriode: string) => {
+    setSelectedPeriode(newPeriode);
+    if (newPeriode !== 'ALL') {
+      const year = parseInt(newPeriode, 10);
+      if (!isNaN(year)) {
+        const currentYear = new Date().getFullYear();
+        if (year === currentYear) {
+          setDateRange({
+            from: format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'),
+            to: format(new Date(), 'yyyy-MM-dd')
+          });
+        } else {
+          setDateRange({
+            from: `${year}-01-01`,
+            to: `${year}-12-31`
+          });
+        }
+      }
+    }
+  };
+
   const fetchReport = async () => {
     try {
       setLoading(true);
       setHasFetched(true);
+
+      // Fetch distinct periodes
+      const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
+      if (siswaPeriodeData && siswaPeriodeData.length > 0) {
+        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+          .filter(Boolean)
+          .sort((a, b) => b.localeCompare(a));
+        setAvailablePeriodes(distinctPeriodes);
+      }
+
       const { data, error } = await supabase
         .from('prestasi_siswa')
-        .select('*, siswa:master_siswa(nama), wali_kelas:master_guru(nama_guru)')
+        .select('*, siswa:master_siswa(nama, periode), wali_kelas:master_guru(nama_guru)')
         .gte('tanggal', dateRange.from)
         .lte('tanggal', dateRange.to)
         .order('tanggal', { ascending: false });
 
       if (error) throw error;
-      setReportData(data || []);
+      
+      const filtered = (data || []).filter(item => {
+        if (selectedPeriode !== 'ALL') {
+          return (item.siswa?.periode || '2025') === selectedPeriode;
+        }
+        return true;
+      });
+
+      setReportData(filtered);
     } catch (error) {
       console.error('Error fetching report:', error);
       alert('Gagal memuat laporan: ' + (error instanceof Error ? error.message : 'Terjadi kesalahan sistem'));
@@ -165,13 +211,25 @@ const PrestasiLaporan: React.FC = () => {
             <Filter size={16} className="text-purple-600" />
             <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Pilih Rentang Waktu Prestasi</span>
           </div>
-          <PeriodeFilterModal
-            startDate={dateRange.from}
-            endDate={dateRange.to}
-            themeColor="purple"
-            title="Periode Prestasi"
-            onChange={(start, end) => setDateRange({ from: start, to: end })}
-          />
+
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Popup Periode Tahun Ajaran */}
+            <TahunAjaranModal
+              selectedPeriode={selectedPeriode}
+              onChange={handlePeriodeChange}
+              availablePeriodes={availablePeriodes}
+              themeColor="purple"
+              label="Periode Tahun Ajaran"
+            />
+
+            <PeriodeFilterModal
+              startDate={dateRange.from}
+              endDate={dateRange.to}
+              themeColor="purple"
+              title="Periode Prestasi"
+              onChange={(start, end) => setDateRange({ from: start, to: end })}
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">

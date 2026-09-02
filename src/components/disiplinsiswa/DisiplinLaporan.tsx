@@ -1,17 +1,20 @@
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { FileText, Download, Search, Filter, Calendar, CheckCircle2, Clock, LayoutGrid, List, ChevronRight, User, ShieldAlert, BookOpen, UserCheck, AlertCircle, Users, Activity } from 'lucide-react';
+import { FileText, Download, Search, Filter, Calendar, CheckCircle2, Clock, LayoutGrid, List, ChevronRight, User, ShieldAlert, BookOpen, UserCheck, AlertCircle, Users, Activity, ChevronDown } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import PeriodeFilterModal from '../common/PeriodeFilterModal';
+import TahunAjaranModal from '../common/TahunAjaranModal';
 
 export default function DisiplinLaporan() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any[]>([]);
   const [reportType, setReportType] = useState<'detail' | 'pivot' | 'kasus'>('pivot');
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState({
     startDate: format(new Date(), 'yyyy-MM-01'),
@@ -28,12 +31,44 @@ export default function DisiplinLaporan() {
 
   useEffect(() => {
     fetchData();
-  }, [filter]);
+  }, [filter, selectedPeriode]);
+
+  const handlePeriodeChange = (newPeriode: string) => {
+    setSelectedPeriode(newPeriode);
+    if (newPeriode !== 'ALL') {
+      const year = parseInt(newPeriode, 10);
+      if (!isNaN(year)) {
+        const currentYear = new Date().getFullYear();
+        if (year === currentYear) {
+          setFilter(prev => ({
+            ...prev,
+            startDate: format(new Date(), 'yyyy-MM-01'),
+            endDate: format(new Date(), 'yyyy-MM-dd')
+          }));
+        } else {
+          setFilter(prev => ({
+            ...prev,
+            startDate: `${year}-01-01`,
+            endDate: `${year}-12-31`
+          }));
+        }
+      }
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
     try {
       if (supabase) {
+        // Fetch distinct periodes
+        const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
+        if (siswaPeriodeData && siswaPeriodeData.length > 0) {
+          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+            .filter(Boolean)
+            .sort((a, b) => b.localeCompare(a));
+          setAvailablePeriodes(distinctPeriodes);
+        }
+
         let query = supabase
           .from('transaksi_pelanggaran')
           .select('*, siswa:master_siswa(*), pelanggaran:master_pelanggaran(*)')
@@ -46,7 +81,13 @@ export default function DisiplinLaporan() {
         const { data: fetchedData, error } = await query;
         if (error) throw error;
 
-        let filtered = fetchedData || [];
+        let filtered = (fetchedData || []).filter((d: any) => {
+          if (selectedPeriode !== 'ALL') {
+            return (d.siswa?.periode || '2025') === selectedPeriode;
+          }
+          return true;
+        });
+
         if (filter.kelas) {
           filtered = filtered.filter((d: any) => d.siswa?.kelas === filter.kelas);
         }
@@ -333,13 +374,25 @@ export default function DisiplinLaporan() {
             <Filter size={18} className="text-blue-600" />
             <span>Filter Laporan & Periode</span>
           </div>
-          <PeriodeFilterModal
-            startDate={filter.startDate}
-            endDate={filter.endDate}
-            themeColor="blue"
-            title="Periode Disiplin"
-            onChange={(start, end) => setFilter(prev => ({ ...prev, startDate: start, endDate: end }))}
-          />
+
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Popup Periode Tahun Ajaran */}
+            <TahunAjaranModal
+              selectedPeriode={selectedPeriode}
+              onChange={handlePeriodeChange}
+              availablePeriodes={availablePeriodes}
+              themeColor="blue"
+              label="Periode Tahun Ajaran"
+            />
+
+            <PeriodeFilterModal
+              startDate={filter.startDate}
+              endDate={filter.endDate}
+              themeColor="blue"
+              title="Periode Disiplin"
+              onChange={(start, end) => setFilter(prev => ({ ...prev, startDate: start, endDate: end }))}
+            />
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>

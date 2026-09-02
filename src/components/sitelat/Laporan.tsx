@@ -3,11 +3,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { TransaksiWithSiswa, Siswa } from '../../types/sitelat';
-import { Search, Trash2, Edit2, Save, X, Download, Upload } from 'lucide-react';
+import { Search, Trash2, Edit2, Save, X, Download, Upload, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import PeriodeFilterModal from '../common/PeriodeFilterModal';
+import TahunAjaranModal from '../common/TahunAjaranModal';
 
 const ALASAN_OPTIONS = [
   "Ketiduran",
@@ -23,6 +24,8 @@ export default function Laporan({ user }: { user?: any }) {
   const [transaksi, setTransaksi] = useState<TransaksiWithSiswa[]>([]);
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -43,13 +46,43 @@ export default function Laporan({ user }: { user?: any }) {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedPeriode]);
+
+  const handlePeriodeChange = (newPeriode: string) => {
+    setSelectedPeriode(newPeriode);
+    if (newPeriode !== 'ALL') {
+      const year = parseInt(newPeriode, 10);
+      if (!isNaN(year)) {
+        const currentYear = new Date().getFullYear();
+        if (year === currentYear) {
+          setStartDate('');
+          setEndDate('');
+        } else {
+          setStartDate(`${year}-01-01`);
+          setEndDate(`${year}-12-31`);
+        }
+      }
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
     try {
       if (supabase) {
-        const { data: sData, error: sError } = await supabase.from('master_siswa').select('*');
+        // Fetch distinct periodes
+        const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
+        if (siswaPeriodeData && siswaPeriodeData.length > 0) {
+          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+            .filter(Boolean)
+            .sort((a, b) => b.localeCompare(a));
+          setAvailablePeriodes(distinctPeriodes);
+        }
+
+        let siswaQuery = supabase.from('master_siswa').select('*');
+        if (selectedPeriode !== 'ALL') {
+          siswaQuery = siswaQuery.eq('periode', selectedPeriode);
+        }
+        const { data: sData, error: sError } = await siswaQuery;
         if (sError) console.error("Error fetching master_siswa:", sError);
         if (sData) setSiswaList(sData);
 
@@ -67,19 +100,21 @@ export default function Laporan({ user }: { user?: any }) {
         if (tData) {
           const joinedData = tData.map(t => ({
             ...t,
-            siswa: sData?.find(s => s.id === t.siswa_id) || { id: t.siswa_id, nama: 'Unknown', kelas: '-' }
-          }));
+            siswa: sData?.find(s => s.id === t.siswa_id)
+          })).filter(t => t.siswa !== undefined);
           setTransaksi(joinedData as TransaksiWithSiswa[]);
         }
       } else {
-        const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
+        const localSiswa = (JSON.parse(localStorage.getItem('sitelat_siswa') || '[]'))
+          .filter((s: any) => selectedPeriode === 'ALL' || (s.periode || '2025') === selectedPeriode);
         setSiswaList(localSiswa);
         
         const localTrans = JSON.parse(localStorage.getItem('sitelat_transaksi') || '[]');
         const transWithSiswa = localTrans.map((t: any) => ({
           ...t,
           siswa: localSiswa.find((s: any) => s.id === t.siswa_id)
-        })).sort((a: any, b: any) => new Date(`${b.tanggal}T${b.jam}`).getTime() - new Date(`${a.tanggal}T${a.jam}`).getTime());
+        })).filter((t: any) => t.siswa !== undefined)
+          .sort((a: any, b: any) => new Date(`${b.tanggal}T${b.jam}`).getTime() - new Date(`${a.tanggal}T${a.jam}`).getTime());
         setTransaksi(transWithSiswa);
       }
     } catch (error) {
@@ -661,7 +696,7 @@ export default function Laporan({ user }: { user?: any }) {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[600px]">
         <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-            <div className="relative w-full md:w-64">
+            <div className="relative w-full md:w-56">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 type="text" 
@@ -671,6 +706,15 @@ export default function Laporan({ user }: { user?: any }) {
                 className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
               />
             </div>
+
+            {/* Popup Periode Tahun Ajaran */}
+            <TahunAjaranModal
+              selectedPeriode={selectedPeriode}
+              onChange={handlePeriodeChange}
+              availablePeriodes={availablePeriodes}
+              themeColor="blue"
+              label="Periode Tahun Ajaran"
+            />
 
             <PeriodeFilterModal
               startDate={startDate}

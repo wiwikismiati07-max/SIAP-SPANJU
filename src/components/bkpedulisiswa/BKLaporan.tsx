@@ -1,19 +1,22 @@
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { FileText, Download, Search, Filter, Calendar, CheckCircle2, Clock } from 'lucide-react';
+import { FileText, Download, Search, Filter, Calendar, CheckCircle2, Clock, ChevronDown } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { TransaksiKasus } from '../../types/bkpedulisiswa';
 import PeriodeFilterModal from '../common/PeriodeFilterModal';
+import TahunAjaranModal from '../common/TahunAjaranModal';
 
 export default function BKLaporan() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<TransaksiKasus[]>([]);
   const [reportType, setReportType] = useState<'kasus' | 'tindak_lanjut'>('kasus');
   const [viewMode, setViewMode] = useState<'table' | 'tree'>('table');
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState({
     startDate: format(new Date(), 'yyyy-MM-01'),
@@ -30,12 +33,44 @@ export default function BKLaporan() {
 
   useEffect(() => {
     fetchData();
-  }, [filter]);
+  }, [filter, selectedPeriode]);
+
+  const handlePeriodeChange = (newPeriode: string) => {
+    setSelectedPeriode(newPeriode);
+    if (newPeriode !== 'ALL') {
+      const year = parseInt(newPeriode, 10);
+      if (!isNaN(year)) {
+        const currentYear = new Date().getFullYear();
+        if (year === currentYear) {
+          setFilter(prev => ({
+            ...prev,
+            startDate: format(new Date(), 'yyyy-MM-01'),
+            endDate: format(new Date(), 'yyyy-MM-dd')
+          }));
+        } else {
+          setFilter(prev => ({
+            ...prev,
+            startDate: `${year}-01-01`,
+            endDate: `${year}-12-31`
+          }));
+        }
+      }
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
     try {
       if (supabase) {
+        // Fetch distinct periodes
+        const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
+        if (siswaPeriodeData && siswaPeriodeData.length > 0) {
+          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+            .filter(Boolean)
+            .sort((a, b) => b.localeCompare(a));
+          setAvailablePeriodes(distinctPeriodes);
+        }
+
         let query = supabase
           .from('bk_transaksi_kasus')
           .select('*, siswa:master_siswa(*), kasus:bk_master_kasus(*), tindak_lanjuts:bk_tindak_lanjut(*)')
@@ -48,7 +83,13 @@ export default function BKLaporan() {
         const { data: fetchedData, error } = await query;
         if (error) throw error;
 
-        let filtered = fetchedData || [];
+        let filtered = (fetchedData || []).filter((d: any) => {
+          if (selectedPeriode !== 'ALL') {
+            return (d.siswa?.periode || '2025') === selectedPeriode;
+          }
+          return true;
+        });
+
         if (filter.kelas) {
           filtered = filtered.filter((d: any) => d.siswa?.kelas === filter.kelas || d.kelas === filter.kelas);
         }
@@ -259,7 +300,16 @@ export default function BKLaporan() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex flex-wrap gap-4">
+      <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex flex-wrap items-center gap-4">
+        {/* Popup Periode Tahun Ajaran */}
+        <TahunAjaranModal
+          selectedPeriode={selectedPeriode}
+          onChange={handlePeriodeChange}
+          availablePeriodes={availablePeriodes}
+          themeColor="pink"
+          label="Periode Tahun Ajaran"
+        />
+
         <div className="flex-1 min-w-[200px] relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
           <input 
