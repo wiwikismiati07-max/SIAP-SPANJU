@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Users, FileText, TrendingUp, AlertCircle } from 'lucide-react';
+import { Users, FileText, TrendingUp, AlertCircle, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { TransaksiDispensasi, SiswaSeringDispensasi } from '../../types/dispensasi';
 import { format, subDays } from 'date-fns';
-import PeriodeFilterModal from '../common/PeriodeFilterModal';
 
 const COLORS = ['#3b82f6', '#ec4899', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
 
 const DispDashboard: React.FC = () => {
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [dateRange, setDateRange] = useState({
     start: format(new Date(), 'yyyy-MM-dd'),
     end: format(new Date(), 'yyyy-MM-dd')
@@ -25,7 +26,28 @@ const DispDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [dateRange]);
+  }, [dateRange, selectedPeriode]);
+
+  const handlePeriodeChange = (newPeriode: string) => {
+    setSelectedPeriode(newPeriode);
+    if (newPeriode !== 'ALL') {
+      const year = parseInt(newPeriode, 10);
+      if (!isNaN(year)) {
+        const currentYear = new Date().getFullYear();
+        if (year === currentYear) {
+          setDateRange({
+            start: format(new Date(), 'yyyy-MM-dd'),
+            end: format(new Date(), 'yyyy-MM-dd')
+          });
+        } else {
+          setDateRange({
+            start: `${year}-01-01`,
+            end: `${year}-12-31`
+          });
+        }
+      }
+    }
+  };
 
   const fetchDashboardData = async () => {
     if (!supabase) {
@@ -36,15 +58,28 @@ const DispDashboard: React.FC = () => {
     try {
       setLoading(true);
       
-      // 1. Total Siswa
-      const { count: siswaCount } = await supabase.from('master_siswa').select('*', { count: 'exact', head: true });
+      // Fetch available periodes
+      const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
+      if (siswaPeriodeData && siswaPeriodeData.length > 0) {
+        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+          .filter(Boolean)
+          .sort((a, b) => b.localeCompare(a));
+        setAvailablePeriodes(distinctPeriodes);
+      }
+
+      // 1. Total Siswa for selectedPeriode
+      let siswaQuery = supabase.from('master_siswa').select('*', { count: 'exact', head: true });
+      if (selectedPeriode !== 'ALL') {
+        siswaQuery = siswaQuery.eq('periode', selectedPeriode);
+      }
+      const { count: siswaCount } = await siswaQuery;
       
       // 2. Total Dispensasi (Filtered by date)
       const { data: dispData, error: dispError } = await supabase
         .from('disp_transaksi')
         .select(`
           *,
-          siswa:master_siswa(nama, kelas),
+          siswa:master_siswa(nama, kelas, periode),
           jenis:disp_master_jenis(nama_jenis)
         `)
         .gte('tanggal', dateRange.start)
@@ -52,7 +87,12 @@ const DispDashboard: React.FC = () => {
       
       if (dispError) throw dispError;
 
-      const totalDisp = dispData?.length || 0;
+      let filteredDispData = dispData || [];
+      if (selectedPeriode !== 'ALL') {
+        filteredDispData = filteredDispData.filter(d => (d.siswa?.periode || '2025') === selectedPeriode);
+      }
+
+      const totalDisp = filteredDispData.length;
       const totalSiswa = siswaCount || 0;
       const persentase = totalSiswa > 0 ? (totalDisp / totalSiswa) * 100 : 0;
 
@@ -64,7 +104,7 @@ const DispDashboard: React.FC = () => {
 
       // 3. Data per Kelas
       const classMap: any = {};
-      dispData?.forEach(d => {
+      filteredDispData.forEach(d => {
         const className = d.kelas || 'Unknown';
         classMap[className] = (classMap[className] || 0) + 1;
       });
@@ -134,16 +174,28 @@ const DispDashboard: React.FC = () => {
           <p className="text-slate-500 text-sm">Statistik dispensasi siswa periode terpilih</p>
         </div>
         
-        <div className="flex flex-wrap items-center gap-3">
-          <PeriodeFilterModal
-            startDate={dateRange.start}
-            endDate={dateRange.end}
-            themeColor="blue"
-            title="Periode Dashboard"
-            onChange={(start, end) => setDateRange({ start, end })}
-          />
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Periode / Tahun Ajaran Selector */}
+          <div className="flex flex-col min-w-[170px]">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+              Pilih Periode / Tahun Ajaran
+            </label>
+            <div className="relative">
+              <select
+                value={selectedPeriode}
+                onChange={(e) => handlePeriodeChange(e.target.value)}
+                className="w-full font-black text-xs sm:text-sm bg-blue-50 text-blue-800 border-2 border-blue-200 py-2 px-3 pr-8 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer appearance-none shadow-sm"
+              >
+                {availablePeriodes.map(p => (
+                  <option key={p} value={p}>Periode {p}</option>
+                ))}
+                <option value="ALL">Semua Periode</option>
+              </select>
+              <ChevronDown size={16} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-blue-600 pointer-events-none" />
+            </div>
+          </div>
 
-          <div className="hidden sm:flex items-center gap-1.5 bg-white px-2 py-1 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-1.5 bg-white px-2 py-1.5 rounded-xl border border-slate-200 shadow-sm">
             <input 
               type="date" 
               value={dateRange.start}

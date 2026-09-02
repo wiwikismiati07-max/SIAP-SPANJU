@@ -4,7 +4,6 @@ import { TransaksiWithSiswa } from '../../types/sitelat';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Users, UserX, Clock, PhoneCall, Download, BarChart as BarChartIcon, ChevronDown, ChevronRight, FileText, Trophy, Star } from 'lucide-react';
 import { format, subDays, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
-import PeriodeFilterModal from '../common/PeriodeFilterModal';
 
 export default function Dashboard() {
   const [transaksi, setTransaksi] = useState<TransaksiWithSiswa[]>([]);
@@ -14,6 +13,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [selectedKelas, setSelectedKelas] = useState<string>('All');
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [dateRange, setDateRange] = useState({
     start: format(new Date(), 'yyyy-MM-dd'),
     end: format(new Date(), 'yyyy-MM-dd')
@@ -21,18 +22,50 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
-  }, [dateRange]);
+  }, [dateRange, selectedPeriode]);
+
+  const handlePeriodeChange = (newPeriode: string) => {
+    setSelectedPeriode(newPeriode);
+    if (newPeriode !== 'ALL') {
+      const year = parseInt(newPeriode, 10);
+      if (!isNaN(year)) {
+        const currentYear = new Date().getFullYear();
+        if (year === currentYear) {
+          setDateRange({
+            start: format(new Date(), 'yyyy-MM-dd'),
+            end: format(new Date(), 'yyyy-MM-dd')
+          });
+        } else {
+          setDateRange({
+            start: `${year}-01-01`,
+            end: `${year}-12-31`
+          });
+        }
+      }
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const today = format(new Date(), 'yyyy-MM-dd');
       
-      // Fetch total students
+      // Fetch available periodes
       if (supabase) {
-        const { count: siswaCount } = await supabase
-          .from('master_siswa')
-          .select('*', { count: 'exact', head: true });
+        const { data: siswaData } = await supabase.from('master_siswa').select('periode');
+        if (siswaData && siswaData.length > 0) {
+          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaData.map(s => s.periode || '2025')]))
+            .filter(Boolean)
+            .sort((a, b) => b.localeCompare(a));
+          setAvailablePeriodes(distinctPeriodes);
+        }
+
+        // Fetch total students for selectedPeriode
+        let siswaQuery = supabase.from('master_siswa').select('*', { count: 'exact' });
+        if (selectedPeriode !== 'ALL') {
+          siswaQuery = siswaQuery.eq('periode', selectedPeriode);
+        }
+        const { count: siswaCount, data: sData } = await siswaQuery;
         setTotalSiswa(siswaCount || 0);
 
         // Fetch today's latecomers (unique students)
@@ -53,29 +86,32 @@ export default function Dashboard() {
           .order('tanggal', { ascending: false })
           .order('jam', { ascending: false });
 
-        if (transData) {
-          const { data: sData } = await supabase.from('master_siswa').select('*');
-          if (sData) {
-            const joinedData = transData.map(t => ({
-              ...t,
-              siswa: sData.find(s => s.id === t.siswa_id) || { id: t.siswa_id, nama: 'Unknown', kelas: '-' }
-            }));
-            setTransaksi(joinedData as TransaksiWithSiswa[]);
-
-            // Calculate perfect classes today
-            const allUniqueClasses = Array.from(new Set(sData.map(s => s.kelas))).sort();
-            const lateSiswaIdsToday = new Set(todayData?.map(t => t.siswa_id));
-            const perfectClassesToday = allUniqueClasses.filter(kelas => {
-              const siswaInClass = sData.filter(s => s.kelas === kelas);
-              return !siswaInClass.some(s => lateSiswaIdsToday.has(s.id));
-            });
-            setPerfectClasses(perfectClassesToday);
+        if (transData && sData) {
+          let joinedData = transData.map(t => ({
+            ...t,
+            siswa: sData.find(s => s.id === t.siswa_id) || { id: t.siswa_id, nama: 'Unknown', kelas: '-', periode: '2025' }
+          }));
+          if (selectedPeriode !== 'ALL') {
+            joinedData = joinedData.filter(t => (t.siswa?.periode || '2025') === selectedPeriode);
           }
+          setTransaksi(joinedData as TransaksiWithSiswa[]);
+
+          // Calculate perfect classes today
+          const allUniqueClasses = Array.from(new Set(sData.map(s => s.kelas))).sort();
+          const lateSiswaIdsToday = new Set(todayData?.map(t => t.siswa_id));
+          const perfectClassesToday = allUniqueClasses.filter(kelas => {
+            const siswaInClass = sData.filter(s => s.kelas === kelas);
+            return !siswaInClass.some(s => lateSiswaIdsToday.has(s.id));
+          });
+          setPerfectClasses(perfectClassesToday);
         }
       } else {
         // Fallback to local storage
         const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
-        setTotalSiswa(localSiswa.length);
+        const filteredLocalSiswa = selectedPeriode === 'ALL'
+          ? localSiswa
+          : localSiswa.filter((s: any) => (s.periode || '2025') === selectedPeriode);
+        setTotalSiswa(filteredLocalSiswa.length);
 
         const localTrans = JSON.parse(localStorage.getItem('sitelat_transaksi') || '[]');
         
@@ -83,20 +119,24 @@ export default function Dashboard() {
         const uniqueToday = new Set(todayTrans.map((t: any) => t.siswa_id)).size;
         setTerlambatHariIni(uniqueToday);
 
-        const filteredTrans = localTrans.filter((t: any) => 
+        let filteredTrans = localTrans.filter((t: any) => 
           t.tanggal >= dateRange.start && t.tanggal <= dateRange.end
         ).map((t: any) => ({
           ...t,
           siswa: localSiswa.find((s: any) => s.id === t.id) || localSiswa.find((s: any) => s.id === t.siswa_id)
         })).sort((a: any, b: any) => new Date(`${b.tanggal}T${b.jam}`).getTime() - new Date(`${a.tanggal}T${a.jam}`).getTime());
         
+        if (selectedPeriode !== 'ALL') {
+          filteredTrans = filteredTrans.filter((t: any) => (t.siswa?.periode || '2025') === selectedPeriode);
+        }
+
         setTransaksi(filteredTrans);
 
         // Calculate perfect classes today (local)
-        const allUniqueClasses = Array.from(new Set(localSiswa.map((s: any) => s.kelas))).sort() as string[];
+        const allUniqueClasses = Array.from(new Set(filteredLocalSiswa.map((s: any) => s.kelas))).sort() as string[];
         const lateSiswaIdsToday = new Set(todayTrans.map((t: any) => t.siswa_id));
         const perfectClassesToday = allUniqueClasses.filter(kelas => {
-          const siswaInClass = localSiswa.filter((s: any) => s.kelas === kelas);
+          const siswaInClass = filteredLocalSiswa.filter((s: any) => s.kelas === kelas);
           return !siswaInClass.some((s: any) => lateSiswaIdsToday.has(s.id));
         });
         setPerfectClasses(perfectClassesToday);
@@ -201,16 +241,28 @@ export default function Dashboard() {
           <h2 className="text-2xl font-bold text-slate-800">Ringkasan Siswa Terlambat</h2>
           <p className="text-slate-500 text-sm">Pantau kehadiran siswa secara real-time</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <PeriodeFilterModal
-            startDate={dateRange.start}
-            endDate={dateRange.end}
-            themeColor="blue"
-            title="Periode Dashboard"
-            onChange={(start, end) => setDateRange({ start, end })}
-          />
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Periode / Tahun Ajaran Selector */}
+          <div className="flex flex-col min-w-[170px]">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+              Pilih Periode / Tahun Ajaran
+            </label>
+            <div className="relative">
+              <select
+                value={selectedPeriode}
+                onChange={(e) => handlePeriodeChange(e.target.value)}
+                className="w-full font-black text-xs sm:text-sm bg-blue-50 text-blue-800 border-2 border-blue-200 py-2 px-3 pr-8 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer appearance-none shadow-sm"
+              >
+                {availablePeriodes.map(p => (
+                  <option key={p} value={p}>Periode {p}</option>
+                ))}
+                <option value="ALL">Semua Periode</option>
+              </select>
+              <ChevronDown size={16} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-blue-600 pointer-events-none" />
+            </div>
+          </div>
 
-          <div className="hidden sm:flex items-center gap-1.5 bg-white px-2 py-1 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-1.5 bg-white px-2 py-1.5 rounded-xl border border-slate-200 shadow-sm">
             <input 
               type="date" 
               value={dateRange.start}

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Users, Star, BarChart3, PieChart as PieChartIcon, Medal, ArrowRight } from 'lucide-react';
+import { Trophy, Users, Star, BarChart3, PieChart as PieChartIcon, Medal, ArrowRight, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { PrestasiStats, RankingSiswa } from '../../types/prestasi';
 
 const PrestasiDashboard: React.FC = () => {
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [stats, setStats] = useState<PrestasiStats>({
     totalSiswa: 0,
     totalPrestasi: 0,
@@ -17,29 +19,50 @@ const PrestasiDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [selectedPeriode]);
+
+  const handlePeriodeChange = (newPeriode: string) => {
+    setSelectedPeriode(newPeriode);
+  };
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+
+      // Fetch distinct periodes
+      const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
+      if (siswaPeriodeData && siswaPeriodeData.length > 0) {
+        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+          .filter(Boolean)
+          .sort((a, b) => b.localeCompare(a));
+        setAvailablePeriodes(distinctPeriodes);
+      }
       
       // 1. Total Siswa
-      const { count: totalSiswa } = await supabase
-        .from('master_siswa')
-        .select('*', { count: 'exact', head: true });
+      let siswaQuery = supabase.from('master_siswa').select('*', { count: 'exact', head: true });
+      if (selectedPeriode !== 'ALL') {
+        siswaQuery = siswaQuery.eq('periode', selectedPeriode);
+      }
+      const { count: totalSiswa } = await siswaQuery;
 
       // 2. Total Prestasi
-      const { data: allPrestasi, count: totalPrestasi } = await supabase
+      const { data: rawPrestasi } = await supabase
         .from('prestasi_siswa')
-        .select('*, siswa:master_siswa(nama)', { count: 'exact' });
+        .select('*, siswa:master_siswa(nama, periode)');
+
+      let allPrestasi = rawPrestasi || [];
+      if (selectedPeriode !== 'ALL') {
+        allPrestasi = allPrestasi.filter(p => (p.siswa?.periode || '2025') === selectedPeriode);
+      }
+      const totalPrestasi = allPrestasi.length;
 
       // 3. Total Siswa Berprestasi (Unique siswa_id)
-      const uniqueSiswaIds = new Set(allPrestasi?.map(p => p.siswa_id));
+      const uniqueSiswaIds = new Set(allPrestasi.map(p => p.siswa_id));
       const totalSiswaBerprestasi = uniqueSiswaIds.size;
 
       setStats({
         totalSiswa: totalSiswa || 0,
-        totalPrestasi: totalPrestasi || 0,
+        totalPrestasi: totalPrestasi,
         totalSiswaBerprestasi
       });
 
@@ -109,6 +132,34 @@ const PrestasiDashboard: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Header & Filter */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Dashboard Prestasi Siswa</h2>
+          <p className="text-sm text-slate-500">Statistik dan capaian prestasi peserta didik</p>
+        </div>
+        
+        {/* Periode / Tahun Ajaran Selector */}
+        <div className="flex flex-col min-w-[190px]">
+          <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+            Pilih Periode / Tahun Ajaran
+          </label>
+          <div className="relative">
+            <select
+              value={selectedPeriode}
+              onChange={(e) => handlePeriodeChange(e.target.value)}
+              className="w-full font-black text-xs sm:text-sm bg-purple-50 text-purple-800 border-2 border-purple-200 py-2 px-3 pr-8 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer appearance-none shadow-sm"
+            >
+              {availablePeriodes.map(p => (
+                <option key={p} value={p}>Periode {p}</option>
+              ))}
+              <option value="ALL">Semua Periode</option>
+            </select>
+            <ChevronDown size={16} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-purple-600 pointer-events-none" />
+          </div>
+        </div>
+      </div>
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Total Siswa */}

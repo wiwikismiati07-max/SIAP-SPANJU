@@ -7,6 +7,8 @@ import { id } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 
 const UksDashboard: React.FC = () => {
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [stats, setStats] = useState({
@@ -29,18 +31,44 @@ const UksDashboard: React.FC = () => {
     fetchDashboardData();
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
-  }, [startDate, endDate]);
+  }, [startDate, endDate, selectedPeriode]);
+
+  const handlePeriodeChange = (newPeriode: string) => {
+    setSelectedPeriode(newPeriode);
+    if (newPeriode !== 'ALL') {
+      const year = parseInt(newPeriode, 10);
+      if (!isNaN(year)) {
+        const currentYear = new Date().getFullYear();
+        if (year === currentYear) {
+          setStartDate(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+          setEndDate(format(new Date(), 'yyyy-MM-dd'));
+        } else {
+          setStartDate(`${year}-01-01`);
+          setEndDate(`${year}-12-31`);
+        }
+      }
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+
+      // Fetch distinct periodes
+      const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
+      if (siswaPeriodeData && siswaPeriodeData.length > 0) {
+        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+          .filter(Boolean)
+          .sort((a, b) => b.localeCompare(a));
+        setAvailablePeriodes(distinctPeriodes);
+      }
       
       // 1. Fetch all kunjungan data for the period
       const { data: patientsData, error: patientsError } = await supabase
         .from('uks_kunjungan')
         .select(`
           *,
-          siswa:master_siswa(nama, kelas),
+          siswa:master_siswa(nama, kelas, periode),
           keluhan:uks_keluhan(nama_keluhan)
         `)
         .gte('tanggal', startDate)
@@ -51,7 +79,10 @@ const UksDashboard: React.FC = () => {
       }
 
       // Ensure patientsData is an array
-      const safePatientsData = Array.isArray(patientsData) ? patientsData : [];
+      let safePatientsData = Array.isArray(patientsData) ? patientsData : [];
+      if (selectedPeriode !== 'ALL') {
+        safePatientsData = safePatientsData.filter(s => (s.siswa?.periode || '2025') === selectedPeriode);
+      }
       const kunjunganCount = safePatientsData.length;
       const totalSiswaBerobat = new Set(safePatientsData.map(s => s.siswa_id)).size;
       
@@ -250,7 +281,27 @@ const UksDashboard: React.FC = () => {
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">Dashboard UKS</h1>
           <p className="text-sm text-slate-400 font-medium mt-1">Monitoring Kesehatan Siswa SMPN 7 Pasuruan</p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Periode / Tahun Ajaran Selector */}
+          <div className="flex flex-col min-w-[170px]">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+              Pilih Periode / Tahun Ajaran
+            </label>
+            <div className="relative">
+              <select
+                value={selectedPeriode}
+                onChange={(e) => handlePeriodeChange(e.target.value)}
+                className="w-full font-black text-xs sm:text-sm bg-rose-50 text-rose-800 border-2 border-rose-200 py-2 px-3 pr-8 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer appearance-none shadow-sm"
+              >
+                {availablePeriodes.map(p => (
+                  <option key={p} value={p}>Periode {p}</option>
+                ))}
+                <option value="ALL">Semua Periode</option>
+              </select>
+              <ChevronDown size={16} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-rose-600 pointer-events-none" />
+            </div>
+          </div>
+
           <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm">
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mulai:</span>

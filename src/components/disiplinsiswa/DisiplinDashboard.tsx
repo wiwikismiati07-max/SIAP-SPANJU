@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Users, AlertCircle, TrendingUp, BarChart3, UserX, CheckCircle2, Clock, PieChart as PieChartIcon, Trophy, Star } from 'lucide-react';
+import { Users, AlertCircle, TrendingUp, BarChart3, UserX, CheckCircle2, Clock, PieChart as PieChartIcon, Trophy, Star, ChevronDown } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 
 export default function DisiplinDashboard() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [stats, setStats] = useState({
     totalKasus: 0,
     kasusBaru: 0,
@@ -26,7 +28,11 @@ export default function DisiplinDashboard() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedPeriode]);
+
+  const handlePeriodeChange = (newPeriode: string) => {
+    setSelectedPeriode(newPeriode);
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -34,11 +40,20 @@ export default function DisiplinDashboard() {
     try {
       if (supabase) {
         const today = new Date().toISOString().split('T')[0];
+
+        // Fetch distinct periodes
+        const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
+        if (siswaPeriodeData && siswaPeriodeData.length > 0) {
+          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+            .filter(Boolean)
+            .sort((a, b) => b.localeCompare(a));
+          setAvailablePeriodes(distinctPeriodes);
+        }
         
         // Fetch all cases
         const { data: allKasus, error: pError } = await supabase
           .from('transaksi_pelanggaran')
-          .select('*, siswa:master_siswa(nama, kelas), pelanggaran:master_pelanggaran(nama_pelanggaran, kategori, poin)');
+          .select('*, siswa:master_siswa(nama, kelas, periode), pelanggaran:master_pelanggaran(nama_pelanggaran, kategori, poin)');
         
         if (pError) throw pError;
 
@@ -47,7 +62,11 @@ export default function DisiplinDashboard() {
         let page = 0;
         let keepGoing = true;
         while (keepGoing) {
-          const { data, error } = await supabase.from('master_siswa').select('*').range(page * 1000, (page + 1) * 1000 - 1);
+          let query = supabase.from('master_siswa').select('*').range(page * 1000, (page + 1) * 1000 - 1);
+          if (selectedPeriode !== 'ALL') {
+            query = query.eq('periode', selectedPeriode);
+          }
+          const { data, error } = await query;
           if (error || !data || data.length === 0) {
             keepGoing = false;
           } else {
@@ -57,7 +76,10 @@ export default function DisiplinDashboard() {
           }
         }
 
-        const safeKasus = allKasus || [];
+        let safeKasus = allKasus || [];
+        if (selectedPeriode !== 'ALL') {
+          safeKasus = safeKasus.filter(k => (k.siswa?.periode || '2025') === selectedPeriode);
+        }
         const totalKasus = safeKasus.length;
         const kasusBaru = safeKasus.filter(k => k.tanggal === today).length;
         const kasusProses = safeKasus.filter(k => k.status === 'Proses').length;
@@ -169,6 +191,34 @@ export default function DisiplinDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Header & Filter */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800">Dashboard Disiplin Siswa</h2>
+          <p className="text-sm text-slate-500">Monitoring pelanggaran dan ketertiban siswa</p>
+        </div>
+        
+        {/* Periode / Tahun Ajaran Selector */}
+        <div className="flex flex-col min-w-[190px]">
+          <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+            Pilih Periode / Tahun Ajaran
+          </label>
+          <div className="relative">
+            <select
+              value={selectedPeriode}
+              onChange={(e) => handlePeriodeChange(e.target.value)}
+              className="w-full font-black text-xs sm:text-sm bg-violet-50 text-violet-800 border-2 border-violet-200 py-2 px-3 pr-8 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer appearance-none shadow-sm"
+            >
+              {availablePeriodes.map(p => (
+                <option key={p} value={p}>Periode {p}</option>
+              ))}
+              <option value="ALL">Semua Periode</option>
+            </select>
+            <ChevronDown size={16} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-violet-600 pointer-events-none" />
+          </div>
+        </div>
+      </div>
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Kasus */}

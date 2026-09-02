@@ -7,6 +7,8 @@ import { id } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 
 const KeagamaanDashboard: React.FC = () => {
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [stats, setStats] = useState({
     totalSiswa: 0,
     totalKetidakhadiran: 0,
@@ -28,14 +30,44 @@ const KeagamaanDashboard: React.FC = () => {
     fetchDashboardData();
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
-  }, [startDate, endDate]);
+  }, [startDate, endDate, selectedPeriode]);
+
+  const handlePeriodeChange = (newPeriode: string) => {
+    setSelectedPeriode(newPeriode);
+    if (newPeriode !== 'ALL') {
+      const year = parseInt(newPeriode, 10);
+      if (!isNaN(year)) {
+        const currentYear = new Date().getFullYear();
+        if (year === currentYear) {
+          setStartDate(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+          setEndDate(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+        } else {
+          setStartDate(`${year}-01-01`);
+          setEndDate(`${year}-12-31`);
+        }
+      }
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+
+      // Fetch distinct periodes
+      const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
+      if (siswaPeriodeData && siswaPeriodeData.length > 0) {
+        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+          .filter(Boolean)
+          .sort((a, b) => b.localeCompare(a));
+        setAvailablePeriodes(distinctPeriodes);
+      }
       
       // 1. Total Siswa
-      const { count: siswaCount } = await supabase.from('master_siswa').select('*', { count: 'exact', head: true });
+      let siswaQuery = supabase.from('master_siswa').select('*', { count: 'exact', head: true });
+      if (selectedPeriode !== 'ALL') {
+        siswaQuery = siswaQuery.eq('periode', selectedPeriode);
+      }
+      const { count: siswaCount } = await siswaQuery;
       
       // 2. Total Ketidakhadiran (Filtered by date)
       const { count: absensiCount } = await supabase
@@ -267,7 +299,27 @@ const KeagamaanDashboard: React.FC = () => {
           <p className="text-sm text-slate-400 font-medium mt-1">Sistem Informasi Monitoring Kegiatan Keagamaan</p>
         </div>
         
-        <div className="flex flex-col md:flex-row items-center gap-4">
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Periode / Tahun Ajaran Selector */}
+          <div className="flex flex-col min-w-[170px]">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+              Pilih Periode / Tahun Ajaran
+            </label>
+            <div className="relative">
+              <select
+                value={selectedPeriode}
+                onChange={(e) => handlePeriodeChange(e.target.value)}
+                className="w-full font-black text-xs sm:text-sm bg-emerald-50 text-emerald-800 border-2 border-emerald-200 py-2 px-3 pr-8 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer appearance-none shadow-sm"
+              >
+                {availablePeriodes.map(p => (
+                  <option key={p} value={p}>Periode {p}</option>
+                ))}
+                <option value="ALL">Semua Periode</option>
+              </select>
+              <ChevronDown size={16} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-emerald-600 pointer-events-none" />
+            </div>
+          </div>
+
           {/* Date Range Filters */}
           <div className="flex items-center gap-2 bg-white border border-slate-200 p-2 rounded-2xl shadow-sm">
             <div className="flex flex-col px-2">

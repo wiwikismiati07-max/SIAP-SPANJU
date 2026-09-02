@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { IzinWithSiswa } from '../../types/izinsiswa';
 import { Users, UserCheck, AlertTriangle, Clock, BarChart3, TrendingUp, FileText, ChevronDown, ChevronRight, Download } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, parseISO, subMonths } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import PeriodeFilterModal from '../common/PeriodeFilterModal';
 
 export default function DashboardIzin() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [data, setData] = useState<IzinWithSiswa[]>([]);
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [dateRange, setDateRange] = useState({
     start: format(new Date(), 'yyyy-MM-dd'),
     end: format(new Date(), 'yyyy-MM-dd')
@@ -38,12 +39,45 @@ export default function DashboardIzin() {
 
   useEffect(() => {
     fetchData();
-  }, [dateRange]);
+  }, [dateRange, selectedPeriode]);
+
+  const handlePeriodeChange = (newPeriode: string) => {
+    setSelectedPeriode(newPeriode);
+    if (newPeriode !== 'ALL') {
+      const year = parseInt(newPeriode, 10);
+      if (!isNaN(year)) {
+        // If current date is within that year, default to today, otherwise whole year
+        const currentYear = new Date().getFullYear();
+        if (year === currentYear) {
+          setDateRange({
+            start: format(new Date(), 'yyyy-MM-dd'),
+            end: format(new Date(), 'yyyy-MM-dd')
+          });
+        } else {
+          setDateRange({
+            start: `${year}-01-01`,
+            end: `${year}-12-31`
+          });
+        }
+      }
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
+      // Fetch available periodes from master_siswa
+      if (supabase) {
+        const { data: siswaData } = await supabase.from('master_siswa').select('periode');
+        if (siswaData && siswaData.length > 0) {
+          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaData.map(s => s.periode || '2025')]))
+            .filter(Boolean)
+            .sort((a, b) => b.localeCompare(a));
+          setAvailablePeriodes(distinctPeriodes);
+        }
+      }
+
       // Fetch data for the trend (last 6 months from end date)
       const trendStart = format(subMonths(parseISO(dateRange.end), 5), 'yyyy-MM-dd');
       const fetchStart = trendStart < dateRange.start ? trendStart : dateRange.start;
@@ -58,7 +92,8 @@ export default function DashboardIzin() {
             *,
             siswa:siswa_id (
               nama,
-              kelas
+              kelas,
+              periode
             )
           `)
           .gte('tanggal_mulai', fetchStart)
@@ -71,26 +106,35 @@ export default function DashboardIzin() {
         allData = localData.filter((d: any) => d.tanggal_mulai >= fetchStart && d.tanggal_mulai <= end);
       }
 
+      // Filter by selectedPeriode if not ALL
+      if (selectedPeriode !== 'ALL') {
+        allData = allData.filter(d => (d.siswa?.periode || '2025') === selectedPeriode);
+      }
+
       setData(allData);
 
-      // Fetch Total Siswa
+      // Fetch Total Siswa for selectedPeriode
       let totalSiswaCount = 0;
       if (supabase) {
-        const { count } = await supabase.from('master_siswa').select('*', { count: 'exact', head: true });
+        let query = supabase.from('master_siswa').select('*', { count: 'exact', head: true });
+        if (selectedPeriode !== 'ALL') {
+          query = query.eq('periode', selectedPeriode);
+        }
+        const { count } = await query;
         totalSiswaCount = count || 0;
       } else {
         const localSiswa = JSON.parse(localStorage.getItem('master_siswa') || '[]');
-        totalSiswaCount = localSiswa.length;
+        totalSiswaCount = selectedPeriode === 'ALL' 
+          ? localSiswa.length 
+          : localSiswa.filter((s: any) => (s.periode || '2025') === selectedPeriode).length;
       }
 
       // Selected range stats
       const filteredData = allData.filter(d => d.tanggal_mulai >= dateRange.start && d.tanggal_mulai <= dateRange.end);
 
       // Calculate Attendance within Period
-      // We'll calculate unique absentees within the period. 
-      // Note: This shows total unique students who were absent at least once in the period.
       const uniqueAbsenteesInRange = new Set(filteredData.filter(d => d.status === 'Disetujui').map(d => d.siswa_id)).size;
-      const avgSiswaMasuk = totalSiswaCount - uniqueAbsenteesInRange;
+      const avgSiswaMasuk = Math.max(0, totalSiswaCount - uniqueAbsenteesInRange);
 
       setStats({
         totalIzin: filteredData.length,
@@ -229,16 +273,28 @@ export default function DashboardIzin() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-slate-800">Dashboard Izin Siswa</h2>
         
-        <div className="flex flex-wrap items-center gap-3">
-          <PeriodeFilterModal
-            startDate={dateRange.start}
-            endDate={dateRange.end}
-            themeColor="emerald"
-            title="Periode Dashboard"
-            onChange={(start, end) => setDateRange({ start, end })}
-          />
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Periode / Tahun Ajaran Selector */}
+          <div className="flex flex-col min-w-[170px]">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+              Pilih Periode / Tahun Ajaran
+            </label>
+            <div className="relative">
+              <select
+                value={selectedPeriode}
+                onChange={(e) => handlePeriodeChange(e.target.value)}
+                className="w-full font-black text-xs sm:text-sm bg-blue-50 text-blue-800 border-2 border-blue-200 py-2 px-3 pr-8 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer appearance-none shadow-sm"
+              >
+                {availablePeriodes.map(p => (
+                  <option key={p} value={p}>Periode {p}</option>
+                ))}
+                <option value="ALL">Semua Periode</option>
+              </select>
+              <ChevronDown size={16} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-blue-600 pointer-events-none" />
+            </div>
+          </div>
 
-          <div className="hidden sm:flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Tgl Awal</span>
               <input 
@@ -262,7 +318,7 @@ export default function DashboardIzin() {
 
           <button 
             onClick={fetchData}
-            className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors"
+            className="px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-xs sm:text-sm font-bold hover:bg-slate-200 transition-colors shadow-sm"
           >
             Refresh
           </button>
