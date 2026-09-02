@@ -6,7 +6,6 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
-import PeriodeFilterModal from '../common/PeriodeFilterModal';
 import TahunAjaranModal from '../common/TahunAjaranModal';
 
 export default function DisiplinLaporan() {
@@ -383,14 +382,6 @@ export default function DisiplinLaporan() {
               availablePeriodes={availablePeriodes}
               themeColor="blue"
               label="Periode Tahun Ajaran"
-            />
-
-            <PeriodeFilterModal
-              startDate={filter.startDate}
-              endDate={filter.endDate}
-              themeColor="blue"
-              title="Periode Disiplin"
-              onChange={(start, end) => setFilter(prev => ({ ...prev, startDate: start, endDate: end }))}
             />
           </div>
         </div>

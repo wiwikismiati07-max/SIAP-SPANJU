@@ -6,7 +6,6 @@ import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import PeriodeFilterModal from '../common/PeriodeFilterModal';
 import TahunAjaranModal from '../common/TahunAjaranModal';
 
 const LOGO_URL = "https://iili.io/KDFk4fI.png";
@@ -314,14 +313,6 @@ const UksLaporan: React.FC = () => {
                   availablePeriodes={availablePeriodes}
                   themeColor="rose"
                   label="Periode Tahun Ajaran"
-                />
-
-                <PeriodeFilterModal
-                  startDate={dateRange.from}
-                  endDate={dateRange.to}
-                  themeColor="rose"
-                  title="Periode UKS"
-                  onChange={(start, end) => setDateRange({ from: start, to: end })}
                 />
               </div>
             </div>

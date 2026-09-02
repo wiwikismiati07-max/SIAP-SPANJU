@@ -7,7 +7,6 @@ import { IzinWithSiswa } from '../../types/izinsiswa';
 import { AlertTriangle, Download, Filter, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
-import PeriodeFilterModal from '../common/PeriodeFilterModal';
 import TahunAjaranModal from '../common/TahunAjaranModal';
 
 export default function LaporanPanggilan() {
@@ -219,16 +218,22 @@ export default function LaporanPanggilan() {
             label="Periode Tahun Ajaran"
           />
 
-          <PeriodeFilterModal
-            startDate={startDate}
-            endDate={endDate}
-            themeColor="rose"
-            title="Periode Panggilan"
-            onChange={(start, end) => {
-              setStartDate(start);
-              setEndDate(end);
-            }}
-          />
+          <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-2 py-1 bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer"
+            />
+            <span className="text-slate-400 text-xs font-bold">-</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-2 py-1 bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer"
+            />
+          </div>
+
           <button
             onClick={handleDownloadExcel}
             className="flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 text-white hover:bg-rose-700 rounded-xl font-bold text-sm transition-colors shadow-sm"

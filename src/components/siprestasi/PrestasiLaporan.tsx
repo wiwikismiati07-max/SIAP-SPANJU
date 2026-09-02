@@ -6,7 +6,6 @@ import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import PeriodeFilterModal from '../common/PeriodeFilterModal';
 import TahunAjaranModal from '../common/TahunAjaranModal';
 
 const PrestasiLaporan: React.FC = () => {
@@ -220,14 +219,6 @@ const PrestasiLaporan: React.FC = () => {
               availablePeriodes={availablePeriodes}
               themeColor="purple"
               label="Periode Tahun Ajaran"
-            />
-
-            <PeriodeFilterModal
-              startDate={dateRange.from}
-              endDate={dateRange.to}
-              themeColor="purple"
-              title="Periode Prestasi"
-              onChange={(start, end) => setDateRange({ from: start, to: end })}
             />
           </div>
         </div>

@@ -8,7 +8,6 @@ import { id as idLocale } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import PeriodeFilterModal from '../common/PeriodeFilterModal';
 import TahunAjaranModal from '../common/TahunAjaranModal';
 
 export default function LaporanIzin({ user }: { user?: any }) {

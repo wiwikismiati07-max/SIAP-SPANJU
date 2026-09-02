@@ -7,7 +7,6 @@ import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { TransaksiKasus } from '../../types/bkpedulisiswa';
-import PeriodeFilterModal from '../common/PeriodeFilterModal';
 import TahunAjaranModal from '../common/TahunAjaranModal';
 
 export default function BKLaporan() {
@@ -341,26 +340,17 @@ export default function BKLaporan() {
             <option value="Selesai">Selesai</option>
           </select>
         </div>
-        <div className="w-full sm:w-auto">
-          <PeriodeFilterModal
-            startDate={filter.startDate}
-            endDate={filter.endDate}
-            themeColor="purple"
-            title="Periode BK"
-            onChange={(start, end) => setFilter(prev => ({ ...prev, startDate: start, endDate: end }))}
-          />
-        </div>
-        <div className="hidden lg:flex items-center gap-2">
+        <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-2xl border border-slate-200">
           <input 
             type="date" 
-            className="px-3 py-2.5 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none text-xs font-semibold"
+            className="px-2 py-1.5 bg-transparent rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-xs font-semibold cursor-pointer"
             value={filter.startDate}
             onChange={e => setFilter({...filter, startDate: e.target.value})}
           />
           <span className="text-slate-400 font-bold text-xs">-</span>
           <input 
             type="date" 
-            className="px-3 py-2.5 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none text-xs font-semibold"
+            className="px-2 py-1.5 bg-transparent rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-xs font-semibold cursor-pointer"
             value={filter.endDate}
             onChange={e => setFilter({...filter, endDate: e.target.value})}
           />

@@ -7,7 +7,6 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { id as idLocale } from 'date-fns/locale';
-import PeriodeFilterModal from '../common/PeriodeFilterModal';
 import TahunAjaranModal from '../common/TahunAjaranModal';
 
 const KeagamaanLaporan: React.FC = () => {
@@ -244,14 +243,6 @@ const KeagamaanLaporan: React.FC = () => {
               availablePeriodes={availablePeriodes}
               themeColor="emerald"
               label="Periode Tahun Ajaran"
-            />
-
-            <PeriodeFilterModal
-              startDate={filters.startDate}
-              endDate={filters.endDate}
-              themeColor="emerald"
-              title="Periode Keagamaan"
-              onChange={(start, end) => setFilters(prev => ({ ...prev, startDate: start, endDate: end }))}
             />
           </div>
           <button

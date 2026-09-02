@@ -7,7 +7,6 @@ import { Search, Trash2, Edit2, Save, X, Download, Upload, ChevronDown } from 'l
 import { format } from 'date-fns';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import PeriodeFilterModal from '../common/PeriodeFilterModal';
 import TahunAjaranModal from '../common/TahunAjaranModal';
 
 const ALASAN_OPTIONS = [
@@ -716,30 +715,19 @@ export default function Laporan({ user }: { user?: any }) {
               label="Periode Tahun Ajaran"
             />
 
-            <PeriodeFilterModal
-              startDate={startDate}
-              endDate={endDate}
-              themeColor="blue"
-              title="Periode Terlambat"
-              onChange={(start, end) => {
-                setStartDate(start);
-                setEndDate(end);
-              }}
-            />
-
-            <div className="hidden sm:flex items-center gap-1.5 bg-white px-2 py-1.5 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-1.5 bg-white px-2 py-1.5 rounded-xl border border-slate-200 shadow-sm">
               <input 
                 type="date" 
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="px-1 outline-none text-xs font-semibold text-slate-700 bg-transparent"
+                className="px-1 outline-none text-xs font-semibold text-slate-700 bg-transparent cursor-pointer"
               />
-              <span className="text-slate-400 text-xs">-</span>
+              <span className="text-slate-400 text-xs font-bold">-</span>
               <input 
                 type="date" 
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="px-1 outline-none text-xs font-semibold text-slate-700 bg-transparent"
+                className="px-1 outline-none text-xs font-semibold text-slate-700 bg-transparent cursor-pointer"
               />
             </div>
           </div>
