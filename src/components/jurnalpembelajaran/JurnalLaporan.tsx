@@ -18,7 +18,8 @@ import {
   UserCheck, 
   MessageSquare,
   Image as ImageIcon,
-  Sparkles
+  Sparkles,
+  AlertCircle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { JurnalPembelajaran, DAFTAR_KELAS } from '../../types/jurnalpembelajaran';
@@ -189,6 +190,44 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
 
     return records;
   }, [filteredJurnal, filterStatusAbsen]);
+
+  // Aggregate stats per student for frequent absences
+  const frequentAbsenceSummary = useMemo(() => {
+    const map = new Map<string, {
+      nama: string;
+      kelas: string;
+      nis?: string;
+      totalAbsen: number;
+      sakit: number;
+      izin: number;
+      alpa: number;
+    }>();
+
+    absensiRecords.forEach(r => {
+      const key = `${r.nama_siswa}_${r.kelas}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          nama: r.nama_siswa,
+          kelas: r.kelas,
+          nis: r.nis,
+          totalAbsen: 0,
+          sakit: 0,
+          izin: 0,
+          alpa: 0
+        });
+      }
+      
+      const student = map.get(key)!;
+      student.totalAbsen += 1;
+      if (r.status === 'Sakit') student.sakit += 1;
+      else if (r.status === 'Izin') student.izin += 1;
+      else if (r.status === 'Alpa') student.alpa += 1;
+    });
+
+    // Convert to array and sort by total absences (descending)
+    return Array.from(map.values())
+      .sort((a, b) => b.totalAbsen - a.totalAbsen);
+  }, [absensiRecords]);
 
   // Filtered Student Notes & Actions Records
   const catatanTindakanRecords = useMemo(() => {
@@ -474,16 +513,6 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
               </button>
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => handlePrintReport(activeReportTab)}
-              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Cetak bagian tabel yang sedang aktif"
-            >
-              <Printer size={15} /> Cetak Laporan
-            </button>
-          </div>
         </div>
 
         {/* Date Range, Periode, Kelas, Mapel, Search */}
@@ -610,14 +639,6 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
               <p className="text-xs text-slate-400">
                 Periode {startDate} s/d {endDate} • Kelas: {filterKelas === 'semua' ? 'Semua Kelas' : filterKelas}
               </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handlePrintReport('mingguan_bulanan')}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm active:scale-95"
-              >
-                <Printer size={15} /> Cetak
-              </button>
             </div>
           </div>
 
@@ -760,14 +781,6 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                 Daftar siswa yang berstatus Sakit (S), Izin (I), atau Alpa (A) pada sesi pembelajaran
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handlePrintReport('absensi')}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm active:scale-95"
-              >
-                <Printer size={15} /> Cetak
-              </button>
-            </div>
           </div>
 
           {/* Quick Absence Stats */}
@@ -802,6 +815,34 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
               <div className="w-10 h-10 rounded-xl bg-rose-200/60 text-rose-800 flex items-center justify-center font-bold">A</div>
             </div>
           </div>
+
+          {/* Frequent Absences Summary */}
+          {frequentAbsenceSummary.length > 0 && (
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mt-2">
+              <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <AlertCircle size={16} className="text-rose-500" /> 
+                Frekuensi Ketidakhadiran per Siswa
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {frequentAbsenceSummary.map((student, idx) => (
+                  <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between shadow-sm">
+                    <div>
+                      <div className="font-bold text-slate-900 text-xs">{student.nama}</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        <span className="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded mr-1">
+                          {student.kelas}
+                        </span>
+                        S: {student.sakit} • I: {student.izin} • A: {student.alpa}
+                      </div>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-black text-xs">
+                      {student.totalAbsen}x
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {absensiRecords.length === 0 ? (
             <div className="py-16 text-center text-slate-400">
@@ -878,14 +919,6 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
               <p className="text-xs text-slate-400">
                 Rekapitulasi evaluasi perilaku, keaktifan, kendala, dan tindakan bimbingan yang dilakukan guru
               </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handlePrintReport('catatan_tindakan')}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm active:scale-95"
-              >
-                <Printer size={15} /> Cetak
-              </button>
             </div>
           </div>
 
@@ -966,14 +999,6 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
               <p className="text-xs text-slate-400">
                 Peringkasan otomatis siswa-siswa yang memerlukan perhatian, bimbingan lanjutan, atau apresiasi prestasi
               </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handlePrintReport('siswa_bercatatan')}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm active:scale-95"
-              >
-                <Printer size={15} /> Cetak
-              </button>
             </div>
           </div>
 
