@@ -31,6 +31,7 @@ import {
   fetchSiswaByKelas, 
   saveJurnal 
 } from '../../lib/jurnalService';
+import { compressImage } from '../../lib/imageCompressor';
 
 interface JurnalFormProps {
   initialData?: JurnalPembelajaran | null;
@@ -179,29 +180,26 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
     }
   };
 
-  // Photo upload handler
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Photo upload handler with automatic client-side compression
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     setIsUploadingPhoto(true);
     const fileArray = Array.from(files) as File[];
 
-    const promises = fileArray.map((file: File) => {
-      return new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          resolve(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-      });
-    });
-
-    Promise.all(promises).then(base64Photos => {
-      setFotoKegiatan(prev => [...prev, ...base64Photos]);
+    try {
+      // Compress each photo down to max 1024x1024 web quality JPEG (~60-100KB)
+      const compressedPhotos = await Promise.all(
+        fileArray.map((file: File) => compressImage(file, 1024, 1024, 0.72))
+      );
+      setFotoKegiatan(prev => [...prev, ...compressedPhotos]);
+    } catch (err) {
+      console.warn('Gagal memproses foto:', err);
+    } finally {
       setIsUploadingPhoto(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
-    });
+    }
   };
 
   // Remove photo

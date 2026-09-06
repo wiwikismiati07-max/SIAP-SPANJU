@@ -1458,7 +1458,26 @@ CREATE TABLE IF NOT EXISTS public.jurnal_pembelajaran (
     siswa_list JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
-);`;
+);
+
+-- Izin Akses & Keamanan RLS untuk Jurnal Pembelajaran
+ALTER TABLE public.jurnal_pembelajaran ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public Full Access Jurnal Pembelajaran" ON public.jurnal_pembelajaran;
+CREATE POLICY "Public Full Access Jurnal Pembelajaran" 
+ON public.jurnal_pembelajaran 
+FOR ALL 
+TO public 
+USING (true) 
+WITH CHECK (true);
+
+GRANT ALL ON TABLE public.jurnal_pembelajaran TO anon, authenticated, service_role;
+
+-- Indeks untuk pencarian dan laporan cepat
+CREATE INDEX IF NOT EXISTS idx_jurnal_tanggal ON public.jurnal_pembelajaran (tanggal DESC);
+CREATE INDEX IF NOT EXISTS idx_jurnal_kelas ON public.jurnal_pembelajaran (kelas);
+CREATE INDEX IF NOT EXISTS idx_jurnal_guru ON public.jurnal_pembelajaran (nama_guru);
+CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_mapel);`;
                     navigator.clipboard.writeText(sqlText);
                     setCopiedSql(true);
                     setTimeout(() => setCopiedSql(false), 2500);
@@ -1690,7 +1709,26 @@ CREATE TABLE IF NOT EXISTS public.jurnal_pembelajaran (
     siswa_list JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
-);`}
+);
+
+-- Izin Akses & Keamanan RLS untuk Jurnal Pembelajaran
+ALTER TABLE public.jurnal_pembelajaran ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public Full Access Jurnal Pembelajaran" ON public.jurnal_pembelajaran;
+CREATE POLICY "Public Full Access Jurnal Pembelajaran" 
+ON public.jurnal_pembelajaran 
+FOR ALL 
+TO public 
+USING (true) 
+WITH CHECK (true);
+
+GRANT ALL ON TABLE public.jurnal_pembelajaran TO anon, authenticated, service_role;
+
+-- Indeks untuk pencarian dan laporan cepat
+CREATE INDEX IF NOT EXISTS idx_jurnal_tanggal ON public.jurnal_pembelajaran (tanggal DESC);
+CREATE INDEX IF NOT EXISTS idx_jurnal_kelas ON public.jurnal_pembelajaran (kelas);
+CREATE INDEX IF NOT EXISTS idx_jurnal_guru ON public.jurnal_pembelajaran (nama_guru);
+CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_mapel);`}
               </pre>
             </div>
 

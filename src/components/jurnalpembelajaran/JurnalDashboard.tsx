@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   BookOpen, 
   Users, 
@@ -12,6 +12,10 @@ import {
   CheckCircle2, 
   ArrowRight,
   Eye,
+  Database,
+  Copy,
+  Check,
+  X,
   Image as ImageIcon
 } from 'lucide-react';
 import { JurnalPembelajaran } from '../../types/jurnalpembelajaran';
@@ -27,6 +31,60 @@ export const JurnalDashboard: React.FC<JurnalDashboardProps> = ({
   onNavigateTab,
   onViewDetail 
 }) => {
+  const [showSqlModal, setShowSqlModal] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  const SQL_SCRIPT = `-- =========================================================================
+-- SKRIP TABEL DATABASE: JURNAL PEMBELAJARAN (SMPN 7 PASURUAN)
+-- Jalankan di: Supabase Dashboard -> SQL Editor -> New Query -> Run
+-- =========================================================================
+
+-- 1. BUAT TABEL JURNAL PEMBELAJARAN
+CREATE TABLE IF NOT EXISTS public.jurnal_pembelajaran (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tanggal DATE NOT NULL DEFAULT CURRENT_DATE,
+    jam_ke TEXT NOT NULL,
+    jam_mulai TEXT,
+    jam_selesai TEXT,
+    mapel_id TEXT,
+    nama_mapel TEXT NOT NULL,
+    guru_id TEXT,
+    nama_guru TEXT NOT NULL,
+    kelas TEXT NOT NULL,
+    materi TEXT NOT NULL,
+    kegiatan TEXT,
+    foto_kegiatan JSONB DEFAULT '[]'::jsonb,
+    siswa_list JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. ATUR HAK AKSES DAN KEAMANAN ROW LEVEL SECURITY (RLS)
+ALTER TABLE public.jurnal_pembelajaran ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public Full Access Jurnal Pembelajaran" ON public.jurnal_pembelajaran;
+CREATE POLICY "Public Full Access Jurnal Pembelajaran" 
+ON public.jurnal_pembelajaran 
+FOR ALL 
+TO public 
+USING (true) 
+WITH CHECK (true);
+
+-- Berikan izin akses penuh kepada peran anon & authenticated
+GRANT ALL ON TABLE public.jurnal_pembelajaran TO anon, authenticated, service_role;
+
+-- 3. BUAT INDEKS UNTUK PENCARIAN & LAPORAN SUPER CEPAT
+CREATE INDEX IF NOT EXISTS idx_jurnal_tanggal ON public.jurnal_pembelajaran (tanggal DESC);
+CREATE INDEX IF NOT EXISTS idx_jurnal_kelas ON public.jurnal_pembelajaran (kelas);
+CREATE INDEX IF NOT EXISTS idx_jurnal_guru ON public.jurnal_pembelajaran (nama_guru);
+CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_mapel);
+`;
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(SQL_SCRIPT);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 2500);
+  };
   // Total Sesi
   const totalSesi = jurnalList.length;
 
@@ -86,6 +144,12 @@ export const JurnalDashboard: React.FC<JurnalDashboardProps> = ({
               className="px-5 py-2.5 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors"
             >
               <FileBarChart size={16} /> Buka Laporan
+            </button>
+            <button
+              onClick={() => setShowSqlModal(true)}
+              className="px-4 py-2.5 bg-black/30 hover:bg-black/40 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-white/20 shadow-sm"
+            >
+              <Database size={15} /> Skrip SQL Tabel
             </button>
           </div>
         </div>
@@ -228,6 +292,68 @@ export const JurnalDashboard: React.FC<JurnalDashboardProps> = ({
           </div>
         )}
       </div>
+
+      {/* MODAL SKRIP SQL DATABASE */}
+      {showSqlModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
+            {/* Header */}
+            <div className="p-5 md:p-6 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center">
+                  <Database size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Skrip SQL: Tabel Jurnal Pembelajaran</h3>
+                  <p className="text-xs text-slate-400">PostgreSQL / Supabase Schema & Security Rules</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopySql}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${
+                    copiedSql ? 'bg-emerald-600 text-white' : 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-black'
+                  }`}
+                >
+                  {copiedSql ? <Check size={14} /> : <Copy size={14} />}
+                  {copiedSql ? 'Tersalin ke Clipboard!' : 'Salin Semua SQL'}
+                </button>
+                <button
+                  onClick={() => setShowSqlModal(false)}
+                  className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Instruction Notice */}
+            <div className="px-6 py-3 bg-amber-50 border-b border-amber-100 text-amber-900 text-xs flex items-center gap-2">
+              <span className="font-black bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded text-[10px]">PANDUAN</span>
+              <span>
+                Buka <strong>Supabase Dashboard</strong> &rarr; Pilih menu <strong>SQL Editor</strong> &rarr; Klik <strong>New Query</strong> &rarr; Tempel (Paste) skrip di bawah &rarr; Klik <strong>Run</strong>.
+              </span>
+            </div>
+
+            {/* SQL Content Codeblock */}
+            <div className="p-5 md:p-6 overflow-y-auto flex-1 bg-slate-950 font-mono text-xs leading-relaxed text-emerald-400 selection:bg-amber-500 selection:text-slate-950">
+              <pre className="whitespace-pre overflow-x-auto">{SQL_SCRIPT}</pre>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+              <span>Mencakup DDL tabel, Row Level Security (RLS), izin peran publik, dan indeks query.</span>
+              <button
+                onClick={() => setShowSqlModal(false)}
+                className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

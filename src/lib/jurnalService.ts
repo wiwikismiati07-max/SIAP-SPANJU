@@ -1,5 +1,11 @@
 import { supabase, fetchAllSiswa } from './supabase';
 import { JurnalPembelajaran, SiswaJurnalItem, DEFAULT_MAPEL } from '../types/jurnalpembelajaran';
+import { 
+  idbGetAllJurnal, 
+  idbSaveJurnal, 
+  idbSaveAllJurnal, 
+  idbDeleteJurnal 
+} from './jurnalIdb';
 
 const LOCAL_STORAGE_KEY = 'jurnal_pembelajaran_data';
 
@@ -8,20 +14,44 @@ export const getStoredJurnalList = (): JurnalPembelajaran[] => {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch (e) {
-    console.error('Error reading local jurnal:', e);
     return [];
   }
 };
 
+/**
+ * Saves jurnal list locally with safety guards against localStorage QuotaExceededError.
+ * IndexedDB acts as the primary large-capacity store, while localStorage acts as a lightweight backup.
+ */
 export const saveLocalJurnalList = (list: JurnalPembelajaran[]) => {
+  // 1. Always persist full data to IndexedDB asynchronously
+  idbSaveAllJurnal(list).catch(() => {});
+
+  // 2. Safe save to localStorage
   try {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.error('Error saving local jurnal:', e);
+  } catch (e: any) {
+    // If quota exceeded, store a lightweight version without bulky base64 photos
+    try {
+      const lightweightList = list.map(item => ({
+        ...item,
+        // Keep at most 1 thumbnail or clear photos in localStorage since IndexedDB holds the originals
+        foto_kegiatan: item.foto_kegiatan && item.foto_kegiatan.length > 0 ? [item.foto_kegiatan[0]] : []
+      }));
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(lightweightList));
+    } catch (innerErr) {
+      try {
+        // Extreme fallback: strip all photos for localStorage cache
+        const minimalList = list.map(item => ({ ...item, foto_kegiatan: [] }));
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(minimalList));
+      } catch (finalErr) {
+        // Fail silently; IndexedDB holds the full records
+      }
+    }
   }
 };
 
 export const fetchAllJurnal = async (): Promise<JurnalPembelajaran[]> => {
+  // 1. Try fetching from Supabase
   try {
     if (supabase) {
       const { data, error } = await supabase
@@ -29,8 +59,8 @@ export const fetchAllJurnal = async (): Promise<JurnalPembelajaran[]> => {
         .select('*')
         .order('tanggal', { ascending: false });
 
-      if (!error && data) {
-        // Sync local storage
+      if (!error && data && data.length > 0) {
+        // Sync local storage & IndexedDB
         saveLocalJurnalList(data);
         return data;
       }
@@ -38,13 +68,28 @@ export const fetchAllJurnal = async (): Promise<JurnalPembelajaran[]> => {
   } catch (err) {
     console.warn('Supabase fetch jurnal error, using local fallback:', err);
   }
+
+  // 2. Try fetching from IndexedDB (preserves all photos offline)
+  try {
+    const idbData = await idbGetAllJurnal();
+    if (idbData && idbData.length > 0) {
+      return idbData;
+    }
+  } catch (idbErr) {
+    // ignore
+  }
+
+  // 3. Fallback to localStorage
   return getStoredJurnalList();
 };
 
 export const saveJurnal = async (jurnal: JurnalPembelajaran): Promise<{ success: boolean; error?: string }> => {
   try {
-    // 1. Save to local storage first (reliable offline & fallback)
-    const currentList = getStoredJurnalList();
+    // 1. Save to IndexedDB immediately
+    await idbSaveJurnal(jurnal);
+
+    // 2. Update local storage list safely
+    const currentList = await fetchAllJurnal();
     const index = currentList.findIndex(j => j.id === jurnal.id);
     if (index >= 0) {
       currentList[index] = jurnal;
@@ -53,7 +98,7 @@ export const saveJurnal = async (jurnal: JurnalPembelajaran): Promise<{ success:
     }
     saveLocalJurnalList(currentList);
 
-    // 2. Try Supabase
+    // 3. Try Supabase
     if (supabase) {
       try {
         const { error } = await supabase
@@ -64,7 +109,7 @@ export const saveJurnal = async (jurnal: JurnalPembelajaran): Promise<{ success:
           console.warn('Supabase upsert warning:', error.message);
         }
       } catch (sbErr) {
-        console.warn('Supabase save error (saved locally):', sbErr);
+        console.warn('Supabase save error (saved locally in IndexedDB):', sbErr);
       }
     }
 
@@ -76,9 +121,14 @@ export const saveJurnal = async (jurnal: JurnalPembelajaran): Promise<{ success:
 
 export const deleteJurnal = async (id: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    const currentList = getStoredJurnalList().filter(j => j.id !== id);
+    // 1. Delete from IndexedDB
+    await idbDeleteJurnal(id);
+
+    // 2. Delete from local storage
+    const currentList = (await fetchAllJurnal()).filter(j => j.id !== id);
     saveLocalJurnalList(currentList);
 
+    // 3. Delete from Supabase
     if (supabase) {
       try {
         await supabase.from('jurnal_pembelajaran').delete().eq('id', id);
