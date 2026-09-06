@@ -104,6 +104,19 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
             Alpa: ${totalAlpa}
           </div>
 
+          ${jurnal.foto_kegiatan && jurnal.foto_kegiatan.length > 0 ? `
+            <div style="margin-top: 14px; page-break-inside: avoid;">
+              <div style="font-weight: bold; font-size: 11px; margin-bottom: 6px; text-transform: uppercase; color: #334155;">Foto Dokumentasi Kegiatan Pembelajaran:</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                ${jurnal.foto_kegiatan.map(foto => `
+                  <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px; background: #f8fafc; width: 140px; text-align: center;">
+                    <img src="${foto}" style="width: 130px; height: 80px; object-fit: cover; border-radius: 4px;" alt="Dokumentasi" />
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
           <table class="data">
             <thead>
               <tr>
