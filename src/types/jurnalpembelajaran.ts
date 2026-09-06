@@ -3,10 +3,13 @@ export interface SiswaJurnalItem {
   nama: string;
   nis?: string;
   kelas: string;
+  periode?: string;
   absensi: 'Hadir' | 'Sakit' | 'Izin' | 'Alpa';
   nilai: string | number;
   catatan_siswa: string;
   tindakan: string;
+  sudah_izin?: boolean;
+  keterangan_izin?: string;
 }
 
 export interface JurnalPembelajaran {
@@ -15,6 +18,7 @@ export interface JurnalPembelajaran {
   jam_ke: string;
   jam_mulai: string;
   jam_selesai: string;
+  periode?: string;
   mapel_id?: string;
   nama_mapel: string;
   guru_id?: string;

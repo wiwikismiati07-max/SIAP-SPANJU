@@ -17,7 +17,8 @@ import {
   Upload,
   Image as ImageIcon,
   CheckCircle2,
-  X
+  X,
+  UserCheck
 } from 'lucide-react';
 import { 
   JurnalPembelajaran, 
@@ -28,8 +29,11 @@ import {
 import { 
   fetchGuruList, 
   fetchMapelList, 
+  fetchAvailablePeriodes,
   fetchSiswaByKelas, 
-  saveJurnal 
+  saveJurnal,
+  generateUUID,
+  isValidUUID
 } from '../../lib/jurnalService';
 import { compressImage } from '../../lib/imageCompressor';
 
@@ -45,6 +49,9 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
   const [jamMulai, setJamMulai] = useState<string>('07:00');
   const [jamSelesai, setJamSelesai] = useState<string>('08:20');
   
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>([]);
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('');
+
   const [mapelList, setMapelList] = useState<{ id: string; nama_mapel: string }[]>([]);
   const [selectedMapel, setSelectedMapel] = useState<string>('');
   const [customMapel, setCustomMapel] = useState<string>('');
@@ -73,12 +80,17 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
   // Load masters on mount
   useEffect(() => {
     const loadMasters = async () => {
-      const [gurus, mapels] = await Promise.all([
+      const [gurus, mapels, periodes] = await Promise.all([
         fetchGuruList(),
-        fetchMapelList()
+        fetchMapelList(),
+        fetchAvailablePeriodes()
       ]);
       setGuruList(gurus);
       setMapelList(mapels);
+      setAvailablePeriodes(periodes);
+
+      const defPeriode = initialData?.periode || periodes[0] || '2026';
+      setSelectedPeriode(defPeriode);
 
       if (initialData) {
         setTanggal(initialData.tanggal);
@@ -115,21 +127,22 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
     loadMasters();
   }, [initialData]);
 
-  // When class changes, fetch students if not editing initialData or if user specifically changed class
+  // When class, period, or date changes, fetch students if not editing initialData
   useEffect(() => {
-    if (initialData && initialData.kelas === kelas && siswaList.length > 0) {
+    if (initialData && initialData.kelas === kelas && (initialData.periode === selectedPeriode || !initialData.periode) && siswaList.length > 0) {
       return;
     }
+    if (!selectedPeriode) return;
 
     const loadSiswa = async () => {
       setIsLoadingSiswa(true);
-      const list = await fetchSiswaByKelas(kelas);
+      const list = await fetchSiswaByKelas(kelas, selectedPeriode, tanggal);
       setSiswaList(list);
       setIsLoadingSiswa(false);
     };
 
     loadSiswa();
-  }, [kelas]);
+  }, [kelas, selectedPeriode, tanggal]);
 
   // Handle Jam Ke change
   const handleJamKeChange = (val: string) => {
@@ -247,18 +260,21 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
       return;
     }
     if (siswaList.length === 0) {
-      alert('Daftar siswa tidak boleh kosong!');
+      alert('Daftar siswa tidak boleh kosong! Anda dapat menambahkan siswa menggunakan tombol "+ Tambah Siswa Manual" di bawah tabel absensi.');
       return;
     }
 
     setIsSaving(true);
 
+    const safeId = isValidUUID(initialData?.id) ? initialData!.id : generateUUID();
+
     const jurnalData: JurnalPembelajaran = {
-      id: initialData?.id || (crypto.randomUUID ? crypto.randomUUID() : `jurnal-${Date.now()}`),
+      id: safeId,
       tanggal,
       jam_ke: jamKe,
       jam_mulai: jamMulai,
       jam_selesai: jamSelesai,
+      periode: selectedPeriode || '2026',
       nama_mapel: finalMapel,
       nama_guru: finalGuru,
       kelas,
@@ -274,12 +290,18 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
     setIsSaving(false);
 
     if (res.success) {
-      setStatusMessage({ type: 'success', text: 'Jurnal pembelajaran berhasil disimpan!' });
+      const successText = res.savedLocally 
+        ? 'Jurnal pembelajaran berhasil disimpan di memori perangkat (offline)!' 
+        : 'Jurnal pembelajaran berhasil disimpan!';
+      setStatusMessage({ type: 'success', text: successText });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       setTimeout(() => {
         onSaved();
       }, 700);
     } else {
-      setStatusMessage({ type: 'error', text: res.error || 'Gagal menyimpan jurnal!' });
+      setStatusMessage({ type: 'error', text: res.error || 'Gagal menyimpan jurnal pembelajaran!' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      alert(res.error || 'Gagal menyimpan jurnal! Silakan periksa kembali isian Anda.');
     }
   };
 
@@ -327,7 +349,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Tanggal */}
           <div>
             <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
@@ -338,19 +360,37 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
               required
               value={tanggal}
               onChange={e => setTanggal(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-semibold transition-all"
+              className="w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-semibold transition-all"
             />
+          </div>
+
+          {/* Periode / Tahun Ajaran */}
+          <div>
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+              <Calendar size={14} className="inline mr-1 text-amber-500" /> Periode / Thn Ajaran
+            </label>
+            <select
+              value={selectedPeriode}
+              onChange={e => setSelectedPeriode(e.target.value)}
+              className="w-full px-3.5 py-3 rounded-xl border border-amber-200 bg-amber-50/50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-bold text-amber-800 transition-all cursor-pointer"
+            >
+              {availablePeriodes.map((p, idx) => (
+                <option key={p} value={p}>
+                  {p} {idx === 0 ? '(Periode Baru)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Jam Ke */}
           <div>
             <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
-              <Clock size={14} className="inline mr-1 text-amber-500" /> Jam Pelajaran Ke
+              <Clock size={14} className="inline mr-1 text-amber-500" /> Jam Ke
             </label>
             <select
               value={jamKe}
               onChange={e => handleJamKeChange(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-semibold transition-all"
+              className="w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-semibold transition-all"
             >
               {JAM_PELAJARAN_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -368,7 +408,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
                 type="time"
                 value={jamMulai}
                 onChange={e => setJamMulai(e.target.value)}
-                className="w-full px-3 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-semibold transition-all text-center"
+                className="w-full px-2 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-xs font-semibold transition-all text-center"
               />
             </div>
             <div>
@@ -379,7 +419,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
                 type="time"
                 value={jamSelesai}
                 onChange={e => setJamSelesai(e.target.value)}
-                className="w-full px-3 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-semibold transition-all text-center"
+                className="w-full px-2 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-xs font-semibold transition-all text-center"
               />
             </div>
           </div>
@@ -392,7 +432,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
             <select
               value={kelas}
               onChange={e => setKelas(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-bold text-amber-700 transition-all"
+              className="w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-bold text-amber-700 transition-all"
             >
               {DAFTAR_KELAS.map(k => (
                 <option key={k} value={k}>Kelas {k}</option>
@@ -582,10 +622,16 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
                 <Users size={20} />
               </div>
               <div>
-                <h3 className="text-base font-black text-slate-800">
-                  Daftar Siswa Kelas {kelas} ({totalSiswa} Siswa)
+                <h3 className="text-base font-black text-slate-800 flex items-center flex-wrap gap-2">
+                  <span>Daftar Siswa Kelas {kelas}</span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold border border-amber-300">
+                    Periode {selectedPeriode || 'Terbaru'}
+                  </span>
+                  <span className="text-xs text-slate-400 font-normal">({totalSiswa} Siswa)</span>
                 </h3>
-                <p className="text-xs text-slate-400">Atur status absensi, nilai tugas/keaktifan, catatan perilaku, serta tindakan guru</p>
+                <p className="text-xs text-slate-500">
+                  Menampilkan siswa periode baru ({selectedPeriode || 'Aktif'}) saja agar data tidak ganda antar tahun ajaran.
+                </p>
               </div>
             </div>
           </div>
@@ -670,8 +716,25 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
                     <tr key={siswa.siswa_id || actualIdx} className="hover:bg-slate-50/70 transition-colors">
                       <td className="p-3 text-center font-medium text-slate-400">{actualIdx + 1}</td>
                       <td className="p-3">
-                        <div className="font-bold text-slate-800">{siswa.nama}</div>
-                        {siswa.nis && <div className="text-[10px] text-slate-400 font-medium">NIS: {siswa.nis}</div>}
+                        <div className="font-bold text-slate-800 flex items-center flex-wrap gap-1.5">
+                          <span>{siswa.nama}</span>
+                          {siswa.sudah_izin && (
+                            <span 
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-300"
+                              title={siswa.keterangan_izin || 'Izin Form Wali Murid'}
+                            >
+                              <UserCheck size={11} /> {siswa.keterangan_izin || 'Izin Form Wali Murid'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium mt-0.5">
+                          {siswa.nis && <span>NIS: {siswa.nis}</span>}
+                          {siswa.periode && (
+                            <span className="text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded font-semibold border border-amber-200/60">
+                              Periode {siswa.periode}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Absensi Buttons */}
@@ -757,24 +820,33 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
       </div>
 
       {/* SUBMIT BUTTON BAR */}
-      <div className="flex items-center justify-end gap-3 sticky bottom-4 z-20 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-slate-200">
-        {onCancel && (
+      <div className="flex flex-wrap items-center justify-between gap-3 sticky bottom-4 z-20 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-slate-200">
+        <div className="text-xs font-semibold text-slate-500">
+          {statusMessage && (
+            <span className={statusMessage.type === 'success' ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>
+              {statusMessage.text}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-colors"
+            >
+              Batal
+            </button>
+          )}
           <button
-            type="button"
-            onClick={onCancel}
-            className="px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-colors"
+            type="submit"
+            disabled={isSaving}
+            className="px-8 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black text-sm uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
           >
-            Batal
+            <Save size={18} />
+            {isSaving ? 'Menyimpan...' : initialData ? 'Update Jurnal Pembelajaran' : 'Simpan Jurnal Pembelajaran'}
           </button>
-        )}
-        <button
-          type="submit"
-          disabled={isSaving}
-          className="px-8 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black text-sm uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-        >
-          <Save size={18} />
-          {isSaving ? 'Menyimpan...' : initialData ? 'Update Jurnal Pembelajaran' : 'Simpan Jurnal Pembelajaran'}
-        </button>
+        </div>
       </div>
     </form>
   );

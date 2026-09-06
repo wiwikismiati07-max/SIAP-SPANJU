@@ -59,8 +59,8 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
             <tr>
               <td class="meta-label">Tanggal</td>
               <td>: ${jurnal.tanggal}</td>
-              <td class="meta-label">Kelas</td>
-              <td>: ${jurnal.kelas}</td>
+              <td class="meta-label">Kelas / Periode</td>
+              <td>: Kelas ${jurnal.kelas} ${jurnal.periode ? `(Periode ${jurnal.periode})` : ''}</td>
             </tr>
             <tr>
               <td class="meta-label">Jam Ke / Waktu</td>
@@ -151,7 +151,9 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
             </div>
             <div>
               <h3 className="text-lg font-black tracking-tight">Detail Jurnal Pembelajaran</h3>
-              <p className="text-xs text-amber-100 font-medium">Kelas {jurnal.kelas} • {jurnal.tanggal}</p>
+              <p className="text-xs text-amber-100 font-medium">
+                Kelas {jurnal.kelas} {jurnal.periode ? `• Periode ${jurnal.periode}` : ''} • {jurnal.tanggal}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -187,7 +189,9 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
                 <User size={14} /> Guru & Kelas
               </div>
               <div className="text-base font-black text-slate-900">{jurnal.nama_guru}</div>
-              <div className="text-xs text-slate-600 font-medium mt-1">Kelas: <span className="font-bold text-blue-700">{jurnal.kelas}</span></div>
+              <div className="text-xs text-slate-600 font-medium mt-1">
+                Kelas: <span className="font-bold text-blue-700">{jurnal.kelas}</span> {jurnal.periode ? <span className="ml-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">Periode {jurnal.periode}</span> : null}
+              </div>
             </div>
 
             <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-100/80">
@@ -271,8 +275,18 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
                     <tr key={s.siswa_id || idx} className="hover:bg-slate-50/80 transition-colors">
                       <td className="p-3 text-center text-slate-400 font-medium">{idx + 1}</td>
                       <td className="p-3">
-                        <div className="font-bold text-slate-800">{s.nama}</div>
-                        {s.nis && <div className="text-[10px] text-slate-400">NIS: {s.nis}</div>}
+                        <div className="font-bold text-slate-800 flex items-center flex-wrap gap-1.5">
+                          <span>{s.nama}</span>
+                          {s.sudah_izin && (
+                            <span className="inline-block px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-300">
+                              {s.keterangan_izin || 'Izin Form'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                          {s.nis && <span>NIS: {s.nis}</span>}
+                          {s.periode && <span className="text-amber-700 bg-amber-50 px-1 rounded">Thn {s.periode}</span>}
+                        </div>
                       </td>
                       <td className="p-3 text-center">
                         <span className={`inline-block px-2.5 py-1 rounded-lg font-black text-[11px] ${

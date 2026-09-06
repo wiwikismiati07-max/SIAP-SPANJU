@@ -50,6 +50,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
   const [filterKelas, setFilterKelas] = useState<string>('semua');
   const [filterMapel, setFilterMapel] = useState<string>('semua');
   const [filterGuru, setFilterGuru] = useState<string>('semua');
+  const [filterPeriode, setFilterPeriode] = useState<string>('semua');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterStatusAbsen, setFilterStatusAbsen] = useState<'semua' | 'Sakit' | 'Izin' | 'Alpa'>('semua');
 
@@ -80,6 +81,14 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
   };
 
   // Distinct Lists for Select Filter
+  const distinctPeriode = useMemo(() => {
+    const set = new Set<string>();
+    jurnalList.forEach(j => { 
+      if (j.periode) set.add(j.periode.toString().trim()); 
+    });
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [jurnalList]);
+
   const distinctMapel = useMemo(() => {
     const set = new Set<string>();
     jurnalList.forEach(j => { if (j.nama_mapel) set.add(j.nama_mapel); });
@@ -95,6 +104,9 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
   // Filtered Jurnal List
   const filteredJurnal = useMemo(() => {
     return jurnalList.filter(j => {
+      // Periode filter
+      if (filterPeriode !== 'semua' && j.periode && j.periode !== filterPeriode) return false;
+
       // Date filter
       if (filterPeriod !== 'semua') {
         if (startDate && j.tanggal < startDate) return false;
@@ -131,7 +143,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
 
       return true;
     });
-  }, [jurnalList, filterPeriod, startDate, endDate, filterKelas, filterMapel, filterGuru, searchQuery]);
+  }, [jurnalList, filterPeriode, filterPeriod, startDate, endDate, filterKelas, filterMapel, filterGuru, searchQuery]);
 
   // Filtered Absence Records (Sakit, Izin, Alpa)
   const absensiRecords = useMemo(() => {
@@ -272,6 +284,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
         const alpa = j.siswa_list?.filter(s => s.absensi === 'Alpa').length || 0;
         return {
           'No': idx + 1,
+          'Periode': j.periode || '-',
           'Tanggal': j.tanggal,
           'Jam Pelajaran': `${j.jam_ke} (${j.jam_mulai} - ${j.jam_selesai})`,
           'Kelas': j.kelas,
@@ -471,8 +484,23 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
           </div>
         </div>
 
-        {/* Date Range, Kelas, Mapel, Search */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 pt-1">
+        {/* Date Range, Periode, Kelas, Mapel, Search */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-1">
+          {/* Filter Periode */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 mb-1">Periode</label>
+            <select
+              value={filterPeriode}
+              onChange={e => setFilterPeriode(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-amber-200 bg-amber-50/50 text-xs font-bold text-amber-800 focus:bg-white outline-none"
+            >
+              <option value="semua">Semua Periode</option>
+              {distinctPeriode.map(p => (
+                <option key={p} value={p}>Periode {p}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Tanggal Dari - Sampai */}
           <div>
             <label className="block text-[11px] font-bold text-slate-500 mb-1">Dari Tanggal</label>

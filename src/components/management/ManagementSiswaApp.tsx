@@ -1447,6 +1447,7 @@ CREATE TABLE IF NOT EXISTS public.jurnal_pembelajaran (
     jam_ke TEXT NOT NULL,
     jam_mulai TEXT,
     jam_selesai TEXT,
+    periode TEXT,
     mapel_id TEXT,
     nama_mapel TEXT NOT NULL,
     guru_id TEXT,
@@ -1459,6 +1460,9 @@ CREATE TABLE IF NOT EXISTS public.jurnal_pembelajaran (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Pastikan kolom periode tersedia jika tabel dibuat sebelumnya
+ALTER TABLE public.jurnal_pembelajaran ADD COLUMN IF NOT EXISTS periode TEXT;
 
 -- Izin Akses & Keamanan RLS untuk Jurnal Pembelajaran
 ALTER TABLE public.jurnal_pembelajaran ENABLE ROW LEVEL SECURITY;
@@ -1476,6 +1480,7 @@ GRANT ALL ON TABLE public.jurnal_pembelajaran TO anon, authenticated, service_ro
 -- Indeks untuk pencarian dan laporan cepat
 CREATE INDEX IF NOT EXISTS idx_jurnal_tanggal ON public.jurnal_pembelajaran (tanggal DESC);
 CREATE INDEX IF NOT EXISTS idx_jurnal_kelas ON public.jurnal_pembelajaran (kelas);
+CREATE INDEX IF NOT EXISTS idx_jurnal_periode ON public.jurnal_pembelajaran (periode);
 CREATE INDEX IF NOT EXISTS idx_jurnal_guru ON public.jurnal_pembelajaran (nama_guru);
 CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_mapel);`;
                     navigator.clipboard.writeText(sqlText);
@@ -1698,6 +1703,7 @@ CREATE TABLE IF NOT EXISTS public.jurnal_pembelajaran (
     jam_ke TEXT NOT NULL,
     jam_mulai TEXT,
     jam_selesai TEXT,
+    periode TEXT,
     mapel_id TEXT,
     nama_mapel TEXT NOT NULL,
     guru_id TEXT,
@@ -1710,6 +1716,9 @@ CREATE TABLE IF NOT EXISTS public.jurnal_pembelajaran (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Pastikan kolom periode tersedia jika tabel dibuat sebelumnya
+ALTER TABLE public.jurnal_pembelajaran ADD COLUMN IF NOT EXISTS periode TEXT;
 
 -- Izin Akses & Keamanan RLS untuk Jurnal Pembelajaran
 ALTER TABLE public.jurnal_pembelajaran ENABLE ROW LEVEL SECURITY;
@@ -1727,6 +1736,7 @@ GRANT ALL ON TABLE public.jurnal_pembelajaran TO anon, authenticated, service_ro
 -- Indeks untuk pencarian dan laporan cepat
 CREATE INDEX IF NOT EXISTS idx_jurnal_tanggal ON public.jurnal_pembelajaran (tanggal DESC);
 CREATE INDEX IF NOT EXISTS idx_jurnal_kelas ON public.jurnal_pembelajaran (kelas);
+CREATE INDEX IF NOT EXISTS idx_jurnal_periode ON public.jurnal_pembelajaran (periode);
 CREATE INDEX IF NOT EXISTS idx_jurnal_guru ON public.jurnal_pembelajaran (nama_guru);
 CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_mapel);`}
               </pre>
