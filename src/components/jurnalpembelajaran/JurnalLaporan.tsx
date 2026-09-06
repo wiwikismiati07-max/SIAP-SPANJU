@@ -483,13 +483,6 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
               <Download size={15} /> Ekspor Excel
             </button>
             <button
-              onClick={() => handlePrintReport('semua')}
-              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/20 active:scale-95 cursor-pointer"
-              title="Cetak seluruh data jurnal, absensi, catatan, dan evaluasi menjadi satu buku laporan utuh resmi"
-            >
-              <Sparkles size={15} /> Cetak Laporan Lengkap
-            </button>
-            <button
               onClick={() => handlePrintReport(activeReportTab)}
               className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
               title="Cetak bagian tabel yang sedang aktif"
@@ -626,16 +619,10 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => handlePrintReport('semua')}
-                className="px-3.5 py-2 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Sparkles size={14} className="text-amber-600" /> Cetak Lengkap
-              </button>
-              <button
                 onClick={() => handlePrintReport('mingguan_bulanan')}
-                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm active:scale-95"
               >
-                <Printer size={14} /> Cetak Agenda
+                <Printer size={15} /> Cetak
               </button>
             </div>
           </div>
@@ -733,6 +720,13 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                               <Eye size={15} />
                             </button>
                             <button
+                              onClick={() => setSelectedJurnal(j)}
+                              className="p-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
+                              title="Cetak Jurnal Ini"
+                            >
+                              <Printer size={15} />
+                            </button>
+                            <button
                               onClick={() => onEditJurnal(j)}
                               className="p-1.5 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg transition-colors"
                               title="Edit Jurnal"
@@ -774,16 +768,10 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => handlePrintReport('semua')}
-                className="px-3.5 py-2 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Sparkles size={14} className="text-amber-600" /> Cetak Lengkap
-              </button>
-              <button
                 onClick={() => handlePrintReport('absensi')}
-                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm active:scale-95"
               >
-                <Printer size={14} /> Cetak Absensi
+                <Printer size={15} /> Cetak
               </button>
             </div>
           </div>
@@ -899,16 +887,10 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => handlePrintReport('semua')}
-                className="px-3.5 py-2 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Sparkles size={14} className="text-amber-600" /> Cetak Lengkap
-              </button>
-              <button
                 onClick={() => handlePrintReport('catatan_tindakan')}
-                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm active:scale-95"
               >
-                <Printer size={14} /> Cetak Catatan
+                <Printer size={15} /> Cetak
               </button>
             </div>
           </div>
@@ -993,16 +975,10 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => handlePrintReport('semua')}
-                className="px-3.5 py-2 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Sparkles size={14} className="text-amber-600" /> Cetak Lengkap
-              </button>
-              <button
                 onClick={() => handlePrintReport('siswa_bercatatan')}
-                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm active:scale-95"
               >
-                <Printer size={14} /> Cetak Siswa
+                <Printer size={15} /> Cetak
               </button>
             </div>
           </div>
