@@ -17,11 +17,13 @@ import {
   ChevronRight, 
   UserCheck, 
   MessageSquare,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Sparkles
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { JurnalPembelajaran, DAFTAR_KELAS } from '../../types/jurnalpembelajaran';
 import { JurnalDetailModal } from './JurnalDetailModal';
+import { JurnalPrintModal } from './JurnalPrintModal';
 import { deleteJurnal } from '../../lib/jurnalService';
 
 interface JurnalLaporanProps {
@@ -56,6 +58,10 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
 
   // Detail Modal
   const [selectedJurnal, setSelectedJurnal] = useState<JurnalPembelajaran | null>(null);
+
+  // Print Preview Modal
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
+  const [printModalMode, setPrintModalMode] = useState<'semua' | 'mingguan_bulanan' | 'absensi' | 'catatan_tindakan' | 'siswa_bercatatan'>('semua');
 
   // Quick Date Period Handler
   const handlePeriodChange = (type: 'semua' | 'hari_ini' | 'minggu_ini' | 'bulan_ini' | 'kustom') => {
@@ -348,9 +354,10 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
     }
   };
 
-  // PRINT CURRENT REPORT VIEW
-  const handlePrintReport = () => {
-    window.print();
+  // PRINT REPORT HANDLER (Opens Complete or Specific Print Modal)
+  const handlePrintReport = (mode: 'semua' | 'mingguan_bulanan' | 'absensi' | 'catatan_tindakan' | 'siswa_bercatatan' = 'semua') => {
+    setPrintModalMode(mode);
+    setIsPrintModalOpen(true);
   };
 
   return (
@@ -468,18 +475,26 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleExportExcel}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
             >
               <Download size={15} /> Ekspor Excel
             </button>
             <button
-              onClick={handlePrintReport}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
+              onClick={() => handlePrintReport('semua')}
+              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/20 active:scale-95 cursor-pointer"
+              title="Cetak seluruh data jurnal, absensi, catatan, dan evaluasi menjadi satu buku laporan utuh resmi"
             >
-              <Printer size={15} /> Cetak
+              <Sparkles size={15} /> Cetak Laporan Lengkap
+            </button>
+            <button
+              onClick={() => handlePrintReport(activeReportTab)}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Cetak bagian tabel yang sedang aktif"
+            >
+              <Printer size={15} /> Cetak Tabel Ini
             </button>
           </div>
         </div>
@@ -600,7 +615,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
       {/* ========================================================================= */}
       {activeReportTab === 'mingguan_bulanan' && (
         <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-lg font-black text-slate-800">
                 Rekapitulasi Jurnal Pembelajaran ({filteredJurnal.length} Pertemuan)
@@ -608,6 +623,20 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
               <p className="text-xs text-slate-400">
                 Periode {startDate} s/d {endDate} • Kelas: {filterKelas === 'semua' ? 'Semua Kelas' : filterKelas}
               </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handlePrintReport('semua')}
+                className="px-3.5 py-2 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Sparkles size={14} className="text-amber-600" /> Cetak Lengkap
+              </button>
+              <button
+                onClick={() => handlePrintReport('mingguan_bulanan')}
+                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Printer size={14} /> Cetak Agenda
+              </button>
             </div>
           </div>
 
@@ -743,6 +772,20 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                 Daftar siswa yang berstatus Sakit (S), Izin (I), atau Alpa (A) pada sesi pembelajaran
               </p>
             </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handlePrintReport('semua')}
+                className="px-3.5 py-2 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Sparkles size={14} className="text-amber-600" /> Cetak Lengkap
+              </button>
+              <button
+                onClick={() => handlePrintReport('absensi')}
+                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Printer size={14} /> Cetak Absensi
+              </button>
+            </div>
           </div>
 
           {/* Quick Absence Stats */}
@@ -854,6 +897,20 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                 Rekapitulasi evaluasi perilaku, keaktifan, kendala, dan tindakan bimbingan yang dilakukan guru
               </p>
             </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handlePrintReport('semua')}
+                className="px-3.5 py-2 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Sparkles size={14} className="text-amber-600" /> Cetak Lengkap
+              </button>
+              <button
+                onClick={() => handlePrintReport('catatan_tindakan')}
+                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Printer size={14} /> Cetak Catatan
+              </button>
+            </div>
           </div>
 
           {catatanTindakanRecords.length === 0 ? (
@@ -934,6 +991,20 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                 Peringkasan otomatis siswa-siswa yang memerlukan perhatian, bimbingan lanjutan, atau apresiasi prestasi
               </p>
             </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handlePrintReport('semua')}
+                className="px-3.5 py-2 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Sparkles size={14} className="text-amber-600" /> Cetak Lengkap
+              </button>
+              <button
+                onClick={() => handlePrintReport('siswa_bercatatan')}
+                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Printer size={14} /> Cetak Siswa
+              </button>
+            </div>
           </div>
 
           {studentNoteSummary.length === 0 ? (
@@ -995,6 +1066,21 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
           setSelectedJurnal(null);
           onEditJurnal(j);
         }}
+      />
+
+      {/* FULL REPORT PRINT PREVIEW MODAL */}
+      <JurnalPrintModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        jurnalList={filteredJurnal}
+        filterPeriod={filterPeriod}
+        startDate={startDate}
+        endDate={endDate}
+        filterKelas={filterKelas}
+        filterMapel={filterMapel}
+        filterGuru={filterGuru}
+        filterPeriode={filterPeriode}
+        defaultMode={printModalMode}
       />
     </div>
   );

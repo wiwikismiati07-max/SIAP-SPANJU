@@ -17,48 +17,62 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
   const totalAlpa = jurnal.siswa_list.filter(s => s.absensi === 'Alpa').length;
 
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
     const html = `
       <!DOCTYPE html>
-      <html>
+      <html lang="id">
         <head>
+          <meta charset="utf-8" />
           <title>Jurnal Pembelajaran - Kelas ${jurnal.kelas} (${jurnal.tanggal})</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; font-size: 12px; }
-            .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; }
-            .header h2 { margin: 0; font-size: 16px; text-transform: uppercase; }
-            .header h3 { margin: 4px 0 0 0; font-size: 14px; font-weight: normal; }
-            .meta-table { width: 100%; margin-bottom: 16px; border-collapse: collapse; }
-            .meta-table td { padding: 4px 8px; vertical-align: top; }
-            .meta-label { font-weight: bold; width: 160px; }
-            table.data { width: 100%; border-collapse: collapse; margin-top: 12px; }
-            table.data th, table.data td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; }
-            table.data th { background-color: #f1f5f9; font-weight: bold; font-size: 11px; }
-            .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 10px; }
+            @page { size: portrait; margin: 15mm; }
+            body { font-family: Arial, sans-serif; margin: 0; color: #1e293b; font-size: 11px; line-height: 1.4; }
+            .kop-header { display: flex; align-items: center; gap: 15px; border-bottom: 3px double #000; padding-bottom: 8px; margin-bottom: 14px; }
+            .kop-header img { width: 70px; height: 70px; object-fit: contain; }
+            .kop-text { flex: 1; text-align: center; }
+            .kop-text h4 { margin: 0; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+            .kop-text h2 { margin: 2px 0; font-size: 16px; font-weight: 900; text-transform: uppercase; color: #0284c7; }
+            .kop-text p { margin: 1px 0; font-size: 9px; color: #334155; }
+            .title-section { text-align: center; margin-bottom: 14px; }
+            .title-section h3 { margin: 0; font-size: 13px; font-weight: bold; text-transform: uppercase; text-decoration: underline; }
+            .meta-table { width: 100%; margin-bottom: 14px; border-collapse: collapse; font-size: 11px; }
+            .meta-table td { padding: 3px 6px; vertical-align: top; }
+            .meta-label { font-weight: bold; width: 140px; color: #334155; }
+            table.data { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 10.5px; }
+            table.data th, table.data td { border: 1px solid #94a3b8; padding: 5px 7px; text-align: left; }
+            table.data th { background-color: #f1f5f9; font-weight: bold; font-size: 10px; text-align: center; text-transform: uppercase; }
+            .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 9px; }
             .hadir { background: #dcfce7; color: #15803d; }
             .sakit { background: #fef9c3; color: #a16207; }
             .izin { background: #dbeafe; color: #1d4ed8; }
             .alpa { background: #fee2e2; color: #b91c1c; }
-            .summary { margin-top: 16px; display: flex; gap: 20px; font-weight: bold; }
-            .signature { margin-top: 40px; display: flex; justify-content: space-between; }
-            .signature-box { text-align: center; width: 220px; }
+            .summary { margin-top: 14px; background: #f8fafc; border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 6px; font-weight: bold; }
+            .signature { margin-top: 30px; display: flex; justify-content: space-between; page-break-inside: avoid; }
+            .signature-box { text-align: center; width: 220px; font-size: 11px; }
             @media print {
-              @page { size: portrait; margin: 15mm; }
               body { margin: 0; }
             }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h2>SMP NEGERI 7 PASURUAN</h2>
-            <h3>JURNAL AGENDA PEMBELAJARAN GURU</h3>
+          <div class="kop-header">
+            <img src="https://iili.io/KDFk4fI.png" alt="Logo SMPN 7" />
+            <div class="kop-text">
+              <h4>Pemerintah Kota Pasuruan</h4>
+              <h4>Dinas Pendidikan dan Kebudayaan</h4>
+              <h2>SMP Negeri 7 Pasuruan</h2>
+              <p>Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur 67139 | Telp: (0343) 426845</p>
+              <p style="color: #0284c7; font-style: italic;">Pos-el: smp7pas@yahoo.co.id | Laman: www.smpn7pasuruan.sch.id</p>
+            </div>
           </div>
+
+          <div class="title-section">
+            <h3>Jurnal Agenda Pembelajaran Guru</h3>
+          </div>
+
           <table class="meta-table">
             <tr>
-              <td class="meta-label">Tanggal</td>
-              <td>: ${jurnal.tanggal}</td>
+              <td class="meta-label">Hari / Tanggal</td>
+              <td>: ${jurnal.hari ? `${jurnal.hari}, ` : ''}${jurnal.tanggal}</td>
               <td class="meta-label">Kelas / Periode</td>
               <td>: Kelas ${jurnal.kelas} ${jurnal.periode ? `(Periode ${jurnal.periode})` : ''}</td>
             </tr>
@@ -74,11 +88,16 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
               <td class="meta-label">Materi</td>
               <td>: ${jurnal.materi}</td>
             </tr>
+            ${jurnal.kegiatan ? `
+            <tr>
+              <td class="meta-label">Uraian Kegiatan</td>
+              <td colspan="3">: ${jurnal.kegiatan}</td>
+            </tr>` : ''}
           </table>
 
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 6px; margin-bottom: 14px;">
-            <strong>Ringkasan Presensi:</strong> 
-            Total Siswa: ${jurnal.siswa_list.length} | 
+          <div class="summary">
+            <strong>Ringkasan Presensi Siswa:</strong> 
+            Total: ${jurnal.siswa_list.length} Siswa | 
             Hadir: ${totalHadir} | 
             Sakit: ${totalSakit} | 
             Izin: ${totalIzin} | 
@@ -88,23 +107,23 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
           <table class="data">
             <thead>
               <tr>
-                <th style="width: 30px; text-align: center;">No</th>
-                <th>Nama Siswa</th>
-                <th style="width: 60px; text-align: center;">Presensi</th>
-                <th style="width: 50px; text-align: center;">Nilai</th>
-                <th>Catatan Siswa</th>
-                <th>Tindakan Guru</th>
+                <th style="width: 25px;">No</th>
+                <th style="text-align: left;">Nama Siswa</th>
+                <th style="width: 60px;">Presensi</th>
+                <th style="width: 45px;">Nilai</th>
+                <th style="text-align: left;">Catatan Perilaku / Kendala</th>
+                <th style="text-align: left;">Tindakan / Solusi Guru</th>
               </tr>
             </thead>
             <tbody>
               ${jurnal.siswa_list.map((s, idx) => `
                 <tr>
                   <td style="text-align: center;">${idx + 1}</td>
-                  <td><strong>${s.nama}</strong></td>
+                  <td><strong>${s.nama}</strong>${s.nis ? ` <span style="font-size: 8px; color: #64748b;">(${s.nis})</span>` : ''}</td>
                   <td style="text-align: center;">
                     <span class="badge ${s.absensi.toLowerCase()}">${s.absensi}</span>
                   </td>
-                  <td style="text-align: center;">${s.nilai || '-'}</td>
+                  <td style="text-align: center; font-weight: bold;">${s.nilai || '-'}</td>
                   <td>${s.catatan_siswa || '-'}</td>
                   <td>${s.tindakan || '-'}</td>
                 </tr>
@@ -115,22 +134,51 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
           <div class="signature">
             <div class="signature-box">
               <p>Mengetahui,</p>
-              <p>Kepala SMPN 7 Pasuruan</p>
+              <p style="font-weight: bold;">Kepala SMP Negeri 7 Pasuruan</p>
               <br/><br/><br/>
-              <p><strong>(......................................................)</strong></p>
-              <p>NIP. -</p>
+              <p style="font-weight: bold; text-decoration: underline;">NUR FADILAH, S.Pd</p>
+              <p style="font-size: 10px;">NIP. 19860410 201001 2 030</p>
             </div>
             <div class="signature-box">
               <p>Pasuruan, ${jurnal.tanggal}</p>
-              <p>Guru Mata Pelajaran,</p>
+              <p style="font-weight: bold;">Guru Mata Pelajaran,</p>
               <br/><br/><br/>
-              <p><strong>${jurnal.nama_guru}</strong></p>
-              <p>NIP. -</p>
+              <p style="font-weight: bold; text-decoration: underline;">${jurnal.nama_guru}</p>
+              <p style="font-size: 10px;">NIP. ....................................</p>
             </div>
           </div>
         </body>
       </html>
     `;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      // Fallback using invisible iframe for iframe sandboxes
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+      const doc = iframe.contentWindow?.document;
+      if (doc) {
+        doc.open();
+        doc.write(html);
+        doc.close();
+        iframe.contentWindow?.focus();
+        setTimeout(() => {
+          iframe.contentWindow?.print();
+          setTimeout(() => {
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+          }, 1000);
+        }, 500);
+      }
+      return;
+    }
 
     printWindow.document.write(html);
     printWindow.document.close();
