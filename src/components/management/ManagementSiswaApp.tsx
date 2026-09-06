@@ -1439,6 +1439,25 @@ CREATE TABLE IF NOT EXISTS public.pengaduan_wali (
     status TEXT DEFAULT 'Menunggu',
     tanggapan TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.jurnal_pembelajaran (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tanggal DATE NOT NULL,
+    jam_ke TEXT NOT NULL,
+    jam_mulai TEXT,
+    jam_selesai TEXT,
+    mapel_id TEXT,
+    nama_mapel TEXT NOT NULL,
+    guru_id TEXT,
+    nama_guru TEXT NOT NULL,
+    kelas TEXT NOT NULL,
+    materi TEXT NOT NULL,
+    kegiatan TEXT,
+    foto_kegiatan JSONB DEFAULT '[]'::jsonb,
+    siswa_list JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );`;
                     navigator.clipboard.writeText(sqlText);
                     setCopiedSql(true);
@@ -1652,6 +1671,25 @@ CREATE TABLE IF NOT EXISTS public.pengaduan_wali (
     status TEXT DEFAULT 'Menunggu',
     tanggapan TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.jurnal_pembelajaran (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tanggal DATE NOT NULL,
+    jam_ke TEXT NOT NULL,
+    jam_mulai TEXT,
+    jam_selesai TEXT,
+    mapel_id TEXT,
+    nama_mapel TEXT NOT NULL,
+    guru_id TEXT,
+    nama_guru TEXT NOT NULL,
+    kelas TEXT NOT NULL,
+    materi TEXT NOT NULL,
+    kegiatan TEXT,
+    foto_kegiatan JSONB DEFAULT '[]'::jsonb,
+    siswa_list JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );`}
               </pre>
             </div>
