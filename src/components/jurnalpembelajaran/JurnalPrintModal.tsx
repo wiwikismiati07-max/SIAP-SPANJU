@@ -637,16 +637,16 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             {/* Subject Picker Dropdown (Active in Per Mapel mode) */}
             {subjectGroups.length > 1 && (
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-xl">
-                <span className="text-[11px] font-semibold text-slate-500">Mata Pelajaran:</span>
+              <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl">
+                <span className="text-[11px] font-bold text-amber-700">Pilih Mapel untuk Dicetak:</span>
                 <select
                   value={selectedSubjectFilter}
                   onChange={(e) => setSelectedSubjectFilter(e.target.value)}
-                  className="bg-transparent font-bold text-slate-800 text-xs focus:outline-none cursor-pointer"
+                  className="bg-transparent font-black text-amber-900 text-xs focus:outline-none cursor-pointer"
                 >
-                  <option value="semua">Semua ({subjectGroups.length} Mapel - Multi Halaman)</option>
+                  <option value="semua">Tampilkan Semua (Masing-masing Beda Halaman)</option>
                   {subjectGroups.map(g => (
-                    <option key={g.mapel} value={g.mapel}>{g.mapel} ({g.totalPertemuan} Pertemuan)</option>
+                    <option key={g.mapel} value={g.mapel}>{g.mapel} (Hanya cetak ini)</option>
                   ))}
                 </select>
               </div>
@@ -749,14 +749,14 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
               return (
                 <div 
                   key={group.mapel}
-                  className={`bg-white p-8 md:p-12 shadow-2xl rounded-sm text-slate-900 text-[10.5px] leading-relaxed border border-slate-300 print:border-none print:shadow-none print:p-0 print:m-0 print:rounded-none ${
-                    groupIdx > 0 ? 'page-break' : ''
+                  className={`bg-white p-8 md:p-12 shadow-2xl rounded-sm text-slate-900 text-[10.5px] leading-relaxed border border-slate-300 print:border-none print:shadow-none print:p-0 print:m-0 print:rounded-none relative ${
+                    groupIdx > 0 ? 'page-break mt-8 print:mt-0' : ''
                   }`}
                 >
                   {/* Visual Divider in screen preview */}
                   {groupIdx > 0 && (
-                    <div className="hidden print:hidden border-b-2 border-dashed border-amber-300 pb-2 mb-6 text-center text-xs font-bold text-amber-700">
-                      📄 Halaman Berikutnya: Mata Pelajaran {group.mapel}
+                    <div className="block print:hidden absolute -top-5 left-0 w-full text-center text-xs font-bold text-slate-400">
+                      📄 Halaman Baru (Mata Pelajaran: {group.mapel})
                     </div>
                   )}
 
