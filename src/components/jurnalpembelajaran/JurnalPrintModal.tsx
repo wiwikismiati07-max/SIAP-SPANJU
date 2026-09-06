@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Printer, 
@@ -15,6 +15,7 @@ import {
   Check
 } from 'lucide-react';
 import { JurnalPembelajaran } from '../../types/jurnalpembelajaran';
+import { fetchGuruList } from '../../lib/jurnalService';
 
 interface JurnalPrintModalProps {
   isOpen: boolean;
@@ -108,6 +109,16 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
   const [docDate, setDocDate] = useState<string>(`Pasuruan, ${todayFormatted}`);
   const [kepsekName, setKepsekName] = useState<string>('NUR FADILAH, S.Pd');
   const [kepsekNip, setKepsekNip] = useState<string>('19860410 201001 2 030');
+
+  const [guruMasterList, setGuruMasterList] = useState<{ id: string; nama_guru: string; nip?: string }[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchGuruList().then((data) => {
+        if (data) setGuruMasterList(data);
+      }).catch(console.error);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -745,6 +756,14 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
             activeSubjectGroups.map((group, groupIdx) => {
               // Primary teacher for signature
               const groupTeacher = group.guruList.length > 0 ? group.guruList.join(', ') : 'Guru Mata Pelajaran';
+              
+              let teacherNip = '....................................';
+              if (group.guruList.length > 0) {
+                const primaryGuru = guruMasterList.find(g => g.nama_guru === group.guruList[0]);
+                if (primaryGuru && primaryGuru.nip) {
+                  teacherNip = primaryGuru.nip;
+                }
+              }
 
               return (
                 <div 
@@ -1176,7 +1195,7 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
                             {groupTeacher || '................................................'}
                           </div>
                           <div className="text-[9.5px] text-slate-600 font-medium">
-                            NIP. ....................................
+                            NIP. {teacherNip}
                           </div>
                         </div>
                       </div>
