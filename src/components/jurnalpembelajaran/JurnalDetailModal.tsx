@@ -25,6 +25,7 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
           <title>Jurnal Pembelajaran - Kelas ${jurnal.kelas} (${jurnal.tanggal})</title>
           <style>
             @page { size: portrait; margin: 15mm; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             body { font-family: Arial, sans-serif; margin: 0; color: #1e293b; font-size: 11px; line-height: 1.4; }
             .kop-header { display: flex; align-items: center; gap: 15px; border-bottom: 3px double #000; padding-bottom: 8px; margin-bottom: 14px; }
             .kop-header img { width: 70px; height: 70px; object-fit: contain; }
@@ -33,19 +34,39 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
             .kop-text h2 { margin: 2px 0; font-size: 16px; font-weight: 900; text-transform: uppercase; color: #0284c7; }
             .kop-text p { margin: 1px 0; font-size: 9px; color: #334155; }
             .title-section { text-align: center; margin-bottom: 14px; }
-            .title-section h3 { margin: 0; font-size: 13px; font-weight: bold; text-transform: uppercase; text-decoration: underline; }
-            .meta-table { width: 100%; margin-bottom: 14px; border-collapse: collapse; font-size: 11px; }
-            .meta-table td { padding: 3px 6px; vertical-align: top; }
-            .meta-label { font-weight: bold; width: 140px; color: #334155; }
-            table.data { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 10.5px; }
-            table.data th, table.data td { border: 1px solid #94a3b8; padding: 5px 7px; text-align: left; }
-            table.data th { background-color: #f1f5f9; font-weight: bold; font-size: 10px; text-align: center; text-transform: uppercase; }
-            .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 9px; }
+            .title-section h3 { margin: 0; font-size: 13px; font-weight: bold; text-transform: uppercase; text-decoration: underline; color: #0f172a; }
+            
+            .info-cards { display: flex; gap: 10px; margin-bottom: 14px; }
+            .info-card { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid; }
+            .info-card.yellow { background-color: #fffbeb; border-color: #fef3c7; }
+            .info-card.blue { background-color: #f0f9ff; border-color: #e0f2fe; }
+            .info-card.green { background-color: #f0fdf4; border-color: #dcfce7; }
+            .card-title { font-size: 9px; font-weight: bold; text-transform: uppercase; margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
+            .info-card.yellow .card-title { color: #92400e; }
+            .info-card.blue .card-title { color: #0369a1; }
+            .info-card.green .card-title { color: #166534; }
+            .card-value { font-size: 13px; font-weight: 900; color: #0f172a; margin-bottom: 2px; }
+            .card-desc { font-size: 10px; color: #475569; }
+            
+            .kegiatan-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 8px; margin-bottom: 14px; }
+            .kegiatan-title { font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 4px; }
+            
+            table.data { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; font-size: 10.5px; border-radius: 8px; overflow: hidden; border: 1px solid #cbd5e1; }
+            table.data th, table.data td { border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; }
+            table.data th:last-child, table.data td:last-child { border-right: none; }
+            table.data tr:last-child td { border-bottom: none; }
+            table.data th { background-color: #f1f5f9; font-weight: bold; font-size: 10px; text-align: center; text-transform: uppercase; color: #475569; border-bottom: 2px solid #cbd5e1; }
+            
+            .badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-weight: bold; font-size: 9.5px; text-align: center; }
             .hadir { background: #dcfce7; color: #15803d; }
-            .sakit { background: #fef9c3; color: #a16207; }
+            .sakit { background: #fef3c7; color: #b45309; }
             .izin { background: #dbeafe; color: #1d4ed8; }
             .alpa { background: #fee2e2; color: #b91c1c; }
-            .summary { margin-top: 14px; background: #f8fafc; border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 6px; font-weight: bold; }
+            
+            .summary { margin-top: 14px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 14px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; }
+            .summary-title { font-weight: bold; color: #475569; font-size: 10.5px; text-transform: uppercase; }
+            .summary-stats { display: flex; gap: 8px; }
+            
             .signature { margin-top: 30px; display: flex; justify-content: space-between; page-break-inside: avoid; }
             .signature-box { text-align: center; width: 220px; font-size: 11px; }
             @media print {
@@ -54,54 +75,67 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
           </style>
         </head>
         <body>
-          <div class="kop-header">
-            <img src="https://iili.io/KDFk4fI.png" alt="Logo SMPN 7" />
-            <div class="kop-text">
-              <h4>Pemerintah Kota Pasuruan</h4>
-              <h4>Dinas Pendidikan dan Kebudayaan</h4>
-              <h2>SMP Negeri 7 Pasuruan</h2>
-              <p>Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur 67139 | Telp: (0343) 426845</p>
-              <p style="color: #0284c7; font-style: italic;">Pos-el: smp7pas@yahoo.co.id | Laman: www.smpn7pasuruan.sch.id</p>
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 3px double #000; padding-bottom: 8px; margin-bottom: 14px;">
+            <img src="https://i.ibb.co.com/C3Y7JXkN/logo-dinas.png" style="width: 65px; height: 65px; object-fit: contain;" alt="Logo Dinas" />
+            <div style="text-align: center; flex: 1; padding: 0 10px;">
+              <h4 style="margin: 0; font-size: 10px; font-weight: bold; text-transform: uppercase;">Pemerintah Kota Pasuruan • Dinas Pendidikan dan Kebudayaan</h4>
+              <h2 style="margin: 2px 0; font-size: 15px; font-weight: 900; text-transform: uppercase; color: #0369a1;">SMP Negeri 7 Pasuruan</h2>
+              <p style="margin: 1px 0; font-size: 8.5px; color: #334155;">Jl. KH. Achmad Dahlan No. 58, Telp. (0343) 424364 Pasuruan, Jawa Timur 67126</p>
+              <p style="margin: 1px 0; font-size: 8.5px; color: #0369a1; font-style: italic;">Pos-el: smpn7pasuruan@gmail.com | Laman: smpn7pasuruan.sch.id</p>
             </div>
+            <img src="https://iili.io/KDFk4fI.png" style="width: 65px; height: 65px; object-fit: contain;" alt="Logo SMPN 7" />
           </div>
 
           <div class="title-section">
-            <h3>Jurnal Agenda Pembelajaran Guru</h3>
+            <h3>Jurnal Pembelajaran Guru</h3>
           </div>
 
-          <table class="meta-table">
-            <tr>
-              <td class="meta-label">Hari / Tanggal</td>
-              <td>: ${jurnal.hari ? `${jurnal.hari}, ` : ''}${jurnal.tanggal}</td>
-              <td class="meta-label">Kelas / Periode</td>
-              <td>: Kelas ${jurnal.kelas} ${jurnal.periode ? `(Periode ${jurnal.periode})` : ''}</td>
-            </tr>
-            <tr>
-              <td class="meta-label">Jam Ke / Waktu</td>
-              <td>: ${jurnal.jam_ke} (${jurnal.jam_mulai} - ${jurnal.jam_selesai})</td>
-              <td class="meta-label">Mata Pelajaran</td>
-              <td>: ${jurnal.nama_mapel}</td>
-            </tr>
-            <tr>
-              <td class="meta-label">Guru Pengajar</td>
-              <td>: ${jurnal.nama_guru}</td>
-              <td class="meta-label">Materi</td>
-              <td>: ${jurnal.materi}</td>
-            </tr>
-            ${jurnal.kegiatan ? `
-            <tr>
-              <td class="meta-label">Uraian Kegiatan</td>
-              <td colspan="3">: ${jurnal.kegiatan}</td>
-            </tr>` : ''}
-          </table>
+          <div class="info-cards">
+            <div class="info-card yellow">
+              <div class="card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+                Mata Pelajaran & Materi
+              </div>
+              <div class="card-value">${jurnal.nama_mapel}</div>
+              <div class="card-desc">Materi: <strong>${jurnal.materi}</strong></div>
+            </div>
+
+            <div class="info-card blue">
+              <div class="card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                Guru & Kelas
+              </div>
+              <div class="card-value">${jurnal.nama_guru}</div>
+              <div class="card-desc">Kelas: <strong>${jurnal.kelas}</strong> ${jurnal.periode ? `<span style="background: #fef3c7; color: #92400e; padding: 2px 4px; border-radius: 4px; border: 1px solid #fde68a; font-weight: bold; font-size: 8px;">Periode ${jurnal.periode}</span>` : ''}</div>
+            </div>
+
+            <div class="info-card green">
+              <div class="card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Waktu & Tanggal
+              </div>
+              <div class="card-value">${jurnal.jam_ke}</div>
+              <div class="card-desc">${jurnal.jam_mulai} - ${jurnal.jam_selesai} • ${jurnal.hari ? `${jurnal.hari}, ` : ''}${jurnal.tanggal}</div>
+            </div>
+          </div>
+
+          ${jurnal.kegiatan ? `
+          <div class="kegiatan-box">
+            <div class="kegiatan-title">Uraian Kegiatan</div>
+            <div>${jurnal.kegiatan}</div>
+          </div>` : ''}
 
           <div class="summary">
-            <strong>Ringkasan Presensi Siswa:</strong> 
-            Total: ${jurnal.siswa_list.length} Siswa | 
-            Hadir: ${totalHadir} | 
-            Sakit: ${totalSakit} | 
-            Izin: ${totalIzin} | 
-            Alpa: ${totalAlpa}
+            <div class="summary-title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 4px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Ringkasan Kehadiran (${jurnal.siswa_list.length} Siswa)
+            </div>
+            <div class="summary-stats">
+              <div class="badge hadir">Hadir: ${totalHadir}</div>
+              <div class="badge sakit">Sakit: ${totalSakit}</div>
+              <div class="badge izin">Izin: ${totalIzin}</div>
+              <div class="badge alpa">Alpa: ${totalAlpa}</div>
+            </div>
           </div>
 
           ${jurnal.foto_kegiatan && jurnal.foto_kegiatan.length > 0 ? `

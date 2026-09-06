@@ -477,17 +477,11 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
 
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={handleExportExcel}
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
-            >
-              <Download size={15} /> Ekspor Excel
-            </button>
-            <button
               onClick={() => handlePrintReport(activeReportTab)}
               className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
               title="Cetak bagian tabel yang sedang aktif"
             >
-              <Printer size={15} /> Cetak Tabel Ini
+              <Printer size={15} /> Cetak Laporan
             </button>
           </div>
         </div>
