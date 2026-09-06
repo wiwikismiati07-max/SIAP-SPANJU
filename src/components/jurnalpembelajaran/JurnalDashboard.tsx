@@ -32,7 +32,26 @@ export const JurnalDashboard: React.FC<JurnalDashboardProps> = ({
   onViewDetail 
 }) => {
   const [showSqlModal, setShowSqlModal] = useState(false);
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
+  const [sqlPassword, setSqlPassword] = useState('');
+  const [passwordError, setPasswordError] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
+
+  const handleSqlButtonClick = () => {
+    setShowPasswordPrompt(true);
+    setSqlPassword('');
+    setPasswordError(false);
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (sqlPassword === 'admin123') {
+      setShowPasswordPrompt(false);
+      setShowSqlModal(true);
+    } else {
+      setPasswordError(true);
+    }
+  };
 
   const SQL_SCRIPT = `-- =========================================================================
 -- SKRIP TABEL DATABASE: JURNAL PEMBELAJARAN (SMPN 7 PASURUAN)
@@ -146,7 +165,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
               <FileBarChart size={16} /> Buka Laporan
             </button>
             <button
-              onClick={() => setShowSqlModal(true)}
+              onClick={handleSqlButtonClick}
               className="px-4 py-2.5 bg-black/30 hover:bg-black/40 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-white/20 shadow-sm"
             >
               <Database size={15} /> Skrip SQL Tabel
@@ -350,6 +369,60 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
               >
                 Tutup
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* PASSWORD PROMPT MODAL */}
+      {showPasswordPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col border border-slate-100">
+            <div className="p-6">
+              <h3 className="text-lg font-black text-slate-800 mb-2 flex items-center gap-2">
+                <AlertTriangle className="text-amber-500" size={20} /> Autentikasi Admin
+              </h3>
+              <p className="text-xs text-slate-500 mb-4">
+                Masukkan kata sandi untuk mengakses skrip SQL.
+              </p>
+              
+              <form onSubmit={handlePasswordSubmit}>
+                <div className="mb-4">
+                  <input
+                    type="password"
+                    value={sqlPassword}
+                    onChange={(e) => {
+                      setSqlPassword(e.target.value);
+                      setPasswordError(false);
+                    }}
+                    placeholder="Masukkan password..."
+                    className={`w-full px-4 py-3 bg-slate-50 border rounded-xl focus:outline-none focus:ring-2 transition-all text-sm font-medium ${
+                      passwordError ? 'border-rose-300 focus:ring-rose-500/50 focus:border-rose-500' : 'border-slate-200 focus:ring-amber-500/50 focus:border-amber-500'
+                    }`}
+                    autoFocus
+                  />
+                  {passwordError && (
+                    <p className="text-xs text-rose-500 mt-2 font-bold flex items-center gap-1">
+                      <X size={12} /> Password salah. Akses ditolak.
+                    </p>
+                  )}
+                </div>
+                
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordPrompt(false)}
+                    className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors shadow-md cursor-pointer"
+                  >
+                    Akses Skrip
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
