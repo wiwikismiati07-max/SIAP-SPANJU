@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Printer, Calendar, Clock, BookOpen, User, Users, CheckCircle2, AlertTriangle, FileText, Image as ImageIcon } from 'lucide-react';
 import { JurnalPembelajaran } from '../../types/jurnalpembelajaran';
-import { fetchGuruList } from '../../lib/jurnalService';
+import { fetchGuruList, findGuruNip } from '../../lib/jurnalService';
 
 interface JurnalDetailModalProps {
   jurnal: JurnalPembelajaran | null;
@@ -14,7 +14,7 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
 
   useEffect(() => {
     if (jurnal) {
-      fetchGuruList().then((data) => {
+      fetchGuruList().then(data => {
         if (data) setGuruMasterList(data);
       }).catch(console.error);
     }
@@ -27,16 +27,9 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
   const totalIzin = jurnal.siswa_list.filter(s => s.absensi === 'Izin').length;
   const totalAlpa = jurnal.siswa_list.filter(s => s.absensi === 'Alpa').length;
 
-  const handlePrint = () => {
-    let teacherNip = '....................................';
-    if (jurnal.nama_guru) {
-      const searchName = jurnal.nama_guru.trim().toLowerCase();
-      const primaryGuru = guruMasterList.find(g => g.nama_guru?.trim().toLowerCase() === searchName);
-      if (primaryGuru && primaryGuru.nip && primaryGuru.nip.trim() !== '') {
-        teacherNip = primaryGuru.nip;
-      }
-    }
+  const teacherNip = findGuruNip(jurnal.nama_guru, guruMasterList, jurnal.nip_guru);
 
+  const handlePrint = () => {
     const html = `
       <!DOCTYPE html>
       <html lang="id">
@@ -126,7 +119,7 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
                 Guru & Kelas
               </div>
               <div class="card-value">${jurnal.nama_guru}</div>
-              <div class="card-desc">Kelas: <strong>${jurnal.kelas}</strong> ${jurnal.periode ? `<span style="background: #fef3c7; color: #92400e; padding: 2px 4px; border-radius: 4px; border: 1px solid #fde68a; font-weight: bold; font-size: 8px;">Periode ${jurnal.periode}</span>` : ''}</div>
+              <div class="card-desc">Kelas: <strong>${jurnal.kelas}</strong> ${teacherNip ? `• NIP. ${teacherNip}` : ''} ${jurnal.periode ? `<span style="background: #fef3c7; color: #92400e; padding: 2px 4px; border-radius: 4px; border: 1px solid #fde68a; font-weight: bold; font-size: 8px;">Periode ${jurnal.periode}</span>` : ''}</div>
             </div>
 
             <div class="info-card green">
@@ -211,7 +204,7 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
               <p style="font-weight: bold;">Guru Mata Pelajaran,</p>
               <br/><br/><br/>
               <p style="font-weight: bold; text-decoration: underline;">${jurnal.nama_guru}</p>
-              <p style="font-size: 10px;">NIP. ${teacherNip}</p>
+              <p style="font-size: 10px;">${teacherNip ? `NIP. ${teacherNip}` : 'NIP. ....................................'}</p>
             </div>
           </div>
         </body>
@@ -304,8 +297,14 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
                 <User size={14} /> Guru & Kelas
               </div>
               <div className="text-base font-black text-slate-900">{jurnal.nama_guru}</div>
-              <div className="text-xs text-slate-600 font-medium mt-1">
-                Kelas: <span className="font-bold text-blue-700">{jurnal.kelas}</span> {jurnal.periode ? <span className="ml-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">Periode {jurnal.periode}</span> : null}
+              <div className="text-xs text-slate-600 font-medium mt-1 flex items-center flex-wrap gap-1.5">
+                <span>Kelas: <span className="font-bold text-blue-700">{jurnal.kelas}</span></span>
+                {teacherNip && (
+                  <span className="text-[11px] font-bold text-blue-800 bg-blue-100/80 px-2 py-0.5 rounded-full border border-blue-200">
+                    NIP. {teacherNip}
+                  </span>
+                )}
+                {jurnal.periode ? <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">Periode {jurnal.periode}</span> : null}
               </div>
             </div>
 

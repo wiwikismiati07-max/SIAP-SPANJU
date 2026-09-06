@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   FileText, 
   Calendar, 
@@ -25,7 +25,7 @@ import * as XLSX from 'xlsx';
 import { JurnalPembelajaran, DAFTAR_KELAS } from '../../types/jurnalpembelajaran';
 import { JurnalDetailModal } from './JurnalDetailModal';
 import { JurnalPrintModal } from './JurnalPrintModal';
-import { deleteJurnal } from '../../lib/jurnalService';
+import { deleteJurnal, fetchGuruList, findGuruNip } from '../../lib/jurnalService';
 
 interface JurnalLaporanProps {
   jurnalList: JurnalPembelajaran[];
@@ -56,6 +56,13 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
   const [filterPeriode, setFilterPeriode] = useState<string>('semua');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterStatusAbsen, setFilterStatusAbsen] = useState<'semua' | 'Sakit' | 'Izin' | 'Alpa'>('semua');
+  const [guruMasterList, setGuruMasterList] = useState<{ id: string; nama_guru: string; nip?: string }[]>([]);
+
+  useEffect(() => {
+    fetchGuruList().then(data => {
+      if (data) setGuruMasterList(data);
+    }).catch(console.error);
+  }, []);
 
   // Detail Modal
   const [selectedJurnal, setSelectedJurnal] = useState<JurnalPembelajaran | null>(null);
@@ -335,6 +342,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
           'Kelas': j.kelas,
           'Mata Pelajaran': j.nama_mapel,
           'Guru Pengajar': j.nama_guru,
+          'NIP Guru': findGuruNip(j.nama_guru, guruMasterList, j.nip_guru) || '-',
           'Materi Pembelajaran': j.materi,
           'Uraian Kegiatan': j.kegiatan || '-',
           'Hadir': hadir,
@@ -355,6 +363,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
         'Kelas': r.kelas,
         'Mata Pelajaran': r.nama_mapel,
         'Guru Pengajar': r.nama_guru,
+        'NIP Guru': findGuruNip(r.nama_guru, guruMasterList) || '-',
         'NIS': r.nis || '-',
         'Nama Siswa': r.nama_siswa,
         'Status Presensi': r.status,
@@ -371,6 +380,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
         'Kelas': r.kelas,
         'Mata Pelajaran': r.nama_mapel,
         'Guru Pengajar': r.nama_guru,
+        'NIP Guru': findGuruNip(r.nama_guru, guruMasterList) || '-',
         'Nama Siswa': r.nama_siswa,
         'Nilai': r.nilai,
         'Catatan Siswa': r.catatan_siswa,
@@ -686,8 +696,12 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                         </td>
                         <td className="p-3">
                           <div className="font-bold text-slate-900">{j.nama_mapel}</div>
-                          <div className="text-xs text-slate-600 font-medium flex items-center gap-1 mt-0.5">
-                            <span className="text-slate-400">Guru:</span> {j.nama_guru}
+                          <div className="text-xs text-slate-600 font-medium flex items-center flex-wrap gap-1 mt-0.5">
+                            <span className="text-slate-400">Guru:</span> <span>{j.nama_guru}</span>
+                            {(() => {
+                              const tNip = findGuruNip(j.nama_guru, guruMasterList, j.nip_guru);
+                              return tNip ? <span className="text-[10px] text-slate-500 font-normal">(NIP: {tNip})</span> : null;
+                            })()}
                           </div>
                         </td>
                         <td className="p-3">

@@ -33,7 +33,8 @@ import {
   fetchSiswaByKelas, 
   saveJurnal,
   generateUUID,
-  isValidUUID
+  isValidUUID,
+  findGuruNip
 } from '../../lib/jurnalService';
 import { compressImage } from '../../lib/imageCompressor';
 
@@ -57,7 +58,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
   const [customMapel, setCustomMapel] = useState<string>('');
   const [isCustomMapel, setIsCustomMapel] = useState<boolean>(false);
 
-  const [guruList, setGuruList] = useState<{ id: string; nama_guru: string }[]>([]);
+  const [guruList, setGuruList] = useState<{ id: string; nama_guru: string; nip?: string }[]>([]);
   const [selectedGuru, setSelectedGuru] = useState<string>('');
   const [customGuru, setCustomGuru] = useState<string>('');
   const [isCustomGuru, setIsCustomGuru] = useState<boolean>(false);
@@ -267,6 +268,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
     setIsSaving(true);
 
     const safeId = isValidUUID(initialData?.id) ? initialData!.id : generateUUID();
+    const detectedNip = findGuruNip(finalGuru, guruList);
 
     const jurnalData: JurnalPembelajaran = {
       id: safeId,
@@ -277,6 +279,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
       periode: selectedPeriode || '2026',
       nama_mapel: finalMapel,
       nama_guru: finalGuru,
+      nip_guru: detectedNip || initialData?.nip_guru || '',
       kelas,
       materi: materi.trim(),
       kegiatan: kegiatan.trim(),
@@ -509,10 +512,24 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-semibold transition-all"
               >
                 {guruList.map(g => (
-                  <option key={g.id} value={g.nama_guru}>{g.nama_guru}</option>
+                  <option key={g.id} value={g.nama_guru}>
+                    {g.nama_guru} {g.nip ? `(NIP: ${g.nip})` : ''}
+                  </option>
                 ))}
               </select>
             )}
+
+            {/* Indicator of auto-detected NIP */}
+            {(() => {
+              const activeGuru = isCustomGuru ? customGuru : selectedGuru;
+              const activeNip = findGuruNip(activeGuru, guruList);
+              return activeNip ? (
+                <div className="mt-2 text-[11px] font-semibold text-sky-800 bg-sky-50 px-2.5 py-1 rounded-lg border border-sky-200 inline-flex items-center gap-1.5">
+                  <span className="text-sky-600">NIP Otomatis:</span>
+                  <span className="font-bold tracking-wide">{activeNip}</span>
+                </div>
+              ) : null;
+            })()}
           </div>
         </div>
 

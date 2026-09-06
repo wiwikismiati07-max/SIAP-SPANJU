@@ -23,6 +23,7 @@ export interface JurnalPembelajaran {
   nama_mapel: string;
   guru_id?: string;
   nama_guru: string;
+  nip_guru?: string;
   kelas: string;
   materi: string;
   kegiatan?: string;

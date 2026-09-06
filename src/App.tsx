@@ -128,16 +128,21 @@ export default function App() {
   const [showTracingPublic, setShowTracingPublic] = useState(false);
   const [user, setUser] = useState<any>(null);
 
-  // Responsive handling
+  // Responsive handling & restore session
   useEffect(() => {
     const savedUser = localStorage.getItem('app_user');
     if (savedUser) {
       try {
         const userData = JSON.parse(savedUser);
-        setUser(userData);
-        setIsLoggedIn(true);
+        if (userData && typeof userData === 'object') {
+          setUser(userData);
+          setIsLoggedIn(true);
+          setIsDashboard(true);
+          setActiveSection('menu_aplikasi');
+        }
       } catch (e) {
         console.error("Failed to parse saved user", e);
+        localStorage.removeItem('app_user');
       }
     }
 
@@ -237,6 +242,8 @@ export default function App() {
     setIsLoggedIn(false);
     setActiveSection(null);
   };
+
+  const currentUserRole = (user?.role === 'view' || user?.role === 'entry') ? user.role : 'full';
 
   const sidebarItems = [
     { id: 'menu_aplikasi', title: 'MENU APLIKASI', subtitle: 'DAFTAR SEMUA APLIKASI', icon: LayoutDashboard, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
@@ -426,7 +433,7 @@ export default function App() {
           <InstallPWA variant="sidebar" className="mb-3" />
 
           {/* Static Sections */}
-          {sidebarItems.filter(item => item.roles.includes(user?.role)).map((section) => (
+          {sidebarItems.filter(item => item.roles.includes(currentUserRole)).map((section) => (
             <button
               key={section.id}
               onClick={() => {
@@ -929,7 +936,7 @@ export default function App() {
 
                 {/* Grid of Apps */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                  {sidebarItems.filter(item => item.roles.includes(user?.role) && !['kilas', 'program', 'spip', 'korelasi_program', 'korelasi_sra', 'survey', 'menu_aplikasi'].includes(item.id)).map(app => (
+                  {sidebarItems.filter(item => item.roles.includes(currentUserRole) && !['kilas', 'program', 'spip', 'korelasi_program', 'korelasi_sra', 'survey', 'menu_aplikasi'].includes(item.id)).map(app => (
                     <button
                       key={app.id}
                       onClick={() => setActiveSection(app.id as any)}
@@ -1040,12 +1047,19 @@ export default function App() {
 
           {/* Default/Landing Section */}
           {!activeSection && (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-12 text-center">
-              <div className="w-24 h-24 bg-white/60 rounded-full flex items-center justify-center mb-6 shadow-inner border border-white/50 backdrop-blur-md">
-                <LayoutDashboard className="w-12 h-12 text-pink-500" />
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-8 md:p-12 text-center">
+              <div className="w-20 h-20 md:w-24 md:h-24 bg-white/80 rounded-3xl flex items-center justify-center mb-6 shadow-xl border border-white/50 backdrop-blur-md">
+                <LayoutDashboard className="w-10 h-10 md:w-12 md:h-12 text-pink-500" />
               </div>
-              <h3 className="text-2xl font-black text-slate-800 mb-2">Selamat Datang di SIAP SPANJU</h3>
-              <p className="max-w-xs font-medium">Pilih menu di samping untuk mulai menjelajahi sistem integrasi kami.</p>
+              <h3 className="text-2xl md:text-3xl font-black text-slate-800 mb-2 font-display">Selamat Datang di SIAP SPANJU</h3>
+              <p className="max-w-md text-sm text-slate-500 font-medium mb-6">Pusat Integrasi Layanan &amp; Pembinaan Siswa SMP Negeri 7 Pasuruan.</p>
+              <button
+                onClick={() => setActiveSection('menu_aplikasi')}
+                className="px-8 py-3.5 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-pink-200 transition-all cursor-pointer hover:scale-105 active:scale-95 flex items-center gap-2"
+              >
+                <LayoutDashboard size={16} />
+                <span>Buka Menu Aplikasi</span>
+              </button>
             </div>
           )}
         </AnimatePresence>

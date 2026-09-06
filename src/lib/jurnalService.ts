@@ -278,6 +278,63 @@ export const deleteJurnal = async (id: string): Promise<{ success: boolean; erro
   }
 };
 
+// Clean and normalize teacher name for matching
+export const cleanTeacherName = (name: string): string => {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .replace(/(s\.pd|m\.pd|s\.kom|s\.si|m\.m|s\.e|s\.hi|s\.pd\.i|dra|drs|hj|h|dr|prof)\.?/gi, '')
+    .replace(/[^a-z0-9]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+// Helper to find guru NIP from name and master list
+export const findGuruNip = (
+  namaGuru?: string, 
+  guruList?: { id: string; nama_guru: string; nip?: string }[],
+  explicitNip?: string
+): string => {
+  if (explicitNip && explicitNip.trim().length > 3 && explicitNip.trim() !== '-') {
+    return explicitNip.replace(/\r|\n/g, '').trim();
+  }
+  if (!namaGuru || !guruList || guruList.length === 0) {
+    return '';
+  }
+
+  const rawInput = namaGuru.trim();
+  const cleanInput = rawInput.toLowerCase();
+  
+  // 1. Exact or case-insensitive match
+  const exact = guruList.find(g => g.nama_guru && g.nama_guru.trim().toLowerCase() === cleanInput);
+  if (exact?.nip && exact.nip.trim().length > 3 && exact.nip.trim() !== '-') {
+    return exact.nip.replace(/\r|\n/g, '').trim();
+  }
+
+  // 2. Cleaned name match (without titles like S.Pd, M.Pd, etc.)
+  const baseInput = cleanTeacherName(rawInput);
+  if (baseInput.length >= 3) {
+    const titleMatch = guruList.find(g => {
+      const baseG = cleanTeacherName(g.nama_guru || '');
+      return baseG && (baseG === baseInput || baseG.includes(baseInput) || baseInput.includes(baseG));
+    });
+    if (titleMatch?.nip && titleMatch.nip.trim().length > 3 && titleMatch.nip.trim() !== '-') {
+      return titleMatch.nip.replace(/\r|\n/g, '').trim();
+    }
+  }
+
+  // 3. Substring match
+  const subMatch = guruList.find(g => {
+    const gn = (g.nama_guru || '').toLowerCase();
+    return gn.includes(cleanInput) || cleanInput.includes(gn);
+  });
+  if (subMatch?.nip && subMatch.nip.trim().length > 3 && subMatch.nip.trim() !== '-') {
+    return subMatch.nip.replace(/\r|\n/g, '').trim();
+  }
+
+  return '';
+};
+
 // Fetch list of teachers
 export const fetchGuruList = async (): Promise<{ id: string; nama_guru: string; nip?: string }[]> => {
   try {
@@ -288,30 +345,49 @@ export const fetchGuruList = async (): Promise<{ id: string; nama_guru: string; 
         .order('nama_guru', { ascending: true });
 
       if (!error && data && data.length > 0) {
-        return data;
+        return data.map((g: any) => {
+          const rawNip = g.nip || g.NIP || g.nip_guru || '';
+          return {
+            id: g.id,
+            nama_guru: g.nama_guru ? String(g.nama_guru).trim() : '',
+            nip: rawNip ? String(rawNip).replace(/\r|\n/g, '').trim() : ''
+          };
+        });
       }
     }
     const local = localStorage.getItem('master_guru');
     if (local) {
       const parsed = JSON.parse(local);
-      if (parsed.length > 0) return parsed;
+      if (parsed.length > 0) {
+        return parsed.map((g: any) => {
+          const rawNip = g.nip || g.NIP || g.nip_guru || '';
+          return {
+            id: g.id,
+            nama_guru: g.nama_guru ? String(g.nama_guru).trim() : '',
+            nip: rawNip ? String(rawNip).replace(/\r|\n/g, '').trim() : ''
+          };
+        });
+      }
     }
   } catch (e) {
     console.error('Error fetching guru:', e);
   }
 
-  // Default fallback teachers
+  // Default fallback teachers with official SMP Negeri 7 Pasuruan data
   return [
-    { id: 'g-1', nama_guru: 'Drs. H. Bambang Sujarwo, M.Pd' },
-    { id: 'g-2', nama_guru: 'Siti Rahmawati, S.Pd' },
-    { id: 'g-3', nama_guru: 'Ahmad Fauzi, S.Pd.I' },
-    { id: 'g-4', nama_guru: 'Budi Santoso, S.Si' },
-    { id: 'g-5', nama_guru: 'Endang Purwanti, M.Pd' },
-    { id: 'g-6', nama_guru: 'Sri Wahyuni, S.Kom' },
-    { id: 'g-7', nama_guru: 'Agus Triono, S.Pd' },
-    { id: 'g-8', nama_guru: 'Nurul Hidayah, S.Pd' },
-    { id: 'g-9', nama_guru: 'Tri Handayani, S.Pd' },
-    { id: 'g-10', nama_guru: 'Moch. Wildan, S.Or' }
+    { id: 'g-ida', nama_guru: 'IDA NURSANTI, M.Pd.', nip: '19770520 200801 2 016' },
+    { id: 'g-nur', nama_guru: 'NUR FADILAH, S.Pd.,M.Pd.', nip: '19860410 201001 2 030' },
+    { id: 'g-wiwik', nama_guru: 'WIWIK ISMIATI, S.Pd.', nip: '19831116 200904 2 003' },
+    { id: 'g-arinah', nama_guru: 'NUR ARINAH, S.Pd.', nip: '19660903 198903 2 013' },
+    { id: 'g-dewi', nama_guru: 'DEWI MAHINDRAWATI, S.Pd.', nip: '19661226 198903 2 008' },
+    { id: 'g-edy', nama_guru: 'Drs. EDY SUPRAYITNO, M.M.', nip: '19661103 199512 1 002' },
+    { id: 'g-soegi', nama_guru: 'SOEGIHARTINI, S.Pd.', nip: '19690703 199703 2 005' },
+    { id: 'g-mariati', nama_guru: 'Dra. Hj. MARIATI', nip: '19690323 199802 2 007' },
+    { id: 'g-khozin', nama_guru: 'Hj. KHOZINATUL ULUM, S.Pd.', nip: '19680717 199903 2 005' },
+    { id: 'g-endah', nama_guru: 'ENDAH SULISTYAWATI, S.Pd.', nip: '19680927 200701 2 019' },
+    { id: 'g-dina', nama_guru: 'DINA ISTIARNI, S.Pd.', nip: '19800422 201001 2 009' },
+    { id: 'g-fika', nama_guru: 'FIKA RAHMAWATI, M.Pd.', nip: '19870808 201001 2 025' },
+    { id: 'g-aris', nama_guru: 'ARIS FITRIANTO, M.Pd.', nip: '19810218 201001 1 015' }
   ];
 };
 

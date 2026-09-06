@@ -1,6 +1,27 @@
 <!doctype html>
 <html lang="id">
   <head>
+    <script>
+      // Instantly unregister all service workers and wipe CacheStorage
+      try {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            for (var i = 0; i < regs.length; i++) {
+              regs[i].unregister();
+            }
+          });
+        }
+        if ('caches' in window) {
+          caches.keys().then(function(keys) {
+            for (var i = 0; i < keys.length; i++) {
+              caches.delete(keys[i]);
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Cache purge notice:', e);
+      }
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>SIAP SPANJU - Sistem Integrasi Aplikasi Pembinaan Siswa</title>
@@ -31,17 +52,20 @@
     <meta name="msapplication-TileColor" content="#ffffff" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #fdf2f8 0%, #ffffff 50%, #eff6ff 100%); font-family: system-ui, -apple-system, sans-serif; color: #1e293b; padding: 20px; text-align: center;">
+        <div style="width: 80px; height: 80px; background: white; border-radius: 24px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; padding: 12px;">
+          <img src="https://iili.io/KDFk4fI.png" alt="Logo SIAP SPANJU" style="width: 100%; height: 100%; object-fit: contain;" />
+        </div>
+        <h1 style="font-size: 24px; font-weight: 900; margin: 0 0 8px 0; letter-spacing: -0.025em; color: #0f172a;">SIAP SPANJU</h1>
+        <p style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.2em; margin: 0 0 24px 0;">Sistem Integrasi Aplikasi Pembinaan Siswa</p>
+        <div style="width: 32px; height: 32px; border: 3px solid #fce7f3; border-top-color: #ec4899; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+        <style>
+          @keyframes spin { to { transform: rotate(360deg); } }
+        </style>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('SIAP SPANJU ServiceWorker Registered:', reg.scope))
-            .catch(err => console.error('SIAP SPANJU ServiceWorker Registration failed:', err));
-        });
-      }
-    </script>
   </body>
 </html>
 

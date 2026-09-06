@@ -15,7 +15,7 @@ import {
   Check
 } from 'lucide-react';
 import { JurnalPembelajaran } from '../../types/jurnalpembelajaran';
-import { fetchGuruList } from '../../lib/jurnalService';
+import { fetchGuruList, findGuruNip } from '../../lib/jurnalService';
 
 interface JurnalPrintModalProps {
   isOpen: boolean;
@@ -759,10 +759,12 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
               
               let teacherNip = '....................................';
               if (group.guruList.length > 0) {
-                const searchName = group.guruList[0].trim().toLowerCase();
-                const primaryGuru = guruMasterList.find(g => g.nama_guru?.trim().toLowerCase() === searchName);
-                if (primaryGuru && primaryGuru.nip && primaryGuru.nip.trim() !== '') {
-                  teacherNip = primaryGuru.nip;
+                for (const tName of group.guruList) {
+                  const foundNip = findGuruNip(tName, guruMasterList);
+                  if (foundNip) {
+                    teacherNip = foundNip;
+                    break;
+                  }
                 }
               }
 
@@ -816,7 +818,12 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
                         <tr>
                           <td className="font-bold py-0.5 text-slate-700">Guru Pengajar</td>
                           <td className="py-0.5">:</td>
-                          <td className="py-0.5 font-semibold text-slate-900">{group.guruList.join(', ') || '-'}</td>
+                          <td className="py-0.5 font-semibold text-slate-900">
+                            {group.guruList.join(', ') || '-'}
+                            {teacherNip && teacherNip !== '....................................' && (
+                              <span className="text-[9.5px] font-normal text-slate-600 ml-1.5">(NIP. {teacherNip})</span>
+                            )}
+                          </td>
                           <td className="font-bold py-0.5 text-slate-700">Total Pertemuan KBM</td>
                           <td className="py-0.5">:</td>
                           <td className="py-0.5 font-black text-slate-900">{group.totalPertemuan} Pertemuan</td>
