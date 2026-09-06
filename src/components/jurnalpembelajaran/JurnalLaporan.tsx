@@ -781,6 +781,14 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                 Daftar siswa yang berstatus Sakit (S), Izin (I), atau Alpa (A) pada sesi pembelajaran
               </p>
             </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handlePrintReport('absensi')}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm active:scale-95"
+              >
+                <Printer size={15} /> Cetak Laporan
+              </button>
+            </div>
           </div>
 
           {/* Quick Absence Stats */}

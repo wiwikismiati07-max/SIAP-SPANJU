@@ -958,41 +958,84 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
                           Nihil — Seluruh siswa hadir 100% pada seluruh tatap muka mata pelajaran ini.
                         </div>
                       ) : (
-                        <table className="w-full border-collapse border border-slate-300 text-[9px]">
-                          <thead>
-                            <tr className="bg-slate-100 text-slate-800 font-bold uppercase">
-                              <th className="border border-slate-300 px-1 py-1 text-center w-6">No</th>
-                              <th className="border border-slate-300 px-2 py-1 text-left w-20">Tanggal</th>
-                              <th className="border border-slate-300 px-1 py-1 text-center w-12">Kelas</th>
-                              <th className="border border-slate-300 px-2 py-1 text-left">Nama Siswa</th>
-                              <th className="border border-slate-300 px-2 py-1 text-center w-16">Status</th>
-                              <th className="border border-slate-300 px-2 py-1 text-left">Keterangan / Alasan</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {group.absensiRecords.map((r, idx) => (
-                              <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}>
-                                <td className="border border-slate-300 px-1 py-1 text-center">{idx + 1}</td>
-                                <td className="border border-slate-300 px-2 py-1 font-mono text-[8.5px]">{r.tanggal} (Jam {r.jam_ke})</td>
-                                <td className="border border-slate-300 px-1 py-1 text-center font-bold">{r.kelas}</td>
-                                <td className="border border-slate-300 px-2 py-1 font-bold text-slate-800">
-                                  {r.nama_siswa}
-                                  {r.nis && <span className="text-[8px] text-slate-400 font-normal ml-1">({r.nis})</span>}
-                                </td>
-                                <td className="border border-slate-300 px-2 py-1 text-center">
-                                  <span className={`px-1.5 py-0.5 rounded font-bold text-[8.5px] ${
-                                    r.status === 'Sakit' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
-                                    r.status === 'Izin' ? 'bg-sky-100 text-sky-800 border border-sky-300' :
-                                    'bg-rose-100 text-rose-800 border border-rose-300'
-                                  }`}>
-                                    {r.status}
-                                  </span>
-                                </td>
-                                <td className="border border-slate-300 px-2 py-1 italic text-slate-600">{r.catatan}</td>
+                        <>
+                          <table className="w-full border-collapse border border-slate-300 text-[9px] mb-4">
+                            <thead>
+                              <tr className="bg-slate-100 text-slate-800 font-bold uppercase">
+                                <th className="border border-slate-300 px-1 py-1 text-center w-6">No</th>
+                                <th className="border border-slate-300 px-2 py-1 text-left w-20">Tanggal</th>
+                                <th className="border border-slate-300 px-1 py-1 text-center w-12">Kelas</th>
+                                <th className="border border-slate-300 px-2 py-1 text-left">Nama Siswa</th>
+                                <th className="border border-slate-300 px-2 py-1 text-center w-16">Status</th>
+                                <th className="border border-slate-300 px-2 py-1 text-left">Keterangan / Alasan</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {group.absensiRecords.map((r, idx) => (
+                                <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}>
+                                  <td className="border border-slate-300 px-1 py-1 text-center">{idx + 1}</td>
+                                  <td className="border border-slate-300 px-2 py-1 font-mono text-[8.5px]">{r.tanggal} (Jam {r.jam_ke})</td>
+                                  <td className="border border-slate-300 px-1 py-1 text-center font-bold">{r.kelas}</td>
+                                  <td className="border border-slate-300 px-2 py-1 font-bold text-slate-800">
+                                    {r.nama_siswa}
+                                    {r.nis && <span className="text-[8px] text-slate-400 font-normal ml-1">({r.nis})</span>}
+                                  </td>
+                                  <td className="border border-slate-300 px-2 py-1 text-center">
+                                    <span className={`px-1.5 py-0.5 rounded font-bold text-[8.5px] ${
+                                      r.status === 'Sakit' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
+                                      r.status === 'Izin' ? 'bg-sky-100 text-sky-800 border border-sky-300' :
+                                      'bg-rose-100 text-rose-800 border border-rose-300'
+                                    }`}>
+                                      {r.status}
+                                    </span>
+                                  </td>
+                                  <td className="border border-slate-300 px-2 py-1 italic text-slate-600">{r.catatan}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+
+                          {/* Frequent Absences Summary in Print */}
+                          {(() => {
+                            const map = new Map();
+                            group.absensiRecords.forEach(r => {
+                              const key = `${r.nama_siswa}_${r.kelas}`;
+                              if (!map.has(key)) map.set(key, { nama: r.nama_siswa, kelas: r.kelas, total: 0, s: 0, i: 0, a: 0 });
+                              const s = map.get(key);
+                              s.total++;
+                              if (r.status === 'Sakit') s.s++;
+                              if (r.status === 'Izin') s.i++;
+                              if (r.status === 'Alpa') s.a++;
+                            });
+                            const freqAbsences = Array.from(map.values()).sort((a: any, b: any) => b.total - a.total);
+                            
+                            if (freqAbsences.length === 0) return null;
+                            
+                            return (
+                              <div className="avoid-break mt-4 border border-slate-300 rounded overflow-hidden">
+                                <div className="bg-rose-50 border-b border-slate-300 p-1.5 font-bold text-rose-800 text-[9px] uppercase tracking-wider">
+                                  Rekapitulasi Frekuensi Ketidakhadiran per Siswa
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-3 bg-white p-1.5 gap-1.5">
+                                  {freqAbsences.map((s: any, idx: number) => (
+                                    <div key={idx} className="border border-slate-200 p-1.5 rounded flex items-center justify-between">
+                                      <div>
+                                        <div className="font-bold text-slate-800 text-[9px] leading-tight">{s.nama}</div>
+                                        <div className="text-[8px] text-slate-500 mt-0.5">
+                                          <span className="font-bold text-slate-700 bg-slate-100 px-1 rounded mr-1">{s.kelas}</span>
+                                          S:{s.s} I:{s.i} A:{s.a}
+                                        </div>
+                                      </div>
+                                      <div className="w-5 h-5 rounded bg-rose-100 text-rose-700 flex items-center justify-center font-black text-[9px] shrink-0 border border-rose-200">
+                                        {s.total}x
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </>
                       )}
                     </div>
                   )}
