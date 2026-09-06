@@ -370,7 +370,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-pink-50 via-white to-blue-50 font-sans overflow-hidden text-slate-800">
+    <div className="flex h-screen print:h-auto print:overflow-visible bg-gradient-to-br from-pink-50 via-white to-blue-50 font-sans overflow-hidden text-slate-800">
       {/* Sidebar Overlay for Mobile */}
       <AnimatePresence>
         {isMobile && isSidebarOpen && (
@@ -379,13 +379,14 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 no-print print:hidden"
           />
         )}
       </AnimatePresence>
 
       {/* Sidebar */}
       <motion.aside
+        id="app-sidebar"
         initial={false}
         animate={{ 
           width: isSidebarOpen ? (isMobile ? "calc(100% - 2rem)" : 280) : 0,
@@ -393,7 +394,7 @@ export default function App() {
           x: isMobile && !isSidebarOpen ? "-100%" : 0,
           margin: isMobile ? "1rem" : "0.75rem"
         }}
-        className="bg-white/60 backdrop-blur-2xl border-r border-white/50 flex flex-col z-50 fixed md:relative h-[calc(100vh-2rem)] md:h-auto overflow-hidden rounded-[2rem] shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] md:shadow-none"
+        className="bg-white/60 backdrop-blur-2xl border-r border-white/50 flex flex-col z-50 fixed md:relative h-[calc(100vh-2rem)] md:h-auto overflow-hidden rounded-[2rem] shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] md:shadow-none no-print print:hidden"
       >
         <div className="p-6 flex items-center justify-between border-b border-white/50 min-w-[280px]">
           <button 
@@ -530,7 +531,7 @@ export default function App() {
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           onClick={() => setIsSidebarOpen(true)}
-          className="fixed max-md:left-1/2 max-md:-translate-x-1/2 max-md:top-4 md:left-6 md:top-6 z-40 p-2 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-2xl md:rounded-3xl text-slate-600 hover:scale-110 transition-all active:scale-90 shadow-[0_8px_32_0_rgba(0,0,0,0.05)] overflow-hidden flex items-center gap-2"
+          className="fixed max-md:left-1/2 max-md:-translate-x-1/2 max-md:top-4 md:left-6 md:top-6 z-40 p-2 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-2xl md:rounded-3xl text-slate-600 hover:scale-110 transition-all active:scale-90 shadow-[0_8px_32_0_rgba(0,0,0,0.05)] overflow-hidden flex items-center gap-2 no-print print:hidden"
         >
           <div className="flex flex-col items-end md:hidden">
               <span className="text-xs font-black text-slate-800 tracking-tighter leading-none italic">SIAP <span className="text-pink-500">SPANJU</span></span>

@@ -1,1 +1,52 @@
 @import "tailwindcss";
+
+@media print {
+  /* Hide all application navigation, sidebars, floating widgets, buttons, and chrome */
+  #app-sidebar,
+  aside,
+  nav,
+  header,
+  footer,
+  .no-print,
+  [data-no-print="true"],
+  button {
+    display: none !important;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* When modal is open during print, expand freely */
+  .fixed.inset-0 {
+    position: static !important;
+    overflow: visible !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    height: auto !important;
+    width: 100% !important;
+  }
+
+  .overflow-y-auto {
+    overflow: visible !important;
+    height: auto !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  #printable-full-report {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+}

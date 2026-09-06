@@ -222,237 +222,173 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
     }
   });
 
-  // Print Action
-  const handlePrint = () => {
-    window.print();
-  };
-
-  // Open in New Window Action (Fallback for strict iframes)
-  const handleOpenNewWindow = () => {
+  // Standalone Isolated Printing Function (Prevents App UI/Sidebar from Printing and enables full multi-page flow)
+  const triggerIsolatedPrint = (inNewWindow = false) => {
     const printContent = document.getElementById('printable-full-report');
-    if (!printContent) return;
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      // If popup blocked, use standard window.print()
+    if (!printContent) {
       window.print();
       return;
     }
 
-    printWindow.document.open();
-    printWindow.document.write(`
+    // Grab all stylesheets and style tags currently loaded in document
+    const styleTags = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+      .map(node => node.outerHTML)
+      .join('\n');
+
+    const htmlDoc = `
       <!DOCTYPE html>
       <html lang="id">
         <head>
           <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
           <title>Laporan Jurnal Pembelajaran - SMPN 7 Pasuruan</title>
+          ${styleTags}
           <style>
             @page {
               size: A4 portrait;
-              margin: 12mm 12mm 15mm 12mm;
+              margin: 12mm 10mm 15mm 10mm;
             }
-            body {
-              font-family: Arial, Helvetica, sans-serif;
-              color: #0f172a;
-              background: #ffffff;
-              margin: 0;
-              padding: 10px;
-              font-size: 11px;
-              line-height: 1.4;
+            *, *::before, *::after {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              box-sizing: border-box !important;
             }
-            * {
-              box-sizing: border-box;
+            html, body {
+              background: #ffffff !important;
+              color: #0f172a !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+              font-size: 10.5px !important;
+              line-height: 1.35 !important;
+              overflow: visible !important;
+              height: auto !important;
+              width: 100% !important;
             }
-            .kop-header {
-              display: flex;
-              align-items: center;
-              gap: 15px;
-              border-bottom: 3px double #000;
-              padding-bottom: 8px;
-              margin-bottom: 14px;
+            #print-isolated-wrapper {
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
             }
-            .kop-header img {
-              width: 70px;
-              height: 70px;
-              object-contain: fit;
+            #print-isolated-wrapper > div {
+              padding: 0 !important;
+              margin: 0 !important;
+              border: none !important;
+              box-shadow: none !important;
+              min-height: 0 !important;
+              max-width: 100% !important;
+              width: 100% !important;
             }
-            .kop-text {
-              flex: 1;
-              text-align: center;
+            table {
+              width: 100% !important;
+              border-collapse: collapse !important;
+              page-break-inside: auto !important;
             }
-            .kop-text h4 {
-              margin: 0;
-              font-size: 11px;
-              font-weight: bold;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
+            tr {
+              page-break-inside: avoid !important;
+              page-break-after: auto !important;
             }
-            .kop-text h2 {
-              margin: 2px 0 0 0;
-              font-size: 16px;
-              font-weight: 900;
-              text-transform: uppercase;
-              color: #0284c7;
-              letter-spacing: 1px;
+            thead {
+              display: table-header-group !important;
             }
-            .kop-text p {
-              margin: 1px 0 0 0;
-              font-size: 9px;
-              color: #334155;
+            tfoot {
+              display: table-footer-group !important;
             }
-            .kop-text p.web {
-              color: #0284c7;
-              font-style: italic;
+            .avoid-break {
+              page-break-inside: avoid !important;
             }
-            .title-section {
-              text-align: center;
-              margin-bottom: 14px;
+            .page-break {
+              page-break-before: always !important;
             }
-            .title-section h3 {
-              margin: 0;
-              font-size: 13px;
-              font-weight: 900;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-              text-decoration: underline;
-            }
-            .title-section p {
-              margin: 3px 0 0 0;
-              font-size: 10px;
-              font-weight: bold;
-              color: #475569;
-            }
-            .info-table {
-              width: 100%;
-              margin-bottom: 12px;
-              border-collapse: collapse;
-              font-size: 10px;
-            }
-            .info-table td {
-              padding: 2px 4px;
-              vertical-align: top;
-            }
-            .info-label {
-              font-weight: bold;
-              width: 140px;
-            }
-            table.report-table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 14px;
-              font-size: 10px;
-              page-break-inside: auto;
-            }
-            table.report-table th, table.report-table td {
-              border: 1px solid #94a3b8;
-              padding: 5px 6px;
-              vertical-align: top;
-            }
-            table.report-table th {
-              background-color: #f1f5f9;
-              font-weight: bold;
-              text-align: center;
-              text-transform: uppercase;
-              font-size: 9px;
-            }
-            table.report-table tr {
-              page-break-inside: avoid;
-            }
-            .section-title {
-              font-size: 11px;
-              font-weight: bold;
-              text-transform: uppercase;
-              margin: 14px 0 6px 0;
-              padding: 4px 6px;
-              background-color: #f8fafc;
-              border-left: 3px solid #0284c7;
-            }
-            .badge-status {
-              display: inline-block;
-              padding: 2px 5px;
-              font-weight: bold;
-              font-size: 9px;
-              border-radius: 3px;
-            }
-            .badge-sakit { background-color: #fef9c3; color: #854d0e; }
-            .badge-izin { background-color: #e0f2fe; color: #0369a1; }
-            .badge-alpa { background-color: #fee2e2; color: #b91c1c; }
-            .badge-hadir { background-color: #dcfce7; color: #15803d; }
-            .stat-grid {
-              display: grid;
-              grid-template-columns: repeat(4, 1fr);
-              gap: 8px;
-              margin-bottom: 12px;
-            }
-            .stat-card {
-              border: 1px solid #cbd5e1;
-              padding: 6px 8px;
-              border-radius: 4px;
-              background: #f8fafc;
-            }
-            .stat-num {
-              font-size: 14px;
-              font-weight: bold;
-              margin-top: 2px;
-            }
-            .sig-container {
-              margin-top: 25px;
-              display: flex;
-              justify-content: space-between;
-              page-break-inside: avoid;
-            }
-            .sig-box {
-              width: 220px;
-              text-align: center;
-            }
-            .sig-space {
-              height: 55px;
-            }
-            .sig-name {
-              font-weight: bold;
-              text-decoration: underline;
-            }
-            .photo-grid {
-              display: grid;
-              grid-template-columns: repeat(3, 1fr);
-              gap: 10px;
-              margin-bottom: 14px;
-            }
-            .photo-card {
-              border: 1px solid #cbd5e1;
-              padding: 4px;
-              text-align: center;
-            }
-            .photo-card img {
-              width: 100%;
-              height: 120px;
-              object-fit: cover;
-              border-radius: 2px;
-            }
-            .photo-desc {
-              font-size: 8px;
-              margin-top: 4px;
-              color: #475569;
-            }
+            /* High-contrast printable borders */
+            .border-slate-300 { border-color: #94a3b8 !important; }
+            .border-slate-200 { border-color: #cbd5e1 !important; }
+            .bg-slate-100 { background-color: #f1f5f9 !important; }
+            .bg-slate-50 { background-color: #f8fafc !important; }
           </style>
         </head>
         <body>
-          ${printContent.innerHTML}
+          <div id="print-isolated-wrapper">
+            ${printContent.innerHTML}
+          </div>
+          ${inNewWindow ? `
           <script>
             window.onload = function() {
-              window.print();
+              setTimeout(function() {
+                window.focus();
+                window.print();
+              }, 400);
             };
-          </script>
+          </script>` : ''}
         </body>
       </html>
-    `);
-    printWindow.document.close();
+    `;
+
+    if (inNewWindow) {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.open();
+        printWindow.document.write(htmlDoc);
+        printWindow.document.close();
+        return;
+      }
+    }
+
+    // Default: print using isolated hidden iframe
+    const iframe = document.createElement('iframe');
+    iframe.name = 'isolated_print_frame';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.opacity = '0';
+    iframe.style.pointerEvents = 'none';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    doc.open();
+    doc.write(htmlDoc);
+    doc.close();
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.error('Error invoking iframe print, falling back to window.print', err);
+        window.print();
+      } finally {
+        setTimeout(() => {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+        }, 3000);
+      }
+    }, 450);
+  };
+
+  // Print Action
+  const handlePrint = () => {
+    triggerIsolatedPrint(false);
+  };
+
+  // Open in New Window Action
+  const handleOpenNewWindow = () => {
+    triggerIsolatedPrint(true);
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-slate-900/60 backdrop-blur-sm overflow-hidden animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-slate-900/60 backdrop-blur-sm overflow-hidden animate-in fade-in duration-200 print:static print:bg-white print:p-0 print:overflow-visible print:h-auto print:backdrop-blur-none">
       {/* TOP BAR / CONTROLS (NOT PRINTED) */}
-      <div className="bg-white border-b border-slate-200 shadow-md p-3 md:p-4 z-20 shrink-0 no-print">
+      <div className="bg-white border-b border-slate-200 shadow-md p-3 md:p-4 z-20 shrink-0 no-print print:hidden" data-no-print="true">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
           {/* Title and Badge */}
           <div className="flex items-center gap-3">
@@ -583,10 +519,10 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
       </div>
 
       {/* DOCUMENT PREVIEW CONTAINER (PRINTABLE AREA) */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-200/80">
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-200/80 print:p-0 print:m-0 print:overflow-visible print:bg-white print:h-auto">
         <div 
           id="printable-full-report"
-          className="bg-white mx-auto max-w-[215mm] min-h-[297mm] p-8 md:p-12 shadow-2xl rounded-sm text-slate-900 text-[11px] leading-relaxed border border-slate-300 print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none print:w-full print:rounded-none"
+          className="bg-white mx-auto max-w-[215mm] min-h-[297mm] p-8 md:p-12 shadow-2xl rounded-sm text-slate-900 text-[11px] leading-relaxed border border-slate-300 print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none print:w-full print:rounded-none print:min-h-0"
         >
           {/* 1. KOP SURAT RESMI SEKOLAH */}
           <div className="flex items-center gap-4 border-b-2 border-black pb-3 mb-4">
