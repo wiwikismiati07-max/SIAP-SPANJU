@@ -346,7 +346,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
           <div 
             className="absolute inset-0 z-0 opacity-80 group-hover:scale-105 transition-transform duration-1000"
             style={{ 
-              backgroundImage: 'url("https://images.unsplash.com/photo-1522383225653-ed111181a951?auto=format&fit=crop&w=800&q=100")',
+              backgroundImage: 'url("https://images.unsplash.com/photo-1490806843957-31f4c9a91c65?auto=format&fit=crop&w=800&q=100")',
               backgroundSize: 'cover',
               backgroundPosition: 'center',
             }}
