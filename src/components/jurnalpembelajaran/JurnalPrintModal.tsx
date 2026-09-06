@@ -759,8 +759,9 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
               
               let teacherNip = '....................................';
               if (group.guruList.length > 0) {
-                const primaryGuru = guruMasterList.find(g => g.nama_guru === group.guruList[0]);
-                if (primaryGuru && primaryGuru.nip) {
+                const searchName = group.guruList[0].trim().toLowerCase();
+                const primaryGuru = guruMasterList.find(g => g.nama_guru?.trim().toLowerCase() === searchName);
+                if (primaryGuru && primaryGuru.nip && primaryGuru.nip.trim() !== '') {
                   teacherNip = primaryGuru.nip;
                 }
               }

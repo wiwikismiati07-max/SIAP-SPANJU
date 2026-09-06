@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Printer, Calendar, Clock, BookOpen, User, Users, CheckCircle2, AlertTriangle, FileText, Image as ImageIcon } from 'lucide-react';
 import { JurnalPembelajaran } from '../../types/jurnalpembelajaran';
+import { fetchGuruList } from '../../lib/jurnalService';
 
 interface JurnalDetailModalProps {
   jurnal: JurnalPembelajaran | null;
@@ -9,6 +10,16 @@ interface JurnalDetailModalProps {
 }
 
 export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, onClose, onEdit }) => {
+  const [guruMasterList, setGuruMasterList] = useState<{ id: string; nama_guru: string; nip?: string }[]>([]);
+
+  useEffect(() => {
+    if (jurnal) {
+      fetchGuruList().then((data) => {
+        if (data) setGuruMasterList(data);
+      }).catch(console.error);
+    }
+  }, [jurnal]);
+
   if (!jurnal) return null;
 
   const totalHadir = jurnal.siswa_list.filter(s => s.absensi === 'Hadir').length;
@@ -17,6 +28,15 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
   const totalAlpa = jurnal.siswa_list.filter(s => s.absensi === 'Alpa').length;
 
   const handlePrint = () => {
+    let teacherNip = '....................................';
+    if (jurnal.nama_guru) {
+      const searchName = jurnal.nama_guru.trim().toLowerCase();
+      const primaryGuru = guruMasterList.find(g => g.nama_guru?.trim().toLowerCase() === searchName);
+      if (primaryGuru && primaryGuru.nip && primaryGuru.nip.trim() !== '') {
+        teacherNip = primaryGuru.nip;
+      }
+    }
+
     const html = `
       <!DOCTYPE html>
       <html lang="id">
@@ -191,7 +211,7 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
               <p style="font-weight: bold;">Guru Mata Pelajaran,</p>
               <br/><br/><br/>
               <p style="font-weight: bold; text-decoration: underline;">${jurnal.nama_guru}</p>
-              <p style="font-size: 10px;">NIP. ....................................</p>
+              <p style="font-size: 10px;">NIP. ${teacherNip}</p>
             </div>
           </div>
         </body>
