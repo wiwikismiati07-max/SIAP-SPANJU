@@ -553,14 +553,14 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
 
   // Reusable KOP SURAT Component
   const renderKopSurat = () => (
-    <div className="flex items-center gap-4 border-b-2 border-black pb-3 mb-4 avoid-break">
+    <div className="flex items-center justify-between gap-3 border-b-2 border-black pb-3 mb-4 avoid-break">
       <img 
-        src="https://iili.io/KDFk4fI.png" 
-        alt="Logo SMPN 7 Pasuruan" 
+        src="https://i.ibb.co.com/C3Y7JXkN/logo-dinas.png" 
+        alt="Logo Dinas Pendidikan" 
         className="w-16 h-16 object-contain shrink-0"
         crossOrigin="anonymous"
       />
-      <div className="flex-1 text-center">
+      <div className="flex-1 text-center px-2">
         <h4 className="text-[10px] md:text-[11px] font-bold tracking-wider uppercase text-slate-800 m-0">
           PEMERINTAH KOTA PASURUAN • DINAS PENDIDIKAN DAN KEBUDAYAAN
         </h4>
@@ -574,6 +574,12 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
           Pos-el: smpn7pasuruan@gmail.com | Laman: smpn7pasuruan.sch.id
         </p>
       </div>
+      <img 
+        src="https://iili.io/KDFk4fI.png" 
+        alt="Logo SMPN 7 Pasuruan" 
+        className="w-16 h-16 object-contain shrink-0"
+        crossOrigin="anonymous"
+      />
     </div>
   );
 
