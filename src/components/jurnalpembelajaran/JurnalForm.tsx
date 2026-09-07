@@ -46,9 +46,9 @@ interface JurnalFormProps {
 
 export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, onCancel }) => {
   const [tanggal, setTanggal] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [jamKe, setJamKe] = useState<string>('1 - 2');
-  const [jamMulai, setJamMulai] = useState<string>('07:00');
-  const [jamSelesai, setJamSelesai] = useState<string>('08:20');
+  const [jamKe, setJamKe] = useState<string>('1');
+  const [jamMulai, setJamMulai] = useState<string>('07:15');
+  const [jamSelesai, setJamSelesai] = useState<string>('07:55');
   
   const [availablePeriodes, setAvailablePeriodes] = useState<string[]>([]);
   const [selectedPeriode, setSelectedPeriode] = useState<string>('');
@@ -395,9 +395,24 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
               onChange={e => handleJamKeChange(e.target.value)}
               className="w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-semibold transition-all"
             >
-              {JAM_PELAJARAN_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
+              <optgroup label="Sesi Per Jam (Jadwal Bel Sekolah)">
+                {JAM_PELAJARAN_OPTIONS.filter(o => o.kategori === 'tunggal' || o.kategori === 'istirahat').map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Blok Jam Pelajaran (2 - 3 Jam)">
+                {JAM_PELAJARAN_OPTIONS.filter(o => o.kategori === 'blok').map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Pengaturan Lain">
+                {JAM_PELAJARAN_OPTIONS.filter(o => o.kategori === 'kustom').map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </optgroup>
+              {!JAM_PELAJARAN_OPTIONS.some(o => o.value === jamKe) && jamKe && (
+                <option value={jamKe}>Kustom: {jamKe}</option>
+              )}
             </select>
           </div>
 

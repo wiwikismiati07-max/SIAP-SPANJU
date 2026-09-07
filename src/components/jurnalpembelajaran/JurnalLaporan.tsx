@@ -686,7 +686,9 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                         <td className="p-3 text-center font-medium text-slate-400">{idx + 1}</td>
                         <td className="p-3">
                           <div className="font-bold text-slate-800">{j.tanggal}</div>
-                          <div className="text-[11px] text-slate-500 font-medium">{j.jam_ke}</div>
+                          <div className="text-[11px] text-slate-500 font-medium">
+                            {j.jam_ke.toLowerCase().startsWith('jam') || j.jam_ke.toLowerCase() === 'istirahat' ? j.jam_ke : `Jam Ke ${j.jam_ke}`}
+                          </div>
                           <div className="text-[10px] text-slate-400">{j.jam_mulai} - {j.jam_selesai}</div>
                         </td>
                         <td className="p-3 text-center">

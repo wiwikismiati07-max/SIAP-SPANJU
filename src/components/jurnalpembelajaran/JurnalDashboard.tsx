@@ -1003,7 +1003,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
                           <div className="flex items-center gap-2">
                             <h4 className="text-sm font-black text-slate-900">{item.nama_mapel}</h4>
                             <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md">
-                              {item.jam_ke}
+                              {item.jam_ke.toLowerCase().startsWith('jam') || item.jam_ke.toLowerCase() === 'istirahat' ? item.jam_ke : `Jam Ke ${item.jam_ke}`}
                             </span>
                           </div>
                           <p className="text-xs font-medium text-slate-600 mt-0.5">

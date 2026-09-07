@@ -901,7 +901,9 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
                                   <td className="border border-slate-300 px-1 py-1.5 text-center font-medium align-top">{idx + 1}</td>
                                   <td className="border border-slate-300 px-1.5 py-1.5 align-top">
                                     <div className="font-bold text-slate-800">{j.tanggal}</div>
-                                    <div className="text-[8.5px] text-slate-500 font-mono">Jam ke-{j.jam_ke}</div>
+                                    <div className="text-[8.5px] text-slate-500 font-mono">
+                                      {j.jam_ke?.toLowerCase().startsWith('jam') || j.jam_ke?.toLowerCase() === 'istirahat' ? j.jam_ke : `Jam ke-${j.jam_ke}`}
+                                    </div>
                                     {group.guruList.length > 1 && j.nama_guru && (
                                       <div className="text-[8px] text-slate-600 mt-0.5 italic">{j.nama_guru}</div>
                                     )}
@@ -1001,7 +1003,9 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
                               {group.absensiRecords.map((r, idx) => (
                                 <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}>
                                   <td className="border border-slate-300 px-1 py-1 text-center">{idx + 1}</td>
-                                  <td className="border border-slate-300 px-2 py-1 font-mono text-[8.5px]">{r.tanggal} (Jam {r.jam_ke})</td>
+                                  <td className="border border-slate-300 px-2 py-1 font-mono text-[8.5px]">
+                                    {r.tanggal} ({r.jam_ke?.toLowerCase().startsWith('jam') || r.jam_ke?.toLowerCase() === 'istirahat' ? r.jam_ke : `Jam ${r.jam_ke}`})
+                                  </td>
                                   <td className="border border-slate-300 px-1 py-1 text-center font-bold">{r.kelas}</td>
                                   <td className="border border-slate-300 px-2 py-1 font-bold text-slate-800">
                                     {r.nama_siswa}
