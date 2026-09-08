@@ -28,7 +28,7 @@ interface JurnalPrintModalProps {
   filterMapel: string;
   filterGuru: string;
   filterPeriode: string;
-  defaultMode?: 'semua' | 'mingguan_bulanan' | 'absensi' | 'catatan_tindakan' | 'siswa_bercatatan';
+  defaultMode?: 'harian_guru' | 'semua' | 'mingguan_bulanan' | 'absensi' | 'catatan_tindakan' | 'siswa_bercatatan';
 }
 
 interface SubjectGroup {
@@ -91,7 +91,13 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
   filterPeriode,
   defaultMode = 'semua'
 }) => {
-  const [reportMode, setReportMode] = useState<'semua' | 'mingguan_bulanan' | 'absensi' | 'catatan_tindakan' | 'siswa_bercatatan'>(defaultMode);
+  const [reportMode, setReportMode] = useState<'harian_guru' | 'semua' | 'mingguan_bulanan' | 'absensi' | 'catatan_tindakan' | 'siswa_bercatatan'>(defaultMode);
+
+  useEffect(() => {
+    if (defaultMode) {
+      setReportMode(defaultMode);
+    }
+  }, [defaultMode]);
   // Default to grouping per subject as requested by the user
   const [layoutMode, setLayoutMode] = useState<'per_mapel' | 'gabungan'>('per_mapel');
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>('semua');
@@ -667,6 +673,14 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
           {/* Sub-Report Scope Selector */}
           <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
             <button
+              onClick={() => setReportMode('harian_guru')}
+              className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                reportMode === 'harian_guru' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Harian Guru
+            </button>
+            <button
               onClick={() => setReportMode('semua')}
               className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 cursor-pointer ${
                 reportMode === 'semua' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
@@ -750,9 +764,213 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
           className="mx-auto max-w-[215mm] space-y-8 print:space-y-0 print:max-w-none print:w-full"
         >
           {/* ========================================================================= */}
-          {/* OPTION 1: PER MATA PELAJARAN (MULTI-PAGE BY SUBJECT) */}
+          {/* OPTION A: LAPORAN HARIAN GURU INPUT JURNAL */}
           {/* ========================================================================= */}
-          {
+          {reportMode === 'harian_guru' ? (
+            <div className="bg-white p-8 md:p-12 shadow-2xl rounded-sm text-slate-900 text-[10.5px] leading-relaxed border border-slate-300 print:border-none print:shadow-none print:p-0 print:m-0 print:rounded-none">
+              {/* 1. KOP SURAT RESMI */}
+              {renderKopSurat()}
+
+              {/* 2. JUDUL DOKUMEN */}
+              <div className="text-center mb-5">
+                <h3 className="text-[15px] font-black uppercase tracking-wider underline decoration-slate-900 underline-offset-4 m-0">
+                  LAPORAN HARIAN GURU INPUT JURNAL PEMBELAJARAN
+                </h3>
+                <h2 className="text-[13px] font-black uppercase tracking-wide text-amber-700 mt-1 mb-0.5">
+                  Hari / Tanggal: {formatDateIndo(startDate)}
+                </h2>
+                <p className="text-[9.5px] font-semibold text-slate-600 m-0">
+                  SMP NEGERI 7 PASURUAN • {filterPeriode !== 'semua' ? `Tahun Ajaran ${filterPeriode}` : 'Semua Periode'} 
+                  {filterKelas !== 'semua' ? ` | Kelas: ${filterKelas}` : ''}
+                  {filterMapel !== 'semua' ? ` | Mapel: ${filterMapel}` : ''}
+                </p>
+              </div>
+
+              {/* 3. RINGKASAN STATISTIK HARIAN */}
+              {includeStats && (
+                <div className="grid grid-cols-4 gap-2 border border-slate-300 rounded p-2.5 mb-5 bg-slate-50/50 text-[10px] text-center avoid-break">
+                  <div className="border-r border-slate-200">
+                    <div className="text-slate-500 font-medium">Total Sesi KBM</div>
+                    <div className="font-black text-sm text-slate-800">{jurnalList.length} Jurnal</div>
+                  </div>
+                  <div className="border-r border-slate-200">
+                    <div className="text-slate-500 font-medium">Guru Menginput</div>
+                    <div className="font-black text-sm text-amber-700">
+                      {new Set(jurnalList.map(j => j.nama_guru)).size} Guru
+                    </div>
+                  </div>
+                  <div className="border-r border-slate-200">
+                    <div className="text-slate-500 font-medium">Kelas Terlayani</div>
+                    <div className="font-black text-sm text-sky-700">
+                      {new Set(jurnalList.map(j => j.kelas)).size} Kelas
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 font-medium">Total Presensi</div>
+                    <div className="font-black text-sm text-emerald-700">
+                      {jurnalList.reduce((acc, j) => acc + (j.siswa_list?.filter(s => s.absensi === 'Hadir').length || 0), 0)} Siswa Hadir
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 4. TABEL AGENDA HARIAN GURU */}
+              <div className="mb-6">
+                <div className="font-bold text-[11px] uppercase tracking-wide text-slate-800 mb-2 border-b border-slate-300 pb-1">
+                  A. Rincian Pelaksanaan KBM Hari Ini
+                </div>
+                <table className="w-full border-collapse text-[10px]">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-800 font-bold border border-slate-300">
+                      <th className="border border-slate-300 px-1.5 py-1.5 w-7 text-center">NO</th>
+                      <th className="border border-slate-300 px-1.5 py-1.5 w-16 text-center">JAM KE</th>
+                      <th className="border border-slate-300 px-1.5 py-1.5 w-12 text-center">KELAS</th>
+                      <th className="border border-slate-300 px-2 py-1.5 text-left">MATA PELAJARAN</th>
+                      <th className="border border-slate-300 px-2 py-1.5 text-left">GURU PENGAJAR & NIP</th>
+                      <th className="border border-slate-300 px-2 py-1.5 text-left">MATERI PEMBELAJARAN</th>
+                      <th className="border border-slate-300 px-1 py-1.5 w-10 text-center">HADIR</th>
+                      <th className="border border-slate-300 px-1 py-1.5 w-14 text-center">ABSEN</th>
+                      <th className="border border-slate-300 px-2 py-1.5 text-left">URAIAN KEGIATAN</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {jurnalList.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="border border-slate-300 py-6 text-center text-slate-400 italic font-medium">
+                          Belum ada data jurnal pembelajaran yang diinput pada tanggal ini.
+                        </td>
+                      </tr>
+                    ) : (
+                      jurnalList.map((j, idx) => {
+                        const hadir = j.siswa_list?.filter(s => s.absensi === 'Hadir').length || 0;
+                        const sakit = j.siswa_list?.filter(s => s.absensi === 'Sakit').length || 0;
+                        const izin = j.siswa_list?.filter(s => s.absensi === 'Izin').length || 0;
+                        const alpa = j.siswa_list?.filter(s => s.absensi === 'Alpa').length || 0;
+                        const nip = findGuruNip(j.nama_guru, guruMasterList, j.nip_guru) || '-';
+
+                        return (
+                          <tr key={j.id || idx} className="border border-slate-300 hover:bg-slate-50">
+                            <td className="border border-slate-300 px-1.5 py-1 text-center font-bold">{idx + 1}</td>
+                            <td className="border border-slate-300 px-1.5 py-1 text-center font-semibold">
+                              {j.jam_ke}
+                              {j.jam_mulai ? <span className="block text-[8px] text-slate-500 font-normal">{j.jam_mulai}-{j.jam_selesai}</span> : null}
+                            </td>
+                            <td className="border border-slate-300 px-1.5 py-1 text-center font-bold text-sky-900">{j.kelas}</td>
+                            <td className="border border-slate-300 px-2 py-1 font-semibold text-slate-900">{j.nama_mapel}</td>
+                            <td className="border border-slate-300 px-2 py-1">
+                              <div className="font-bold text-slate-900 leading-tight">{j.nama_guru}</div>
+                              <div className="text-[8.5px] text-slate-500 font-mono">NIP. {nip}</div>
+                            </td>
+                            <td className="border border-slate-300 px-2 py-1 text-slate-800">{j.materi || '-'}</td>
+                            <td className="border border-slate-300 px-1 py-1 text-center font-bold text-emerald-700">{hadir}</td>
+                            <td className="border border-slate-300 px-1 py-1 text-center text-[8.5px]">
+                              {sakit > 0 && <span className="text-blue-700 font-semibold">S:{sakit} </span>}
+                              {izin > 0 && <span className="text-amber-700 font-semibold">I:{izin} </span>}
+                              {alpa > 0 && <span className="text-rose-700 font-bold">A:{alpa}</span>}
+                              {sakit === 0 && izin === 0 && alpa === 0 && <span className="text-slate-400 font-bold">-</span>}
+                            </td>
+                            <td className="border border-slate-300 px-2 py-1 text-slate-600 leading-tight">{j.kegiatan || '-'}</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 5. TABEL REKAPITULASI KEAKTIFAN GURU */}
+              {jurnalList.length > 0 && (
+                <div className="mb-6 avoid-break">
+                  <div className="font-bold text-[11px] uppercase tracking-wide text-slate-800 mb-2 border-b border-slate-300 pb-1">
+                    B. Rekapitulasi Keaktifan Mengajar Guru
+                  </div>
+                  <table className="w-full border-collapse text-[10px]">
+                    <thead>
+                      <tr className="bg-slate-100 text-slate-800 font-bold border border-slate-300">
+                        <th className="border border-slate-300 px-1.5 py-1.5 w-7 text-center">NO</th>
+                        <th className="border border-slate-300 px-2 py-1.5 text-left">NAMA GURU & NIP</th>
+                        <th className="border border-slate-300 px-2 py-1.5 text-left">MATA PELAJARAN</th>
+                        <th className="border border-slate-300 px-2 py-1.5 text-left">KELAS DIAJAR</th>
+                        <th className="border border-slate-300 px-1.5 py-1.5 w-16 text-center">TOTAL KBM</th>
+                        <th className="border border-slate-300 px-1.5 py-1.5 w-24 text-center">STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const map = new Map<string, {
+                          nama_guru: string;
+                          nip: string;
+                          mapels: Set<string>;
+                          classes: Set<string>;
+                          count: number;
+                        }>();
+                        jurnalList.forEach(j => {
+                          const k = j.nama_guru.trim();
+                          if (!map.has(k)) {
+                            map.set(k, {
+                              nama_guru: j.nama_guru,
+                              nip: findGuruNip(j.nama_guru, guruMasterList, j.nip_guru) || '-',
+                              mapels: new Set(),
+                              classes: new Set(),
+                              count: 0
+                            });
+                          }
+                          const cur = map.get(k)!;
+                          cur.mapels.add(j.nama_mapel);
+                          cur.classes.add(j.kelas);
+                          cur.count++;
+                        });
+                        return Array.from(map.values()).map((g, idx) => (
+                          <tr key={idx} className="border border-slate-300">
+                            <td className="border border-slate-300 px-1.5 py-1 text-center font-bold">{idx + 1}</td>
+                            <td className="border border-slate-300 px-2 py-1">
+                              <div className="font-bold text-slate-900">{g.nama_guru}</div>
+                              <div className="text-[8.5px] text-slate-500 font-mono">NIP. {g.nip}</div>
+                            </td>
+                            <td className="border border-slate-300 px-2 py-1 font-semibold text-slate-800">
+                              {Array.from(g.mapels).join(', ')}
+                            </td>
+                            <td className="border border-slate-300 px-2 py-1 font-semibold text-sky-800">
+                              {Array.from(g.classes).join(', ')}
+                            </td>
+                            <td className="border border-slate-300 px-1.5 py-1 text-center font-bold text-slate-800">
+                              {g.count} Sesi
+                            </td>
+                            <td className="border border-slate-300 px-1.5 py-1 text-center">
+                              <span className="inline-block px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                Sudah Input
+                              </span>
+                            </td>
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* 6. PENGESAHAN / TANDA TANGAN */}
+              {includeSignatures && (
+                <div className="mt-8 pt-4 avoid-break grid grid-cols-2 gap-8 text-[11px]">
+                  <div className="text-center">
+                    <div>Mengetahui,</div>
+                    <div className="font-bold">Kepala SMP Negeri 7 Pasuruan</div>
+                    <div className="h-16"></div>
+                    <div className="font-bold underline uppercase">{kepsekName}</div>
+                    <div>NIP. {kepsekNip}</div>
+                  </div>
+                  <div className="text-center">
+                    <div>{docDate}</div>
+                    <div className="font-bold">Guru Piket / Kurikulum</div>
+                    <div className="h-16"></div>
+                    <div className="font-bold">( .................................................... )</div>
+                    <div>NIP. ....................................................</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* OPTION 1: PER MATA PELAJARAN (MULTI-PAGE BY SUBJECT) */
             activeSubjectGroups.map((group, groupIdx) => {
               // Primary teacher for signature
               const groupTeacher = group.guruList.length > 0 ? group.guruList.join(', ') : 'Guru Mata Pelajaran';
@@ -1215,7 +1433,8 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
                   )}
                 </div>
               );
-            })}
+            })
+          )}
         </div>
       </div>
     </div>
