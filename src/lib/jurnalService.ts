@@ -8,6 +8,34 @@ import {
 } from './jurnalIdb';
 
 const LOCAL_STORAGE_KEY = 'jurnal_pembelajaran_data';
+const DELETED_IDS_KEY = 'jurnal_pembelajaran_deleted_ids';
+
+export const getDeletedJurnalIds = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(DELETED_IDS_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch (e) {
+    return new Set();
+  }
+};
+
+export const markJurnalAsDeleted = (id: string) => {
+  try {
+    const set = getDeletedJurnalIds();
+    set.add(id);
+    localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(Array.from(set)));
+  } catch (e) {}
+};
+
+export const unmarkJurnalAsDeleted = (id: string) => {
+  try {
+    const set = getDeletedJurnalIds();
+    if (set.has(id)) {
+      set.delete(id);
+      localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(Array.from(set)));
+    }
+  } catch (e) {}
+};
 
 // Standard RFC-4122 UUID v4 generator working across all browser/iframe contexts
 export const generateUUID = (): string => {
@@ -86,8 +114,10 @@ export const saveLocalJurnalList = (list: JurnalPembelajaran[]) => {
  * any locally created or offline records are NEVER lost.
  */
 export const fetchAllJurnal = async (): Promise<JurnalPembelajaran[]> => {
+  const deletedIds = getDeletedJurnalIds();
+
   // 1. Get current local/offline records first
-  const localList = await getLocalOrIdbJurnalList();
+  const localList = (await getLocalOrIdbJurnalList()).filter(j => !deletedIds.has(j.id));
 
   // 2. Try fetching from Supabase
   try {
@@ -104,11 +134,12 @@ export const fetchAllJurnal = async (): Promise<JurnalPembelajaran[]> => {
         
         // Put local first
         localList.forEach(item => {
-          if (item && item.id) map.set(item.id, item);
+          if (item && item.id && !deletedIds.has(item.id)) map.set(item.id, item);
         });
 
         // Overlay Supabase data (authoritative)
         data.forEach((remote: any) => {
+          if (!remote || !remote.id || deletedIds.has(remote.id)) return;
           const localItem = map.get(remote.id);
           const merged: JurnalPembelajaran = {
             ...remote,
@@ -220,6 +251,9 @@ export const saveJurnal = async (jurnal: JurnalPembelajaran): Promise<{ success:
       jurnal.id = generateUUID();
     }
 
+    // Unmark as deleted if it was previously marked
+    unmarkJurnalAsDeleted(jurnal.id);
+
     // 2. Immediately save to IndexedDB (always succeeds offline or online)
     try {
       await idbSaveJurnal(jurnal);
@@ -255,19 +289,25 @@ export const saveJurnal = async (jurnal: JurnalPembelajaran): Promise<{ success:
 
 export const deleteJurnal = async (id: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    // 1. Delete from IndexedDB
+    // 1. Mark as deleted so it will never be restored from remote sync
+    markJurnalAsDeleted(id);
+
+    // 2. Delete from IndexedDB
     try {
       await idbDeleteJurnal(id);
     } catch (e) {}
 
-    // 2. Delete from local storage
+    // 3. Delete from local storage
     const currentList = (await getLocalOrIdbJurnalList()).filter(j => j.id !== id);
     saveLocalJurnalList(currentList);
 
-    // 3. Delete from Supabase
+    // 4. Delete from Supabase
     if (supabase) {
       try {
-        await supabase.from('jurnal_pembelajaran').delete().eq('id', id);
+        const { error } = await supabase.from('jurnal_pembelajaran').delete().eq('id', id);
+        if (error) {
+          console.warn('Supabase delete error:', error.message);
+        }
       } catch (sbErr) {
         console.warn('Supabase delete error:', sbErr);
       }

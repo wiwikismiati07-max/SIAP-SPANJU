@@ -24,7 +24,8 @@ import {
   FileSpreadsheet,
   CalendarCheck,
   Building,
-  GraduationCap
+  GraduationCap,
+  X
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -82,6 +83,12 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
 
   // Detail Modal
   const [selectedJurnal, setSelectedJurnal] = useState<JurnalPembelajaran | null>(null);
+
+  // Delete Confirmation Popup States
+  const [deleteConfirmJurnal, setDeleteConfirmJurnal] = useState<JurnalPembelajaran | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSuccessMessage, setDeleteSuccessMessage] = useState<string | null>(null);
 
   // Print Preview Modal
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
@@ -332,11 +339,32 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
     return Array.from(map.values()).sort((a, b) => b.totalCatatan - a.totalCatatan);
   }, [catatanTindakanRecords]);
 
-  // Delete Jurnal handler
-  const handleDeleteJurnal = async (id: string, kelas: string, tgl: string) => {
-    if (confirm(`Yakin ingin menghapus jurnal pembelajaran kelas ${kelas} tanggal ${tgl}?`)) {
-      await deleteJurnal(id);
-      onRefresh();
+  // Delete Jurnal Request & Confirmation Handlers
+  const handleRequestDelete = (jurnal: JurnalPembelajaran) => {
+    setDeleteError(null);
+    setDeleteConfirmJurnal(jurnal);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmJurnal) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await deleteJurnal(deleteConfirmJurnal.id);
+      if (res.success) {
+        const deletedKelas = deleteConfirmJurnal.kelas;
+        const deletedTgl = deleteConfirmJurnal.tanggal;
+        setDeleteConfirmJurnal(null);
+        setDeleteSuccessMessage(`Jurnal pembelajaran kelas ${deletedKelas} tanggal ${deletedTgl} berhasil dihapus.`);
+        setTimeout(() => setDeleteSuccessMessage(null), 4000);
+        onRefresh();
+      } else {
+        setDeleteError(res.error || 'Gagal menghapus jurnal pembelajaran');
+      }
+    } catch (err: any) {
+      setDeleteError(err?.message || 'Terjadi kesalahan sistem saat menghapus data');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1604,6 +1632,14 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                                   >
                                     <Edit3 size={14} />
                                   </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRequestDelete(j)}
+                                    className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors"
+                                    title="Hapus Jurnal"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
                                 </div>
                               </td>
                             </tr>
@@ -1895,7 +1931,8 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                               <Edit3 size={15} />
                             </button>
                             <button
-                              onClick={() => handleDeleteJurnal(j.id, j.kelas, j.tanggal)}
+                              type="button"
+                              onClick={() => handleRequestDelete(j)}
                               className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
                               title="Hapus Jurnal"
                             >
@@ -2231,6 +2268,112 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
         filterPeriode={filterPeriode}
         defaultMode={printModalMode}
       />
+
+      {/* POPUP KONFIRMASI HAPUS JURNAL PEMBELAJARAN */}
+      {deleteConfirmJurnal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-delete-title"
+        >
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="p-6 md:p-7 text-center">
+              {/* Trash Icon Circle */}
+              <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 mx-auto mb-4 shadow-inner">
+                <Trash2 size={32} />
+              </div>
+
+              <h3 id="modal-delete-title" className="text-lg md:text-xl font-black text-slate-900 mb-2">
+                Apa benar mau di hapus?
+              </h3>
+              <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+                Data jurnal pembelajaran ini akan dihapus secara permanen dari sistem dan tidak dapat dipulihkan kembali.
+              </p>
+
+              {/* Detail Ringkas Jurnal yang Akan Dihapus */}
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-left space-y-2 mb-6 text-xs">
+                <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                  <span className="text-slate-400 font-medium">Kelas:</span>
+                  <span className="font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    Kelas {deleteConfirmJurnal.kelas}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                  <span className="text-slate-400 font-medium">Tanggal & Jam:</span>
+                  <span className="font-semibold text-slate-800">
+                    {deleteConfirmJurnal.tanggal} (Jam Ke-{deleteConfirmJurnal.jam_ke})
+                  </span>
+                </div>
+                <div className="flex items-start justify-between border-b border-slate-200/60 pb-2">
+                  <span className="text-slate-400 font-medium">Mata Pelajaran:</span>
+                  <span className="font-bold text-slate-900 text-right">{deleteConfirmJurnal.nama_mapel}</span>
+                </div>
+                <div className="flex items-start justify-between border-b border-slate-200/60 pb-2">
+                  <span className="text-slate-400 font-medium">Guru Pengajar:</span>
+                  <span className="font-semibold text-slate-800 text-right">{deleteConfirmJurnal.nama_guru}</span>
+                </div>
+                <div className="flex items-start justify-between pt-0.5">
+                  <span className="text-slate-400 font-medium">Materi:</span>
+                  <span className="font-medium text-slate-700 text-right line-clamp-2 max-w-[220px]">
+                    {deleteConfirmJurnal.materi || '-'}
+                  </span>
+                </div>
+              </div>
+
+              {deleteError && (
+                <div className="mb-5 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-semibold flex items-center gap-2 text-left">
+                  <AlertCircle size={16} className="shrink-0" />
+                  <span>{deleteError}</span>
+                </div>
+              )}
+
+              {/* Action Buttons: "Tidak" (Batal) dan "Ya" (Hapus) */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isDeleting) {
+                      setDeleteConfirmJurnal(null);
+                      setDeleteError(null);
+                    }
+                  }}
+                  disabled={isDeleting}
+                  className="flex-1 py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 active:scale-[0.98]"
+                >
+                  Tidak
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={isDeleting}
+                  className="flex-1 py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98]"
+                >
+                  {isDeleting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Menghapus...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={16} />
+                      <span>Ya</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Success Notification Toast */}
+      {deleteSuccessMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-700 text-white px-5 py-3.5 rounded-2xl shadow-xl border border-emerald-600 flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-200">
+          <CheckCircle2 size={20} className="text-emerald-200 shrink-0" />
+          <span className="text-xs font-bold">{deleteSuccessMessage}</span>
+        </div>
+      )}
     </div>
   );
 };
