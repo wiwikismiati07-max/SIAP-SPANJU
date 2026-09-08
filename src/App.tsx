@@ -245,6 +245,14 @@ export default function App() {
 
   const currentUserRole = (user?.role === 'view' || user?.role === 'entry') ? user.role : 'full';
 
+  // Cek apakah user saat ini adalah akun Tamu / Wali Murid
+  const isTamu = 
+    (user?.username || '').toLowerCase().trim() === 'tamu' || 
+    (user?.role || '').toLowerCase().trim() === 'tamu' || 
+    user?.id === 'user_tamu_walimurid' ||
+    (user?.nama_lengkap || '').toLowerCase().includes('wali murid') ||
+    (user?.nama_lengkap || '').toLowerCase().includes('tamu');
+
   const sidebarItems = [
     { id: 'menu_aplikasi', title: 'MENU APLIKASI', subtitle: 'DAFTAR SEMUA APLIKASI', icon: LayoutDashboard, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
     { id: 'tutorial_aplikasi', title: 'TUTORIAL APLIKASI', subtitle: 'PANDUAN VIDEO INTERAKTIF', icon: Youtube, color: 'from-pink-500 to-rose-600', shadow: 'shadow-pink-200', prominent: true, extraLarge: true, roles: ['view', 'entry', 'full'] },
@@ -271,6 +279,13 @@ export default function App() {
     { id: 'korelasi_program', title: 'KORELASI PROGRAM', subtitle: 'SPIP & SIAP SPANJU', icon: ClipboardList, color: 'from-orange-500 to-orange-600', shadow: 'shadow-orange-200', roles: ['view', 'entry', 'full'] },
     { id: 'korelasi_sra', title: 'KORELASI SRA', subtitle: 'SEKOLAH RAMAH ANAK', icon: Activity, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', roles: ['view', 'entry', 'full'] },
   ];
+
+  // Filter menu yang dapat diakses: akun Tamu / Wali Murid tidak diizinkan mengakses Jurnal Pembelajaran
+  const visibleSidebarItems = sidebarItems.filter(item => {
+    if (!item.roles.includes(currentUserRole)) return false;
+    if (isTamu && item.id === 'jurnal_pembelajaran') return false;
+    return true;
+  });
 
   if (!isLoggedIn) {
     if (showKelulusanPublic) {
@@ -433,10 +448,14 @@ export default function App() {
           <InstallPWA variant="sidebar" className="mb-3" />
 
           {/* Static Sections */}
-          {sidebarItems.filter(item => item.roles.includes(currentUserRole)).map((section) => (
+          {visibleSidebarItems.map((section) => (
             <button
               key={section.id}
               onClick={() => {
+                if (section.id === 'jurnal_pembelajaran' && isTamu) {
+                  alert('Akses Ditolak: Akun Tamu (Wali Murid) tidak diizinkan membuka Jurnal Pembelajaran Guru.');
+                  return;
+                }
                 setActiveSection(section.id as any);
                 setSelectedLinkId(null);
                 if (isMobile) setIsSidebarOpen(false);
@@ -597,13 +616,33 @@ export default function App() {
           </div>
         )}
         {activeSection === 'jurnal_pembelajaran' && (
-          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-            <JurnalPembelajaranApp 
-              onBack={() => setActiveSection('menu_aplikasi')} 
-              onOpenSidebar={() => setIsSidebarOpen(true)}
-              user={user}
-            />
-          </div>
+          isTamu ? (
+            <div className="absolute inset-0 z-10 bg-slate-50 flex items-center justify-center p-6 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+              <div className="bg-white p-8 md:p-10 rounded-3xl shadow-xl max-w-md w-full text-center border border-slate-200/80">
+                <div className="w-16 h-16 rounded-2xl bg-rose-100 text-rose-600 mx-auto flex items-center justify-center mb-5 shadow-inner">
+                  <Shield size={32} />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 mb-2">Akses Terbatas</h3>
+                <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+                  Akun <span className="font-bold text-slate-800">Tamu (Wali Murid)</span> tidak diizinkan membuka <span className="font-bold text-slate-800">Jurnal Pembelajaran</span>. Fitur ini khusus diperuntukkan bagi Bapak/Ibu Guru dan Tenaga Kependidikan SMPN 7 Pasuruan.
+                </p>
+                <button
+                  onClick={() => setActiveSection('menu_aplikasi')}
+                  className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all shadow-md shadow-slate-200 active:scale-95 text-sm uppercase tracking-wider"
+                >
+                  Kembali ke Menu Utama
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+              <JurnalPembelajaranApp 
+                onBack={() => setActiveSection('menu_aplikasi')} 
+                onOpenSidebar={() => setIsSidebarOpen(true)}
+                user={user}
+              />
+            </div>
+          )
         )}
         {activeSection === 'prestasi' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
@@ -936,10 +975,16 @@ export default function App() {
 
                 {/* Grid of Apps */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                  {sidebarItems.filter(item => item.roles.includes(currentUserRole) && !['kilas', 'program', 'spip', 'korelasi_program', 'korelasi_sra', 'survey', 'menu_aplikasi'].includes(item.id)).map(app => (
+                  {visibleSidebarItems.filter(item => !['kilas', 'program', 'spip', 'korelasi_program', 'korelasi_sra', 'survey', 'menu_aplikasi'].includes(item.id)).map(app => (
                     <button
                       key={app.id}
-                      onClick={() => setActiveSection(app.id as any)}
+                      onClick={() => {
+                        if (app.id === 'jurnal_pembelajaran' && isTamu) {
+                          alert('Akses Ditolak: Akun Tamu (Wali Murid) tidak diizinkan membuka Jurnal Pembelajaran Guru.');
+                          return;
+                        }
+                        setActiveSection(app.id as any);
+                      }}
                       className="bg-white p-4 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-md hover:shadow-xl hover:-translate-y-2 transition-all duration-300 flex flex-col items-center text-center group"
                     >
                       <div className={`w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-[1.5rem] bg-gradient-to-br ${app.color} flex items-center justify-center text-white shadow-lg mb-3 md:mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500`}>

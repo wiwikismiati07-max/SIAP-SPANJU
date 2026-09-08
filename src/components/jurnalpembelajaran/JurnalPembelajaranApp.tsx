@@ -8,7 +8,8 @@ import {
   X, 
   MoreVertical,
   Calendar,
-  Sparkles
+  Sparkles,
+  ShieldAlert
 } from 'lucide-react';
 import { JurnalPembelajaran } from '../../types/jurnalpembelajaran';
 import { fetchAllJurnal } from '../../lib/jurnalService';
@@ -33,10 +34,19 @@ export default function JurnalPembelajaranApp({ onBack, onOpenSidebar, user }: J
 
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
+  // Cek apakah akun yang sedang aktif adalah akun Tamu (Wali Murid)
+  const isTamu = 
+    (user?.username || '').toLowerCase().trim() === 'tamu' || 
+    (user?.role || '').toLowerCase().trim() === 'tamu' || 
+    user?.id === 'user_tamu_walimurid' ||
+    (user?.nama_lengkap || '').toLowerCase().includes('wali murid') ||
+    (user?.nama_lengkap || '').toLowerCase().includes('tamu');
+
   const isViewer = user?.role === 'view';
 
-  // Load all journals
+  // Load all journals (Hanya untuk Non-Tamu)
   const loadData = async () => {
+    if (isTamu) return;
     setIsLoading(true);
     const data = await fetchAllJurnal();
     setJurnalList(data);
@@ -44,8 +54,10 @@ export default function JurnalPembelajaranApp({ onBack, onOpenSidebar, user }: J
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!isTamu) {
+      loadData();
+    }
+  }, [isTamu]);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -63,6 +75,28 @@ export default function JurnalPembelajaranApp({ onBack, onOpenSidebar, user }: J
     loadData();
     setActiveTab('laporan');
   };
+
+  if (isTamu) {
+    return (
+      <div className="h-full bg-slate-50 flex items-center justify-center p-6 text-center">
+        <div className="bg-white p-8 md:p-10 rounded-3xl shadow-xl max-w-md w-full border border-slate-200/80">
+          <div className="w-16 h-16 rounded-2xl bg-rose-100 text-rose-600 mx-auto flex items-center justify-center mb-5 shadow-inner">
+            <ShieldAlert size={32} />
+          </div>
+          <h3 className="text-xl font-black text-slate-900 mb-2">Akses Terbatas</h3>
+          <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+            Akun <span className="font-bold text-slate-800">Tamu (Wali Murid)</span> tidak diizinkan membuka <span className="font-bold text-slate-800">Jurnal Pembelajaran</span>. Fitur ini dikhususkan bagi Bapak/Ibu Guru dan Tenaga Kependidikan SMPN 7 Pasuruan.
+          </p>
+          <button
+            onClick={onBack}
+            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all shadow-md active:scale-95 text-sm uppercase tracking-wider"
+          >
+            Kembali ke Menu Utama
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full bg-[#f8fafc] flex flex-col relative overflow-hidden">
