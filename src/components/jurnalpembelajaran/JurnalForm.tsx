@@ -37,6 +37,7 @@ import {
   findGuruNip
 } from '../../lib/jurnalService';
 import { compressImage } from '../../lib/imageCompressor';
+import { KelasSelectorModal } from './KelasSelectorModal';
 
 interface JurnalFormProps {
   initialData?: JurnalPembelajaran | null;
@@ -64,6 +65,12 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
   const [isCustomGuru, setIsCustomGuru] = useState<boolean>(false);
 
   const [kelas, setKelas] = useState<string>('7A');
+  const [isKelasModalOpen, setIsKelasModalOpen] = useState<boolean>(false);
+  const [modalInitialTab, setModalInitialTab] = useState<'multikelas' | 'inklusi'>('multikelas');
+
+  const isMultiKelas = kelas.includes(',');
+  const isKelasInklusi = kelas === 'Inklusi' || kelas.toLowerCase().startsWith('inklusi');
+
   const [materi, setMateri] = useState<string>('');
   const [kegiatan, setKegiatan] = useState<string>('');
 
@@ -135,6 +142,11 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
     }
     if (!selectedPeriode) return;
 
+    // If kelas is Inklusi and students are already populated, don't overwrite
+    if ((kelas === 'Inklusi' || kelas.toLowerCase().startsWith('inklusi')) && siswaList.length > 0) {
+      return;
+    }
+
     const loadSiswa = async () => {
       setIsLoadingSiswa(true);
       const list = await fetchSiswaByKelas(kelas, selectedPeriode, tanggal);
@@ -144,6 +156,18 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
 
     loadSiswa();
   }, [kelas, selectedPeriode, tanggal]);
+
+  // Handle Multi-Kelas applied from popup
+  const handleApplyMultiKelas = (selectedClasses: string[]) => {
+    const formatted = selectedClasses.sort().join(', ');
+    setKelas(formatted);
+  };
+
+  // Handle Inklusi applied from popup
+  const handleApplyInklusi = (selectedStudents: SiswaJurnalItem[]) => {
+    setKelas('Inklusi');
+    setSiswaList(selectedStudents);
+  };
 
   // Handle Jam Ke change
   const handleJamKeChange = (val: string) => {
@@ -352,7 +376,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           {/* Tanggal */}
           <div>
             <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
@@ -442,20 +466,105 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
             </div>
           </div>
 
-          {/* Kelas (7A - 9H) */}
+          {/* Kelas Selector Dropdown */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                <Users size={14} className="inline mr-1 text-amber-500" /> Kelas
+              </label>
+              {isMultiKelas && (
+                <span className="text-[10px] font-extrabold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                  Multi-Kelas
+                </span>
+              )}
+              {isKelasInklusi && (
+                <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  <Sparkles size={10} /> Inklusi
+                </span>
+              )}
+            </div>
+            <select
+              value={isMultiKelas ? 'multikelas_val' : kelas}
+              onChange={e => {
+                const val = e.target.value;
+                if (val === 'open_multikelas') {
+                  setModalInitialTab('multikelas');
+                  setIsKelasModalOpen(true);
+                } else if (val === 'Inklusi') {
+                  setKelas('Inklusi');
+                  setModalInitialTab('inklusi');
+                  setIsKelasModalOpen(true);
+                } else if (val === 'multikelas_val') {
+                  // Keep current multi-class, or re-open popup
+                  setModalInitialTab('multikelas');
+                  setIsKelasModalOpen(true);
+                } else {
+                  setKelas(val);
+                }
+              }}
+              className="w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-bold text-amber-700 transition-all cursor-pointer"
+            >
+              {isMultiKelas && (
+                <option value="multikelas_val">👥 Multi: {kelas}</option>
+              )}
+              <optgroup label="Pilihan Multi-Kelas & Inklusi">
+                <option value="open_multikelas">👥 + Ceklist Multi-Kelas (Gabungan)...</option>
+                <option value="Inklusi">⭐ Kelas Inklusi (Pilih Bebas Siswa)...</option>
+              </optgroup>
+              <optgroup label="Kelas Reguler (SMPN 7)">
+                {DAFTAR_KELAS.map(k => (
+                  <option key={k} value={k}>Kelas {k}</option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
+
+          {/* Tombol Popup Multi-Kelas & Inklusi (Adjacent to Kelas / Pink Box Location) */}
           <div>
             <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
-              <Users size={14} className="inline mr-1 text-amber-500" /> Kelas
+              Pilihan Khusus
             </label>
-            <select
-              value={kelas}
-              onChange={e => setKelas(e.target.value)}
-              className="w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-bold text-amber-700 transition-all"
-            >
-              {DAFTAR_KELAS.map(k => (
-                <option key={k} value={k}>Kelas {k}</option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              {/* Tombol Ceklist Multi-Kelas */}
+              <button
+                type="button"
+                onClick={() => {
+                  setModalInitialTab('multikelas');
+                  setIsKelasModalOpen(true);
+                }}
+                className={`flex-1 py-2.5 px-2.5 rounded-xl border font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-xs ${
+                  isMultiKelas
+                    ? 'bg-amber-500 border-amber-600 text-white shadow-amber-500/20'
+                    : 'bg-amber-50/80 border-amber-200/90 text-amber-900 hover:bg-amber-100 hover:border-amber-300'
+                }`}
+                title="Buka popup untuk mencentang kelas apa saja yang mengikuti pembelajaran"
+              >
+                <Users size={15} className="shrink-0" />
+                <span className="truncate">
+                  {isMultiKelas ? `Multi (${kelas})` : 'Ceklist Multi-Kelas'}
+                </span>
+              </button>
+
+              {/* Tombol Siswa Inklusi */}
+              <button
+                type="button"
+                onClick={() => {
+                  setModalInitialTab('inklusi');
+                  setIsKelasModalOpen(true);
+                }}
+                className={`flex-1 py-2.5 px-2.5 rounded-xl border font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-xs ${
+                  isKelasInklusi
+                    ? 'bg-indigo-600 border-indigo-700 text-white shadow-indigo-600/20'
+                    : 'bg-indigo-50/80 border-indigo-200/90 text-indigo-900 hover:bg-indigo-100 hover:border-indigo-300'
+                }`}
+                title="Buka pemilih siswa inklusi: tampilkan semua siswa dan pilih siswa inklusi untuk hari ini"
+              >
+                <Sparkles size={15} className="shrink-0" />
+                <span className="truncate">
+                  {isKelasInklusi ? `Inklusi (${siswaList.length})` : 'Kelas Inklusi'}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -706,6 +815,70 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
           </div>
         </div>
 
+        {/* Contextual Banner for Multi-Kelas */}
+        {isMultiKelas && (
+          <div className="p-4 bg-gradient-to-r from-amber-50 via-amber-50/60 to-white border border-amber-200/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-sm shadow-amber-500/20 shrink-0">
+                <Users size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-amber-950 flex items-center gap-2">
+                  <span>Pembelajaran Gabungan Multi-Kelas: {kelas}</span>
+                  <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-200/80 text-amber-900 font-extrabold">
+                    {totalSiswa} Siswa
+                  </span>
+                </h4>
+                <p className="text-xs text-amber-800/80">
+                  Data siswa dari kelas {kelas} digabungkan otomatis dalam satu daftar jurnal pembelajaran ini.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setModalInitialTab('multikelas');
+                setIsKelasModalOpen(true);
+              }}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all shrink-0"
+            >
+              <Users size={14} /> Ubah Kelas Gabungan
+            </button>
+          </div>
+        )}
+
+        {/* Contextual Banner for Inklusi */}
+        {isKelasInklusi && (
+          <div className="p-4 bg-gradient-to-r from-indigo-50 via-indigo-50/60 to-white border border-indigo-200/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-sm shadow-indigo-600/20 shrink-0">
+                <Sparkles size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-indigo-950 flex items-center gap-2">
+                  <span>Kelas Inklusi Aktif</span>
+                  <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-900 font-extrabold">
+                    {totalSiswa} Siswa Terpilih
+                  </span>
+                </h4>
+                <p className="text-xs text-indigo-800/80">
+                  Menampilkan seluruh nama siswa inklusi yang dipilih guru untuk sesi pembelajaran hari ini.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setModalInitialTab('inklusi');
+                setIsKelasModalOpen(true);
+              }}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all shrink-0"
+            >
+              <Sparkles size={14} /> Buka Pemilih Siswa Inklusi
+            </button>
+          </div>
+        )}
+
         {/* Filter / Search within students */}
         <div className="relative max-w-sm">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -761,6 +934,11 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
                         </div>
                         <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium mt-0.5">
                           {siswa.nis && <span>NIS: {siswa.nis}</span>}
+                          {siswa.kelas && (isMultiKelas || isKelasInklusi) && (
+                            <span className="text-indigo-800 bg-indigo-50 px-1.5 py-0.2 rounded font-bold border border-indigo-200">
+                              Kelas {siswa.kelas}
+                            </span>
+                          )}
                           {siswa.periode && (
                             <span className="text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded font-semibold border border-amber-200/60">
                               Periode {siswa.periode}
@@ -880,6 +1058,18 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
           </button>
         </div>
       </div>
+
+      {/* Modal Popup Pemilih Multi-Kelas & Siswa Inklusi */}
+      <KelasSelectorModal
+        isOpen={isKelasModalOpen}
+        onClose={() => setIsKelasModalOpen(false)}
+        currentKelas={kelas}
+        currentSiswaList={siswaList}
+        selectedPeriode={selectedPeriode}
+        initialTab={modalInitialTab}
+        onApplyMultiKelas={handleApplyMultiKelas}
+        onApplyInklusi={handleApplyInklusi}
+      />
     </form>
   );
 };

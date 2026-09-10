@@ -9,6 +9,22 @@ import {
 
 const LOCAL_STORAGE_KEY = 'jurnal_pembelajaran_data';
 const DELETED_IDS_KEY = 'jurnal_pembelajaran_deleted_ids';
+const INKLUSI_SAVED_IDS_KEY = 'jurnal_inklusi_selected_ids';
+
+export const getSavedInklusiSiswaIds = (): string[] => {
+  try {
+    const raw = localStorage.getItem(INKLUSI_SAVED_IDS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+export const saveInklusiSiswaIds = (ids: string[]) => {
+  try {
+    localStorage.setItem(INKLUSI_SAVED_IDS_KEY, JSON.stringify(ids));
+  } catch (e) {}
+};
 
 export const getDeletedJurnalIds = (): Set<string> => {
   try {
@@ -501,8 +517,82 @@ export const fetchAvailablePeriodes = async (): Promise<string[]> => {
   return ['2026', '2025'];
 };
 
-// Fetch students for a specific class and period (defaults to the newest active period to prevent duplicate entries)
-export const fetchSiswaByKelas = async (
+// Fetch all students for selection across all classes (for Inklusi or multi-class pickers)
+export const fetchAllSiswaForSelection = async (targetPeriode?: string): Promise<{
+  id: string;
+  nama: string;
+  nis?: string;
+  kelas: string;
+  periode?: string;
+}[]> => {
+  try {
+    let activePeriode = targetPeriode;
+    if (!activePeriode || activePeriode === 'BARU') {
+      const pList = await fetchAvailablePeriodes();
+      activePeriode = pList[0] || '2026';
+    }
+
+    let all: any[] = [];
+    if (supabase) {
+      let query = supabase
+        .from('master_siswa')
+        .select('*')
+        .order('kelas', { ascending: true })
+        .order('nama', { ascending: true });
+      if (activePeriode && activePeriode !== 'ALL') {
+        query = query.eq('periode', activePeriode);
+      }
+      const { data, error } = await query;
+      if (!error && data && data.length > 0) {
+        all = data;
+      }
+    }
+
+    if (all.length === 0) {
+      const local = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
+      if (local) {
+        try {
+          const parsed = JSON.parse(local);
+          all = parsed.filter((s: any) => {
+            const sPeriode = (s.periode || '2025').toString().trim();
+            return !activePeriode || activePeriode === 'ALL' || sPeriode === activePeriode;
+          });
+        } catch (_) {}
+      }
+    }
+
+    if (all.length === 0) {
+      all = await fetchAllSiswa();
+    }
+
+    // Deduplicate by name and class
+    const map = new Map<string, any>();
+    all.forEach(s => {
+      const k = `${(s.nama || '').trim().toLowerCase()}_${(s.kelas || '').trim()}`;
+      if (k && !map.has(k)) {
+        map.set(k, {
+          id: s.id || `s-${map.size + 1}`,
+          nama: (s.nama || '').trim(),
+          nis: s.nis || '',
+          kelas: (s.kelas || '').trim(),
+          periode: s.periode || activePeriode
+        });
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      const kDiff = a.kelas.localeCompare(b.kelas, undefined, { numeric: true });
+      if (kDiff !== 0) return kDiff;
+      return a.nama.localeCompare(b.nama);
+    });
+  } catch (e) {
+    console.error('Error fetching all students for selection:', e);
+    return [];
+  }
+};
+
+// Fetch students for a single class
+const fetchSiswaBySingleKelas = async (
   kelas: string,
   targetPeriode?: string,
   tanggal?: string
@@ -668,6 +758,54 @@ export const fetchSiswaByKelas = async (
 
   // Fallback demo students if database is empty for this class
   return generateDemoSiswa(kelas);
+};
+
+// Fetch students for a specific class (or multi-class like "7A, 7B" or "Inklusi")
+export const fetchSiswaByKelas = async (
+  kelas: string,
+  targetPeriode?: string,
+  tanggal?: string
+): Promise<SiswaJurnalItem[]> => {
+  // Check if Inklusi
+  if (kelas === 'Inklusi' || kelas.toLowerCase().startsWith('inklusi')) {
+    const savedIds = getSavedInklusiSiswaIds();
+    if (savedIds.length > 0) {
+      const allSiswa = await fetchAllSiswaForSelection(targetPeriode);
+      const matched = allSiswa.filter(s => savedIds.includes(s.id));
+      if (matched.length > 0) {
+        return matched.map((s, idx) => ({
+          siswa_id: s.id,
+          nama: s.nama,
+          nis: s.nis || `24${s.kelas.replace(/[^0-9]/g, '')}${String(idx + 1).padStart(3, '0')}`,
+          kelas: s.kelas || 'Inklusi',
+          periode: s.periode || targetPeriode || '2026',
+          absensi: 'Hadir',
+          nilai: '',
+          catatan_siswa: 'Peserta Inklusi',
+          tindakan: ''
+        }));
+      }
+    }
+    // If no saved inklusi students yet, return empty list or small starter so teacher selects via popup
+    return [];
+  }
+
+  // Check if multi-class (contains comma)
+  if (kelas.includes(',')) {
+    const classes = kelas.split(',').map(k => k.trim()).filter(Boolean);
+    const combined: SiswaJurnalItem[] = [];
+    for (const singleK of classes) {
+      const list = await fetchSiswaBySingleKelas(singleK, targetPeriode, tanggal);
+      combined.push(...list);
+    }
+    return combined.sort((a, b) => {
+      const kDiff = a.kelas.localeCompare(b.kelas, undefined, { numeric: true });
+      if (kDiff !== 0) return kDiff;
+      return a.nama.localeCompare(b.nama);
+    });
+  }
+
+  return fetchSiswaBySingleKelas(kelas, targetPeriode, tanggal);
 };
 
 export const generateDemoSiswa = (kelas: string): SiswaJurnalItem[] => {
