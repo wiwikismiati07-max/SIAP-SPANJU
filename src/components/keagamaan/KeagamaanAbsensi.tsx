@@ -1,10 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, User, Users, Activity, Save, X, Edit2, Trash2, Search, Upload, Download } from 'lucide-react';
+import { Calendar, Clock, User, Users, Activity, Save, X, Edit2, Trash2, Search, Upload, Download, Check, Plus, UserCheck, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AgamaAbsensi, AgamaProgram } from '../../types/keagamaan';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
+
+interface SiswaKeagamaanItem {
+  siswa_id: string;
+  nama: string;
+  nis?: string;
+  kelas: string;
+  periode?: string;
+  absensi: 'Hadir' | 'Sakit' | 'Izin' | 'Alpa' | 'Haid' | 'Pulang sebelum waktunya';
+  nilai?: string;
+  catatan_siswa?: string;
+  tindakan?: string;
+  sudah_izin?: boolean;
+  keterangan_izin?: string;
+}
 
 const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
   const canDelete = user?.role === 'full';
@@ -13,14 +27,16 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
   const [programs, setPrograms] = useState<AgamaProgram[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
-  const [filteredStudents, setFilteredStudents] = useState<any[]>([]);
+  const [siswaList, setSiswaList] = useState<SiswaKeagamaanItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingStudentName, setEditingStudentName] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchSiswa, setSearchSiswa] = useState('');
   const [filterKelas, setFilterKelas] = useState('');
   const [filterKeterangan, setFilterKeterangan] = useState('');
-  const [filterPeriode, setFilterPeriode] = useState('2025');
+  const [filterPeriode, setFilterPeriode] = useState('2026');
 
   const [formData, setFormData] = useState({
     siswa_id: '',
@@ -29,7 +45,7 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
     kegiatan_id: '',
     wali_kelas_id: '',
     alasan: 'Hadir' as any,
-    kelas: ''
+    kelas: '7A'
   });
 
   const classes = [
@@ -85,14 +101,22 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
   const fetchInitialData = async () => {
     try {
       const [pRes, tRes, sData] = await Promise.all([
-        supabase.from('agama_program').select('*').order('nama_kegiatan'),
-        supabase.from('master_guru').select('*').order('nama_guru'),
+        supabase ? supabase.from('agama_program').select('*').order('nama_kegiatan') : Promise.resolve({ data: [] }),
+        supabase ? supabase.from('master_guru').select('*').order('nama_guru') : Promise.resolve({ data: [] }),
         fetchAllMasterSiswa()
       ]);
 
-      setPrograms(pRes.data || []);
-      setTeachers(tRes.data || []);
+      const programList = pRes.data || [];
+      const teacherList = tRes.data || [];
+      setPrograms(programList);
+      setTeachers(teacherList);
       setStudents(sData || []);
+
+      setFormData(prev => ({
+        ...prev,
+        kegiatan_id: prev.kegiatan_id || (programList.length > 0 ? programList[0].id : ''),
+        wali_kelas_id: prev.wali_kelas_id || (teacherList.length > 0 ? teacherList[0].id : '')
+      }));
     } catch (error) {
       console.error('Error fetching initial data:', error);
     }
@@ -101,6 +125,7 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
   const fetchAbsensi = async () => {
     try {
       setLoading(true);
+      if (!supabase) return;
       const { data, error } = await supabase
         .from('agama_absensi')
         .select(`
@@ -121,59 +146,214 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
     }
   };
 
-  const availablePeriodes = Array.from(new Set(['2025', ...students.map(s => s.periode || '2025')])).sort((a, b) => b.localeCompare(a));
+  const availablePeriodes = Array.from(
+    new Set(['2026', '2025', ...students.map(s => s.periode || '2026')])
+  ).sort((a, b) => b.localeCompare(a));
 
+  // Load students for the selected class & periode
   useEffect(() => {
-    if (formData.kelas) {
-      setFilteredStudents(students.filter(s => {
-        const sPeriode = s.periode || '2025';
+    if (!formData.kelas) {
+      setSiswaList([]);
+      return;
+    }
+
+    const loadClassStudents = async () => {
+      // 1. Filter students from master_siswa
+      const matched = students.filter(s => {
+        const sPeriode = s.periode || '2026';
         const matchPeriode = filterPeriode === 'ALL' ? true : sPeriode === filterPeriode;
         return s.kelas === formData.kelas && matchPeriode;
-      }));
-    } else {
-      setFilteredStudents([]);
+      }).sort((a, b) => a.nama.localeCompare(b.nama));
+
+      // 2. Check existing records in agama_absensi for this class on this date & program
+      let existingAbsensiMap: Record<string, any> = {};
+      if (formData.tanggal && formData.kegiatan_id && supabase && matched.length > 0) {
+        try {
+          const studentIds = matched.map(m => m.id);
+          const { data: existingData } = await supabase
+            .from('agama_absensi')
+            .select('*')
+            .in('siswa_id', studentIds)
+            .eq('tanggal', formData.tanggal)
+            .eq('kegiatan_id', formData.kegiatan_id);
+
+          if (existingData) {
+            existingData.forEach((item: any) => {
+              existingAbsensiMap[item.siswa_id] = item;
+            });
+          }
+        } catch (e) {
+          console.warn('Error fetching existing class attendance:', e);
+        }
+      }
+
+      // 3. Check active izin for this date from izin_siswa
+      let activeIzinByStudent: Record<string, any> = {};
+      if (formData.tanggal && supabase) {
+        try {
+          const { data: izinData } = await supabase
+            .from('izin_siswa')
+            .select('*')
+            .neq('status', 'Ditolak');
+          if (izinData) {
+            izinData.forEach((iz: any) => {
+              const start = iz.tanggal_mulai;
+              const end = iz.tanggal_selesai || iz.tanggal_mulai;
+              if (start <= formData.tanggal && end >= formData.tanggal) {
+                activeIzinByStudent[iz.siswa_id] = iz;
+              }
+            });
+          }
+        } catch (err) {}
+      }
+
+      const list: SiswaKeagamaanItem[] = matched.map((s, idx) => {
+        const existingRecord = existingAbsensiMap[s.id];
+        const existingIzin = activeIzinByStudent[s.id];
+
+        let defaultAbsensi: any = 'Hadir';
+        let sudahIzin = false;
+        let keteranganIzin = '';
+        let defaultCatatan = '';
+
+        if (existingRecord) {
+          defaultAbsensi = existingRecord.alasan;
+        } else if (existingIzin) {
+          sudahIzin = true;
+          defaultAbsensi = existingIzin.jenis_izin === 'Sakit' ? 'Sakit' : 'Izin';
+          keteranganIzin = `Sudah Izin (${existingIzin.jenis_izin})`;
+          defaultCatatan = `Izin via Form Wali Murid (${existingIzin.jenis_izin})`;
+        }
+
+        return {
+          siswa_id: s.id,
+          nama: s.nama,
+          nis: s.nis || `24${formData.kelas.replace(/[^0-9]/g, '')}${String(idx + 1).padStart(3, '0')}`,
+          kelas: s.kelas || formData.kelas,
+          periode: s.periode || (filterPeriode === 'ALL' ? '2026' : filterPeriode),
+          absensi: defaultAbsensi,
+          nilai: '',
+          catatan_siswa: defaultCatatan,
+          tindakan: '',
+          sudah_izin: sudahIzin,
+          keterangan_izin: keteranganIzin
+        };
+      });
+
+      setSiswaList(list);
+    };
+
+    loadClassStudents();
+  }, [formData.kelas, filterPeriode, formData.tanggal, formData.kegiatan_id, students]);
+
+  // Set all students to Hadir
+  const handleSetAllHadir = () => {
+    setSiswaList(prev => prev.map(s => ({ ...s, absensi: 'Hadir' })));
+  };
+
+  // Update specific student field
+  const handleUpdateStudent = (index: number, field: keyof SiswaKeagamaanItem, value: any) => {
+    setSiswaList(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: value };
+      return copy;
+    });
+  };
+
+  // Add manual student
+  const handleAddManualStudent = () => {
+    const nama = prompt('Masukkan nama siswa baru:');
+    if (!nama || !nama.trim()) return;
+
+    const newStudent: SiswaKeagamaanItem = {
+      siswa_id: `manual-${Date.now()}`,
+      nama: nama.trim().toUpperCase(),
+      nis: `24${(formData.kelas || '7A').replace(/[^0-9]/g, '')}${String(siswaList.length + 1).padStart(3, '0')}`,
+      kelas: formData.kelas || '7A',
+      periode: filterPeriode === 'ALL' ? '2026' : filterPeriode,
+      absensi: 'Hadir',
+      nilai: '',
+      catatan_siswa: '',
+      tindakan: ''
+    };
+
+    setSiswaList(prev => [...prev, newStudent]);
+  };
+
+  // Remove student from list
+  const handleRemoveStudent = (index: number) => {
+    if (confirm('Hapus siswa ini dari daftar absensi kegiatan ini?')) {
+      setSiswaList(prev => prev.filter((_, i) => i !== index));
     }
-  }, [formData.kelas, filterPeriode, students]);
+  };
+
+  // Counters
+  const countHadir = siswaList.filter(s => s.absensi === 'Hadir').length;
+  const countSakit = siswaList.filter(s => s.absensi === 'Sakit').length;
+  const countIzin = siswaList.filter(s => s.absensi === 'Izin').length;
+  const countAlpa = siswaList.filter(s => s.absensi === 'Alpa').length;
+  const countHaid = siswaList.filter(s => s.absensi === 'Haid').length;
+
+  // Filtered rows
+  const filteredSiswaTable = siswaList.filter(s =>
+    s.nama.toLowerCase().includes(searchSiswa.toLowerCase()) ||
+    (s.nis && s.nis.includes(searchSiswa))
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.siswa_id || !formData.kegiatan_id || !formData.wali_kelas_id) {
-      alert('Mohon lengkapi data');
+    if (!formData.kegiatan_id || !formData.wali_kelas_id) {
+      alert('Mohon pilih Nama Kegiatan dan Wali Kelas terlebih dahulu');
+      return;
+    }
+
+    if (siswaList.length === 0) {
+      alert('Daftar siswa untuk kelas ini kosong. Silakan pilih kelas lain atau klik Tambah Siswa.');
       return;
     }
 
     try {
       setSubmitting(true);
-      const payload = {
-        siswa_id: formData.siswa_id,
-        tanggal: formData.tanggal,
-        jam: formData.jam,
-        kegiatan_id: formData.kegiatan_id,
-        wali_kelas_id: formData.wali_kelas_id,
-        alasan: formData.alasan
-      };
 
-      if (editingId) {
+      const studentIds = siswaList.map(s => s.siswa_id);
+      let existingRecords: any[] = [];
+      if (supabase) {
+        const { data: exData } = await supabase
+          .from('agama_absensi')
+          .select('id, siswa_id, tanggal, kegiatan_id')
+          .in('siswa_id', studentIds)
+          .eq('tanggal', formData.tanggal)
+          .eq('kegiatan_id', formData.kegiatan_id);
+        if (exData) existingRecords = exData;
+      }
+
+      const toUpsert = siswaList.map(s => {
+        const existing = existingRecords.find(ex => ex.siswa_id === s.siswa_id);
+        const payload: any = {
+          siswa_id: s.siswa_id,
+          tanggal: formData.tanggal,
+          jam: formData.jam,
+          kegiatan_id: formData.kegiatan_id,
+          wali_kelas_id: formData.wali_kelas_id,
+          alasan: s.absensi
+        };
+        if (existing) {
+          payload.id = existing.id;
+        }
+        return payload;
+      });
+
+      if (supabase) {
         const { error } = await supabase
           .from('agama_absensi')
-          .update(payload)
-          .eq('id', editingId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('agama_absensi')
-          .insert([payload]);
+          .upsert(toUpsert);
         if (error) throw error;
       }
 
-      setFormData({
-        ...formData,
-        siswa_id: '',
-        alasan: 'Hadir'
-      });
+      alert(`Berhasil menyimpan presensi kegiatan keagamaan untuk ${toUpsert.length} siswa kelas ${formData.kelas}`);
       setEditingId(null);
+      setEditingStudentName('');
       fetchAbsensi();
-      alert('Berhasil menyimpan absensi');
     } catch (error: any) {
       console.error('Error saving absensi:', error);
       alert(`Gagal menyimpan absensi: ${error.message || 'Pastikan tabel agama_absensi sudah dibuat di Supabase'}`);
@@ -184,16 +364,47 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
 
   const handleEdit = (abs: AgamaAbsensi) => {
     setEditingId(abs.id);
-    setFormData({
+    setEditingStudentName(abs.siswa?.nama || 'Siswa');
+    setFormData(prev => ({
+      ...prev,
       siswa_id: abs.siswa_id,
       tanggal: abs.tanggal,
       jam: abs.jam,
       kegiatan_id: abs.kegiatan_id,
       wali_kelas_id: abs.wali_kelas_id,
       alasan: abs.alasan,
-      kelas: abs.siswa?.kelas || ''
-    });
+      kelas: abs.siswa?.kelas || prev.kelas
+    }));
+    setSearchSiswa(abs.siswa?.nama || '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSingleUpdate = async () => {
+    if (!editingId) return;
+    try {
+      setSubmitting(true);
+      if (!supabase) return;
+      const { error } = await supabase
+        .from('agama_absensi')
+        .update({
+          tanggal: formData.tanggal,
+          jam: formData.jam,
+          kegiatan_id: formData.kegiatan_id,
+          wali_kelas_id: formData.wali_kelas_id,
+          alasan: formData.alasan
+        })
+        .eq('id', editingId);
+
+      if (error) throw error;
+      alert(`Berhasil memperbarui data presensi untuk ${editingStudentName}`);
+      setEditingId(null);
+      setEditingStudentName('');
+      fetchAbsensi();
+    } catch (err: any) {
+      alert(`Gagal memperbarui data: ${err.message}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -366,15 +577,50 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
       {/* Form Section */}
-      <div className="bg-emerald-600 rounded-[40px] shadow-xl shadow-emerald-200 overflow-hidden">
-        <div className="p-10 text-white">
-          <h2 className="text-3xl font-black mb-2">Formulir Input Ketidakhadiran</h2>
-          <p className="text-emerald-100/80 font-medium tracking-wide">Catat ketidakhadiran siswa pada kegiatan keagamaan</p>
+      <div className="bg-gradient-to-br from-emerald-600 to-teal-800 rounded-[40px] p-2 shadow-xl shadow-emerald-900/10">
+        <div className="p-8 sm:p-10 text-white">
+          <h2 className="text-2xl sm:text-3xl font-black mb-2">Formulir Presensi Kegiatan Keagamaan</h2>
+          <p className="text-emerald-100/80 font-medium tracking-wide">
+            Kelola presensi, absensi, dan nilai kegiatan keagamaan siswa secara terpadu per kelas
+          </p>
         </div>
         
-        <div className="bg-white m-2 rounded-[32px] p-10">
+        <div className="bg-white m-2 rounded-[32px] p-6 sm:p-10">
+          {editingId && (
+            <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="text-amber-600" size={20} />
+                <span className="text-xs sm:text-sm font-bold text-amber-800">
+                  Mode Edit Riwayat: Mengubah presensi untuk <strong>{editingStudentName}</strong>
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSingleUpdate}
+                  disabled={submitting}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
+                >
+                  Perbarui Baris Ini Saja
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingId(null);
+                    setEditingStudentName('');
+                    setSearchSiswa('');
+                  }}
+                  className="px-3 py-2 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all flex items-center gap-1"
+                >
+                  <X size={14} /> Batal
+                </button>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Tanggal Kegiatan */}
               <div className="space-y-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Tanggal Kegiatan</label>
                 <div className="relative group">
@@ -382,13 +628,14 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
                   <input
                     type="date"
                     required
-                    className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700"
+                    className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 text-sm"
                     value={formData.tanggal}
                     onChange={e => setFormData({ ...formData, tanggal: e.target.value })}
                   />
                 </div>
               </div>
 
+              {/* Jam Pelaksanaan */}
               <div className="space-y-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Jam Pelaksanaan</label>
                 <div className="relative group">
@@ -396,7 +643,7 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
                   <input
                     type="text"
                     required
-                    className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700"
+                    className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 text-sm"
                     placeholder="Contoh: 07.30"
                     value={formData.jam}
                     onChange={e => setFormData({ ...formData, jam: e.target.value })}
@@ -404,18 +651,16 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
                 </div>
               </div>
 
+              {/* Pilih Periode */}
               <div className="space-y-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Pilih Periode</label>
                 <div className="relative group">
                   <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors" size={20} />
                   <select
                     required
-                    className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none bg-white"
+                    className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none bg-white text-sm"
                     value={filterPeriode}
-                    onChange={e => {
-                      setFilterPeriode(e.target.value);
-                      setFormData({ ...formData, siswa_id: '' });
-                    }}
+                    onChange={e => setFilterPeriode(e.target.value)}
                   >
                     <option value="ALL">Semua Periode</option>
                     {availablePeriodes.map(p => <option key={p} value={p}>Periode {p}</option>)}
@@ -423,15 +668,16 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
                 </div>
               </div>
 
+              {/* Pilih Kelas */}
               <div className="space-y-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Pilih Kelas</label>
                 <div className="relative group">
                   <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors" size={20} />
                   <select
                     required
-                    className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none bg-white"
+                    className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none bg-white text-sm"
                     value={formData.kelas}
-                    onChange={e => setFormData({ ...formData, kelas: e.target.value, siswa_id: '' })}
+                    onChange={e => setFormData({ ...formData, kelas: e.target.value })}
                   >
                     <option value="">-- Pilih Kelas --</option>
                     {classes.map(c => <option key={c} value={c}>{c}</option>)}
@@ -439,30 +685,14 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Pilih Siswa</label>
-                <div className="relative group">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors" size={20} />
-                  <select
-                    required
-                    disabled={!formData.kelas}
-                    className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none bg-white disabled:bg-slate-50 disabled:text-slate-400"
-                    value={formData.siswa_id}
-                    onChange={e => setFormData({ ...formData, siswa_id: e.target.value })}
-                  >
-                    <option value="">{formData.kelas ? '-- Pilih Siswa --' : '-- Pilih Kelas Dulu --'}</option>
-                    {filteredStudents.map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
-                  </select>
-                </div>
-              </div>
-
+              {/* Nama Kegiatan */}
               <div className="space-y-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Nama Kegiatan</label>
                 <div className="relative group">
                   <Activity className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors" size={20} />
                   <select
                     required
-                    className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none bg-white"
+                    className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none bg-white text-sm"
                     value={formData.kegiatan_id}
                     onChange={e => setFormData({ ...formData, kegiatan_id: e.target.value })}
                   >
@@ -472,40 +702,253 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
                 </div>
               </div>
 
+              {/* Wali Kelas */}
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Wali Kelas</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Wali Kelas / Guru Pengampu</label>
                 <div className="relative group">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors" size={20} />
                   <select
                     required
-                    className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none bg-white"
+                    className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none bg-white text-sm"
                     value={formData.wali_kelas_id}
                     onChange={e => setFormData({ ...formData, wali_kelas_id: e.target.value })}
                   >
-                    <option value="">-- Pilih Wali Kelas --</option>
+                    <option value="">-- Pilih Wali Kelas / Guru --</option>
                     {teachers.map(t => <option key={t.id} value={t.id}>{t.nama_guru}</option>)}
                   </select>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Alasan Tidak Mengikuti</label>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                {reasons.map(r => (
+            {/* DAFTAR SISWA SECTION (SESUAI GAMBAR TERLAMPIR) */}
+            <div className="space-y-4 pt-4 border-t border-slate-100">
+              {/* Header Box */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-1">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold shadow-xs">
+                    <Users size={22} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 tracking-tight">
+                        Daftar Siswa Kelas {formData.kelas || '7A'}
+                      </h3>
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200/80">
+                        Periode {filterPeriode === 'ALL' ? '2026' : filterPeriode}
+                      </span>
+                      <span className="text-xs text-slate-400 font-medium">
+                        ({siswaList.length} Siswa)
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">
+                      Menampilkan siswa periode baru ({filterPeriode === 'ALL' ? '2026' : filterPeriode}) saja agar data tidak ganda antar tahun ajaran.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 self-start md:self-auto">
                   <button
-                    key={r.id}
                     type="button"
-                    onClick={() => setFormData({ ...formData, alasan: r.id as any })}
-                    className={`px-4 py-4 rounded-2xl border-2 font-bold text-sm transition-all ${
-                      formData.alasan === r.id 
-                        ? `${r.color} ring-4 ring-emerald-50` 
-                        : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'
-                    }`}
+                    onClick={handleSetAllHadir}
+                    className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
                   >
-                    {r.label}
+                    <Check size={16} className="text-emerald-600" /> Set Semua Hadir
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={handleAddManualStudent}
+                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  >
+                    <Plus size={16} /> Tambah Siswa
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 Counter Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3.5 bg-emerald-50/70 rounded-2xl border border-emerald-100/90 flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-800">Hadir (H)</span>
+                  <span className="text-xl font-black text-emerald-700">{countHadir}</span>
+                </div>
+                <div className="p-3.5 bg-amber-50/70 rounded-2xl border border-amber-100/90 flex items-center justify-between">
+                  <span className="text-xs font-bold text-amber-800">Sakit (S)</span>
+                  <span className="text-xl font-black text-amber-700">{countSakit}</span>
+                </div>
+                <div className="p-3.5 bg-blue-50/70 rounded-2xl border border-blue-100/90 flex items-center justify-between">
+                  <span className="text-xs font-bold text-blue-800">Izin (I)</span>
+                  <span className="text-xl font-black text-blue-700">{countIzin}</span>
+                </div>
+                <div className="p-3.5 bg-rose-50/70 rounded-2xl border border-rose-100/90 flex items-center justify-between">
+                  <span className="text-xs font-bold text-rose-800">Alpa (A)</span>
+                  <span className="text-xl font-black text-rose-700">{countAlpa}</span>
+                </div>
+              </div>
+
+              {countHaid > 0 && (
+                <div className="p-2.5 bg-pink-50 rounded-xl border border-pink-200 flex items-center gap-2 text-xs text-pink-700 font-bold">
+                  <span>Haid (Tidak Sholat):</span>
+                  <span className="px-2 py-0.5 bg-pink-200 text-pink-800 rounded-lg">{countHaid} Siswi</span>
+                </div>
+              )}
+
+              {/* Search in student list */}
+              <div className="relative max-w-sm">
+                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Cari nama siswa di kelas..."
+                  value={searchSiswa}
+                  onChange={e => setSearchSiswa(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium transition-all"
+                />
+              </div>
+
+              {/* Students Table */}
+              <div className="overflow-x-auto border border-slate-200 rounded-2xl shadow-xs">
+                <table className="w-full text-left text-xs border-collapse min-w-[760px]">
+                  <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="p-3 text-center w-12">No</th>
+                      <th className="p-3 min-w-[180px]">Nama Siswa</th>
+                      <th className="p-3 text-center min-w-[210px]">Absensi</th>
+                      <th className="p-3 text-center w-20">Nilai</th>
+                      <th className="p-3 min-w-[180px]">Catatan Siswa</th>
+                      <th className="p-3 min-w-[180px]">Tindakan Guru</th>
+                      <th className="p-3 text-center w-10">#</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredSiswaTable.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-slate-400 italic">
+                          {siswaList.length === 0
+                            ? `Tidak ada siswa untuk Kelas ${formData.kelas} (${filterPeriode === 'ALL' ? 'Semua Periode' : `Periode ${filterPeriode}`}). Klik "+ Tambah Siswa" untuk menambahkan secara manual.`
+                            : `Tidak ditemukan siswa yang cocok dengan pencarian "${searchSiswa}".`}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredSiswaTable.map((siswa) => {
+                        const actualIdx = siswaList.findIndex(item => item.siswa_id === siswa.siswa_id);
+
+                        return (
+                          <tr key={siswa.siswa_id || actualIdx} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="p-3 text-center font-medium text-slate-400">{actualIdx + 1}</td>
+                            <td className="p-3">
+                              <div className="font-bold text-slate-800 uppercase tracking-tight flex items-center flex-wrap gap-1.5">
+                                <span>{siswa.nama}</span>
+                                {siswa.sudah_izin && (
+                                  <span 
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-[10px] border border-amber-300 normal-case"
+                                    title={siswa.keterangan_izin || 'Izin Form Wali Murid'}
+                                  >
+                                    <UserCheck size={11} /> {siswa.keterangan_izin || 'Izin Form Wali Murid'}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium mt-0.5">
+                                {siswa.nis && <span>NIS: {siswa.nis}</span>}
+                                {siswa.periode && (
+                                  <span className="text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded font-semibold border border-amber-200/60">
+                                    Periode {siswa.periode}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Absensi Segmented Buttons */}
+                            <td className="p-3 text-center">
+                              <div className="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200/80 gap-1 items-center">
+                                {(['Hadir', 'Sakit', 'Izin', 'Alpa'] as const).map((status) => {
+                                  const isSelected = siswa.absensi === status;
+                                  let activeClass = '';
+                                  if (isSelected) {
+                                    if (status === 'Hadir') activeClass = 'bg-emerald-600 text-white shadow-xs';
+                                    else if (status === 'Sakit') activeClass = 'bg-amber-500 text-white shadow-xs';
+                                    else if (status === 'Izin') activeClass = 'bg-blue-600 text-white shadow-xs';
+                                    else if (status === 'Alpa') activeClass = 'bg-rose-600 text-white shadow-xs';
+                                  } else {
+                                    activeClass = 'text-slate-500 hover:text-slate-800 hover:bg-white/60';
+                                  }
+
+                                  return (
+                                    <button
+                                      key={status}
+                                      type="button"
+                                      onClick={() => handleUpdateStudent(actualIdx, 'absensi', status)}
+                                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${activeClass}`}
+                                      title={status}
+                                    >
+                                      {status[0]}
+                                    </button>
+                                  );
+                                })}
+
+                                {/* Optional Haid button for religious screening */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateStudent(actualIdx, 'absensi', siswa.absensi === 'Haid' ? 'Hadir' : 'Haid')}
+                                  className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                                    siswa.absensi === 'Haid'
+                                      ? 'bg-rose-600 text-white shadow-xs'
+                                      : 'text-rose-400 hover:text-rose-700 hover:bg-rose-50'
+                                  }`}
+                                  title="Haid (Tidak Sholat)"
+                                >
+                                  Haid
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* Nilai */}
+                            <td className="p-3 text-center">
+                              <input
+                                type="text"
+                                placeholder="Nilai"
+                                value={siswa.nilai || ''}
+                                onChange={e => handleUpdateStudent(actualIdx, 'nilai', e.target.value)}
+                                className="w-16 px-2 py-1.5 text-center font-bold text-slate-800 rounded-lg border border-slate-200 bg-white focus:ring-2 focus:ring-emerald-500/20 outline-none text-xs"
+                              />
+                            </td>
+
+                            {/* Catatan Siswa */}
+                            <td className="p-3">
+                              <input
+                                type="text"
+                                placeholder="Catatan perilaku/keaktifan"
+                                value={siswa.catatan_siswa || ''}
+                                onChange={e => handleUpdateStudent(actualIdx, 'catatan_siswa', e.target.value)}
+                                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white focus:ring-2 focus:ring-emerald-500/20 outline-none text-xs"
+                              />
+                            </td>
+
+                            {/* Tindakan Guru */}
+                            <td className="p-3">
+                              <input
+                                type="text"
+                                placeholder="Tindakan/solusi guru..."
+                                value={siswa.tindakan || ''}
+                                onChange={e => handleUpdateStudent(actualIdx, 'tindakan', e.target.value)}
+                                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white focus:ring-2 focus:ring-emerald-500/20 outline-none text-xs"
+                              />
+                            </td>
+
+                            {/* Hapus Baris */}
+                            <td className="p-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveStudent(actualIdx)}
+                                className="text-slate-300 hover:text-red-500 transition-colors p-1"
+                                title="Hapus siswa dari daftar ini"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
 
@@ -515,7 +958,7 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
                   type="button"
                   onClick={() => {
                     setEditingId(null);
-                    setFormData({ ...formData, siswa_id: '', alasan: 'Hadir' });
+                    setEditingStudentName('');
                   }}
                   className="px-8 py-4 rounded-2xl border-2 border-slate-100 text-slate-600 font-bold hover:bg-slate-50 transition-all flex items-center gap-2"
                 >
@@ -525,12 +968,14 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-12 py-4 rounded-2xl bg-emerald-600 text-white font-black hover:bg-emerald-700 shadow-xl shadow-emerald-200 transition-all flex items-center gap-2 disabled:opacity-50"
+                className="px-10 py-4 rounded-2xl bg-emerald-600 text-white font-black hover:bg-emerald-700 shadow-xl shadow-emerald-200 transition-all flex items-center gap-2 disabled:opacity-50 text-sm"
               >
                 {submitting ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : editingId ? <Save size={20} /> : <Save size={20} />}
-                {editingId ? 'Simpan Perubahan' : 'Simpan Absensi'}
+                ) : (
+                  <Save size={20} />
+                )}
+                {editingId ? 'Simpan Seluruh Kelas' : `Simpan Presensi Kelas (${siswaList.length} Siswa)`}
               </button>
             </div>
           </form>
