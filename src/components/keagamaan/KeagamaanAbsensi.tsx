@@ -811,7 +811,6 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
                       <th className="p-3 text-center w-12">No</th>
                       <th className="p-3 min-w-[180px]">Nama Siswa</th>
                       <th className="p-3 text-center min-w-[210px]">Absensi</th>
-                      <th className="p-3 text-center w-20">Nilai</th>
                       <th className="p-3 min-w-[180px]">Catatan Siswa</th>
                       <th className="p-3 min-w-[180px]">Tindakan Guru</th>
                       <th className="p-3 text-center w-10">#</th>
@@ -820,7 +819,7 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
                   <tbody className="divide-y divide-slate-100">
                     {filteredSiswaTable.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-400 italic">
+                        <td colSpan={6} className="p-8 text-center text-slate-400 italic">
                           {siswaList.length === 0
                             ? `Tidak ada siswa untuk Kelas ${formData.kelas} (${filterPeriode === 'ALL' ? 'Semua Periode' : `Periode ${filterPeriode}`}). Klik "+ Tambah Siswa" untuk menambahkan secara manual.`
                             : `Tidak ditemukan siswa yang cocok dengan pencarian "${searchSiswa}".`}
@@ -897,17 +896,6 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
                                   Haid
                                 </button>
                               </div>
-                            </td>
-
-                            {/* Nilai */}
-                            <td className="p-3 text-center">
-                              <input
-                                type="text"
-                                placeholder="Nilai"
-                                value={siswa.nilai || ''}
-                                onChange={e => handleUpdateStudent(actualIdx, 'nilai', e.target.value)}
-                                className="w-16 px-2 py-1.5 text-center font-bold text-slate-800 rounded-lg border border-slate-200 bg-white focus:ring-2 focus:ring-emerald-500/20 outline-none text-xs"
-                              />
                             </td>
 
                             {/* Catatan Siswa */}
