@@ -6,6 +6,12 @@ import {
   idbSaveAllJurnal, 
   idbDeleteJurnal 
 } from './jurnalIdb';
+import { 
+  dispatchJurnalEmailNotification, 
+  PRIMARY_NOTIF_EMAIL 
+} from './emailNotificationService';
+
+export { PRIMARY_NOTIF_EMAIL, dispatchJurnalEmailNotification };
 
 const LOCAL_STORAGE_KEY = 'jurnal_pembelajaran_data';
 const DELETED_IDS_KEY = 'jurnal_pembelajaran_deleted_ids';
@@ -292,9 +298,18 @@ export const saveJurnal = async (jurnal: JurnalPembelajaran): Promise<{ success:
       const syncRes = await syncJurnalToSupabase(jurnal);
       if (!syncRes.success) {
         console.warn('Jurnal tersimpan secara lokal di memori perangkat (sinkronisasi server gagal):', syncRes.error);
+        // Still dispatch notification for locally saved journal
+        dispatchJurnalEmailNotification(jurnal).catch(err => {
+          console.warn('Background email notification error:', err);
+        });
         return { success: true, savedLocally: true };
       }
     }
+
+    // 5. Send automated email notification to wiwikismiati07@gmail.com
+    dispatchJurnalEmailNotification(jurnal).catch(err => {
+      console.warn('Background email notification error:', err);
+    });
 
     return { success: true };
   } catch (err: any) {

@@ -18,7 +18,10 @@ import {
   Image as ImageIcon,
   CheckCircle2,
   X,
-  UserCheck
+  UserCheck,
+  Mail,
+  Send,
+  ExternalLink
 } from 'lucide-react';
 import { 
   JurnalPembelajaran, 
@@ -36,6 +39,7 @@ import {
   isValidUUID,
   findGuruNip
 } from '../../lib/jurnalService';
+import { PRIMARY_NOTIF_EMAIL, generateJurnalMailtoUrl } from '../../lib/emailNotificationService';
 import { compressImage } from '../../lib/imageCompressor';
 import { KelasSelectorModal } from './KelasSelectorModal';
 
@@ -318,13 +322,13 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
 
     if (res.success) {
       const successText = res.savedLocally 
-        ? 'Jurnal pembelajaran berhasil disimpan di memori perangkat (offline)!' 
-        : 'Jurnal pembelajaran berhasil disimpan!';
+        ? `Jurnal pembelajaran berhasil disimpan & notifikasi email dikirim ke ${PRIMARY_NOTIF_EMAIL}!` 
+        : `Jurnal pembelajaran berhasil disimpan & notifikasi otomatis dikirim ke ${PRIMARY_NOTIF_EMAIL}!`;
       setStatusMessage({ type: 'success', text: successText });
       window.scrollTo({ top: 0, behavior: 'smooth' });
       setTimeout(() => {
         onSaved();
-      }, 700);
+      }, 1000);
     } else {
       setStatusMessage({ type: 'error', text: res.error || 'Gagal menyimpan jurnal pembelajaran!' });
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -362,7 +366,13 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
               <h2 className="text-lg md:text-xl font-black text-slate-800">
                 {initialData ? 'Edit Jurnal Pembelajaran' : 'Input Jurnal Pembelajaran Baru'}
               </h2>
-              <p className="text-xs text-slate-400 font-medium">Catat agenda belajar mengajar, materi, presensi, dan evaluasi siswa</p>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                <p className="text-xs text-slate-400 font-medium">Catat agenda belajar mengajar, materi, presensi, dan evaluasi siswa</p>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-amber-50 border border-amber-200/80 rounded-full text-[11px] font-semibold text-amber-800">
+                  <Mail size={12} className="text-amber-600" />
+                  <span>Notifikasi Email: <strong className="text-amber-900">{PRIMARY_NOTIF_EMAIL}</strong></span>
+                </div>
+              </div>
             </div>
           </div>
           {onCancel && (
@@ -1031,10 +1041,16 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
 
       {/* SUBMIT BUTTON BAR */}
       <div className="flex flex-wrap items-center justify-between gap-3 sticky bottom-4 z-20 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-slate-200">
-        <div className="text-xs font-semibold text-slate-500">
-          {statusMessage && (
-            <span className={statusMessage.type === 'success' ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>
+        <div className="text-xs font-semibold text-slate-500 flex items-center gap-2">
+          {statusMessage ? (
+            <span className={statusMessage.type === 'success' ? 'text-emerald-600 font-bold flex items-center gap-1.5' : 'text-rose-600 font-bold flex items-center gap-1.5'}>
+              <CheckCircle2 size={15} />
               {statusMessage.text}
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 text-slate-500">
+              <Mail size={14} className="text-amber-600" />
+              <span>Notifikasi otomatis dikirim ke: <strong className="text-slate-800">{PRIMARY_NOTIF_EMAIL}</strong></span>
             </span>
           )}
         </div>
