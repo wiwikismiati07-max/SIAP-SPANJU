@@ -4,11 +4,14 @@ export const PRIMARY_NOTIF_EMAIL = 'wiwikismiati07@gmail.com';
 
 export interface EmailNotifResult {
   success: boolean;
+  delivered?: boolean;
+  needsActivation?: boolean;
   recipient: string;
-  method?: 'smtp' | 'api' | 'mailto' | 'simulated';
+  method?: 'smtp' | 'formsubmit' | 'api' | 'mailto' | 'simulated';
   message: string;
   error?: string;
   mailtoUrl?: string;
+  gmailComposeUrl?: string;
 }
 
 export interface JurnalEmailLog {
@@ -252,6 +255,15 @@ export const generateJurnalMailtoUrl = (jurnal: JurnalPembelajaran, recipient: s
 };
 
 /**
+ * Generate a Gmail Web Compose URL that opens Gmail in browser with pre-filled recipient, subject, and body
+ */
+export const generateGmailWebComposeUrl = (jurnal: JurnalPembelajaran, recipient: string = PRIMARY_NOTIF_EMAIL): string => {
+  const subject = encodeURIComponent(generateJurnalEmailSubject(jurnal));
+  const body = encodeURIComponent(generateJurnalEmailText(jurnal));
+  return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(recipient)}&su=${subject}&body=${body}`;
+};
+
+/**
  * Main function to dispatch learning journal email notification to wiwikismiati07@gmail.com
  */
 export const dispatchJurnalEmailNotification = async (
@@ -262,13 +274,16 @@ export const dispatchJurnalEmailNotification = async (
   const text = generateJurnalEmailText(jurnal);
   const html = generateJurnalEmailHtml(jurnal);
   const mailtoUrl = generateJurnalMailtoUrl(jurnal, targetEmail);
+  const gmailComposeUrl = generateGmailWebComposeUrl(jurnal, targetEmail);
 
   let result: EmailNotifResult = {
     success: true,
+    delivered: false,
     recipient: targetEmail,
     method: 'api',
     message: `Notifikasi email disiapkan untuk ${targetEmail}`,
-    mailtoUrl
+    mailtoUrl,
+    gmailComposeUrl
   };
 
   try {
@@ -287,11 +302,16 @@ export const dispatchJurnalEmailNotification = async (
           id: jurnal.id,
           tanggal: jurnal.tanggal,
           jam_ke: jurnal.jam_ke,
+          jam_mulai: jurnal.jam_mulai,
+          jam_selesai: jurnal.jam_selesai,
           kelas: jurnal.kelas,
           nama_mapel: jurnal.nama_mapel,
           nama_guru: jurnal.nama_guru,
+          nip_guru: jurnal.nip_guru,
           materi: jurnal.materi,
-          periode: jurnal.periode
+          kegiatan: jurnal.kegiatan,
+          periode: jurnal.periode,
+          siswa_list: jurnal.siswa_list
         }
       })
     });
@@ -300,22 +320,48 @@ export const dispatchJurnalEmailNotification = async (
       const data = await response.json();
       result = {
         success: true,
+        delivered: !!data.delivered,
+        needsActivation: !!data.needsActivation,
         recipient: targetEmail,
         method: data.method || 'smtp',
         message: data.message || `Notifikasi email berhasil dikirim ke ${targetEmail}`,
-        mailtoUrl
+        mailtoUrl,
+        gmailComposeUrl
       };
     } else {
-      // Backend not running SMTP or returned non-200
-      console.info('Backend notification endpoint returned status:', response.status);
-      result.method = 'simulated';
-      result.message = `Notifikasi email ke ${targetEmail} berhasil diproses oleh sistem SIAP SPANJU.`;
+      // Backend returned non-200, try direct client-side fallback to FormSubmit
+      try {
+        const clientFs = await fetch(`https://formsubmit.co/ajax/${targetEmail}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({
+            _subject: subject,
+            _captcha: 'false',
+            _template: 'table',
+            'Tanggal': jurnal.tanggal,
+            'Kelas': jurnal.kelas,
+            'Mata Pelajaran': jurnal.nama_mapel,
+            'Guru Pengajar': jurnal.nama_guru,
+            'Materi': jurnal.materi,
+            'Ringkasan': text
+          })
+        });
+        const fsData = await clientFs.json();
+        if (fsData.success === 'true' || fsData.success === true) {
+          result.delivered = true;
+          result.method = 'formsubmit';
+          result.message = `Notifikasi email berhasil dikirim ke ${targetEmail}`;
+        } else if (fsData.message && fsData.message.includes('needs Activation')) {
+          result.needsActivation = true;
+          result.method = 'formsubmit';
+          result.message = `Tautan aktivasi pengiriman email telah dikirim ke ${targetEmail}. Silakan klik tautan 'Activate Form' pada email Anda sekali saja.`;
+        }
+      } catch (_) {}
     }
   } catch (err: any) {
-    // In pure client-mode or offline
     console.info('Using local notification record:', err?.message || err);
     result.method = 'simulated';
-    result.message = `Notifikasi email ke ${targetEmail} berhasil diproses oleh sistem SIAP SPANJU.`;
+    result.message = `Notifikasi email dicatat untuk ${targetEmail}.`;
   }
 
   // Record audit log
@@ -327,7 +373,7 @@ export const dispatchJurnalEmailNotification = async (
     kelas: jurnal.kelas,
     nama_mapel: jurnal.nama_mapel,
     nama_guru: jurnal.nama_guru,
-    status: result.success ? 'sent' : 'error',
+    status: result.delivered ? 'sent' : 'queued',
     timestamp: new Date().toISOString(),
     message: result.message
   });

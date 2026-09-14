@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Printer, Calendar, Clock, BookOpen, User, Users, CheckCircle2, AlertTriangle, FileText, Image as ImageIcon, Mail, Send, Check } from 'lucide-react';
+import { X, Printer, Calendar, Clock, BookOpen, User, Users, CheckCircle2, AlertTriangle, FileText, Image as ImageIcon, Mail, Send, Check, ExternalLink } from 'lucide-react';
 import { JurnalPembelajaran } from '../../types/jurnalpembelajaran';
 import { fetchGuruList, findGuruNip } from '../../lib/jurnalService';
-import { dispatchJurnalEmailNotification, PRIMARY_NOTIF_EMAIL, generateJurnalMailtoUrl } from '../../lib/emailNotificationService';
+import { dispatchJurnalEmailNotification, PRIMARY_NOTIF_EMAIL, generateJurnalMailtoUrl, generateGmailWebComposeUrl } from '../../lib/emailNotificationService';
 
 interface JurnalDetailModalProps {
   jurnal: JurnalPembelajaran | null;
@@ -30,7 +30,13 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
     setEmailStatus(null);
     try {
       const res = await dispatchJurnalEmailNotification(jurnal, PRIMARY_NOTIF_EMAIL);
-      setEmailStatus(`Notifikasi email berhasil diproses ke ${PRIMARY_NOTIF_EMAIL}`);
+      if (res.delivered) {
+        setEmailStatus(`Notifikasi email berhasil terkirim ke ${PRIMARY_NOTIF_EMAIL}`);
+      } else if (res.needsActivation) {
+        setEmailStatus(`Perlu aktivasi 1x: Cek email ${PRIMARY_NOTIF_EMAIL} & klik 'Activate Form', atau klik Buka Gmail Web`);
+      } else {
+        setEmailStatus(`Notifikasi diproses untuk ${PRIMARY_NOTIF_EMAIL}`);
+      }
     } catch (err: any) {
       setEmailStatus(`Gagal mengirim: ${err?.message || 'Error'}`);
     } finally {
@@ -482,6 +488,16 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
               {isSendingEmail ? 'Mengirim...' : 'Kirim Notifikasi ke Email'}
             </button>
             <a
+              href={generateGmailWebComposeUrl(jurnal, PRIMARY_NOTIF_EMAIL)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
+              title="Buka draf laporan di Gmail Web (sudah terisi alamat tujuan, subjek, & rekap)"
+            >
+              <ExternalLink size={13} className="text-red-500" />
+              Buka Gmail Web
+            </a>
+            <a
               href={generateJurnalMailtoUrl(jurnal, PRIMARY_NOTIF_EMAIL)}
               target="_blank"
               rel="noopener noreferrer"
@@ -489,7 +505,7 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
               title="Buka draf email di aplikasi mail perangkat Anda"
             >
               <Send size={13} className="text-slate-400" />
-              Buka Email
+              Aplikasi Mail
             </a>
             {onEdit && (
               <button

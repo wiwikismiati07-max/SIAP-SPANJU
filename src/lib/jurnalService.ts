@@ -8,7 +8,8 @@ import {
 } from './jurnalIdb';
 import { 
   dispatchJurnalEmailNotification, 
-  PRIMARY_NOTIF_EMAIL 
+  PRIMARY_NOTIF_EMAIL,
+  EmailNotifResult
 } from './emailNotificationService';
 
 export { PRIMARY_NOTIF_EMAIL, dispatchJurnalEmailNotification };
@@ -266,7 +267,12 @@ export const syncJurnalToSupabase = async (jurnal: JurnalPembelajaran): Promise<
   }
 };
 
-export const saveJurnal = async (jurnal: JurnalPembelajaran): Promise<{ success: boolean; error?: string; savedLocally?: boolean }> => {
+export const saveJurnal = async (jurnal: JurnalPembelajaran): Promise<{ 
+  success: boolean; 
+  error?: string; 
+  savedLocally?: boolean;
+  emailResult?: EmailNotifResult | null;
+}> => {
   try {
     // 1. Ensure ID is a valid RFC-4122 UUID
     if (!isValidUUID(jurnal.id)) {
@@ -299,19 +305,21 @@ export const saveJurnal = async (jurnal: JurnalPembelajaran): Promise<{ success:
       if (!syncRes.success) {
         console.warn('Jurnal tersimpan secara lokal di memori perangkat (sinkronisasi server gagal):', syncRes.error);
         // Still dispatch notification for locally saved journal
-        dispatchJurnalEmailNotification(jurnal).catch(err => {
+        const emailResult = await dispatchJurnalEmailNotification(jurnal).catch(err => {
           console.warn('Background email notification error:', err);
+          return null;
         });
-        return { success: true, savedLocally: true };
+        return { success: true, savedLocally: true, emailResult };
       }
     }
 
     // 5. Send automated email notification to wiwikismiati07@gmail.com
-    dispatchJurnalEmailNotification(jurnal).catch(err => {
+    const emailResult = await dispatchJurnalEmailNotification(jurnal).catch(err => {
       console.warn('Background email notification error:', err);
+      return null;
     });
 
-    return { success: true };
+    return { success: true, emailResult };
   } catch (err: any) {
     console.error('Fatal error saving jurnal:', err);
     return { success: false, error: err?.message || 'Gagal menyimpan jurnal pembelajaran' };
