@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Printer, Calendar, Clock, BookOpen, User, Users, CheckCircle2, AlertTriangle, FileText, Image as ImageIcon, Mail, Send, Check, ExternalLink } from 'lucide-react';
+import { X, Printer, Calendar, Clock, BookOpen, User, Users, CheckCircle2, AlertTriangle, FileText, Image as ImageIcon } from 'lucide-react';
 import { JurnalPembelajaran } from '../../types/jurnalpembelajaran';
 import { fetchGuruList, findGuruNip } from '../../lib/jurnalService';
-import { dispatchJurnalEmailNotification, PRIMARY_NOTIF_EMAIL, generateJurnalMailtoUrl, generateGmailWebComposeUrl } from '../../lib/emailNotificationService';
 
 interface JurnalDetailModalProps {
   jurnal: JurnalPembelajaran | null;
@@ -12,37 +11,14 @@ interface JurnalDetailModalProps {
 
 export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, onClose, onEdit }) => {
   const [guruMasterList, setGuruMasterList] = useState<{ id: string; nama_guru: string; nip?: string }[]>([]);
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [emailStatus, setEmailStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (jurnal) {
-      setEmailStatus(null);
       fetchGuruList().then(data => {
         if (data) setGuruMasterList(data);
       }).catch(console.error);
     }
   }, [jurnal]);
-
-  const handleSendEmailNotif = async () => {
-    if (!jurnal || isSendingEmail) return;
-    setIsSendingEmail(true);
-    setEmailStatus(null);
-    try {
-      const res = await dispatchJurnalEmailNotification(jurnal, PRIMARY_NOTIF_EMAIL);
-      if (res.delivered) {
-        setEmailStatus(`Notifikasi jurnal oleh ${jurnal.nama_guru} berhasil terkirim ke ${PRIMARY_NOTIF_EMAIL}`);
-      } else if (res.needsActivation) {
-        setEmailStatus(`Perlu aktivasi 1x (${jurnal.nama_guru}): Cek inbox ${PRIMARY_NOTIF_EMAIL} & klik 'Activate Form', atau klik Buka Gmail Web`);
-      } else {
-        setEmailStatus(`Notifikasi jurnal oleh ${jurnal.nama_guru} diproses untuk ${PRIMARY_NOTIF_EMAIL}`);
-      }
-    } catch (err: any) {
-      setEmailStatus(`Gagal mengirim: ${err?.message || 'Error'}`);
-    } finally {
-      setIsSendingEmail(false);
-    }
-  };
 
   if (!jurnal) return null;
 
@@ -471,56 +447,22 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-col gap-1 text-xs text-slate-500">
             <span>Dibuat pada: {new Date(jurnal.created_at).toLocaleString('id-ID')}</span>
-            {emailStatus && (
-              <span className="text-emerald-700 font-bold flex items-center gap-1">
-                <Check size={13} /> {emailStatus}
-              </span>
-            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={handleSendEmailNotif}
-              disabled={isSendingEmail}
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
-              title={`Kirim notifikasi email ke ${PRIMARY_NOTIF_EMAIL}`}
-            >
-              <Mail size={14} />
-              {isSendingEmail ? 'Mengirim...' : 'Kirim Notifikasi ke Email'}
-            </button>
-            <a
-              href={generateGmailWebComposeUrl(jurnal, PRIMARY_NOTIF_EMAIL)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
-              title="Buka draf laporan di Gmail Web (sudah terisi alamat tujuan, subjek, & rekap)"
-            >
-              <ExternalLink size={13} className="text-red-500" />
-              Buka Gmail Web
-            </a>
-            <a
-              href={generateJurnalMailtoUrl(jurnal, PRIMARY_NOTIF_EMAIL)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1"
-              title="Buka draf email di aplikasi mail perangkat Anda"
-            >
-              <Send size={13} className="text-slate-400" />
-              Aplikasi Mail
-            </a>
             {onEdit && (
               <button
                 onClick={() => {
                   onEdit(jurnal);
                   onClose();
                 }}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors"
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
                 Edit Jurnal Ini
               </button>
             )}
             <button
               onClick={onClose}
-              className="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+              className="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
             >
               Tutup
             </button>

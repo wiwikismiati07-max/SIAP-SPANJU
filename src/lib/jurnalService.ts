@@ -271,7 +271,6 @@ export const saveJurnal = async (jurnal: JurnalPembelajaran): Promise<{
   success: boolean; 
   error?: string; 
   savedLocally?: boolean;
-  emailResult?: EmailNotifResult | null;
 }> => {
   try {
     // 1. Ensure ID is a valid RFC-4122 UUID
@@ -304,22 +303,11 @@ export const saveJurnal = async (jurnal: JurnalPembelajaran): Promise<{
       const syncRes = await syncJurnalToSupabase(jurnal);
       if (!syncRes.success) {
         console.warn('Jurnal tersimpan secara lokal di memori perangkat (sinkronisasi server gagal):', syncRes.error);
-        // Still dispatch notification for locally saved journal
-        const emailResult = await dispatchJurnalEmailNotification(jurnal).catch(err => {
-          console.warn('Background email notification error:', err);
-          return null;
-        });
-        return { success: true, savedLocally: true, emailResult };
+        return { success: true, savedLocally: true };
       }
     }
 
-    // 5. Send automated email notification to wiwikismiati07@gmail.com
-    const emailResult = await dispatchJurnalEmailNotification(jurnal).catch(err => {
-      console.warn('Background email notification error:', err);
-      return null;
-    });
-
-    return { success: true, emailResult };
+    return { success: true };
   } catch (err: any) {
     console.error('Fatal error saving jurnal:', err);
     return { success: false, error: err?.message || 'Gagal menyimpan jurnal pembelajaran' };

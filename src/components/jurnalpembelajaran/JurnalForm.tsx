@@ -50,7 +50,6 @@ interface JurnalFormProps {
 }
 
 export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, onCancel }) => {
-  const [activationAlert, setActivationAlert] = useState<{ isOpen: boolean; gmailUrl: string; mailtoUrl: string; guru?: string } | null>(null);
   const [tanggal, setTanggal] = useState<string>(new Date().toISOString().split('T')[0]);
   const [jamKe, setJamKe] = useState<string>('1');
   const [jamMulai, setJamMulai] = useState<string>('07:15');
@@ -322,23 +321,14 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
     setIsSaving(false);
 
     if (res.success) {
-      if (res.emailResult?.needsActivation) {
-        setActivationAlert({
-          isOpen: true,
-          guru: finalGuru,
-          gmailUrl: res.emailResult.gmailComposeUrl || generateGmailWebComposeUrl(jurnalData, PRIMARY_NOTIF_EMAIL),
-          mailtoUrl: res.emailResult.mailtoUrl || generateJurnalMailtoUrl(jurnalData, PRIMARY_NOTIF_EMAIL)
-        });
-      } else {
-        const successText = res.emailResult?.delivered
-          ? `Jurnal pembelajaran oleh ${finalGuru} berhasil disimpan & notifikasi email terkirim ke ${PRIMARY_NOTIF_EMAIL}!`
-          : `Jurnal pembelajaran oleh ${finalGuru} berhasil disimpan & notifikasi diproses untuk ${PRIMARY_NOTIF_EMAIL}!`;
-        setStatusMessage({ type: 'success', text: successText });
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        setTimeout(() => {
-          onSaved();
-        }, 1200);
-      }
+      const successText = res.savedLocally 
+        ? `Jurnal pembelajaran berhasil disimpan!` 
+        : `Jurnal pembelajaran berhasil disimpan!`;
+      setStatusMessage({ type: 'success', text: successText });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => {
+        onSaved();
+      }, 1000);
     } else {
       setStatusMessage({ type: 'error', text: res.error || 'Gagal menyimpan jurnal pembelajaran!' });
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1096,63 +1086,6 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
         onApplyMultiKelas={handleApplyMultiKelas}
         onApplyInklusi={handleApplyInklusi}
       />
-
-      {/* Modal Aktivasi & Pengiriman Notifikasi Email */}
-      {activationAlert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-slate-100 text-center space-y-5">
-            <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto shadow-sm">
-              <Mail size={32} />
-            </div>
-            <div>
-              <h3 className="text-xl font-black text-slate-800">Jurnal Berhasil Disimpan!</h3>
-              {activationAlert.guru && (
-                <p className="text-xs font-bold text-emerald-700 mt-1">
-                  Guru Penginput: <strong>{activationAlert.guru}</strong>
-                </p>
-              )}
-              <p className="text-[11px] font-bold text-amber-700 mt-0.5 uppercase tracking-wide">
-                Aktivasi 1x Pengiriman Notifikasi Email Otomatis
-              </p>
-            </div>
-            <div className="bg-amber-50/90 border border-amber-200/80 rounded-2xl p-4 text-xs text-amber-900 text-left space-y-2 leading-relaxed">
-              <p>
-                Sistem pengirim otomatis telah mengirimkan email aktivasi ke <strong>{PRIMARY_NOTIF_EMAIL}</strong>.
-              </p>
-              <p>
-                Silakan buka email Anda (periksa juga folder <strong>Spam</strong> atau <strong>Promosi/Update</strong>), lalu klik tombol <strong>"Activate Form"</strong> dari FormSubmit. Setelah diklik 1 kali, seluruh notifikasi jurnal berikutnya akan langsung masuk otomatis ke inbox Anda!
-              </p>
-              <div className="pt-2 border-t border-amber-200/60 text-[11px] text-amber-800">
-                💡 <strong>Kirim Langsung Sekarang:</strong> Anda dapat langsung mengirim draf laporan jurnal ini ke email Anda via Gmail Web dengan tombol di bawah:
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3 pt-1">
-              <a
-                href={activationAlert.gmailUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => {
-                  setTimeout(() => onSaved(), 600);
-                }}
-                className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-red-500/20 transition-all cursor-pointer"
-              >
-                <ExternalLink size={15} />
-                Buka di Gmail Web
-              </a>
-              <button
-                type="button"
-                onClick={() => {
-                  setActivationAlert(null);
-                  onSaved();
-                }}
-                className="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-colors cursor-pointer"
-              >
-                Selesai & Lanjutkan
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </form>
   );
 };
