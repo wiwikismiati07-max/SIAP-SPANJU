@@ -56,19 +56,21 @@ export const saveEmailNotifLog = (log: JurnalEmailLog) => {
 };
 
 /**
- * Generate email subject for learning journal notification
+ * Generate email subject for learning journal notification with prominent teacher name
  */
 export const generateJurnalEmailSubject = (jurnal: JurnalPembelajaran): string => {
-  const mapel = jurnal.nama_mapel || 'Pembelajaran';
-  const kelas = jurnal.kelas || '-';
+  const guru = (jurnal.nama_guru || 'Guru Pengajar').trim();
+  const mapel = (jurnal.nama_mapel || 'Pembelajaran').trim();
+  const kelas = (jurnal.kelas || '-').trim();
   const tanggal = jurnal.tanggal || new Date().toISOString().split('T')[0];
-  return `[SIAP SPANJU] Jurnal Pembelajaran Baru - Kelas ${kelas} - ${mapel} (${tanggal})`;
+  return `[SIAP SPANJU] Jurnal ${guru} - Kelas ${kelas} (${mapel}) - ${tanggal}`;
 };
 
 /**
  * Generate plain text email body
  */
 export const generateJurnalEmailText = (jurnal: JurnalPembelajaran): string => {
+  const guru = (jurnal.nama_guru || 'Guru Pengajar').trim();
   const siswaList = Array.isArray(jurnal.siswa_list) ? jurnal.siswa_list : [];
   const total = siswaList.length;
   const hadir = siswaList.filter(s => s.absensi === 'Hadir').length;
@@ -78,17 +80,15 @@ export const generateJurnalEmailText = (jurnal: JurnalPembelajaran): string => {
 
   const tidakHadir = siswaList.filter(s => s.absensi && s.absensi !== 'Hadir');
 
-  let text = `NOTIFIKASI JURNAL PEMBELAJARAN BARU
+  let text = `NOTIFIKASI JURNAL PEMBELAJARAN
 SIAP SPANJU - SMP NEGERI 7 PASURUAN
 ========================================
-
-Informasi Pembelajaran:
-- Tanggal        : ${jurnal.tanggal}
-- Jam Pelajaran  : Jam Ke-${jurnal.jam_ke || '-'} (${jurnal.jam_mulai || '-'} s/d ${jurnal.jam_selesai || '-'})
-- Kelas          : ${jurnal.kelas}
-- Tahun Periode  : ${jurnal.periode || '2026'}
-- Mata Pelajaran : ${jurnal.nama_mapel}
-- Guru Pengajar  : ${jurnal.nama_guru} ${jurnal.nip_guru ? `(NIP: ${jurnal.nip_guru})` : ''}
+GURU PENGINPUT  : ${guru} ${jurnal.nip_guru ? `(NIP: ${jurnal.nip_guru})` : ''}
+MATA PELAJARAN  : ${jurnal.nama_mapel}
+KELAS / PERIODE : Kelas ${jurnal.kelas} (${jurnal.periode || '2026'})
+TANGGAL         : ${jurnal.tanggal}
+JAM PELAJARAN   : Jam Ke-${jurnal.jam_ke || '-'} (${jurnal.jam_mulai || '-'} s/d ${jurnal.jam_selesai || '-'})
+========================================
 
 Materi & Kegiatan:
 - Materi Pokok   : ${jurnal.materi}
@@ -111,9 +111,9 @@ Rekapitulasi Presensi (${total} Siswa):
   }
 
   text += `\n========================================
-Waktu Input: ${new Date().toLocaleString('id-ID')}
-Pemberitahuan otomatis dari Sistem SIAP SPANJU SMP Negeri 7 Pasuruan.
-Tujuan Notifikasi: ${PRIMARY_NOTIF_EMAIL}
+Diinput oleh: ${guru}
+Waktu Input : ${new Date().toLocaleString('id-ID')}
+Pemberitahuan otomatis dari SIAP SPANJU SMP Negeri 7 Pasuruan ke ${PRIMARY_NOTIF_EMAIL}.
 `;
 
   return text;
@@ -123,6 +123,7 @@ Tujuan Notifikasi: ${PRIMARY_NOTIF_EMAIL}
  * Generate formatted HTML email body
  */
 export const generateJurnalEmailHtml = (jurnal: JurnalPembelajaran): string => {
+  const guru = (jurnal.nama_guru || 'Guru Pengajar').trim();
   const siswaList = Array.isArray(jurnal.siswa_list) ? jurnal.siswa_list : [];
   const total = siswaList.length;
   const hadir = siswaList.filter(s => s.absensi === 'Hadir').length;
@@ -148,42 +149,66 @@ export const generateJurnalEmailHtml = (jurnal: JurnalPembelajaran): string => {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Notifikasi Jurnal Pembelajaran SIAP SPANJU</title>
+  <title>Notifikasi Jurnal Pembelajaran - ${guru}</title>
 </head>
 <body style="font-family: Arial, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b;">
-  <div style="max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+  <div style="max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 14px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08);">
     
     <!-- Header -->
-    <div style="background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 24px; color: #ffffff; text-align: center;">
+    <div style="background: linear-gradient(135deg, #047857 0%, #065f46 100%); padding: 24px 20px; color: #ffffff; text-align: center;">
       <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.9; margin-bottom: 4px;">SIAP SPANJU • SMP NEGERI 7 PASURUAN</div>
-      <h1 style="margin: 0; font-size: 20px; font-weight: 700;">Jurnal Pembelajaran Baru</h1>
-      <p style="margin: 6px 0 0 0; font-size: 13px; opacity: 0.95;">Pemberitahuan otomatis input jurnal kegiatan belajar mengajar</p>
+      <h1 style="margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -0.5px;">Jurnal Pembelajaran Baru</h1>
+      
+      <!-- Prominent Teacher Pill in Header -->
+      <div style="margin-top: 12px; display: inline-block; background: rgba(255, 255, 255, 0.18); border: 1px solid rgba(255, 255, 255, 0.35); padding: 7px 18px; border-radius: 30px; font-size: 13px; font-weight: 700;">
+        👤 Diinput oleh: <u>${guru}</u>
+      </div>
     </div>
 
     <!-- Main Content -->
     <div style="padding: 24px;">
       
+      <!-- Teacher Profile Banner Card -->
+      <div style="background-color: #f0fdf4; border: 2px solid #86efac; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="width: 44px; vertical-align: middle;">
+              <div style="width: 38px; height: 38px; background-color: #059669; color: #ffffff; border-radius: 50%; text-align: center; line-height: 38px; font-size: 18px; font-weight: bold;">
+                👨‍🏫
+              </div>
+            </td>
+            <td style="vertical-align: middle; padding-left: 8px;">
+              <div style="font-size: 11px; text-transform: uppercase; color: #047857; font-weight: 800; letter-spacing: 0.8px;">GURU PENGINPUT JURNAL:</div>
+              <div style="font-size: 16px; font-weight: 900; color: #064e3b; margin-top: 1px;">
+                ${guru}
+              </div>
+              ${jurnal.nip_guru ? `<div style="font-size: 12px; color: #059669; font-weight: 600; margin-top: 2px;">NIP: ${jurnal.nip_guru}</div>` : ''}
+            </td>
+          </tr>
+        </table>
+      </div>
+
       <!-- Highlight Card -->
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; background-color: #f1f5f9; border-radius: 8px; overflow: hidden;">
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; background-color: #f8fafc; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
         <tr>
-          <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 12px; color: #64748b; width: 35%;">Tanggal Pembelajaran</td>
-          <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 600; color: #0f172a;">${jurnal.tanggal}</td>
-        </tr>
-        <tr>
-          <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">Jam Pelajaran</td>
-          <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 600; color: #0f172a;">Jam Ke-${jurnal.jam_ke || '-'} (${jurnal.jam_mulai || '-'} s/d ${jurnal.jam_selesai || '-'})</td>
-        </tr>
-        <tr>
-          <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">Kelas & Periode</td>
-          <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 600; color: #0f172a;">Kelas ${jurnal.kelas} (Periode ${jurnal.periode || '2026'})</td>
+          <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 12px; font-weight: 700; color: #047857; width: 35%;">Guru Pengajar / Input</td>
+          <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 800; color: #064e3b;">${guru} ${jurnal.nip_guru ? `<span style="font-size: 11px; color: #64748b; font-weight: normal;">(NIP: ${jurnal.nip_guru})</span>` : ''}</td>
         </tr>
         <tr>
           <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">Mata Pelajaran</td>
-          <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 700; color: #047857;">${jurnal.nama_mapel}</td>
+          <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 700; color: #0f172a;">${jurnal.nama_mapel}</td>
         </tr>
         <tr>
-          <td style="padding: 10px 14px; font-size: 12px; color: #64748b;">Guru Pengajar</td>
-          <td style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #0f172a;">${jurnal.nama_guru} ${jurnal.nip_guru ? `<span style="font-size: 11px; color: #64748b; font-weight: normal;">(NIP: ${jurnal.nip_guru})</span>` : ''}</td>
+          <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">Kelas & Periode</td>
+          <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 700; color: #0f172a;">Kelas ${jurnal.kelas} (Periode ${jurnal.periode || '2026'})</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">Tanggal Pembelajaran</td>
+          <td style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 600; color: #0f172a;">${jurnal.tanggal}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; font-size: 12px; color: #64748b;">Jam Pelajaran</td>
+          <td style="padding: 10px 14px; font-size: 13px; font-weight: 600; color: #0f172a;">Jam Ke-${jurnal.jam_ke || '-'} (${jurnal.jam_mulai || '-'} s/d ${jurnal.jam_selesai || '-'})</td>
         </tr>
       </table>
 
@@ -335,14 +360,16 @@ export const dispatchJurnalEmailNotification = async (
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
           body: JSON.stringify({
+            name: `${jurnal.nama_guru || 'Guru'} (Guru Penginput)`,
             _subject: subject,
             _captcha: 'false',
             _template: 'table',
-            'Tanggal': jurnal.tanggal,
-            'Kelas': jurnal.kelas,
+            'Guru Penginput': `${jurnal.nama_guru} ${jurnal.nip_guru ? `(NIP: ${jurnal.nip_guru})` : ''}`,
             'Mata Pelajaran': jurnal.nama_mapel,
-            'Guru Pengajar': jurnal.nama_guru,
-            'Materi': jurnal.materi,
+            'Kelas': `Kelas ${jurnal.kelas} (${jurnal.periode || '2026'})`,
+            'Tanggal': jurnal.tanggal,
+            'Jam Pelajaran': `Jam Ke-${jurnal.jam_ke || '-'} (${jurnal.jam_mulai || '-'} s/d ${jurnal.jam_selesai || '-'})`,
+            'Materi Pokok': jurnal.materi,
             'Ringkasan': text
           })
         });

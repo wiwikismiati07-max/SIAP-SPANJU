@@ -50,7 +50,7 @@ interface JurnalFormProps {
 }
 
 export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, onCancel }) => {
-  const [activationAlert, setActivationAlert] = useState<{ isOpen: boolean; gmailUrl: string; mailtoUrl: string } | null>(null);
+  const [activationAlert, setActivationAlert] = useState<{ isOpen: boolean; gmailUrl: string; mailtoUrl: string; guru?: string } | null>(null);
   const [tanggal, setTanggal] = useState<string>(new Date().toISOString().split('T')[0]);
   const [jamKe, setJamKe] = useState<string>('1');
   const [jamMulai, setJamMulai] = useState<string>('07:15');
@@ -325,13 +325,14 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
       if (res.emailResult?.needsActivation) {
         setActivationAlert({
           isOpen: true,
+          guru: finalGuru,
           gmailUrl: res.emailResult.gmailComposeUrl || generateGmailWebComposeUrl(jurnalData, PRIMARY_NOTIF_EMAIL),
           mailtoUrl: res.emailResult.mailtoUrl || generateJurnalMailtoUrl(jurnalData, PRIMARY_NOTIF_EMAIL)
         });
       } else {
         const successText = res.emailResult?.delivered
-          ? `Jurnal pembelajaran berhasil disimpan & notifikasi email terkirim ke ${PRIMARY_NOTIF_EMAIL}!`
-          : `Jurnal pembelajaran berhasil disimpan & notifikasi otomatis diproses untuk ${PRIMARY_NOTIF_EMAIL}!`;
+          ? `Jurnal pembelajaran oleh ${finalGuru} berhasil disimpan & notifikasi email terkirim ke ${PRIMARY_NOTIF_EMAIL}!`
+          : `Jurnal pembelajaran oleh ${finalGuru} berhasil disimpan & notifikasi diproses untuk ${PRIMARY_NOTIF_EMAIL}!`;
         setStatusMessage({ type: 'success', text: successText });
         window.scrollTo({ top: 0, behavior: 'smooth' });
         setTimeout(() => {
@@ -1105,7 +1106,12 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
             </div>
             <div>
               <h3 className="text-xl font-black text-slate-800">Jurnal Berhasil Disimpan!</h3>
-              <p className="text-xs font-bold text-amber-700 mt-1 uppercase tracking-wide">
+              {activationAlert.guru && (
+                <p className="text-xs font-bold text-emerald-700 mt-1">
+                  Guru Penginput: <strong>{activationAlert.guru}</strong>
+                </p>
+              )}
+              <p className="text-[11px] font-bold text-amber-700 mt-0.5 uppercase tracking-wide">
                 Aktivasi 1x Pengiriman Notifikasi Email Otomatis
               </p>
             </div>

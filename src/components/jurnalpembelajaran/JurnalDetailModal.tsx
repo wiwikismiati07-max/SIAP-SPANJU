@@ -31,11 +31,11 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
     try {
       const res = await dispatchJurnalEmailNotification(jurnal, PRIMARY_NOTIF_EMAIL);
       if (res.delivered) {
-        setEmailStatus(`Notifikasi email berhasil terkirim ke ${PRIMARY_NOTIF_EMAIL}`);
+        setEmailStatus(`Notifikasi jurnal oleh ${jurnal.nama_guru} berhasil terkirim ke ${PRIMARY_NOTIF_EMAIL}`);
       } else if (res.needsActivation) {
-        setEmailStatus(`Perlu aktivasi 1x: Cek email ${PRIMARY_NOTIF_EMAIL} & klik 'Activate Form', atau klik Buka Gmail Web`);
+        setEmailStatus(`Perlu aktivasi 1x (${jurnal.nama_guru}): Cek inbox ${PRIMARY_NOTIF_EMAIL} & klik 'Activate Form', atau klik Buka Gmail Web`);
       } else {
-        setEmailStatus(`Notifikasi diproses untuk ${PRIMARY_NOTIF_EMAIL}`);
+        setEmailStatus(`Notifikasi jurnal oleh ${jurnal.nama_guru} diproses untuk ${PRIMARY_NOTIF_EMAIL}`);
       }
     } catch (err: any) {
       setEmailStatus(`Gagal mengirim: ${err?.message || 'Error'}`);

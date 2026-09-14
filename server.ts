@@ -54,16 +54,21 @@ app.post('/api/notify-jurnal', async (req, res) => {
       console.log(`[Email Notification] Jurnal: Kelas ${jurnal.kelas} - ${jurnal.nama_mapel} oleh ${jurnal.nama_guru} (${jurnal.tanggal})`);
     }
 
+    const teacherName = (jurnal?.nama_guru || 'Guru Pengajar').trim();
+    const defaultSubject = jurnal 
+      ? `[SIAP SPANJU] Jurnal ${teacherName} - Kelas ${jurnal.kelas || '-'} (${jurnal.nama_mapel || '-'})`
+      : `[SIAP SPANJU] Jurnal Pembelajaran Baru`;
+
     const transporter = getEmailTransporter();
     
     // Method 1: SMTP via Nodemailer
     if (transporter) {
       try {
-        const fromAddress = process.env.SMTP_FROM || `"SIAP SPANJU" <${process.env.SMTP_USER}>`;
+        const fromAddress = process.env.SMTP_FROM || `"${teacherName} via SIAP SPANJU" <${process.env.SMTP_USER}>`;
         const info = await transporter.sendMail({
           from: fromAddress,
           to: targetEmail,
-          subject: subject || `[SIAP SPANJU] Jurnal Pembelajaran Baru`,
+          subject: subject || defaultSubject,
           text: text || 'Jurnal pembelajaran baru telah diinput.',
           html: html || undefined
         });
@@ -86,7 +91,8 @@ app.post('/api/notify-jurnal', async (req, res) => {
     try {
       console.log(`[Email Notification] Attempting dispatch via FormSubmit to ${targetEmail}...`);
       const formPayload: Record<string, any> = {
-        _subject: subject || `[SIAP SPANJU] Jurnal Pembelajaran Baru`,
+        name: `${teacherName} (Guru Penginput)`,
+        _subject: subject || defaultSubject,
         _captcha: 'false',
         _template: 'table',
         ...(fields || {})
@@ -94,11 +100,11 @@ app.post('/api/notify-jurnal', async (req, res) => {
 
       if (!fields) {
         if (jurnal) {
+          formPayload['Guru Penginput (Pengajar)'] = `${teacherName} ${jurnal.nip_guru ? `(NIP: ${jurnal.nip_guru})` : ''}`;
+          formPayload['Mata Pelajaran'] = jurnal.nama_mapel;
+          formPayload['Kelas'] = `Kelas ${jurnal.kelas} (${jurnal.periode || '2026'})`;
           formPayload['Tanggal'] = jurnal.tanggal;
           formPayload['Jam Pelajaran'] = `Jam Ke-${jurnal.jam_ke || '-'} (${jurnal.jam_mulai || '-'} s/d ${jurnal.jam_selesai || '-'})`;
-          formPayload['Kelas'] = `Kelas ${jurnal.kelas} (${jurnal.periode || '2026'})`;
-          formPayload['Mata Pelajaran'] = jurnal.nama_mapel;
-          formPayload['Guru Pengajar'] = `${jurnal.nama_guru} ${jurnal.nip_guru ? `(NIP: ${jurnal.nip_guru})` : ''}`;
           formPayload['Materi Pokok'] = jurnal.materi;
           if (jurnal.kegiatan) formPayload['Kegiatan'] = jurnal.kegiatan;
           if (jurnal.siswa_list && Array.isArray(jurnal.siswa_list)) {
@@ -106,7 +112,7 @@ app.post('/api/notify-jurnal', async (req, res) => {
             const s = jurnal.siswa_list.filter((s: any) => s.absensi === 'Sakit').length;
             const i = jurnal.siswa_list.filter((s: any) => s.absensi === 'Izin').length;
             const a = jurnal.siswa_list.filter((s: any) => s.absensi === 'Alpa').length;
-            formPayload['Kehadiran'] = `Hadir: ${h}, Sakit: ${s}, Izin: ${i}, Alpa: ${a} (Total: ${jurnal.siswa_list.length} Siswa)`;
+            formPayload['Kehadiran Siswa'] = `Hadir: ${h}, Sakit: ${s}, Izin: ${i}, Alpa: ${a} (Total: ${jurnal.siswa_list.length} Siswa)`;
           }
         }
         formPayload['Ringkasan'] = text || 'Jurnal pembelajaran baru telah disimpan.';
