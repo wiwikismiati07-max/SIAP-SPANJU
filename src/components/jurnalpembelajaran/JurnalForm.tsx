@@ -27,7 +27,9 @@ import {
   JurnalPembelajaran, 
   SiswaJurnalItem, 
   DAFTAR_KELAS, 
-  JAM_PELAJARAN_OPTIONS 
+  JAM_PELAJARAN_OPTIONS,
+  JADWAL_BEL_SEKOLAH,
+  calculateJamPelajaranNumbers
 } from '../../types/jurnalpembelajaran';
 import { 
   fetchGuruList, 
@@ -55,6 +57,9 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
   const [jamKe, setJamKe] = useState<string>('1');
   const [jamMulai, setJamMulai] = useState<string>('07:15');
   const [jamSelesai, setJamSelesai] = useState<string>('07:55');
+  const [isCustomJam, setIsCustomJam] = useState<boolean>(false);
+  const [customJamDari, setCustomJamDari] = useState<number>(3);
+  const [customJamKe, setCustomJamKe] = useState<number>(5);
   
   const [availablePeriodes, setAvailablePeriodes] = useState<string[]>([]);
   const [selectedPeriode, setSelectedPeriode] = useState<string>('');
@@ -110,6 +115,19 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
         setJamKe(initialData.jam_ke);
         setJamMulai(initialData.jam_mulai);
         setJamSelesai(initialData.jam_selesai);
+
+        // Deteksi jika data yang dimuat adalah jam kustom
+        const isPreset = JAM_PELAJARAN_OPTIONS.some(o => o.value === initialData.jam_ke && o.value !== 'custom');
+        const isCustomValue = initialData.jam_ke === 'custom' || initialData.jam_ke.toLowerCase().includes('kustom') || !isPreset;
+        if (isCustomValue) {
+          setIsCustomJam(true);
+          const detected = calculateJamPelajaranNumbers(initialData.jam_ke, initialData.jam_mulai, initialData.jam_selesai);
+          if (detected.length > 0) {
+            setCustomJamDari(detected[0]);
+            setCustomJamKe(detected[detected.length - 1]);
+          }
+        }
+
         setKelas(initialData.kelas);
         setMateri(initialData.materi);
         setKegiatan(initialData.kegiatan || '');
@@ -181,13 +199,41 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
     setSiswaList(selectedStudents);
   };
 
+  // Menghitung jam pelajaran 1 s.d. 8 yang tercover oleh jam_ke atau jam_mulai (Jam Dari) dan jam_selesai (Jam Ke)
+  const computedJamPelajaran = React.useMemo(() => {
+    return calculateJamPelajaranNumbers(jamKe, jamMulai, jamSelesai);
+  }, [jamKe, jamMulai, jamSelesai]);
+
+  // Handle perubahan rentang jam kustom (Jam Dari s.d. Jam Ke)
+  const handleCustomJamRangeChange = (dari: number, ke: number) => {
+    const startJam = Math.min(Math.max(1, dari), 8);
+    const endJam = Math.min(Math.max(startJam, ke), 8);
+    setCustomJamDari(startJam);
+    setCustomJamKe(endJam);
+
+    const formattedJamKe = startJam === endJam ? `${startJam}` : `${startJam} - ${endJam}`;
+    setJamKe(formattedJamKe);
+
+    // Sinkronkan waktu mulai & selesai berdasarkan jadwal bel sekolah
+    const itemStart = JADWAL_BEL_SEKOLAH.find(j => j.jam === startJam);
+    const itemEnd = JADWAL_BEL_SEKOLAH.find(j => j.jam === endJam);
+    if (itemStart) setJamMulai(itemStart.mulai);
+    if (itemEnd) setJamSelesai(itemEnd.selesai);
+  };
+
   // Handle Jam Ke change
   const handleJamKeChange = (val: string) => {
-    setJamKe(val);
-    const opt = JAM_PELAJARAN_OPTIONS.find(o => o.value === val);
-    if (opt && opt.value !== 'custom') {
-      setJamMulai(opt.mulai);
-      setJamSelesai(opt.selesai);
+    if (val === 'custom') {
+      setIsCustomJam(true);
+      handleCustomJamRangeChange(customJamDari, customJamKe);
+    } else {
+      setIsCustomJam(false);
+      setJamKe(val);
+      const opt = JAM_PELAJARAN_OPTIONS.find(o => o.value === val);
+      if (opt && opt.value !== 'custom') {
+        setJamMulai(opt.mulai);
+        setJamSelesai(opt.selesai);
+      }
     }
   };
 
@@ -306,10 +352,21 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
     const safeId = isValidUUID(initialData?.id) ? initialData!.id : generateUUID();
     const detectedNip = findGuruNip(finalGuru, guruList);
 
+    // Pastikan nilai jam_ke bukan teks kosong atau hanya 'custom', melainkan rentang jam pelajaran yang terhitung (misal: "3 - 5")
+    let finalJamKe = jamKe;
+    if (!finalJamKe || finalJamKe === 'custom') {
+      const computed = calculateJamPelajaranNumbers(jamKe, jamMulai, jamSelesai);
+      if (computed.length > 0) {
+        finalJamKe = computed.length === 1 ? `${computed[0]}` : `${computed[0]} - ${computed[computed.length - 1]}`;
+      } else {
+        finalJamKe = `${customJamDari} - ${customJamKe}`;
+      }
+    }
+
     const jurnalData: JurnalPembelajaran = {
       id: safeId,
       tanggal,
-      jam_ke: jamKe,
+      jam_ke: finalJamKe,
       jam_mulai: jamMulai,
       jam_selesai: jamSelesai,
       periode: selectedPeriode || '2026',
@@ -452,8 +509,8 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </optgroup>
-              {!JAM_PELAJARAN_OPTIONS.some(o => o.value === jamKe) && jamKe && (
-                <option value={jamKe}>Kustom: {jamKe}</option>
+              {isCustomJam && (
+                <option value={jamKe}>Kustom Terpilih: Jam {jamKe}</option>
               )}
             </select>
           </div>
@@ -462,7 +519,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
-                Mulai
+                Mulai (Jam Dari)
               </label>
               <input
                 type="time"
@@ -473,7 +530,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
-                Selesai
+                Selesai (Jam Ke)
               </label>
               <input
                 type="time"
@@ -483,6 +540,96 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
               />
             </div>
           </div>
+
+          {/* Panel Pengaturan Jam Kustom (Aktif saat mode Kustom dipilih) */}
+          {isCustomJam && (
+            <div className="col-span-1 md:col-span-2 lg:col-span-6 p-4 rounded-2xl bg-gradient-to-r from-amber-50/90 via-orange-50/70 to-amber-50/90 border-2 border-amber-300 shadow-sm space-y-3 animate-in fade-in duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-amber-500 text-white font-black">
+                    <Clock size={16} />
+                  </span>
+                  <div>
+                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                      Pengaturan Jam Kustom (Jam Dari & Jam Ke)
+                      <span className="text-[10px] px-2 py-0.5 bg-amber-200 text-amber-900 rounded-full font-bold">
+                        Otomatis Masuk Hitungan 1–8
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-600 font-medium">
+                      Pilih rentang <span className="font-bold text-amber-900">Jam Dari</span> dan <span className="font-bold text-amber-900">Jam Ke</span> untuk otomatis menghitung jam pelajaran di dashboard monitoring kelas.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Badge Status Jam yang Menghasilkan Jam 1-8 */}
+                <div className="flex items-center gap-2 self-start sm:self-auto bg-white px-3.5 py-2 rounded-xl border border-amber-300 shadow-2xs">
+                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                  <div className="text-left">
+                    <div className="text-[10px] font-bold uppercase text-slate-400">Jam Pelajaran Terhitung</div>
+                    <div className="text-xs font-black text-emerald-700">
+                      {computedJamPelajaran.length > 0 ? (
+                        `Jam Ke ${computedJamPelajaran.join(', ')} (${computedJamPelajaran.length} Jam)`
+                      ) : (
+                        <span className="text-amber-600">Belum ada jam tercover</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
+                {/* Jam Dari (Jam Ke-) */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    1. Jam Dari (Jam Ke-)
+                  </label>
+                  <select
+                    value={customJamDari}
+                    onChange={e => handleCustomJamRangeChange(parseInt(e.target.value, 10), customJamKe)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-amber-300 bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-xs font-bold text-slate-800 transition-all cursor-pointer shadow-2xs"
+                  >
+                    {JADWAL_BEL_SEKOLAH.map(j => (
+                      <option key={j.jam} value={j.jam}>
+                        {j.label} ({j.mulai} - {j.selesai})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Jam Ke / Sampai (Jam Ke-) */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    2. Jam Ke / Sampai (Jam Ke-)
+                  </label>
+                  <select
+                    value={customJamKe}
+                    onChange={e => handleCustomJamRangeChange(customJamDari, parseInt(e.target.value, 10))}
+                    className="w-full px-3 py-2.5 rounded-xl border border-amber-300 bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-xs font-bold text-slate-800 transition-all cursor-pointer shadow-2xs"
+                  >
+                    {JADWAL_BEL_SEKOLAH.map(j => (
+                      <option key={j.jam} value={j.jam}>
+                        {j.label} ({j.mulai} - {j.selesai})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Penjelasan Interaktif */}
+                <div className="sm:col-span-2 text-[11px] text-slate-700 bg-white/80 p-2.5 rounded-xl border border-amber-200/80 flex items-center gap-2">
+                  <Sparkles size={16} className="text-amber-500 shrink-0" />
+                  <div className="space-y-0.5">
+                    <span className="font-semibold">
+                      Sesi KBM: <b>{jamMulai} - {jamSelesai}</b> mencakup <b>Jam Ke-{computedJamPelajaran.join(', ')}</b>.
+                    </span>
+                    <p className="text-[10px] text-slate-500">
+                      Pada monitoring keterisian 24 Rombel, kotak Jam {computedJamPelajaran.join(', ')} akan otomatis ditandai <b>Hijau (Terisi)</b>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Kelas Selector Dropdown */}
           <div>

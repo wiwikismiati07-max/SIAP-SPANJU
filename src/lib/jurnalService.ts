@@ -920,3 +920,47 @@ export const generateDemoSiswa = (kelas: string): SiswaJurnalItem[] => {
     tindakan: ''
   }));
 };
+
+/**
+ * Membantu membandingkan urutan kelas secara natural (7A, 7B, ... 7H, 8A ... 8H, 9A ... 9H).
+ */
+export const compareKelas = (kelasA: string = '', kelasB: string = ''): number => {
+  const cleanA = (kelasA || '').trim();
+  const cleanB = (kelasB || '').trim();
+  return cleanA.localeCompare(cleanB, 'id', { numeric: true, sensitivity: 'base' });
+};
+
+/**
+ * Membantu mengekstrak angka jam pelajaran pertama.
+ */
+export const parseFirstNumber = (str: string = ''): number => {
+  const match = (str || '').match(/\d+/);
+  return match ? parseInt(match[0], 10) : 999;
+};
+
+/**
+ * Membantu membandingkan urutan jam pelajaran (berdasarkan jam_mulai / jam_ke).
+ */
+export const compareJam = (
+  a: { jam_mulai?: string; jam_ke?: string },
+  b: { jam_mulai?: string; jam_ke?: string }
+): number => {
+  if (a.jam_mulai && b.jam_mulai && a.jam_mulai !== b.jam_mulai) {
+    return a.jam_mulai.localeCompare(b.jam_mulai);
+  }
+  const numA = parseFirstNumber(a.jam_ke);
+  const numB = parseFirstNumber(b.jam_ke);
+  if (numA !== numB) {
+    return numA - numB;
+  }
+  return (a.jam_ke || '').localeCompare(b.jam_ke || '', 'id', { numeric: true });
+};
+
+/**
+ * Mengurutkan jurnal pembelajaran berdasarkan KELAS terlebih dahulu lalu JAM pelajaran.
+ */
+export const sortJurnalByKelasDanJam = (a: JurnalPembelajaran, b: JurnalPembelajaran): number => {
+  const kelasDiff = compareKelas(a.kelas, b.kelas);
+  if (kelasDiff !== 0) return kelasDiff;
+  return compareJam(a, b);
+};

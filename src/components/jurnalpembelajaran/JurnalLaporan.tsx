@@ -25,6 +25,7 @@ import {
   CalendarCheck,
   Building,
   GraduationCap,
+  ArrowUpDown,
   X
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
@@ -32,10 +33,17 @@ import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
-import { JurnalPembelajaran, DAFTAR_KELAS } from '../../types/jurnalpembelajaran';
+import { JurnalPembelajaran, DAFTAR_KELAS, formatDisplayJamPelajaran } from '../../types/jurnalpembelajaran';
 import { JurnalDetailModal } from './JurnalDetailModal';
 import { JurnalPrintModal } from './JurnalPrintModal';
-import { deleteJurnal, fetchGuruList, findGuruNip } from '../../lib/jurnalService';
+import { 
+  deleteJurnal, 
+  fetchGuruList, 
+  findGuruNip,
+  compareKelas,
+  compareJam,
+  sortJurnalByKelasDanJam
+} from '../../lib/jurnalService';
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 
 interface JurnalLaporanProps {
@@ -73,6 +81,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
   const [filterPeriode, setFilterPeriode] = useState<string>('semua');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterStatusAbsen, setFilterStatusAbsen] = useState<'semua' | 'Sakit' | 'Izin' | 'Alpa'>('semua');
+  const [sortOrder, setSortOrder] = useState<'kelas_jam' | 'jam_kelas' | 'terbaru' | 'guru'>('kelas_jam');
   const [guruMasterList, setGuruMasterList] = useState<{ id: string; nama_guru: string; nip?: string }[]>([]);
 
   useEffect(() => {
@@ -140,7 +149,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
 
   // Filtered Jurnal List
   const filteredJurnal = useMemo(() => {
-    return jurnalList.filter(j => {
+    const filtered = jurnalList.filter(j => {
       // Periode filter
       if (filterPeriode !== 'semua' && j.periode && j.periode !== filterPeriode) return false;
 
@@ -188,7 +197,38 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
 
       return true;
     });
-  }, [jurnalList, filterPeriode, filterPeriod, startDate, endDate, filterKelas, filterMapel, filterGuru, searchQuery]);
+
+    return [...filtered].sort((a, b) => {
+      if (sortOrder === 'terbaru') {
+        const dComp = (b.tanggal || '').localeCompare(a.tanggal || '');
+        if (dComp !== 0) return dComp;
+        return sortJurnalByKelasDanJam(a, b);
+      }
+
+      // Bila terdapat perbedaan tanggal, urutkan tanggal terbaru lebih dulu
+      if (a.tanggal !== b.tanggal) {
+        return (b.tanggal || '').localeCompare(a.tanggal || '');
+      }
+
+      if (sortOrder === 'kelas_jam') {
+        return sortJurnalByKelasDanJam(a, b);
+      }
+
+      if (sortOrder === 'jam_kelas') {
+        const jComp = compareJam(a, b);
+        if (jComp !== 0) return jComp;
+        return compareKelas(a.kelas, b.kelas);
+      }
+
+      if (sortOrder === 'guru') {
+        const gComp = (a.nama_guru || '').localeCompare(b.nama_guru || '', 'id');
+        if (gComp !== 0) return gComp;
+        return sortJurnalByKelasDanJam(a, b);
+      }
+
+      return sortJurnalByKelasDanJam(a, b);
+    });
+  }, [jurnalList, filterPeriode, filterPeriod, startDate, endDate, filterKelas, filterMapel, filterGuru, searchQuery, sortOrder]);
 
   // Filtered Absence Records (Sakit, Izin, Alpa)
   const absensiRecords = useMemo(() => {
@@ -378,7 +418,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
 
   // Aggregated Daily Records for "Laporan Harian Guru"
   const dailyJurnalList = useMemo(() => {
-    return jurnalList.filter(j => {
+    const list = jurnalList.filter(j => {
       if (j.tanggal !== dailyDate) return false;
       if (filterKelas !== 'semua' && j.kelas !== filterKelas) return false;
       if (filterMapel !== 'semua' && j.nama_mapel !== filterMapel) return false;
@@ -394,8 +434,30 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
         if (!match) return false;
       }
       return true;
-    }).sort((a, b) => (a.jam_ke || '').localeCompare(b.jam_ke || '', undefined, { numeric: true }));
-  }, [jurnalList, dailyDate, filterKelas, filterMapel, filterGuru, searchQuery]);
+    });
+
+    return [...list].sort((a, b) => {
+      if (sortOrder === 'kelas_jam') {
+        return sortJurnalByKelasDanJam(a, b);
+      }
+      if (sortOrder === 'jam_kelas') {
+        const jComp = compareJam(a, b);
+        if (jComp !== 0) return jComp;
+        return compareKelas(a.kelas, b.kelas);
+      }
+      if (sortOrder === 'guru') {
+        const gComp = (a.nama_guru || '').localeCompare(b.nama_guru || '', 'id');
+        if (gComp !== 0) return gComp;
+        return sortJurnalByKelasDanJam(a, b);
+      }
+      if (sortOrder === 'terbaru') {
+        const jComp = compareJam(b, a);
+        if (jComp !== 0) return jComp;
+        return compareKelas(b.kelas, a.kelas);
+      }
+      return sortJurnalByKelasDanJam(a, b);
+    });
+  }, [jurnalList, dailyDate, filterKelas, filterMapel, filterGuru, searchQuery, sortOrder]);
 
   const dailyGuruSummary = useMemo(() => {
     const map = new Map<string, {
@@ -1154,7 +1216,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
           </div>
 
           {/* Date Range, Periode, Kelas, Mapel, Search */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 pt-1">
             {/* Filter Periode */}
             <div>
               <label className="block text-[11px] font-bold text-slate-500 mb-1">Periode</label>
@@ -1224,6 +1286,23 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                 {distinctMapel.map(m => (
                   <option key={m} value={m}>{m}</option>
                 ))}
+              </select>
+            </div>
+
+            {/* Urutan Laporan */}
+            <div>
+              <label className="block text-[11px] font-bold text-amber-800 mb-1 flex items-center gap-1">
+                <ArrowUpDown size={11} className="text-amber-600" /> Urutkan
+              </label>
+              <select
+                value={sortOrder}
+                onChange={e => setSortOrder(e.target.value as any)}
+                className="w-full px-3 py-2 rounded-xl border border-amber-300 bg-amber-50/60 text-xs font-bold text-amber-900 focus:bg-white outline-none truncate"
+              >
+                <option value="kelas_jam">📌 Kelas & Jam</option>
+                <option value="jam_kelas">⏰ Jam & Kelas</option>
+                <option value="terbaru">⚡ Terbaru</option>
+                <option value="guru">👤 Guru (A-Z)</option>
               </select>
             </div>
 
@@ -1381,7 +1460,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
             </div>
 
             {/* Quick Filters for Daily View */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 pt-1">
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 mb-1">Filter Kelas</label>
                 <select
@@ -1422,6 +1501,22 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                   {distinctGuru.map(g => (
                     <option key={g} value={g}>{g}</option>
                   ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-amber-800 mb-1 flex items-center gap-1">
+                  <ArrowUpDown size={11} className="text-amber-600" />
+                  Urutkan Laporan
+                </label>
+                <select
+                  value={sortOrder}
+                  onChange={e => setSortOrder(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl border border-amber-300 bg-amber-50/50 text-xs font-bold text-amber-900 focus:ring-2 focus:ring-amber-500 outline-none truncate"
+                >
+                  <option value="kelas_jam">📌 Kelas lalu Jam</option>
+                  <option value="jam_kelas">⏰ Jam lalu Kelas</option>
+                  <option value="guru">👤 Nama Guru (A-Z)</option>
+                  <option value="terbaru">⚡ Waktu Input Terbaru</option>
                 </select>
               </div>
               <div>
@@ -1538,20 +1633,84 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto border border-slate-200 rounded-2xl shadow-xs">
-                    <table className="w-full text-left text-xs border-collapse min-w-[950px]">
-                      <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
-                        <tr>
-                          <th className="p-3 text-center w-10">No</th>
-                          <th className="p-3 w-36">Jam Pelajaran</th>
-                          <th className="p-3 w-16 text-center">Kelas</th>
-                          <th className="p-3 min-w-[180px]">Mata Pelajaran & Guru</th>
-                          <th className="p-3 min-w-[220px]">Materi & Kegiatan</th>
-                          <th className="p-3 w-36 text-center">Presensi Siswa</th>
-                          <th className="p-3 w-20 text-center">Dokumentasi</th>
-                          <th className="p-3 w-20 text-center">Aksi</th>
-                        </tr>
-                      </thead>
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-600">Urutan Tabel:</span>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 font-bold text-[11px]">
+                          <ArrowUpDown size={12} className="text-amber-600" />
+                          {sortOrder === 'kelas_jam' && 'Kelas (7A–9H) ➔ Jam Pelajaran'}
+                          {sortOrder === 'jam_kelas' && 'Jam Pelajaran (Pagi–Siang) ➔ Kelas'}
+                          {sortOrder === 'guru' && 'Nama Guru (A–Z) ➔ Kelas & Jam'}
+                          {sortOrder === 'terbaru' && 'Input Terbaru'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-medium">
+                        Menampilkan {dailyJurnalList.length} sesi pembelajaran
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto border border-slate-200 rounded-2xl shadow-xs">
+                      <table className="w-full text-left text-xs border-collapse min-w-[950px]">
+                        <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                          <tr>
+                            <th className="p-3 text-center w-10">No</th>
+                            <th 
+                              className="p-3 w-36 cursor-pointer hover:bg-slate-100 transition-colors select-none group"
+                              onClick={() => setSortOrder(prev => prev === 'jam_kelas' ? 'kelas_jam' : 'jam_kelas')}
+                              title="Klik untuk mengubah prioritas urutan Jam Pelajaran"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span>Jam Pelajaran</span>
+                                {sortOrder === 'jam_kelas' ? (
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-black">
+                                    ▲ 1
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 font-normal group-hover:text-amber-600">
+                                    {sortOrder === 'kelas_jam' ? '(2)' : '↕'}
+                                  </span>
+                                )}
+                              </div>
+                            </th>
+                            <th 
+                              className="p-3 w-20 text-center cursor-pointer hover:bg-slate-100 transition-colors select-none group"
+                              onClick={() => setSortOrder(prev => prev === 'kelas_jam' ? 'jam_kelas' : 'kelas_jam')}
+                              title="Klik untuk mengurutkan berdasarkan Kelas lalu Jam"
+                            >
+                              <div className="flex items-center justify-center gap-1.5">
+                                <span>Kelas</span>
+                                {sortOrder === 'kelas_jam' ? (
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-black">
+                                    ▲ 1
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 font-normal group-hover:text-amber-600">
+                                    {sortOrder === 'jam_kelas' ? '(2)' : '↕'}
+                                  </span>
+                                )}
+                              </div>
+                            </th>
+                            <th 
+                              className="p-3 min-w-[180px] cursor-pointer hover:bg-slate-100 transition-colors select-none group"
+                              onClick={() => setSortOrder('guru')}
+                              title="Klik untuk mengurutkan berdasarkan Nama Guru"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span>Mata Pelajaran & Guru</span>
+                                {sortOrder === 'guru' && (
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-black">
+                                    A-Z
+                                  </span>
+                                )}
+                              </div>
+                            </th>
+                            <th className="p-3 min-w-[220px]">Materi & Kegiatan</th>
+                            <th className="p-3 w-36 text-center">Presensi Siswa</th>
+                            <th className="p-3 w-20 text-center">Dokumentasi</th>
+                            <th className="p-3 w-20 text-center">Aksi</th>
+                          </tr>
+                        </thead>
                       <tbody className="divide-y divide-slate-100">
                         {dailyJurnalList.map((j, idx) => {
                           const hadir = j.siswa_list?.filter(s => s.absensi === 'Hadir').length || 0;
@@ -1565,7 +1724,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                               <td className="p-3 text-center font-bold text-slate-400">{idx + 1}</td>
                               <td className="p-3">
                                 <div className="inline-block px-2 py-0.5 bg-amber-50 text-amber-800 font-bold rounded-md border border-amber-200/60 mb-0.5 text-[11px]">
-                                  Jam Ke-{j.jam_ke}
+                                  {formatDisplayJamPelajaran(j.jam_ke, j.jam_mulai, j.jam_selesai)}
                                 </div>
                                 <div className="text-[10px] text-slate-400 flex items-center gap-1">
                                   <Clock size={11} /> {j.jam_mulai} - {j.jam_selesai}
@@ -1669,9 +1828,10 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                       </tbody>
                     </table>
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
+          )}
 
             {/* TAB VIEW 2: REKAPITULASI KEAKTIFAN PER GURU */}
             {dailySubTab === 'rekap_guru' && (
@@ -1846,20 +2006,84 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
               <p className="text-xs text-slate-400 mt-1">Ubah rentang tanggal atau input jurnal pembelajaran baru</p>
             </div>
           ) : (
-            <div className="overflow-x-auto border border-slate-200 rounded-2xl shadow-sm">
-              <table className="w-full text-left text-xs border-collapse min-w-[900px]">
-                <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
-                  <tr>
-                    <th className="p-3 text-center w-12">No</th>
-                    <th className="p-3 w-28">Tanggal & Jam</th>
-                    <th className="p-3 w-20 text-center">Kelas</th>
-                    <th className="p-3 min-w-[160px]">Mata Pelajaran & Guru</th>
-                    <th className="p-3 min-w-[200px]">Materi & Kegiatan</th>
-                    <th className="p-3 text-center w-28">Presensi</th>
-                    <th className="p-3 text-center w-24">Foto</th>
-                    <th className="p-3 text-center w-28">Aksi</th>
-                  </tr>
-                </thead>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-600">Urutan Laporan:</span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 font-bold text-[11px]">
+                    <ArrowUpDown size={12} className="text-amber-600" />
+                    {sortOrder === 'kelas_jam' && 'Kelas (7A–9H) ➔ Jam Pelajaran'}
+                    {sortOrder === 'jam_kelas' && 'Jam Pelajaran ➔ Kelas'}
+                    {sortOrder === 'guru' && 'Nama Guru (A–Z)'}
+                    {sortOrder === 'terbaru' && 'Tanggal & Jam Terbaru'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-400 font-medium">
+                  Menampilkan {filteredJurnal.length} catatan KBM
+                </div>
+              </div>
+
+              <div className="overflow-x-auto border border-slate-200 rounded-2xl shadow-sm">
+                <table className="w-full text-left text-xs border-collapse min-w-[900px]">
+                  <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="p-3 text-center w-12">No</th>
+                      <th 
+                        className="p-3 w-32 cursor-pointer hover:bg-slate-100 transition-colors select-none group"
+                        onClick={() => setSortOrder(prev => prev === 'jam_kelas' ? 'kelas_jam' : 'jam_kelas')}
+                        title="Klik untuk mengubah urutan Jam Pelajaran"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span>Tanggal & Jam</span>
+                          {sortOrder === 'jam_kelas' ? (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-black">
+                              ▲ 1
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-normal group-hover:text-amber-600">
+                              {sortOrder === 'kelas_jam' ? '(2)' : '↕'}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        className="p-3 w-20 text-center cursor-pointer hover:bg-slate-100 transition-colors select-none group"
+                        onClick={() => setSortOrder(prev => prev === 'kelas_jam' ? 'jam_kelas' : 'kelas_jam')}
+                        title="Klik untuk mengurutkan berdasarkan Kelas lalu Jam"
+                      >
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span>Kelas</span>
+                          {sortOrder === 'kelas_jam' ? (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-black">
+                              ▲ 1
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-normal group-hover:text-amber-600">
+                              {sortOrder === 'jam_kelas' ? '(2)' : '↕'}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        className="p-3 min-w-[160px] cursor-pointer hover:bg-slate-100 transition-colors select-none group"
+                        onClick={() => setSortOrder('guru')}
+                        title="Klik untuk mengurutkan berdasarkan Nama Guru"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span>Mata Pelajaran & Guru</span>
+                          {sortOrder === 'guru' && (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-black">
+                              A-Z
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                      <th className="p-3 min-w-[200px]">Materi & Kegiatan</th>
+                      <th className="p-3 text-center w-28">Presensi</th>
+                      <th className="p-3 text-center w-24">Foto</th>
+                      <th className="p-3 text-center w-28">Aksi</th>
+                    </tr>
+                  </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredJurnal.map((j, idx) => {
                     const totalSiswa = j.siswa_list?.length || 0;
@@ -1874,7 +2098,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                         <td className="p-3">
                           <div className="font-bold text-slate-800">{j.tanggal}</div>
                           <div className="text-[11px] text-slate-500 font-medium">
-                            {j.jam_ke.toLowerCase().startsWith('jam') || j.jam_ke.toLowerCase() === 'istirahat' ? j.jam_ke : `Jam Ke ${j.jam_ke}`}
+                            {formatDisplayJamPelajaran(j.jam_ke, j.jam_mulai, j.jam_selesai)}
                           </div>
                           <div className="text-[10px] text-slate-400">{j.jam_mulai} - {j.jam_selesai}</div>
                         </td>
@@ -1967,9 +2191,10 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
                 </tbody>
               </table>
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
+    )}
 
       {/* ========================================================================= */}
       {/* SUB-VIEW 2: LAPORAN SISWA YANG ABSENSI */}

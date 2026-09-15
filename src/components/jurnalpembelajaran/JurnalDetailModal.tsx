@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Printer, Calendar, Clock, BookOpen, User, Users, CheckCircle2, AlertTriangle, FileText, Image as ImageIcon, Loader2 } from 'lucide-react';
-import { JurnalPembelajaran } from '../../types/jurnalpembelajaran';
+import { JurnalPembelajaran, formatDisplayJamPelajaran } from '../../types/jurnalpembelajaran';
 import { fetchGuruList, findGuruNip, fetchJurnalPhoto } from '../../lib/jurnalService';
 
 interface JurnalDetailModalProps {
@@ -146,7 +146,7 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 Waktu & Tanggal
               </div>
-              <div class="card-value">${jurnal.jam_ke.toLowerCase().startsWith('jam') || jurnal.jam_ke.toLowerCase() === 'istirahat' ? jurnal.jam_ke : `Jam Ke ${jurnal.jam_ke}`}</div>
+              <div class="card-value">${formatDisplayJamPelajaran(jurnal.jam_ke, jurnal.jam_mulai, jurnal.jam_selesai)}</div>
               <div class="card-desc">${jurnal.jam_mulai} - ${jurnal.jam_selesai} • ${jurnal.hari ? `${jurnal.hari}, ` : ''}${jurnal.tanggal}</div>
             </div>
           </div>
@@ -332,7 +332,7 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
                 <Clock size={14} /> Waktu & Tanggal
               </div>
               <div className="text-base font-black text-slate-900">
-                {jurnal.jam_ke.toLowerCase().startsWith('jam') || jurnal.jam_ke.toLowerCase() === 'istirahat' ? jurnal.jam_ke : `Jam Ke ${jurnal.jam_ke}`}
+                {formatDisplayJamPelajaran(jurnal.jam_ke, jurnal.jam_mulai, jurnal.jam_selesai)}
               </div>
               <div className="text-xs text-slate-600 font-medium mt-1">{jurnal.jam_mulai} - {jurnal.jam_selesai} • {jurnal.tanggal}</div>
             </div>

@@ -33,7 +33,7 @@ import {
   User,
   Plus
 } from 'lucide-react';
-import { JurnalPembelajaran } from '../../types/jurnalpembelajaran';
+import { JurnalPembelajaran, calculateJamPelajaranNumbers, formatDisplayJamPelajaran } from '../../types/jurnalpembelajaran';
 
 interface JurnalDashboardProps {
   jurnalList: JurnalPembelajaran[];
@@ -150,6 +150,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
 
   // Sub-filter untuk monitoring kelas hari ini
   const [classFilterStatus, setClassFilterStatus] = useState<'semua' | 'terisi' | 'belum'>('semua');
+  const [emptyJamFilterType, setEmptyJamFilterType] = useState<'semua_kosong' | 'kosong_total' | 'sebagian_kosong'>('semua_kosong');
   const [classTingkatFilter, setClassTingkatFilter] = useState<'semua' | '7' | '8' | '9'>('semua');
   const [searchGuruQuery, setSearchGuruQuery] = useState<string>('');
   const [showAllTeachersModal, setShowAllTeachersModal] = useState<boolean>(false);
@@ -257,6 +258,8 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
       let totalHadirInClass = 0;
       let totalSiswaInClass = 0;
       const guruSet = new Set<string>();
+      const coveredJamSet = new Set<number>();
+      const jamDetailMap = new Map<number, { guru: string; mapel: string; materi: string; jam_ke: string; id: string; jam_mulai?: string; jam_selesai?: string }>();
 
       jInClass.forEach(j => {
         if (j.nama_guru) guruSet.add(j.nama_guru);
@@ -264,7 +267,33 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
           totalSiswaInClass++;
           if (s.absensi === 'Hadir') totalHadirInClass++;
         });
+
+        // Menghitung jam pelajaran 1 s.d. 8 dari jam_ke dan jam_mulai (Jam Dari) s.d. jam_selesai (Jam Ke)
+        const jamNums = calculateJamPelajaranNumbers(j.jam_ke, j.jam_mulai, j.jam_selesai);
+        jamNums.forEach(num => {
+          coveredJamSet.add(num);
+          if (!jamDetailMap.has(num)) {
+            jamDetailMap.set(num, {
+              guru: j.nama_guru,
+              mapel: j.nama_mapel,
+              materi: j.materi,
+              jam_ke: j.jam_ke,
+              id: j.id,
+              jam_mulai: j.jam_mulai,
+              jam_selesai: j.jam_selesai
+            });
+          }
+        });
       });
+
+      const coveredJamList = Array.from(coveredJamSet).sort((a, b) => a - b);
+      const emptyJamList = [1, 2, 3, 4, 5, 6, 7, 8].filter(jam => !coveredJamSet.has(jam));
+
+      // Indikator status jam ke:
+      const isTotalKosong = jInClass.length === 0;
+      const isSebagianKosong = jInClass.length > 0 && emptyJamList.length > 0;
+      const hasEmptyJam = emptyJamList.length > 0 || isTotalKosong;
+      const isComplete = !hasEmptyJam && jInClass.length > 0;
 
       return {
         kelas,
@@ -275,13 +304,24 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
         totalHadir: totalHadirInClass,
         totalSiswa: totalSiswaInClass,
         persenHadir: totalSiswaInClass > 0 ? Math.round((totalHadirInClass / totalSiswaInClass) * 100) : 0,
-        uniqueGurus: Array.from(guruSet)
+        uniqueGurus: Array.from(guruSet),
+        coveredJamList,
+        emptyJamList,
+        jamDetailMap,
+        isTotalKosong,
+        isSebagianKosong,
+        hasEmptyJam,
+        isComplete
       };
     });
   }, [filteredJurnalList]);
 
   const totalKelasTerisi = classEntryData.filter(c => c.hasEntry).length;
-  const totalKelasKosong = 24 - totalKelasTerisi;
+  const totalKelasLengkap = classEntryData.filter(c => c.isComplete).length;
+  const totalKelasKosongTotal = classEntryData.filter(c => c.isTotalKosong).length;
+  const totalKelasSebagianKosong = classEntryData.filter(c => c.isSebagianKosong).length;
+  const totalKelasDenganJamKosong = classEntryData.filter(c => c.hasEmptyJam).length;
+  const totalKelasKosong = totalKelasKosongTotal;
   const totalGuruAktif = useMemo(() => {
     const s = new Set<string>();
     filteredJurnalList.forEach(j => {
@@ -901,22 +941,27 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
           <div className="flex flex-wrap items-center gap-2">
             <div className="px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs">
               <CheckCircle2 size={15} className="text-emerald-600" />
-              <span>{totalKelasTerisi} / 24 Kelas Terisi</span>
+              <span>{totalKelasTerisi} / 24 Ada Sesi</span>
               <span className="text-[10px] font-black bg-emerald-200/80 px-1.5 py-0.2 rounded-md">
                 {Math.round((totalKelasTerisi / 24) * 100)}%
               </span>
             </div>
 
-            {totalKelasKosong > 0 && (
-              <div className="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs">
-                <AlertCircle size={15} className="text-amber-600" />
-                <span>{totalKelasKosong} Belum Terisi</span>
-              </div>
+            {totalKelasDenganJamKosong > 0 && (
+              <button
+                type="button"
+                onClick={() => setClassFilterStatus('belum')}
+                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                title="Klik untuk memunculkan semua kelas yang memiliki jam Ke kosong"
+              >
+                <AlertCircle size={15} className="text-rose-600" />
+                <span>{totalKelasDenganJamKosong} Kelas Ada Jam Kosong</span>
+              </button>
             )}
 
             <button
               onClick={() => setShowAllTeachersModal(true)}
-              className="px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+              className="px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
             >
               <Users size={14} className="text-indigo-600" />
               <span>{totalGuruAktif} Guru Sudah Entry</span>
@@ -933,7 +978,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
                 <button
                   key={t}
                   onClick={() => setClassTingkatFilter(t)}
-                  className={`px-3 py-1.5 rounded-lg transition-all capitalize ${
+                  className={`px-3 py-1.5 rounded-lg transition-all capitalize cursor-pointer ${
                     classTingkatFilter === t
                       ? 'bg-white text-slate-900 shadow-2xs font-black'
                       : 'text-slate-500 hover:text-slate-900'
@@ -948,33 +993,34 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
             <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-bold">
               <button
                 onClick={() => setClassFilterStatus('semua')}
-                className={`px-3 py-1.5 rounded-lg transition-all ${
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                   classFilterStatus === 'semua'
                     ? 'bg-white text-slate-900 shadow-2xs font-black'
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
-                Semua
+                Semua (24)
               </button>
               <button
                 onClick={() => setClassFilterStatus('terisi')}
-                className={`px-3 py-1.5 rounded-lg transition-all ${
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                   classFilterStatus === 'terisi'
                     ? 'bg-emerald-600 text-white shadow-2xs font-black'
                     : 'text-slate-500 hover:text-emerald-700'
                 }`}
               >
-                ✓ Sudah Entry ({totalKelasTerisi})
+                ✓ Ada Sesi ({totalKelasTerisi})
               </button>
               <button
                 onClick={() => setClassFilterStatus('belum')}
-                className={`px-3 py-1.5 rounded-lg transition-all ${
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                   classFilterStatus === 'belum'
                     ? 'bg-rose-600 text-white shadow-2xs font-black'
                     : 'text-slate-500 hover:text-rose-700'
                 }`}
+                title="Tampilkan semua kelas yang (jam Ke) nya kosong atau tidak ada input jurnal"
               >
-                ⏳ Belum ({totalKelasKosong})
+                ⏳ Belum / Jam Kosong ({totalKelasDenganJamKosong})
               </button>
             </div>
           </div>
@@ -1000,13 +1046,73 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
           </div>
         </div>
 
+        {/* Banner Khusus Saat Filter 'Belum' Aktif */}
+        {classFilterStatus === 'belum' && (
+          <div className="p-3.5 bg-rose-50/90 border border-rose-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs text-rose-950 shadow-2xs">
+            <div className="flex items-start md:items-center gap-2.5">
+              <AlertCircle size={18} className="text-rose-600 shrink-0 mt-0.5 md:mt-0" />
+              <div>
+                <div className="font-black text-rose-900 flex items-center gap-2">
+                  <span>Daftar Kelas dengan Jam Pelajaran (Jam Ke) Kosong / Belum Ada Input</span>
+                  <span className="px-2 py-0.5 bg-rose-200 text-rose-800 rounded-md text-[10px] font-black">
+                    {totalKelasDenganJamKosong} Rombel
+                  </span>
+                </div>
+                <p className="text-[11px] text-rose-700 mt-0.5">
+                  Menampilkan seluruh kelas yang memiliki jam KBM yang belum diisi oleh guru pengajar atau sama sekali belum ada input.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setEmptyJamFilterType('semua_kosong')}
+                className={`px-2.5 py-1.5 rounded-xl font-bold text-[11px] transition-all cursor-pointer ${
+                  emptyJamFilterType === 'semua_kosong'
+                    ? 'bg-rose-600 text-white shadow-2xs font-black'
+                    : 'bg-white text-rose-800 border border-rose-200 hover:bg-rose-100'
+                }`}
+              >
+                Semua Jam Kosong ({totalKelasDenganJamKosong})
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmptyJamFilterType('kosong_total')}
+                className={`px-2.5 py-1.5 rounded-xl font-bold text-[11px] transition-all cursor-pointer ${
+                  emptyJamFilterType === 'kosong_total'
+                    ? 'bg-rose-600 text-white shadow-2xs font-black'
+                    : 'bg-white text-rose-800 border border-rose-200 hover:bg-rose-100'
+                }`}
+              >
+                Kosong Total / 0 Sesi ({totalKelasKosongTotal})
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmptyJamFilterType('sebagian_kosong')}
+                className={`px-2.5 py-1.5 rounded-xl font-bold text-[11px] transition-all cursor-pointer ${
+                  emptyJamFilterType === 'sebagian_kosong'
+                    ? 'bg-rose-600 text-white shadow-2xs font-black'
+                    : 'bg-white text-rose-800 border border-rose-200 hover:bg-rose-100'
+                }`}
+              >
+                Sebagian Jam Kosong ({totalKelasSebagianKosong})
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* 24 Rombel Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {classEntryData
             .filter((c) => {
               if (classTingkatFilter !== 'semua' && c.tingkat !== classTingkatFilter) return false;
               if (classFilterStatus === 'terisi' && !c.hasEntry) return false;
-              if (classFilterStatus === 'belum' && c.hasEntry) return false;
+              if (classFilterStatus === 'belum') {
+                if (!c.hasEmptyJam) return false;
+                if (emptyJamFilterType === 'kosong_total' && !c.isTotalKosong) return false;
+                if (emptyJamFilterType === 'sebagian_kosong' && !c.isSebagianKosong) return false;
+              }
               if (searchGuruQuery.trim()) {
                 const q = searchGuruQuery.toLowerCase().trim();
                 const matchGuru = c.uniqueGurus.some((g) => g.toLowerCase().includes(q));
@@ -1021,9 +1127,11 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
                 <div
                   key={c.kelas}
                   className={`rounded-2xl border transition-all p-4 flex flex-col justify-between space-y-3.5 ${
-                    c.hasEntry
-                      ? 'bg-white border-slate-200 hover:border-blue-300 shadow-sm'
-                      : 'bg-slate-50/70 border-dashed border-slate-300'
+                    c.isComplete
+                      ? 'bg-white border-emerald-200 hover:border-emerald-300 shadow-sm'
+                      : c.isSebagianKosong
+                      ? 'bg-white border-amber-300 hover:border-amber-400 shadow-sm'
+                      : 'bg-rose-50/40 border-dashed border-rose-300 hover:border-rose-400'
                   }`}
                 >
                   {/* Card Header */}
@@ -1031,9 +1139,11 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
                     <div className="flex items-center gap-2.5">
                       <div
                         className={`w-10 h-10 rounded-xl font-black text-sm flex items-center justify-center shadow-2xs ${
-                          c.hasEntry
-                            ? 'bg-slate-900 text-white'
-                            : 'bg-slate-200 text-slate-500'
+                          c.isComplete
+                            ? 'bg-emerald-600 text-white'
+                            : c.isSebagianKosong
+                            ? 'bg-amber-600 text-white'
+                            : 'bg-rose-600 text-white'
                         }`}
                       >
                         {c.kelas}
@@ -1048,23 +1158,90 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
                       </div>
                     </div>
 
-                    {c.hasEntry ? (
+                    {c.isComplete ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
                         <CheckCircle2 size={12} className="text-emerald-600" />
-                        <span>{c.totalSesi} Sesi Entry</span>
+                        <span>Lengkap 8 Jam</span>
+                      </span>
+                    ) : c.isSebagianKosong ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">
+                        <Clock size={12} className="text-amber-600" />
+                        <span>{c.emptyJamList.length} Jam Kosong</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
-                        Belum Ada Entry
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-200">
+                        <AlertCircle size={12} className="text-rose-600" />
+                        <span>Jam 1–8 Kosong</span>
                       </span>
                     )}
                   </div>
+
+                  {/* Status Bar Grid 8 Jam Pelajaran (Jam 1 s.d. 8) */}
+                  <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/80 space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <Clock size={12} className="text-slate-400" />
+                        Jadwal KBM Jam Ke (1 s.d. 8):
+                      </span>
+                      <span className={c.hasEmptyJam ? 'text-rose-600 font-black' : 'text-emerald-600 font-black'}>
+                        {c.coveredJamList.length}/8 Terisi
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-8 gap-1">
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((jam) => {
+                        const isCovered = c.coveredJamList.includes(jam);
+                        const detail = c.jamDetailMap.get(jam);
+                        return (
+                          <div
+                            key={jam}
+                            title={
+                              isCovered
+                                ? `Jam Ke-${jam}: Terisi (${detail?.guru || 'Guru'} • ${detail?.mapel || 'Mapel'})`
+                                : `Jam Ke-${jam}: Kosong / Belum Ada Input Jurnal`
+                            }
+                            className={`py-1 text-center rounded text-[10px] font-black transition-all ${
+                              isCovered
+                                ? 'bg-emerald-600 text-white shadow-2xs'
+                                : 'bg-rose-100 text-rose-700 border border-dashed border-rose-300'
+                            }`}
+                          >
+                            {jam}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Kotak Sorotan Jam Pelajaran yang Kosong */}
+                  {c.hasEmptyJam && (
+                    <div className="p-2.5 rounded-xl bg-rose-50/90 border border-rose-200 text-rose-950 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 flex items-center gap-1">
+                          <AlertCircle size={12} className="text-rose-600" />
+                          {c.isTotalKosong ? 'Seluruh Jam Pelajaran Kosong:' : 'Jam Ke yang Belum Ada Input:'}
+                        </span>
+                        <span className="text-[10px] font-bold bg-rose-200/80 text-rose-900 px-1.5 py-0.2 rounded">
+                          {c.emptyJamList.length} Jam Kosong
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {c.emptyJamList.map((jam) => (
+                          <span
+                            key={jam}
+                            className="px-2 py-0.5 bg-white text-rose-700 border border-rose-300 rounded-md text-[10px] font-black shadow-2xs"
+                          >
+                            Jam Ke-{jam}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Card Body: List of teachers who filled journals */}
                   {c.hasEntry ? (
                     <div className="space-y-2 border-t border-slate-100 pt-3">
                       <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                        <span>Guru Pengajar</span>
+                        <span>Guru yang Sudah Entry ({c.totalSesi} Sesi)</span>
                         <span>Jam & Mapel</span>
                       </div>
 
@@ -1086,7 +1263,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
                                   </span>
                                 </div>
                                 <span className="text-[10px] font-black px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md shrink-0">
-                                  {j.jam_ke.toLowerCase().startsWith('jam') || j.jam_ke.toLowerCase() === 'istirahat' ? j.jam_ke : `Jam ${j.jam_ke}`}
+                                  {formatDisplayJamPelajaran(j.jam_ke, j.jam_mulai, j.jam_selesai)}
                                 </span>
                               </div>
 
@@ -1108,7 +1285,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
                               <div className="flex items-center justify-end pt-1">
                                 <button
                                   onClick={() => onViewDetail(j)}
-                                  className="text-[10px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 transition-colors"
+                                  className="text-[10px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 transition-colors cursor-pointer"
                                 >
                                   <Eye size={11} /> Lihat Detail Sesi
                                 </button>
@@ -1117,18 +1294,30 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
                           );
                         })}
                       </div>
+
+                      {c.hasEmptyJam && (
+                        <div className="pt-2 text-center">
+                          <button
+                            onClick={() => onNavigateTab('input')}
+                            className="w-full inline-flex items-center justify-center gap-1 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                          >
+                            <Plus size={13} className="text-amber-600" />
+                            <span>Input Jurnal Jam Kosong di Kelas {c.kelas}</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    <div className="py-4 text-center space-y-2 border-t border-slate-100/80 pt-3">
-                      <p className="text-xs text-slate-400 font-medium">
-                        Belum ada guru yang entry jurnal di kelas {c.kelas} untuk tanggal ini.
+                    <div className="py-4 text-center space-y-2.5 border-t border-slate-100/80 pt-3">
+                      <p className="text-xs text-rose-600 font-bold">
+                        Belum ada guru yang entry jurnal di kelas {c.kelas} (Seluruh Jam 1–8 Kosong).
                       </p>
                       <button
                         onClick={() => onNavigateTab('input')}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-all shadow-2xs"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 rounded-xl text-xs font-black transition-all shadow-2xs cursor-pointer"
                       >
-                        <Plus size={12} className="text-amber-600" />
-                        <span>Isi Jurnal Kelas Ini</span>
+                        <Plus size={13} className="text-rose-600" />
+                        <span>Isi Jurnal Kelas {c.kelas}</span>
                       </button>
                     </div>
                   )}
@@ -1136,7 +1325,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
                   {/* Card Footer */}
                   {c.hasEntry && (
                     <div className="border-t border-slate-100 pt-2 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                      <span>Kehadiran Kelas:</span>
+                      <span>Kehadiran Terdata:</span>
                       <span className="font-bold text-emerald-700">
                         {c.persenHadir}% ({c.totalHadir}/{c.totalSiswa} Siswa)
                       </span>
@@ -1657,7 +1846,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
                           <div className="flex items-center gap-2">
                             <h4 className="text-sm font-black text-slate-900">{item.nama_mapel}</h4>
                             <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md">
-                              {item.jam_ke.toLowerCase().startsWith('jam') || item.jam_ke.toLowerCase() === 'istirahat' ? item.jam_ke : `Jam Ke ${item.jam_ke}`}
+                              {formatDisplayJamPelajaran(item.jam_ke, item.jam_mulai, item.jam_selesai)}
                             </span>
                           </div>
                           <p className="text-xs font-medium text-slate-600 mt-0.5">

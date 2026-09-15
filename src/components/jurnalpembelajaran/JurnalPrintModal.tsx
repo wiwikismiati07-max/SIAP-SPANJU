@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, 
   Printer, 
@@ -15,7 +15,7 @@ import {
   Check
 } from 'lucide-react';
 import { JurnalPembelajaran } from '../../types/jurnalpembelajaran';
-import { fetchGuruList, findGuruNip } from '../../lib/jurnalService';
+import { fetchGuruList, findGuruNip, sortJurnalByKelasDanJam } from '../../lib/jurnalService';
 
 interface JurnalPrintModalProps {
   isOpen: boolean;
@@ -164,6 +164,16 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
     ? ((totalHadir / totalSiswaPresensi) * 100).toFixed(1) 
     : '0';
 
+  // Urutkan Laporan Harian Guru berdasarkan Tanggal, Kelas, lalu Jam Ke
+  const sortedPrintDailyList = useMemo(() => {
+    return [...jurnalList].sort((a, b) => {
+      if (a.tanggal !== b.tanggal) {
+        return (a.tanggal || '').localeCompare(b.tanggal || '');
+      }
+      return sortJurnalByKelasDanJam(a, b);
+    });
+  }, [jurnalList]);
+
   // 2. Build Subject Groups (Per Mata Pelajaran)
   const subjectGroupMap = new Map<string, JurnalPembelajaran[]>();
   jurnalList.forEach(j => {
@@ -178,8 +188,12 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
 
   const subjectGroups: SubjectGroup[] = subjectKeys.map(mapel => {
     const list = subjectGroupMap.get(mapel)!;
-    // Sort chronological: date then jam_ke
-    list.sort((a, b) => (a.tanggal || '').localeCompare(b.tanggal || '') || (a.jam_ke || '').localeCompare(b.jam_ke || ''));
+    // Sort: Date first, then Kelas, then Jam Ke
+    list.sort((a, b) => {
+      const dComp = (a.tanggal || '').localeCompare(b.tanggal || '');
+      if (dComp !== 0) return dComp;
+      return sortJurnalByKelasDanJam(a, b);
+    });
 
     const guruSet = new Set<string>();
     const kelasSet = new Set<string>();
@@ -841,7 +855,7 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
                         </td>
                       </tr>
                     ) : (
-                      jurnalList.map((j, idx) => {
+                      sortedPrintDailyList.map((j, idx) => {
                         const hadir = j.siswa_list?.filter(s => s.absensi === 'Hadir').length || 0;
                         const sakit = j.siswa_list?.filter(s => s.absensi === 'Sakit').length || 0;
                         const izin = j.siswa_list?.filter(s => s.absensi === 'Izin').length || 0;
