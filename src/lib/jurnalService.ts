@@ -179,21 +179,26 @@ export const fetchAllJurnal = async (): Promise<JurnalPembelajaran[]> => {
   // 2. Try fetching from Supabase
   try {
     if (supabase) {
-      let res = await supabase
+      let data: any[] | null = null;
+      let error: any = null;
+
+      const firstAttempt = await supabase
         .from('jurnal_pembelajaran')
         .select(JURNAL_SELECT_COLUMNS)
         .order('tanggal', { ascending: false });
 
-      // Fallback if 'periode' column is not in schema cache
-      if (res.error && (res.error.message?.includes('periode') || res.error.code === 'PGRST204')) {
+      if (firstAttempt.error && (firstAttempt.error.message?.includes('periode') || firstAttempt.error.code === 'PGRST204')) {
         const columnsWithoutPeriode = 'id, tanggal, jam_ke, jam_mulai, jam_selesai, mapel_id, nama_mapel, guru_id, nama_guru, kelas, materi, kegiatan, siswa_list, created_at, updated_at';
-        res = await supabase
+        const secondAttempt = await supabase
           .from('jurnal_pembelajaran')
           .select(columnsWithoutPeriode)
           .order('tanggal', { ascending: false });
+        data = secondAttempt.data;
+        error = secondAttempt.error;
+      } else {
+        data = firstAttempt.data;
+        error = firstAttempt.error;
       }
-
-      const { data, error } = res;
 
       if (!error && data && data.length > 0) {
         // Merge Supabase and Local:

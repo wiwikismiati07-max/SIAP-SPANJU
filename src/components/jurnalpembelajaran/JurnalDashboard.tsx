@@ -25,7 +25,13 @@ import {
   Layers,
   Sparkles,
   School,
-  RotateCcw
+  RotateCcw,
+  Filter,
+  CalendarDays,
+  Search,
+  AlertCircle,
+  User,
+  Plus
 } from 'lucide-react';
 import { JurnalPembelajaran } from '../../types/jurnalpembelajaran';
 
@@ -125,10 +131,91 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
     setCopiedSql(true);
     setTimeout(() => setCopiedSql(false), 2500);
   };
-  // Total Sesi
-  const totalSesi = jurnalList.length;
 
-  // Calculate overall attendance
+  // Helper formatting local date string YYYY-MM-DD
+  const getLocalDateString = (d: Date = new Date()): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Preset Date Filter Modes
+  type DateFilterMode = 'today' | 'yesterday' | 'last_7_days' | 'this_month' | 'custom' | 'all';
+
+  const todayStr = useMemo(() => getLocalDateString(), []);
+  const [dateFilterMode, setDateFilterMode] = useState<DateFilterMode>('today');
+  const [startDate, setStartDate] = useState<string>(todayStr);
+  const [endDate, setEndDate] = useState<string>(todayStr);
+
+  // Sub-filter untuk monitoring kelas hari ini
+  const [classFilterStatus, setClassFilterStatus] = useState<'semua' | 'terisi' | 'belum'>('semua');
+  const [classTingkatFilter, setClassTingkatFilter] = useState<'semua' | '7' | '8' | '9'>('semua');
+  const [searchGuruQuery, setSearchGuruQuery] = useState<string>('');
+  const [showAllTeachersModal, setShowAllTeachersModal] = useState<boolean>(false);
+
+  // Quick preset selector
+  const handleSelectPreset = (mode: DateFilterMode) => {
+    const now = new Date();
+    setDateFilterMode(mode);
+
+    if (mode === 'today') {
+      const today = getLocalDateString(now);
+      setStartDate(today);
+      setEndDate(today);
+    } else if (mode === 'yesterday') {
+      const y = new Date(now);
+      y.setDate(y.getDate() - 1);
+      const yesterday = getLocalDateString(y);
+      setStartDate(yesterday);
+      setEndDate(yesterday);
+    } else if (mode === 'last_7_days') {
+      const past7 = new Date(now);
+      past7.setDate(past7.getDate() - 6);
+      setStartDate(getLocalDateString(past7));
+      setEndDate(getLocalDateString(now));
+    } else if (mode === 'this_month') {
+      const startM = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endM = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setStartDate(getLocalDateString(startM));
+      setEndDate(getLocalDateString(endM));
+    } else if (mode === 'all') {
+      setStartDate('');
+      setEndDate('');
+    }
+  };
+
+  // Formatted date label for current view
+  const getFilterDateLabel = () => {
+    if (dateFilterMode === 'all') return 'Semua Waktu (Seluruh Sesi Jurnal)';
+    if (startDate === endDate && startDate === todayStr) {
+      const parts = todayStr.split('-');
+      const dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+      return `Hari Ini • ${dayNames[dt.getDay()]}, ${dt.getDate()} ${monthNames[dt.getMonth()]} ${dt.getFullYear()}`;
+    }
+    if (startDate === endDate && startDate) {
+      return `Tanggal: ${startDate}`;
+    }
+    return `Periode: ${startDate || 'Awal'} s/d ${endDate || 'Sekarang'}`;
+  };
+
+  // Filtered Jurnal List based on Date Range
+  const filteredJurnalList = useMemo(() => {
+    if (dateFilterMode === 'all') return jurnalList;
+    return jurnalList.filter(j => {
+      if (!j.tanggal) return false;
+      if (startDate && j.tanggal < startDate) return false;
+      if (endDate && j.tanggal > endDate) return false;
+      return true;
+    });
+  }, [jurnalList, dateFilterMode, startDate, endDate]);
+
+  // Total Sesi on Filtered Data
+  const totalSesi = filteredJurnalList.length;
+
+  // Calculate overall attendance on Filtered Data
   let grandTotalSiswa = 0;
   let totalHadir = 0;
   let totalSakit = 0;
@@ -136,7 +223,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
   let totalAlpa = 0;
   let totalCatatanTindakan = 0;
 
-  jurnalList.forEach(j => {
+  filteredJurnalList.forEach(j => {
     j.siswa_list?.forEach(s => {
       grandTotalSiswa++;
       if (s.absensi === 'Hadir') totalHadir++;
@@ -153,6 +240,84 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
   const persentaseHadir = grandTotalSiswa > 0 
     ? Math.round((totalHadir / grandTotalSiswa) * 100) 
     : 100;
+
+  // 24 Rombel List Configuration (7A - 9H)
+  const ALL_ROMBELS = [
+    '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
+    '8A', '8B', '8C', '8D', '8E', '8F', '8G', '8H',
+    '9A', '9B', '9C', '9D', '9E', '9F', '9G', '9H'
+  ];
+
+  // Monitoring Keterisian Jurnal Per Kelas (24 Rombel) pada Filter Aktif
+  const classEntryData = useMemo(() => {
+    return ALL_ROMBELS.map(kelas => {
+      const tingkat = (kelas.startsWith('7') ? '7' : kelas.startsWith('8') ? '8' : '9') as '7' | '8' | '9';
+      const jInClass = filteredJurnalList.filter(j => j.kelas?.trim().toUpperCase() === kelas);
+      
+      let totalHadirInClass = 0;
+      let totalSiswaInClass = 0;
+      const guruSet = new Set<string>();
+
+      jInClass.forEach(j => {
+        if (j.nama_guru) guruSet.add(j.nama_guru);
+        j.siswa_list?.forEach(s => {
+          totalSiswaInClass++;
+          if (s.absensi === 'Hadir') totalHadirInClass++;
+        });
+      });
+
+      return {
+        kelas,
+        tingkat,
+        hasEntry: jInClass.length > 0,
+        totalSesi: jInClass.length,
+        jurnals: jInClass,
+        totalHadir: totalHadirInClass,
+        totalSiswa: totalSiswaInClass,
+        persenHadir: totalSiswaInClass > 0 ? Math.round((totalHadirInClass / totalSiswaInClass) * 100) : 0,
+        uniqueGurus: Array.from(guruSet)
+      };
+    });
+  }, [filteredJurnalList]);
+
+  const totalKelasTerisi = classEntryData.filter(c => c.hasEntry).length;
+  const totalKelasKosong = 24 - totalKelasTerisi;
+  const totalGuruAktif = useMemo(() => {
+    const s = new Set<string>();
+    filteredJurnalList.forEach(j => {
+      if (j.nama_guru) s.add(j.nama_guru.trim());
+    });
+    return s.size;
+  }, [filteredJurnalList]);
+
+  // Daftar ringkasan guru yang sudah mengajar pada filter terpilih
+  const activeTeachersList = useMemo(() => {
+    const map = new Map<string, {
+      nama_guru: string;
+      mapels: Set<string>;
+      kelases: Set<string>;
+      totalSesi: number;
+    }>();
+
+    filteredJurnalList.forEach(j => {
+      if (!j.nama_guru) return;
+      const key = j.nama_guru.trim();
+      if (!map.has(key)) {
+        map.set(key, {
+          nama_guru: key,
+          mapels: new Set(),
+          kelases: new Set(),
+          totalSesi: 0
+        });
+      }
+      const rec = map.get(key)!;
+      if (j.nama_mapel) rec.mapels.add(j.nama_mapel);
+      if (j.kelas) rec.kelases.add(j.kelas);
+      rec.totalSesi++;
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.totalSesi - a.totalSesi || a.nama_guru.localeCompare(b.nama_guru));
+  }, [filteredJurnalList]);
 
   // Helper to extract grade level ('7' | '8' | '9')
   const getTingkat = (kelasStr: string): '7' | '8' | '9' | 'other' => {
@@ -271,7 +436,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
     (['7', '8', '9'] as const).forEach(t => {
       const rombelNames = rombelConfig[t];
       stats[t].rombelList = rombelNames.map(rombel => {
-        const jInRombel = jurnalList.filter(j => j.kelas?.trim().toUpperCase() === rombel);
+        const jInRombel = filteredJurnalList.filter(j => j.kelas?.trim().toUpperCase() === rombel);
         let rHadir = 0;
         let rTotalSiswa = 0;
         let rSakit = 0;
@@ -309,7 +474,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
       });
 
       // Total journals for this grade
-      const journalsInTingkat = jurnalList.filter(j => getTingkat(j.kelas) === t);
+      const journalsInTingkat = filteredJurnalList.filter(j => getTingkat(j.kelas) === t);
       stats[t].totalJurnal = journalsInTingkat.length;
 
       journalsInTingkat.forEach(j => {
@@ -333,7 +498,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
     });
 
     return stats;
-  }, [jurnalList]);
+  }, [filteredJurnalList]);
 
   // --- Academic Period Logic ---
   const getCurrentPeriode = () => {
@@ -521,6 +686,135 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
         </div>
       )}
 
+      {/* DATE RANGE FILTER BAR */}
+      <div className="bg-white rounded-3xl p-5 md:p-6 border border-slate-200/80 shadow-sm space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-700 border border-amber-500/20 flex items-center justify-center font-bold">
+              <CalendarDays size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-black text-slate-800">
+                  Filter Periode Jurnal Pembelajaran
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wide uppercase bg-amber-100 text-amber-800 border border-amber-200">
+                  {dateFilterMode === 'today' ? 'Default: Hari Ini' : 'Filter Aktif'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                {getFilterDateLabel()}
+              </p>
+            </div>
+          </div>
+
+          {/* Quick preset buttons */}
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100/80 p-1.5 rounded-2xl">
+            <button
+              onClick={() => handleSelectPreset('today')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                dateFilterMode === 'today'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              <Calendar size={13} />
+              <span>Hari Ini</span>
+            </button>
+            <button
+              onClick={() => handleSelectPreset('yesterday')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                dateFilterMode === 'yesterday'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              Kemarin
+            </button>
+            <button
+              onClick={() => handleSelectPreset('last_7_days')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                dateFilterMode === 'last_7_days'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              7 Hari Terakhir
+            </button>
+            <button
+              onClick={() => handleSelectPreset('this_month')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                dateFilterMode === 'this_month'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              Bulan Ini
+            </button>
+            <button
+              onClick={() => handleSelectPreset('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                dateFilterMode === 'all'
+                  ? 'bg-slate-900 text-white font-black shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              Semua ({jurnalList.length})
+            </button>
+          </div>
+        </div>
+
+        {/* Custom Date Range Picker (Input Tanggal Awal & Tanggal Akhir) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+          <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-700 font-medium">
+            <span className="font-bold text-slate-500 flex items-center gap-1">
+              <Filter size={14} className="text-amber-600" /> Rentang Tanggal:
+            </span>
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-amber-400">
+              <label className="text-[10px] uppercase font-bold text-slate-400">Awal:</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setDateFilterMode('custom');
+                }}
+                className="bg-transparent font-bold text-slate-800 text-xs focus:outline-hidden cursor-pointer"
+              />
+            </div>
+            <span className="text-slate-400 font-bold">s/d</span>
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-amber-400">
+              <label className="text-[10px] uppercase font-bold text-slate-400">Akhir:</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setDateFilterMode('custom');
+                }}
+                className="bg-transparent font-bold text-slate-800 text-xs focus:outline-hidden cursor-pointer"
+              />
+            </div>
+            {dateFilterMode !== 'today' && (
+              <button
+                onClick={() => handleSelectPreset('today')}
+                className="px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                title="Kembalikan ke tampilan default hari ini"
+              >
+                <RotateCcw size={12} /> Reset Hari Ini
+              </button>
+            )}
+          </div>
+
+          <div className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+            <span>Ditemukan:</span>
+            <span className="px-2 py-0.5 bg-amber-50 text-amber-800 font-black rounded-lg border border-amber-200">
+              {filteredJurnalList.length} Sesi Pembelajaran
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* STATS OVERVIEW CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
@@ -532,7 +826,9 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
           </div>
           <div className="mt-4">
             <h3 className="text-2xl md:text-3xl font-black text-slate-900">{totalSesi}</h3>
-            <p className="text-[11px] text-slate-400 font-medium mt-0.5">Sesi mengajar tersimpan</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+              {dateFilterMode === 'today' ? 'Sesi mengajar hari ini' : 'Sesi mengajar periode ini'}
+            </p>
           </div>
         </div>
 
@@ -575,6 +871,280 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
             <h3 className="text-2xl md:text-3xl font-black text-purple-700">{totalCatatanTindakan}</h3>
             <p className="text-[11px] text-slate-400 font-medium mt-0.5">Evaluasi & tindak lanjut guru</p>
           </div>
+        </div>
+      </div>
+
+      {/* MONITORING ENTRY JURNAL HARI INI PER KELAS (24 ROMBEL) */}
+      <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 space-y-6">
+        {/* Header Monitoring Section */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+          <div className="flex items-start gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
+              <School size={24} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-lg md:text-xl font-black text-slate-900 tracking-tight">
+                  Status Entry Jurnal Mengajar Per Kelas
+                </h3>
+                <span className="px-2.5 py-0.5 bg-blue-50 text-blue-800 border border-blue-200 rounded-full text-[10px] font-black tracking-wide uppercase">
+                  24 Rombel (7A - 9H)
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Monitoring nama guru yang sudah entry jurnal {dateFilterMode === 'today' ? 'hari ini' : 'pada periode terpilih'} per rombongan belajar
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Stats Badges */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs">
+              <CheckCircle2 size={15} className="text-emerald-600" />
+              <span>{totalKelasTerisi} / 24 Kelas Terisi</span>
+              <span className="text-[10px] font-black bg-emerald-200/80 px-1.5 py-0.2 rounded-md">
+                {Math.round((totalKelasTerisi / 24) * 100)}%
+              </span>
+            </div>
+
+            {totalKelasKosong > 0 && (
+              <div className="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs">
+                <AlertCircle size={15} className="text-amber-600" />
+                <span>{totalKelasKosong} Belum Terisi</span>
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowAllTeachersModal(true)}
+              className="px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+            >
+              <Users size={14} className="text-indigo-600" />
+              <span>{totalGuruAktif} Guru Sudah Entry</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Toolbar Filter Tingkat, Status, & Pencarian Guru */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Filter Tingkat */}
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-bold">
+              {(['semua', '7', '8', '9'] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setClassTingkatFilter(t)}
+                  className={`px-3 py-1.5 rounded-lg transition-all capitalize ${
+                    classTingkatFilter === t
+                      ? 'bg-white text-slate-900 shadow-2xs font-black'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  {t === 'semua' ? 'Semua Tingkat' : `Kelas ${t}`}
+                </button>
+              ))}
+            </div>
+
+            {/* Filter Status Keterisian */}
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-bold">
+              <button
+                onClick={() => setClassFilterStatus('semua')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  classFilterStatus === 'semua'
+                    ? 'bg-white text-slate-900 shadow-2xs font-black'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                Semua
+              </button>
+              <button
+                onClick={() => setClassFilterStatus('terisi')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  classFilterStatus === 'terisi'
+                    ? 'bg-emerald-600 text-white shadow-2xs font-black'
+                    : 'text-slate-500 hover:text-emerald-700'
+                }`}
+              >
+                ✓ Sudah Entry ({totalKelasTerisi})
+              </button>
+              <button
+                onClick={() => setClassFilterStatus('belum')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  classFilterStatus === 'belum'
+                    ? 'bg-rose-600 text-white shadow-2xs font-black'
+                    : 'text-slate-500 hover:text-rose-700'
+                }`}
+              >
+                ⏳ Belum ({totalKelasKosong})
+              </button>
+            </div>
+          </div>
+
+          {/* Search Box Guru atau Mapel */}
+          <div className="relative min-w-[240px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Cari nama guru / mapel..."
+              value={searchGuruQuery}
+              onChange={(e) => setSearchGuruQuery(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-400"
+            />
+            {searchGuruQuery && (
+              <button
+                onClick={() => setSearchGuruQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 24 Rombel Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {classEntryData
+            .filter((c) => {
+              if (classTingkatFilter !== 'semua' && c.tingkat !== classTingkatFilter) return false;
+              if (classFilterStatus === 'terisi' && !c.hasEntry) return false;
+              if (classFilterStatus === 'belum' && c.hasEntry) return false;
+              if (searchGuruQuery.trim()) {
+                const q = searchGuruQuery.toLowerCase().trim();
+                const matchGuru = c.uniqueGurus.some((g) => g.toLowerCase().includes(q));
+                const matchMapel = c.jurnals.some((j) => j.nama_mapel?.toLowerCase().includes(q));
+                const matchKelas = c.kelas.toLowerCase().includes(q);
+                if (!matchGuru && !matchMapel && !matchKelas) return false;
+              }
+              return true;
+            })
+            .map((c) => {
+              return (
+                <div
+                  key={c.kelas}
+                  className={`rounded-2xl border transition-all p-4 flex flex-col justify-between space-y-3.5 ${
+                    c.hasEntry
+                      ? 'bg-white border-slate-200 hover:border-blue-300 shadow-sm'
+                      : 'bg-slate-50/70 border-dashed border-slate-300'
+                  }`}
+                >
+                  {/* Card Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`w-10 h-10 rounded-xl font-black text-sm flex items-center justify-center shadow-2xs ${
+                          c.hasEntry
+                            ? 'bg-slate-900 text-white'
+                            : 'bg-slate-200 text-slate-500'
+                        }`}
+                      >
+                        {c.kelas}
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-slate-900">
+                          Rombel {c.kelas}
+                        </h4>
+                        <span className="text-[10px] text-slate-400 font-bold">
+                          Kelas Tingkat {c.tingkat}
+                        </span>
+                      </div>
+                    </div>
+
+                    {c.hasEntry ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        <CheckCircle2 size={12} className="text-emerald-600" />
+                        <span>{c.totalSesi} Sesi Entry</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                        Belum Ada Entry
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Card Body: List of teachers who filled journals */}
+                  {c.hasEntry ? (
+                    <div className="space-y-2 border-t border-slate-100 pt-3">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                        <span>Guru Pengajar</span>
+                        <span>Jam & Mapel</span>
+                      </div>
+
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                        {c.jurnals.map((j) => {
+                          const hadirSiswa = j.siswa_list?.filter((s) => s.absensi === 'Hadir').length || 0;
+                          const totalSiswa = j.siswa_list?.length || 0;
+
+                          return (
+                            <div
+                              key={j.id}
+                              className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/70 hover:bg-blue-50/50 hover:border-blue-200 transition-colors space-y-1.5"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <User size={13} className="text-blue-600 shrink-0" />
+                                  <span className="text-xs font-black text-slate-800 truncate" title={j.nama_guru}>
+                                    {j.nama_guru}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-black px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md shrink-0">
+                                  {j.jam_ke.toLowerCase().startsWith('jam') || j.jam_ke.toLowerCase() === 'istirahat' ? j.jam_ke : `Jam ${j.jam_ke}`}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center justify-between text-[11px] text-slate-600">
+                                <span className="font-bold text-slate-700 truncate mr-2" title={j.nama_mapel}>
+                                  {j.nama_mapel}
+                                </span>
+                                <span className="text-[10px] text-emerald-700 font-bold shrink-0">
+                                  {hadirSiswa}/{totalSiswa} Hadir
+                                </span>
+                              </div>
+
+                              {j.materi && (
+                                <p className="text-[10px] text-slate-500 italic line-clamp-1">
+                                  Materi: {j.materi}
+                                </p>
+                              )}
+
+                              <div className="flex items-center justify-end pt-1">
+                                <button
+                                  onClick={() => onViewDetail(j)}
+                                  className="text-[10px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 transition-colors"
+                                >
+                                  <Eye size={11} /> Lihat Detail Sesi
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-4 text-center space-y-2 border-t border-slate-100/80 pt-3">
+                      <p className="text-xs text-slate-400 font-medium">
+                        Belum ada guru yang entry jurnal di kelas {c.kelas} untuk tanggal ini.
+                      </p>
+                      <button
+                        onClick={() => onNavigateTab('input')}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-all shadow-2xs"
+                      >
+                        <Plus size={12} className="text-amber-600" />
+                        <span>Isi Jurnal Kelas Ini</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Card Footer */}
+                  {c.hasEntry && (
+                    <div className="border-t border-slate-100 pt-2 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                      <span>Kehadiran Kelas:</span>
+                      <span className="font-bold text-emerald-700">
+                        {c.persenHadir}% ({c.totalHadir}/{c.totalSiswa} Siswa)
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
         </div>
       </div>
 
@@ -958,23 +1528,39 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
               {calendarDays.map((cDay, idx) => (
                 <div key={idx} className="flex justify-center items-center p-0.5 relative">
                   {cDay.date > 0 ? (
-                    <div 
-                      title={cDay.holiday ? `Libur: ${cDay.holiday}` : cDay.hasJurnal ? `Ada jurnal di tanggal ${cDay.dateString}` : ''}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                        cDay.hasJurnal 
-                          ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-400 shadow-md font-black z-10 relative' 
-                          : cDay.holiday || idx % 7 === 6
-                            ? 'text-rose-700 bg-rose-50/80 hover:bg-rose-100 font-black shadow-sm'
-                            : cDay.isToday 
-                              ? 'bg-slate-800 text-white shadow-md font-black' 
-                              : 'text-slate-800 hover:bg-white/80 font-black drop-shadow-md'
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (cDay.dateString) {
+                          setDateFilterMode('custom');
+                          setStartDate(cDay.dateString);
+                          setEndDate(cDay.dateString);
+                        }
+                      }}
+                      title={
+                        cDay.holiday 
+                          ? `Libur: ${cDay.holiday} (Klik untuk filter tanggal ini)` 
+                          : cDay.hasJurnal 
+                            ? `Ada jurnal di tanggal ${cDay.dateString} (Klik untuk filter tanggal ini)` 
+                            : `Tanggal ${cDay.dateString} (Klik untuk filter tanggal ini)`
+                      }
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${
+                        startDate === cDay.dateString && endDate === cDay.dateString
+                          ? 'ring-2 ring-blue-600 bg-blue-600 text-white shadow-md font-black z-20 scale-105'
+                          : cDay.hasJurnal 
+                            ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-400 shadow-md font-black z-10 relative hover:bg-amber-200' 
+                            : cDay.holiday || idx % 7 === 6
+                              ? 'text-rose-700 bg-rose-50/80 hover:bg-rose-100 font-black shadow-sm'
+                              : cDay.isToday 
+                                ? 'bg-slate-800 text-white shadow-md font-black hover:bg-slate-700' 
+                                : 'text-slate-800 hover:bg-white/80 font-black drop-shadow-md'
                       }`}
                     >
                       {cDay.date}
                       {cDay.holiday && !cDay.hasJurnal && (
                         <div className="absolute top-0 right-0 w-2 h-2 rounded-full bg-rose-500 border border-white"></div>
                       )}
-                    </div>
+                    </button>
                   ) : (
                     <div className="w-8 h-8"></div>
                   )}
@@ -998,46 +1584,63 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
           </div>
         </div>
 
-        {/* RECENT JURNAL LIST */}
+        {/* RECENT JURNAL LIST (FILTERED) */}
         <div className="lg:col-span-2 bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-black text-slate-800">Aktivitas Jurnal Terkini</h3>
-                {jurnalList.length > 0 && (
+                <h3 className="text-lg font-black text-slate-800">
+                  {dateFilterMode === 'today' ? 'Jurnal Pembelajaran Hari Ini' : 'Aktivitas Jurnal Terpilih'}
+                </h3>
+                {filteredJurnalList.length > 0 && (
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-800 border border-amber-200">
-                    {jurnalList.length} Total Sesi
+                    {filteredJurnalList.length} Sesi
                   </span>
                 )}
               </div>
               <p className="text-xs text-slate-400 font-medium mt-0.5">
-                {jurnalList.length > 5 
-                  ? `Tampilan 5 baris pertama, scroll ke bawah untuk melihat riwayat lainnya`
-                  : 'Sesi pembelajaran terakhir yang tercatat'}
+                {getFilterDateLabel()}
               </p>
             </div>
             <button
               onClick={() => onNavigateTab('laporan')}
               className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 shrink-0 transition-colors"
             >
-              Lihat Semua <ArrowRight size={14} />
+              Lihat Laporan Penuh <ArrowRight size={14} />
             </button>
           </div>
 
-          {jurnalList.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 space-y-2">
+          {filteredJurnalList.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 space-y-3">
               <BookOpen size={40} className="mx-auto text-slate-300" />
-              <p className="text-sm font-bold text-slate-600">Belum ada jurnal pembelajaran</p>
-              <p className="text-xs text-slate-400">Klik "Isi Jurnal Baru" untuk memulai pencatatan.</p>
+              <p className="text-sm font-bold text-slate-600">
+                Belum ada jurnal pembelajaran untuk {dateFilterMode === 'today' ? 'hari ini' : 'periode yang dipilih'}.
+              </p>
+              <div className="flex items-center justify-center gap-2 pt-1">
+                <button
+                  onClick={() => onNavigateTab('input')}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm"
+                >
+                  <PlusCircle size={14} /> Input Jurnal Sekarang
+                </button>
+                {dateFilterMode !== 'all' && (
+                  <button
+                    onClick={() => handleSelectPreset('all')}
+                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors"
+                  >
+                    Lihat Semua Riwayat
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
-              {/* Scrollable container with max height to show 5 items and scroll for the rest */}
+              {/* Scrollable container with max height */}
               <div 
                 className="space-y-3 overflow-y-auto pr-1.5 custom-scrollbar overscroll-contain"
                 style={{ maxHeight: '485px' }}
               >
-                {jurnalList.map((item) => {
+                {filteredJurnalList.map((item) => {
                   const hadir = item.siswa_list?.filter(s => s.absensi === 'Hadir').length || 0;
                   const total = item.siswa_list?.length || 0;
 
@@ -1061,7 +1664,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
                             Materi: <span className="font-semibold text-slate-800">{item.materi}</span>
                           </p>
                           <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-1">
-                            <span>Guru: {item.nama_guru}</span>
+                            <span className="font-medium text-slate-600">Guru: {item.nama_guru}</span>
                             <span>•</span>
                             <span>{item.tanggal}</span>
                           </div>
@@ -1080,7 +1683,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
 
                         <button
                           onClick={() => onViewDetail(item)}
-                          className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                          className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors shadow-2xs"
                         >
                           <Eye size={14} /> Detail
                         </button>
@@ -1091,11 +1694,11 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
               </div>
 
               {/* Indicator if more than 5 items exist */}
-              {jurnalList.length > 5 && (
+              {filteredJurnalList.length > 5 && (
                 <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
                   <span className="inline-flex items-center gap-1.5 font-bold text-amber-800 bg-amber-50 px-3 py-1 rounded-xl border border-amber-200/60">
                     <ChevronDown size={14} className="animate-bounce text-amber-600" />
-                    Menampilkan 5 baris pertama • Scroll ke bawah untuk {jurnalList.length - 5} sesi lainnya
+                    Menampilkan 5 baris pertama • Scroll ke bawah untuk {filteredJurnalList.length - 5} sesi lainnya
                   </span>
                   <button
                     onClick={() => onNavigateTab('laporan')}
@@ -1109,6 +1712,95 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
           )}
         </div>
       </div>
+
+      {/* MODAL DAFTAR SELURUH GURU YANG SUDAH ENTRY JURNAL */}
+      {showAllTeachersModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
+            {/* Header Modal */}
+            <div className="p-5 md:p-6 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center">
+                  <Users size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">
+                    Daftar Guru yang Sudah Entry Jurnal
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {getFilterDateLabel()}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAllTeachersModal(false)}
+                className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Quick stats in modal */}
+            <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600 font-medium">
+              <span>Total: <strong className="text-slate-900 font-black">{activeTeachersList.length} Guru</strong> telah mengisi jurnal</span>
+              <span>Total: <strong className="text-slate-900 font-black">{filteredJurnalList.length} Sesi KBM</strong></span>
+            </div>
+
+            {/* Teacher list */}
+            <div className="p-6 overflow-y-auto max-h-[60vh] space-y-3 custom-scrollbar">
+              {activeTeachersList.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">
+                  <Users size={36} className="mx-auto text-slate-300 mb-2" />
+                  <p className="text-sm font-bold text-slate-600">Belum ada guru yang entry jurnal pada periode ini.</p>
+                </div>
+              ) : (
+                activeTeachersList.map((t, idx) => (
+                  <div
+                    key={t.nama_guru}
+                    className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-300 transition-all shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-800 font-black text-xs flex items-center justify-center shrink-0">
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900">{t.nama_guru}</h4>
+                        <p className="text-xs text-slate-600 mt-0.5">
+                          Mapel: <strong className="text-slate-800">{Array.from(t.mapels).join(', ') || '-'}</strong>
+                        </p>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">Kelas yang diajar:</span>
+                          {Array.from(t.kelases).sort().map(k => (
+                            <span key={k} className="px-2 py-0.5 bg-slate-100 text-slate-800 text-[10px] font-black rounded-md">
+                              {k}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-black">
+                        {t.totalSesi} Sesi KBM
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer Modal */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+              <button
+                onClick={() => setShowAllTeachersModal(false)}
+                className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL SKRIP SQL DATABASE */}
       {showSqlModal && (
