@@ -62,7 +62,7 @@ export const generateJurnalEmailSubject = (jurnal: JurnalPembelajaran): string =
   const guru = (jurnal.nama_guru || 'Guru Pengajar').trim();
   const mapel = (jurnal.nama_mapel || 'Pembelajaran').trim();
   const kelas = (jurnal.kelas || '-').trim();
-  const tanggal = jurnal.tanggal || new Date().toISOString().split('T')[0];
+  const tanggal = jurnal.tanggal || (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0'));
   return `[SIAP SPANJU] Jurnal ${guru} - Kelas ${kelas} (${mapel}) - ${tanggal}`;
 };
 

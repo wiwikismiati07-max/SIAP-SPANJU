@@ -33,7 +33,7 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
   }>({ show: false, type: 'success', message: '' });
 
   const initialFormData = {
-    tanggal: new Date().toISOString().split('T')[0],
+    tanggal: (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')),
     jam: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }),
     kelas: '',
     siswa_id: '',
@@ -171,7 +171,7 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
 
   const handleAddTindakLanjut = () => {
     setTindakLanjuts([...tindakLanjuts, { 
-      tanggal: new Date().toISOString().split('T')[0], 
+      tanggal: (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')), 
       tindak_lanjut: 'Konseling Individu',
       keterangan: ''
     }]);
@@ -376,7 +376,7 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
               errors.push(`Baris ${i + 2}: Kasus "${namaKasus}" tidak ditemukan di Master Kasus.`);
             } else {
               newTransactions.push({
-                tanggal: row['Tanggal'] || new Date().toISOString().split('T')[0],
+                tanggal: row['Tanggal'] || (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')),
                 jam: row['Jam'] || '00:00',
                 kelas: kelas,
                 siswa_id: s.id,

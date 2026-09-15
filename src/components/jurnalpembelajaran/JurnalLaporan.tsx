@@ -54,7 +54,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
   const [activeReportTab, setActiveReportTab] = useState<'harian_guru' | 'mingguan_bulanan' | 'absensi' | 'catatan_tindakan' | 'siswa_bercatatan'>('harian_guru');
 
   // Daily Report Specific State
-  const [dailyDate, setDailyDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [dailyDate, setDailyDate] = useState<string>(() => (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')));
   const [dailySubTab, setDailySubTab] = useState<'rincian' | 'rekap_guru' | 'belum_input'>('rincian');
   const [isExportingExcel, setIsExportingExcel] = useState<boolean>(false);
 
@@ -63,9 +63,9 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
   const [startDate, setStartDate] = useState<string>(() => {
     const d = new Date();
     d.setDate(1); // First day of current month
-    return d.toISOString().split('T')[0];
+    return (d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
   });
-  const [endDate, setEndDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState<string>(() => (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')));
 
   const [filterKelas, setFilterKelas] = useState<string>('semua');
   const [filterMapel, setFilterMapel] = useState<string>('semua');
@@ -98,7 +98,7 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
   const handlePeriodChange = (type: 'semua' | 'hari_ini' | 'minggu_ini' | 'bulan_ini' | 'kustom') => {
     setFilterPeriod(type);
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = (today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0'));
 
     if (type === 'hari_ini') {
       setStartDate(todayStr);
@@ -108,11 +108,11 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
       const day = today.getDay();
       const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Monday
       firstDay.setDate(diff);
-      setStartDate(firstDay.toISOString().split('T')[0]);
+      setStartDate((firstDay.getFullYear() + '-' + String(firstDay.getMonth() + 1).padStart(2, '0') + '-' + String(firstDay.getDate()).padStart(2, '0')));
       setEndDate(todayStr);
     } else if (type === 'bulan_ini') {
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      setStartDate(firstDay.toISOString().split('T')[0]);
+      setStartDate((firstDay.getFullYear() + '-' + String(firstDay.getMonth() + 1).padStart(2, '0') + '-' + String(firstDay.getDate()).padStart(2, '0')));
       setEndDate(todayStr);
     }
   };
@@ -483,17 +483,17 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
   const handleDailyPrevDay = () => {
     const d = new Date(dailyDate + 'T00:00:00');
     d.setDate(d.getDate() - 1);
-    setDailyDate(d.toISOString().split('T')[0]);
+    setDailyDate(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
   };
 
   const handleDailyNextDay = () => {
     const d = new Date(dailyDate + 'T00:00:00');
     d.setDate(d.getDate() + 1);
-    setDailyDate(d.toISOString().split('T')[0]);
+    setDailyDate(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
   };
 
   const handleDailyToday = () => {
-    setDailyDate(new Date().toISOString().split('T')[0]);
+    setDailyDate((new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')));
   };
 
   // EXCEL EXPORT HANDLER (WITH OFFICIAL LOGO, KOP SURAT & SIGNATURES VIA EXCELJS)

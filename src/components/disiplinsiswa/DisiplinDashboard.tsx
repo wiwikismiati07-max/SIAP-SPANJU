@@ -39,7 +39,7 @@ export default function DisiplinDashboard() {
     setErrorMsg(null);
     try {
       if (supabase) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0'));
 
         // Fetch distinct periodes
         const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');

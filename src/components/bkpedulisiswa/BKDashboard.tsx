@@ -9,8 +9,8 @@ export default function BKDashboard() {
   const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
   const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [dateRange, setDateRange] = useState({
-    start: new Date().toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0]
+    start: (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')),
+    end: (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0'))
   });
   const [stats, setStats] = useState({
     totalKasus: 0,
@@ -41,8 +41,8 @@ export default function BKDashboard() {
         const currentYear = new Date().getFullYear();
         if (year === currentYear) {
           setDateRange({
-            start: new Date().toISOString().split('T')[0],
-            end: new Date().toISOString().split('T')[0]
+            start: (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')),
+            end: (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0'))
           });
         } else {
           setDateRange({
@@ -59,7 +59,7 @@ export default function BKDashboard() {
     setErrorMsg(null);
     try {
       if (supabase) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0'));
         
         // Fetch distinct periodes
         const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');

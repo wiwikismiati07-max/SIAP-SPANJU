@@ -50,7 +50,7 @@ interface JurnalFormProps {
 }
 
 export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, onCancel }) => {
-  const [tanggal, setTanggal] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [tanggal, setTanggal] = useState<string>((new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')));
   const [jamKe, setJamKe] = useState<string>('1');
   const [jamMulai, setJamMulai] = useState<string>('07:15');
   const [jamSelesai, setJamSelesai] = useState<string>('07:55');

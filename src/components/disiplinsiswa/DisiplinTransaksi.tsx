@@ -32,7 +32,7 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
   }>({ show: false, type: 'success', message: '' });
 
   const initialFormData = {
-    tanggal: new Date().toISOString().split('T')[0],
+    tanggal: (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')),
     jam: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }),
     siswa_id: '',
     pelanggaran_id: '',
@@ -307,7 +307,7 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
               errors.push(`Baris ${i + 2}: Pelanggaran "${namaPelanggaran}" tidak ditemukan di Master Pelanggaran.`);
             } else {
               newTransactions.push({
-                tanggal: row['Tanggal'] || new Date().toISOString().split('T')[0],
+                tanggal: row['Tanggal'] || (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')),
                 jam: row['Jam'] || '00:00',
                 siswa_id: s.id,
                 pelanggaran_id: p.id,

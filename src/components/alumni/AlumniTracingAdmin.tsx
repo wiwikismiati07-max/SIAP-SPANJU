@@ -319,7 +319,7 @@ export default function AlumniTracingAdmin() {
       // Generate File
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      saveAs(blob, `Tracing_Alumni_Full_${new Date().toISOString().split('T')[0]}.xlsx`);
+      saveAs(blob, `Tracing_Alumni_Full_${(new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0'))}.xlsx`);
     } catch (err: any) {
       console.error('Export Error:', err);
       alert('Gagal mengekspor data.');
