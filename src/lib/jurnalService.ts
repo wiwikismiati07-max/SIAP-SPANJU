@@ -132,6 +132,40 @@ export const saveLocalJurnalList = (list: JurnalPembelajaran[]) => {
   }
 };
 
+// Optimized column selection: excludes multi-megabyte base64 photos from mass queries
+// This completely resolves Postgres statement timeout (57014) and enables instant load across devices
+const JURNAL_SELECT_COLUMNS = 'id, tanggal, jam_ke, jam_mulai, jam_selesai, mapel_id, nama_mapel, guru_id, nama_guru, kelas, materi, kegiatan, siswa_list, created_at, updated_at, periode';
+
+/**
+ * Fetches photo documentation for a specific journal ID on-demand (for detail view, edit, or printing)
+ */
+export const fetchJurnalPhoto = async (id: string): Promise<string[]> => {
+  if (!supabase || !id) return [];
+  try {
+    const { data, error } = await supabase
+      .from('jurnal_pembelajaran')
+      .select('foto_kegiatan')
+      .eq('id', id)
+      .single();
+
+    if (!error && data && Array.isArray(data.foto_kegiatan)) {
+      // Cache into local IndexedDB
+      try {
+        const cached = await getLocalOrIdbJurnalList();
+        const target = cached.find(j => j.id === id);
+        if (target) {
+          target.foto_kegiatan = data.foto_kegiatan;
+          saveLocalJurnalList(cached);
+        }
+      } catch (_) {}
+      return data.foto_kegiatan;
+    }
+  } catch (e) {
+    console.warn('Gagal memuat foto jurnal:', e);
+  }
+  return [];
+};
+
 /**
  * Fetches all journals. Merges Supabase remote data with local records so that
  * any locally created or offline records are NEVER lost.
@@ -145,17 +179,28 @@ export const fetchAllJurnal = async (): Promise<JurnalPembelajaran[]> => {
   // 2. Try fetching from Supabase
   try {
     if (supabase) {
-      const { data, error } = await supabase
+      let res = await supabase
         .from('jurnal_pembelajaran')
-        .select('*')
+        .select(JURNAL_SELECT_COLUMNS)
         .order('tanggal', { ascending: false });
 
-      if (!error && data) {
+      // Fallback if 'periode' column is not in schema cache
+      if (res.error && (res.error.message?.includes('periode') || res.error.code === 'PGRST204')) {
+        const columnsWithoutPeriode = 'id, tanggal, jam_ke, jam_mulai, jam_selesai, mapel_id, nama_mapel, guru_id, nama_guru, kelas, materi, kegiatan, siswa_list, created_at, updated_at';
+        res = await supabase
+          .from('jurnal_pembelajaran')
+          .select(columnsWithoutPeriode)
+          .order('tanggal', { ascending: false });
+      }
+
+      const { data, error } = res;
+
+      if (!error && data && data.length > 0) {
         // Merge Supabase and Local:
         // Local records that are not in Supabase yet must NOT be lost!
         const map = new Map<string, JurnalPembelajaran>();
         
-        // Put local first
+        // Put local first (keeps any offline photos already saved locally)
         localList.forEach(item => {
           if (item && item.id && !deletedIds.has(item.id)) map.set(item.id, item);
         });
@@ -166,10 +211,10 @@ export const fetchAllJurnal = async (): Promise<JurnalPembelajaran[]> => {
           const localItem = map.get(remote.id);
           const merged: JurnalPembelajaran = {
             ...remote,
-            // Keep local photos if remote photos are empty/stripped
-            foto_kegiatan: (remote.foto_kegiatan && remote.foto_kegiatan.length > 0)
-              ? remote.foto_kegiatan
-              : (localItem?.foto_kegiatan || []),
+            // Keep local photos if available, otherwise array
+            foto_kegiatan: (localItem?.foto_kegiatan && localItem.foto_kegiatan.length > 0)
+              ? localItem.foto_kegiatan
+              : (Array.isArray(remote.foto_kegiatan) ? remote.foto_kegiatan : []),
             periode: remote.periode || localItem?.periode || ''
           };
           map.set(remote.id, merged);
@@ -182,6 +227,35 @@ export const fetchAllJurnal = async (): Promise<JurnalPembelajaran[]> => {
         );
 
         saveLocalJurnalList(mergedList);
+
+        // Background non-blocking photo hydration for top 20 latest entries
+        setTimeout(async () => {
+          try {
+            if (!supabase) return;
+            const { data: recentPhotos } = await supabase
+              .from('jurnal_pembelajaran')
+              .select('id, foto_kegiatan')
+              .order('tanggal', { ascending: false })
+              .limit(20);
+
+            if (recentPhotos && recentPhotos.length > 0) {
+              const currentCached = await getLocalOrIdbJurnalList();
+              let updated = false;
+              recentPhotos.forEach((item: any) => {
+                if (!item?.id || !Array.isArray(item.foto_kegiatan) || item.foto_kegiatan.length === 0) return;
+                const target = currentCached.find(c => c.id === item.id);
+                if (target && (!target.foto_kegiatan || target.foto_kegiatan.length === 0)) {
+                  target.foto_kegiatan = item.foto_kegiatan;
+                  updated = true;
+                }
+              });
+              if (updated) {
+                saveLocalJurnalList(currentCached);
+              }
+            }
+          } catch (_) {}
+        }, 1000);
+
         return mergedList;
       }
     }

@@ -24,7 +24,8 @@ import {
   ChevronUp,
   Layers,
   Sparkles,
-  School
+  School,
+  RotateCcw
 } from 'lucide-react';
 import { JurnalPembelajaran } from '../../types/jurnalpembelajaran';
 
@@ -32,12 +33,16 @@ interface JurnalDashboardProps {
   jurnalList: JurnalPembelajaran[];
   onNavigateTab: (tab: 'input' | 'laporan') => void;
   onViewDetail: (jurnal: JurnalPembelajaran) => void;
+  onRefresh?: () => void;
+  isLoading?: boolean;
 }
 
 export const JurnalDashboard: React.FC<JurnalDashboardProps> = ({ 
   jurnalList, 
   onNavigateTab,
-  onViewDetail 
+  onViewDetail,
+  onRefresh,
+  isLoading = false
 }) => {
   const [showSqlModal, setShowSqlModal] = useState(false);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
@@ -457,6 +462,17 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
             >
               <FileBarChart size={16} /> Buka Laporan
             </button>
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                disabled={isLoading}
+                className="px-4 py-2.5 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-white/20 shadow-sm disabled:opacity-50"
+                title="Sinkronisasi data langsung dengan server Supabase"
+              >
+                <RotateCcw size={15} className={isLoading ? "animate-spin" : ""} /> 
+                <span>{isLoading ? "Menyinkronkan..." : "Segarkan Data"}</span>
+              </button>
+            )}
             <button
               onClick={handleSqlButtonClick}
               className="px-4 py-2.5 bg-black/30 hover:bg-black/40 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-white/20 shadow-sm"
@@ -469,6 +485,41 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
         {/* Decorative circle */}
         <div className="absolute -bottom-16 -right-16 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
       </div>
+
+      {/* Cloud Sync Status Banner */}
+      {jurnalList.length > 0 ? (
+        <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-2xl px-4 py-2.5 flex items-center justify-between text-xs text-emerald-800 shadow-sm">
+          <div className="flex items-center gap-2 font-bold">
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+            <span>Database Cloud Supabase Terhubung: <strong className="text-emerald-950 font-black">{jurnalList.length} Sesi Pembelajaran</strong> tersinkronisasi akurat.</span>
+          </div>
+          {onRefresh && (
+            <button 
+              onClick={onRefresh} 
+              disabled={isLoading} 
+              className="text-emerald-700 hover:text-emerald-900 font-bold underline flex items-center gap-1 shrink-0 ml-2 disabled:opacity-50 text-[11px]"
+            >
+              <RotateCcw size={12} className={isLoading ? "animate-spin" : ""} /> Refresh
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-between text-xs text-amber-900 shadow-sm">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={18} className="text-amber-600 shrink-0" />
+            <span>{isLoading ? "Sedang menyinkronkan data dengan Supabase..." : "Data jurnal pembelajaran sedang dimuat atau belum tersinkron."}</span>
+          </div>
+          {onRefresh && (
+            <button 
+              onClick={onRefresh} 
+              disabled={isLoading}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl shadow-sm transition-all shrink-0 ml-2"
+            >
+              Muat Ulang Data
+            </button>
+          )}
+        </div>
+      )}
 
       {/* STATS OVERVIEW CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">

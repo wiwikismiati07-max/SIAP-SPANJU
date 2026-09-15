@@ -37,7 +37,8 @@ import {
   saveJurnal,
   generateUUID,
   isValidUUID,
-  findGuruNip
+  findGuruNip,
+  fetchJurnalPhoto
 } from '../../lib/jurnalService';
 import { PRIMARY_NOTIF_EMAIL, generateJurnalMailtoUrl, generateGmailWebComposeUrl } from '../../lib/emailNotificationService';
 import { compressImage } from '../../lib/imageCompressor';
@@ -113,6 +114,13 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
         setMateri(initialData.materi);
         setKegiatan(initialData.kegiatan || '');
         setFotoKegiatan(initialData.foto_kegiatan || []);
+        if ((!initialData.foto_kegiatan || initialData.foto_kegiatan.length === 0) && initialData.id) {
+          fetchJurnalPhoto(initialData.id).then(fetched => {
+            if (fetched && fetched.length > 0) {
+              setFotoKegiatan(fetched);
+            }
+          }).catch(() => {});
+        }
         setSiswaList(initialData.siswa_list || []);
 
         const mapelExists = mapels.some(m => m.nama_mapel === initialData.nama_mapel);

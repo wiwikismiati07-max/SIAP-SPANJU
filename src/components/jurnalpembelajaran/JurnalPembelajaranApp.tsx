@@ -235,6 +235,8 @@ export default function JurnalPembelajaranApp({ onBack, onOpenSidebar, user }: J
               jurnalList={jurnalList} 
               onNavigateTab={setActiveTab}
               onViewDetail={(j) => setViewingJurnal(j)}
+              onRefresh={loadData}
+              isLoading={isLoading}
             />
           )}
 

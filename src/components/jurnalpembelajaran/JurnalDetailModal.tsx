@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Printer, Calendar, Clock, BookOpen, User, Users, CheckCircle2, AlertTriangle, FileText, Image as ImageIcon } from 'lucide-react';
+import { X, Printer, Calendar, Clock, BookOpen, User, Users, CheckCircle2, AlertTriangle, FileText, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { JurnalPembelajaran } from '../../types/jurnalpembelajaran';
-import { fetchGuruList, findGuruNip } from '../../lib/jurnalService';
+import { fetchGuruList, findGuruNip, fetchJurnalPhoto } from '../../lib/jurnalService';
 
 interface JurnalDetailModalProps {
   jurnal: JurnalPembelajaran | null;
@@ -11,12 +11,30 @@ interface JurnalDetailModalProps {
 
 export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, onClose, onEdit }) => {
   const [guruMasterList, setGuruMasterList] = useState<{ id: string; nama_guru: string; nip?: string }[]>([]);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [isLoadingPhotos, setIsLoadingPhotos] = useState<boolean>(false);
 
   useEffect(() => {
     if (jurnal) {
       fetchGuruList().then(data => {
         if (data) setGuruMasterList(data);
       }).catch(console.error);
+
+      // Handle photos: use existing or fetch on demand
+      if (jurnal.foto_kegiatan && jurnal.foto_kegiatan.length > 0) {
+        setPhotos(jurnal.foto_kegiatan);
+      } else {
+        setPhotos([]);
+        setIsLoadingPhotos(true);
+        fetchJurnalPhoto(jurnal.id)
+          .then(fetched => {
+            if (fetched && fetched.length > 0) {
+              setPhotos(fetched);
+              jurnal.foto_kegiatan = fetched;
+            }
+          })
+          .finally(() => setIsLoadingPhotos(false));
+      }
     }
   }, [jurnal]);
 
@@ -28,6 +46,7 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
   const totalAlpa = jurnal.siswa_list.filter(s => s.absensi === 'Alpa').length;
 
   const teacherNip = findGuruNip(jurnal.nama_guru, guruMasterList, jurnal.nip_guru);
+  const activePhotos = photos.length > 0 ? photos : (jurnal.foto_kegiatan || []);
 
   const handlePrint = () => {
     const html = `
@@ -151,11 +170,11 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
             </div>
           </div>
 
-          ${jurnal.foto_kegiatan && jurnal.foto_kegiatan.length > 0 ? `
+          ${activePhotos && activePhotos.length > 0 ? `
             <div style="margin-top: 14px; page-break-inside: avoid;">
               <div style="font-weight: bold; font-size: 11px; margin-bottom: 6px; text-transform: uppercase; color: #334155;">Foto Dokumentasi Kegiatan Pembelajaran:</div>
               <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                ${jurnal.foto_kegiatan.map(foto => `
+                ${activePhotos.map(foto => `
                   <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px; background: #f8fafc; width: 140px; text-align: center;">
                     <img src="${foto}" style="width: 130px; height: 80px; object-fit: cover; border-radius: 4px;" alt="Dokumentasi" />
                   </div>
@@ -341,13 +360,20 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
           </div>
 
           {/* Activity Photos */}
-          {jurnal.foto_kegiatan && jurnal.foto_kegiatan.length > 0 && (
+          {isLoadingPhotos && (
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-400 py-2">
+              <Loader2 size={15} className="animate-spin text-amber-500" />
+              <span>Memuat foto dokumentasi kegiatan...</span>
+            </div>
+          )}
+
+          {activePhotos && activePhotos.length > 0 && (
             <div>
               <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <ImageIcon size={15} /> Foto Dokumentasi Kegiatan Pembelajaran
+                <ImageIcon size={15} /> Foto Dokumentasi Kegiatan Pembelajaran ({activePhotos.length} Foto)
               </h4>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {jurnal.foto_kegiatan.map((foto, fIdx) => (
+                {activePhotos.map((foto, fIdx) => (
                   <a
                     key={fIdx}
                     href={foto}
