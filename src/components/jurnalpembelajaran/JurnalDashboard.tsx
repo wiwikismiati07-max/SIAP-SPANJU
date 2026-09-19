@@ -253,7 +253,14 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
   const classEntryData = useMemo(() => {
     return ALL_ROMBELS.map(kelas => {
       const tingkat = (kelas.startsWith('7') ? '7' : kelas.startsWith('8') ? '8' : '9') as '7' | '8' | '9';
-      const jInClass = filteredJurnalList.filter(j => j.kelas?.trim().toUpperCase() === kelas);
+      const jInClass = filteredJurnalList.filter(j => {
+        if (!j.kelas) return false;
+        const target = kelas.toUpperCase();
+        const clean = j.kelas.trim().toUpperCase();
+        if (clean === target) return true;
+        const parts = clean.split(/[,/&]+/).map(s => s.trim());
+        return parts.includes(target);
+      });
       
       let totalHadirInClass = 0;
       let totalSiswaInClass = 0;

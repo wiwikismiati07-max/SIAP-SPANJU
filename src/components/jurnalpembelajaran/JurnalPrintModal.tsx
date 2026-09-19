@@ -126,6 +126,17 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
     }
   }, [isOpen]);
 
+  // Urutkan Laporan Harian Guru berdasarkan Tanggal, Kelas, lalu Jam Ke
+  const sortedPrintDailyList = useMemo(() => {
+    if (!isOpen) return [];
+    return [...jurnalList].sort((a, b) => {
+      if (a.tanggal !== b.tanggal) {
+        return (a.tanggal || '').localeCompare(b.tanggal || '');
+      }
+      return sortJurnalByKelasDanJam(a, b);
+    });
+  }, [jurnalList, isOpen]);
+
   if (!isOpen) return null;
 
   // Format Date Helper
@@ -163,16 +174,6 @@ export const JurnalPrintModal: React.FC<JurnalPrintModalProps> = ({
   const persenKehadiran = totalSiswaPresensi > 0 
     ? ((totalHadir / totalSiswaPresensi) * 100).toFixed(1) 
     : '0';
-
-  // Urutkan Laporan Harian Guru berdasarkan Tanggal, Kelas, lalu Jam Ke
-  const sortedPrintDailyList = useMemo(() => {
-    return [...jurnalList].sort((a, b) => {
-      if (a.tanggal !== b.tanggal) {
-        return (a.tanggal || '').localeCompare(b.tanggal || '');
-      }
-      return sortJurnalByKelasDanJam(a, b);
-    });
-  }, [jurnalList]);
 
   // 2. Build Subject Groups (Per Mata Pelajaran)
   const subjectGroupMap = new Map<string, JurnalPembelajaran[]>();

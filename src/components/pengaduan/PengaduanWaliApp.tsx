@@ -60,7 +60,7 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
   
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSiswaId, setSelectedSiswaId] = useState('');
-  const [selectedPeriode, setSelectedPeriode] = useState('2025');
+  const [selectedPeriode, setSelectedPeriode] = useState('2026');
   const [formData, setFormData] = useState({
     nama_pelapor: '',
     hp_pelapor: '',
@@ -100,10 +100,10 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
     }
   };
 
-  const availablePeriodes = Array.from(new Set(['2025', ...siswa.map(s => s.periode || '2025')])).sort((a, b) => b.localeCompare(a));
+  const availablePeriodes = Array.from(new Set(['2026', ...siswa.map(s => s.periode || '2026')])).sort((a, b) => b.localeCompare(a));
 
   const filteredSiswa = siswa.filter(s => {
-    const sPeriode = s.periode || '2025';
+    const sPeriode = s.periode || '2026';
     const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
     return s.kelas === selectedClass && matchPeriode;
   });

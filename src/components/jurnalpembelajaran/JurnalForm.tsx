@@ -118,7 +118,8 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
 
         // Deteksi jika data yang dimuat adalah jam kustom
         const isPreset = JAM_PELAJARAN_OPTIONS.some(o => o.value === initialData.jam_ke && o.value !== 'custom');
-        const isCustomValue = initialData.jam_ke === 'custom' || initialData.jam_ke.toLowerCase().includes('kustom') || !isPreset;
+        const cleanVal = (initialData.jam_ke || '').toLowerCase();
+        const isCustomValue = cleanVal === 'custom' || cleanVal.includes('custom') || cleanVal.includes('costum') || cleanVal.includes('kustom') || !isPreset;
         if (isCustomValue) {
           setIsCustomJam(true);
           const detected = calculateJamPelajaranNumbers(initialData.jam_ke, initialData.jam_mulai, initialData.jam_selesai);
@@ -219,6 +220,32 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
     const itemEnd = JADWAL_BEL_SEKOLAH.find(j => j.jam === endJam);
     if (itemStart) setJamMulai(itemStart.mulai);
     if (itemEnd) setJamSelesai(itemEnd.selesai);
+  };
+
+  const handleJamMulaiChange = (val: string) => {
+    setJamMulai(val);
+    if (isCustomJam) {
+      const detected = calculateJamPelajaranNumbers('', val, jamSelesai);
+      if (detected.length > 0) {
+        setCustomJamDari(detected[0]);
+        setCustomJamKe(detected[detected.length - 1]);
+        const formatted = detected.length === 1 ? `${detected[0]}` : `${detected[0]} - ${detected[detected.length - 1]}`;
+        setJamKe(formatted);
+      }
+    }
+  };
+
+  const handleJamSelesaiChange = (val: string) => {
+    setJamSelesai(val);
+    if (isCustomJam) {
+      const detected = calculateJamPelajaranNumbers('', jamMulai, val);
+      if (detected.length > 0) {
+        setCustomJamDari(detected[0]);
+        setCustomJamKe(detected[detected.length - 1]);
+        const formatted = detected.length === 1 ? `${detected[0]}` : `${detected[0]} - ${detected[detected.length - 1]}`;
+        setJamKe(formatted);
+      }
+    }
   };
 
   // Handle Jam Ke change
@@ -352,14 +379,16 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
     const safeId = isValidUUID(initialData?.id) ? initialData!.id : generateUUID();
     const detectedNip = findGuruNip(finalGuru, guruList);
 
-    // Pastikan nilai jam_ke bukan teks kosong atau hanya 'custom', melainkan rentang jam pelajaran yang terhitung (misal: "3 - 5")
+    // Pastikan nilai jam_ke bukan teks kosong atau hanya 'custom', melainkan rentang jam pelajaran yang terhitung (misal: "1 - 8")
     let finalJamKe = jamKe;
-    if (!finalJamKe || finalJamKe === 'custom') {
+    const cleanFinal = (finalJamKe || '').toLowerCase().trim();
+    const isCustom = isCustomJam || !finalJamKe || cleanFinal === 'custom' || cleanFinal === 'costum' || cleanFinal === 'kustom' || cleanFinal.includes('custom') || cleanFinal.includes('costum') || cleanFinal.includes('kustom');
+    if (isCustom) {
       const computed = calculateJamPelajaranNumbers(jamKe, jamMulai, jamSelesai);
       if (computed.length > 0) {
         finalJamKe = computed.length === 1 ? `${computed[0]}` : `${computed[0]} - ${computed[computed.length - 1]}`;
       } else {
-        finalJamKe = `${customJamDari} - ${customJamKe}`;
+        finalJamKe = customJamDari === customJamKe ? `${customJamDari}` : `${customJamDari} - ${customJamKe}`;
       }
     }
 
@@ -490,7 +519,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
               <Clock size={14} className="inline mr-1 text-amber-500" /> Jam Ke
             </label>
             <select
-              value={jamKe}
+              value={isCustomJam ? 'custom' : jamKe}
               onChange={e => handleJamKeChange(e.target.value)}
               className="w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-semibold transition-all"
             >
@@ -510,7 +539,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
                 ))}
               </optgroup>
               {isCustomJam && (
-                <option value={jamKe}>Kustom Terpilih: Jam {jamKe}</option>
+                <option value="custom">Kustom: Jam {jamKe} ({jamMulai} - {jamSelesai})</option>
               )}
             </select>
           </div>
@@ -524,7 +553,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
               <input
                 type="time"
                 value={jamMulai}
-                onChange={e => setJamMulai(e.target.value)}
+                onChange={e => handleJamMulaiChange(e.target.value)}
                 className="w-full px-2 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-xs font-semibold transition-all text-center"
               />
             </div>
@@ -535,7 +564,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
               <input
                 type="time"
                 value={jamSelesai}
-                onChange={e => setJamSelesai(e.target.value)}
+                onChange={e => handleJamSelesaiChange(e.target.value)}
                 className="w-full px-2 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-xs font-semibold transition-all text-center"
               />
             </div>

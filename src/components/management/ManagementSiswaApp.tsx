@@ -3,10 +3,11 @@ import { supabase } from '../../lib/supabase';
 import { 
   Users, Search, Plus, Upload, Download, Trash2, Edit, Save, X, 
   FileSpreadsheet, Filter, Calendar, RefreshCw, CheckCircle, AlertCircle,
-  Database, GraduationCap, Copy, Code, Check
+  Database, GraduationCap, Copy, Code, Check, ShieldAlert, Sparkles
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { SQL_PURGE_2025_SCRIPT, purgePeriode2025Data } from '../../lib/jurnalService';
 
 export interface SiswaData {
   id: string;
@@ -28,9 +29,9 @@ export default function ManagementSiswaApp() {
   const [students, setStudents] = useState<SiswaData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedPeriode, setSelectedPeriode] = useState<string>('ALL');
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2026');
   const [selectedKelas, setSelectedKelas] = useState<string>('ALL');
-  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2025']);
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026']);
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
@@ -40,11 +41,23 @@ export default function ManagementSiswaApp() {
   const [showSqlModal, setShowSqlModal] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
 
+  // Purge 2025 Modal State
+  const [showPurgeModal, setShowPurgeModal] = useState(false);
+  const [isPurging, setIsPurging] = useState(false);
+  const [purgeResult, setPurgeResult] = useState<{
+    success: boolean;
+    message: string;
+    deletedLocalSiswa: number;
+    deletedLocalJurnal: number;
+    supabaseError?: string;
+  } | null>(null);
+  const [copiedPurgeSql, setCopiedPurgeSql] = useState(false);
+
   // Form State for Add / Edit
   const [formData, setFormData] = useState<Partial<SiswaData>>({
     nama: '',
     kelas: '7A',
-    periode: '2025',
+    periode: '2026',
     nis: '',
     jenis_kelamin: 'L'
   });
@@ -54,7 +67,7 @@ export default function ManagementSiswaApp() {
   // Upload Excel State
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<any[]>([]);
-  const [defaultUploadPeriode, setDefaultUploadPeriode] = useState('2025');
+  const [defaultUploadPeriode, setDefaultUploadPeriode] = useState('2026');
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
   const [uploadSuccessMsg, setUploadSuccessMsg] = useState('');
 
@@ -91,7 +104,7 @@ export default function ManagementSiswaApp() {
           supaData = data.map(s => ({
             ...s,
             kelas: normalizeKelas(s.kelas),
-            periode: (s.periode || '2025').toString().trim()
+            periode: (s.periode || '2026').toString().trim()
           }));
         }
       }
@@ -106,7 +119,7 @@ export default function ManagementSiswaApp() {
             id: s.id || crypto.randomUUID(),
             nama: (s.nama || '').trim(),
             kelas: normalizeKelas(s.kelas || '7A'),
-            periode: (s.periode || '2025').toString().trim(),
+            periode: (s.periode || '2026').toString().trim(),
             nis: (s.nis || '').toString().trim(),
             jenis_kelamin: (s.jenis_kelamin || '').toString().trim().toUpperCase()
           }));
@@ -172,7 +185,7 @@ export default function ManagementSiswaApp() {
 
   const extractPeriodes = (list: SiswaData[]) => {
     const periodsSet = new Set<string>();
-    periodsSet.add('2025');
+    periodsSet.add('2026');
     list.forEach(s => {
       if (s.periode) periodsSet.add(s.periode.toString().trim());
     });
@@ -182,7 +195,7 @@ export default function ManagementSiswaApp() {
 
   // Filter logic
   const filteredStudents = students.filter(s => {
-    const sPeriode = (s.periode || '2025').toString().trim();
+    const sPeriode = (s.periode || '2026').toString().trim();
     const sKelas = normalizeKelas(s.kelas);
 
     const matchesPeriode = selectedPeriode === 'ALL' || 
@@ -199,6 +212,33 @@ export default function ManagementSiswaApp() {
     return matchesPeriode && matchesKelas && matchesSearch;
   });
 
+  // Handle Purge 2025 Data
+  const handlePurge2025 = async () => {
+    setIsPurging(true);
+    setPurgeResult(null);
+    try {
+      const res = await purgePeriode2025Data();
+      // Instantly filter out 2025 from memory state
+      const kept = students.filter(s => {
+        const p = (s.periode || '').toString().trim();
+        return p !== '2025' && (!p || p === '2026');
+      });
+      setStudents(kept);
+      extractPeriodes(kept);
+      setSelectedPeriode('2026');
+      setPurgeResult(res);
+    } catch (e: any) {
+      setPurgeResult({
+        success: false,
+        message: e.message || 'Gagal memproses pembersihan data 2025.',
+        deletedLocalSiswa: 0,
+        deletedLocalJurnal: 0
+      });
+    } finally {
+      setIsPurging(false);
+    }
+  };
+
   // Handle Add Student
   const handleSaveNew = async () => {
     if (!formData.nama?.trim()) {
@@ -210,7 +250,7 @@ export default function ManagementSiswaApp() {
       id: crypto.randomUUID(),
       nama: formData.nama.trim(),
       kelas: formData.kelas || '7A',
-      periode: formData.periode?.trim() || '2025',
+      periode: formData.periode?.trim() || '2026',
       nis: formData.nis?.trim() || '',
       jenis_kelamin: formData.jenis_kelamin || 'L'
     };
@@ -706,7 +746,7 @@ export default function ManagementSiswaApp() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => {
-                setFormData({ nama: '', kelas: '7A', periode: selectedPeriode !== 'ALL' ? selectedPeriode : '2025', nis: '', jenis_kelamin: 'L' });
+                setFormData({ nama: '', kelas: '7A', periode: selectedPeriode !== 'ALL' ? selectedPeriode : '2026', nis: '', jenis_kelamin: 'L' });
                 setShowAddModal(true);
               }}
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95"
@@ -727,6 +767,18 @@ export default function ManagementSiswaApp() {
               title="Export Ke Excel"
             >
               <Download size={16} /> Export
+            </button>
+
+            <button
+              onClick={() => {
+                setPurgeResult(null);
+                setShowPurgeModal(true);
+              }}
+              className="inline-flex items-center gap-2 px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95"
+              title="Bersihkan Data Periode 2025 (Hanya Sisakan 2026)"
+            >
+              <Trash2 size={16} />
+              <span>Bersihkan Data 2025</span>
             </button>
 
             <button
@@ -1500,14 +1552,14 @@ CREATE TABLE IF NOT EXISTS public.master_siswa (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nama TEXT NOT NULL,
     kelas TEXT NOT NULL,
-    periode TEXT DEFAULT '2025',
+    periode TEXT DEFAULT '2026',
     nis TEXT,
     jenis_kelamin TEXT DEFAULT 'L',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Tambah kolom jika master_siswa sudah pernah dibuat tanpa field periode / nis / jenis_kelamin
-ALTER TABLE public.master_siswa ADD COLUMN IF NOT EXISTS periode TEXT DEFAULT '2025';
+ALTER TABLE public.master_siswa ADD COLUMN IF NOT EXISTS periode TEXT DEFAULT '2026';
 ALTER TABLE public.master_siswa ADD COLUMN IF NOT EXISTS nis TEXT;
 ALTER TABLE public.master_siswa ADD COLUMN IF NOT EXISTS jenis_kelamin TEXT DEFAULT 'L';
 ALTER TABLE public.master_siswa ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
@@ -1748,6 +1800,164 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
                 className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-all"
               >
                 Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL BERSIHKAN DATA 2025 (HANYA SISAKAN 2026) */}
+      {showPurgeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl shadow-2xl border border-rose-100 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-6 bg-gradient-to-r from-rose-600 via-red-600 to-amber-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-white/20 backdrop-blur-md rounded-2xl">
+                  <Trash2 size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black tracking-tight">
+                    BERSIHKAN DATA PERIODE 2025
+                  </h3>
+                  <p className="text-rose-100 text-xs font-medium">
+                    Hapus data periode tahun ajaran 2025 & sisakan data periode 2026 saja agar aplikasi ringan
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowPurgeModal(false)}
+                className="p-2 text-white/80 hover:text-white hover:bg-white/20 rounded-xl transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-700 text-xs">
+              {/* Quick Status Pill */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl">
+                  <span className="text-[11px] font-bold text-rose-600 uppercase tracking-wider block mb-1">
+                    Data Siswa Periode 2025
+                  </span>
+                  <p className="text-2xl font-black text-rose-800">
+                    {students.filter(s => (s.periode || '').trim() === '2025').length}{' '}
+                    <span className="text-xs font-semibold text-rose-600">siswa (akan dihapus)</span>
+                  </p>
+                </div>
+
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl">
+                  <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block mb-1">
+                    Data Siswa Periode 2026 (Dipertahankan)
+                  </span>
+                  <p className="text-2xl font-black text-emerald-800">
+                    {students.filter(s => (s.periode || '').trim() === '2026').length}{' '}
+                    <span className="text-xs font-semibold text-emerald-600">siswa aktif</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Button & Warning */}
+              <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <div className="flex items-start gap-3">
+                  <ShieldAlert className="text-rose-600 shrink-0 mt-0.5" size={20} />
+                  <div>
+                    <h4 className="font-black text-slate-800 text-sm mb-1">Pembersihan Otomatis Memori & Cache</h4>
+                    <p className="text-slate-600 leading-relaxed">
+                      Klik tombol di bawah untuk membersihkan memori lokal (localStorage & IndexedDB) dari seluruh siswa dan jurnal pembelajaran bertanggal 2025, sekaligus mengirim permintaan hapus ke Supabase.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={handlePurge2025}
+                    disabled={isPurging}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-400 text-white font-bold text-xs rounded-xl shadow-md transition-all active:scale-95"
+                  >
+                    {isPurging ? (
+                      <RefreshCw size={16} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={16} />
+                    )}
+                    <span>{isPurging ? 'Sedang Membersihkan...' : 'Jalankan Pembersihan Otomatis'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(SQL_PURGE_2025_SCRIPT);
+                      setCopiedPurgeSql(true);
+                      setTimeout(() => setCopiedPurgeSql(false), 2500);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+                  >
+                    {copiedPurgeSql ? <Check size={16} /> : <Copy size={16} />}
+                    <span>{copiedPurgeSql ? 'Script SQL Tercopy!' : 'Salin Script SQL Supabase'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Result Notice */}
+              {purgeResult && (
+                <div className={`p-4 rounded-2xl border ${
+                  purgeResult.success ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'
+                }`}>
+                  <div className="flex items-center gap-2 font-bold mb-1">
+                    <CheckCircle size={18} className="text-emerald-600" />
+                    <span>{purgeResult.message}</span>
+                  </div>
+                  <p className="text-slate-600 text-[11px] leading-relaxed">
+                    Dibersihkan: {purgeResult.deletedLocalSiswa} data siswa lokal dan {purgeResult.deletedLocalJurnal} catatan jurnal tahun 2025.
+                  </p>
+                  {purgeResult.supabaseError && (
+                    <div className="mt-2.5 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px]">
+                      <span className="font-bold block mb-0.5">ℹ️ Catatan Supabase REST:</span>
+                      {purgeResult.supabaseError.includes('quota') || purgeResult.supabaseError.includes('restricted') ? (
+                        <span>
+                          Proyek Supabase Anda saat ini terbatasi kuota egress (<em>exceed_egress_quota</em>). Aplikasi di sisi Anda sudah bersih dan ringan! Untuk menghapus tuntas di server database cloud Supabase, jalankan SQL di bawah melalui <strong>Supabase SQL Editor</strong>.
+                        </span>
+                      ) : (
+                        <span>Supabase response: {purgeResult.supabaseError}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* SQL Direct Script Box */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-black text-slate-800 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Code size={14} className="text-slate-500" />
+                    Script SQL Supabase (Jalankan di Supabase Dashboard)
+                  </span>
+                  <a
+                    href="https://supabase.com/dashboard/project/ltfwkunozemldjivnqfq/sql"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-600 hover:text-blue-700 underline text-[11px] font-bold"
+                  >
+                    Buka Supabase SQL Editor ↗
+                  </a>
+                </div>
+
+                <pre className="p-4 bg-slate-900 border border-slate-800 rounded-2xl text-emerald-400 font-mono text-[11px] leading-relaxed overflow-x-auto selection:bg-rose-600 selection:text-white max-h-56">
+                  {SQL_PURGE_2025_SCRIPT}
+                </pre>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500 font-medium">
+                Periode aktif otomatis beralih ke <strong>2026</strong>.
+              </span>
+              <button
+                onClick={() => setShowPurgeModal(false)}
+                className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-all"
+              >
+                Selesai / Tutup
               </button>
             </div>
           </div>

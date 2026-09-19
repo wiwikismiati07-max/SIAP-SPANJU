@@ -118,19 +118,24 @@ export const JADWAL_BEL_SEKOLAH: JadwalJamItem[] = [
  */
 export const timeStrToMinutes = (timeStr?: string): number | null => {
   if (!timeStr) return null;
-  const clean = timeStr.trim().replace('.', ':');
-  const parts = clean.split(':');
-  if (parts.length < 2) return null;
-  const h = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10);
+  const match = String(timeStr).match(/(\d{1,2})[:.](\d{2})/);
+  if (!match) {
+    const singleHour = parseInt(String(timeStr).trim(), 10);
+    if (!isNaN(singleHour) && singleHour >= 6 && singleHour <= 18) {
+      return singleHour * 60;
+    }
+    return null;
+  }
+  const h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
   if (isNaN(h) || isNaN(m)) return null;
   return h * 60 + m;
 };
 
 /**
  * Menghitung jam pelajaran 1 s.d. 8 dari:
- * 1. String jam_ke (rentang "1-2", "3 - 5", "3 s/d 5", "3, 4, 5", dsb.)
- * 2. Waktu jam_mulai (Jam Dari) dan jam_selesai (Jam Ke/Sampai), khususnya saat custom/kustom
+ * 1. String jam_ke (rentang "1-2", "3 - 5", "1 - 8", "3 s/d 5", "3, 4, 5", dsb.)
+ * 2. Waktu jam_mulai (Jam Dari) dan jam_selesai (Jam Ke/Sampai), khususnya saat custom/costum/kustom
  */
 export const calculateJamPelajaranNumbers = (
   jamKeStr?: string,
@@ -139,24 +144,58 @@ export const calculateJamPelajaranNumbers = (
 ): number[] => {
   const resultNumbers = new Set<number>();
 
-  // 1. Ekstraksi dari string jamKeStr jika ada
+  // 1. Cek apakah jamMulai dan jamSelesai langsung berupa angka Jam 1 s.d. 8 (misal Jam Dari: 1, Jam Ke: 8)
+  const numDari = parseInt(String(jamMulai || '').trim(), 10);
+  const numKe = parseInt(String(jamSelesai || '').trim(), 10);
+  if (
+    !isNaN(numDari) && 
+    !isNaN(numKe) && 
+    numDari >= 1 && 
+    numDari <= 8 && 
+    numKe >= 1 && 
+    numKe <= 8 && 
+    !String(jamMulai).includes(':') && 
+    !String(jamMulai).includes('.')
+  ) {
+    const minJ = Math.min(numDari, numKe);
+    const maxJ = Math.max(numDari, numKe);
+    for (let i = minJ; i <= maxJ; i++) {
+      resultNumbers.add(i);
+    }
+  }
+
+  // 2. Ekstraksi dari string jamKeStr jika ada
   if (jamKeStr) {
     const clean = jamKeStr.toLowerCase().trim();
-    if (!clean.includes('istirahat')) {
-      // Pola rentang seperti "3 - 5", "3-5", "3 s/d 5", "3 sd 5", "3 s.d 5", "3 sampai 5", "dari 3 ke 5"
-      const rangeMatch = clean.match(/(\d+)\s*(?:[-–—]|s\/?d\.?|sampai|hingga|ke)\s*(\d+)/i);
+    
+    // Jangan proses hanya jika teks murni 'istirahat' tanpa ada angka
+    if (!clean.includes('istirahat') || clean.match(/\d+/)) {
+      // Ambil waktu jam mulai dan selesai jika tertera di dalam string seperti "Kustom (07:15 - 13:15)"
+      const embeddedTimes = clean.match(/(\d{1,2}[:.]\d{2})\s*(?:[-–—~]|s\/?d\.?|sampai|hingga)\s*(\d{1,2}[:.]\d{2})/);
+      if (embeddedTimes && !jamMulai && !jamSelesai) {
+        jamMulai = embeddedTimes[1];
+        jamSelesai = embeddedTimes[2];
+      }
+
+      // Hapus format jam waktu (HH:MM / HH.MM) dari string agar tidak mengacaukan deteksi angka jam pelajaran 1-8
+      const cleanWithoutTime = clean.replace(/\d{1,2}[:.]\d{2}/g, ' ');
+
+      // Pola rentang jam pelajaran seperti "1 - 8", "1-8", "3 - 5", "3-5", "3 s/d 5", "3 sd 5", "3 s.d 5", "3 sampai 5", "dari 1 ke 8", "jam 1 s/d 8"
+      const rangeMatch = cleanWithoutTime.match(/(\d+)\s*(?:[-–—~]|s\/?d\.?|sampai|hingga|ke|s\.?d)\s*(\d+)/i);
       if (rangeMatch) {
         const start = parseInt(rangeMatch[1], 10);
         const end = parseInt(rangeMatch[2], 10);
-        if (!isNaN(start) && !isNaN(end) && start <= end && start >= 1 && end <= 12) {
-          for (let i = start; i <= end; i++) {
-            if (i >= 1 && i <= 8) resultNumbers.add(i);
+        if (!isNaN(start) && !isNaN(end) && start >= 1 && end >= 1) {
+          const minJ = Math.max(1, Math.min(start, end));
+          const maxJ = Math.min(8, Math.max(start, end));
+          for (let i = minJ; i <= maxJ; i++) {
+            resultNumbers.add(i);
           }
         }
       }
 
-      // Pola angka-angka tersendiri
-      const digits = clean.match(/\d+/g);
+      // Pola angka-angka jam pelajaran tersendiri (misal: "1, 2, 3" atau "Jam 4" atau "8")
+      const digits = cleanWithoutTime.match(/\b([1-8])\b/g);
       if (digits && digits.length > 0) {
         digits.forEach(d => {
           const n = parseInt(d, 10);
@@ -168,8 +207,8 @@ export const calculateJamPelajaranNumbers = (
     }
   }
 
-  // 2. Ekstraksi dari jam_mulai (Jam Dari) & jam_selesai (Jam Ke/Sampai)
-  // Sangat penting jika jam_ke bernilai "custom", "kustom", atau guru menginput waktu kustom
+  // 3. Ekstraksi dari jam_mulai (Jam Dari) & jam_selesai (Jam Ke/Sampai)
+  // Sangat penting jika jam_ke bernilai "custom", "costum", "kustom", atau guru menginput waktu kustom
   const startM = timeStrToMinutes(jamMulai);
   const endM = timeStrToMinutes(jamSelesai);
 
@@ -197,7 +236,8 @@ export const formatDisplayJamPelajaran = (
 ): string => {
   if (!jamKe) return '-';
   const clean = jamKe.trim();
-  if (clean.toLowerCase() === 'custom' || clean.toLowerCase() === 'kustom') {
+  const lower = clean.toLowerCase();
+  if (lower === 'custom' || lower === 'costum' || lower === 'kustom' || lower.includes('custom') || lower.includes('costum') || lower.includes('kustom')) {
     const nums = calculateJamPelajaranNumbers(jamKe, jamMulai, jamSelesai);
     if (nums.length > 0) {
       const rangeStr = nums.length === 1 ? `Jam ${nums[0]}` : `Jam ${nums[0]} - ${nums[nums.length - 1]}`;

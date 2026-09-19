@@ -1014,7 +1014,7 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any, setMessage?: (msg: { type: 's
   const [siswa, setSiswa] = useState<any[]>([]);
   const [searchSiswa, setSearchSiswa] = useState('');
   const [editingVisit, setEditingVisit] = useState<any>(null);
-  const [selectedPeriode, setSelectedPeriode] = useState('2025');
+  const [selectedPeriode, setSelectedPeriode] = useState('2026');
   
   const [formData, setFormData] = useState({
     tanggal: format(new Date(), 'yyyy-MM-dd'),
@@ -1282,7 +1282,7 @@ const SipenaKunjunganSiswa: React.FC<{ user?: any, setMessage?: (msg: { type: 's
                       className="w-full px-3 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
                     >
                       <option value="ALL">Semua Thn</option>
-                      {Array.from(new Set(['2025', ...siswa.map(s => s.periode || '2025')])).sort((a,b) => b.localeCompare(a)).map(p => (
+                      {Array.from(new Set(['2026', ...siswa.map(s => s.periode || '2026')])).sort((a,b) => b.localeCompare(a)).map(p => (
                         <option key={p} value={p}>{p}</option>
                       ))}
                     </select>
@@ -1729,7 +1729,7 @@ const SipenaPeminjaman: React.FC<{ user?: any, setMessage?: (msg: { type: 'succe
   const [editingLoan, setEditingLoan] = useState<any>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [loanToDelete, setLoanToDelete] = useState<string | null>(null);
-  const [selectedPeriode, setSelectedPeriode] = useState('2025');
+  const [selectedPeriode, setSelectedPeriode] = useState('2026');
   const [searchSiswa, setSearchSiswa] = useState('');
   
   const [formData, setFormData] = useState({
@@ -2018,7 +2018,7 @@ const SipenaPeminjaman: React.FC<{ user?: any, setMessage?: (msg: { type: 'succe
                       className="w-full px-3 py-4 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none"
                     >
                       <option value="ALL">Semua Thn</option>
-                      {Array.from(new Set(['2025', ...siswa.map(s => s.periode || '2025')])).sort((a,b) => b.localeCompare(a)).map(p => (
+                      {Array.from(new Set(['2026', ...siswa.map(s => s.periode || '2026')])).sort((a,b) => b.localeCompare(a)).map(p => (
                         <option key={p} value={p}>{p}</option>
                       ))}
                     </select>

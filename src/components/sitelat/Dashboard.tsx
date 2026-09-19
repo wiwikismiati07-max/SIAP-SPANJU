@@ -13,8 +13,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [selectedKelas, setSelectedKelas] = useState<string>('All');
-  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
-  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2026');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026']);
   const [dateRange, setDateRange] = useState({
     start: format(new Date(), 'yyyy-MM-dd'),
     end: format(new Date(), 'yyyy-MM-dd')
@@ -54,7 +54,7 @@ export default function Dashboard() {
       if (supabase) {
         const { data: siswaData } = await supabase.from('master_siswa').select('periode');
         if (siswaData && siswaData.length > 0) {
-          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaData.map(s => s.periode || '2025')]))
+          const distinctPeriodes = Array.from(new Set(['2026', ...siswaData.map(s => s.periode || '2026')]))
             .filter(Boolean)
             .sort((a, b) => b.localeCompare(a));
           setAvailablePeriodes(distinctPeriodes);
@@ -110,7 +110,7 @@ export default function Dashboard() {
         const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
         const filteredLocalSiswa = selectedPeriode === 'ALL'
           ? localSiswa
-          : localSiswa.filter((s: any) => (s.periode || '2025') === selectedPeriode);
+          : localSiswa.filter((s: any) => (s.periode || '2026') === selectedPeriode);
         setTotalSiswa(filteredLocalSiswa.length);
 
         const localTrans = JSON.parse(localStorage.getItem('sitelat_transaksi') || '[]');

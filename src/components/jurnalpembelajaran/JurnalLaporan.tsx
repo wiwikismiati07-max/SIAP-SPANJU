@@ -2491,29 +2491,33 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
       )}
 
       {/* DETAIL MODAL */}
-      <JurnalDetailModal
-        jurnal={selectedJurnal}
-        onClose={() => setSelectedJurnal(null)}
-        onEdit={(j) => {
-          setSelectedJurnal(null);
-          onEditJurnal(j);
-        }}
-      />
+      {selectedJurnal && (
+        <JurnalDetailModal
+          jurnal={selectedJurnal}
+          onClose={() => setSelectedJurnal(null)}
+          onEdit={(j) => {
+            setSelectedJurnal(null);
+            onEditJurnal(j);
+          }}
+        />
+      )}
 
       {/* FULL REPORT PRINT PREVIEW MODAL */}
-      <JurnalPrintModal
-        isOpen={isPrintModalOpen}
-        onClose={() => setIsPrintModalOpen(false)}
-        jurnalList={printModalMode === 'harian_guru' ? dailyJurnalList : filteredJurnal}
-        filterPeriod={printModalMode === 'harian_guru' ? 'hari_ini' : filterPeriod}
-        startDate={printModalMode === 'harian_guru' ? dailyDate : startDate}
-        endDate={printModalMode === 'harian_guru' ? dailyDate : endDate}
-        filterKelas={filterKelas}
-        filterMapel={filterMapel}
-        filterGuru={filterGuru}
-        filterPeriode={filterPeriode}
-        defaultMode={printModalMode}
-      />
+      {isPrintModalOpen && (
+        <JurnalPrintModal
+          isOpen={isPrintModalOpen}
+          onClose={() => setIsPrintModalOpen(false)}
+          jurnalList={printModalMode === 'harian_guru' ? dailyJurnalList : filteredJurnal}
+          filterPeriod={printModalMode === 'harian_guru' ? 'hari_ini' : filterPeriod}
+          startDate={printModalMode === 'harian_guru' ? dailyDate : startDate}
+          endDate={printModalMode === 'harian_guru' ? dailyDate : endDate}
+          filterKelas={filterKelas}
+          filterMapel={filterMapel}
+          filterGuru={filterGuru}
+          filterPeriode={filterPeriode}
+          defaultMode={printModalMode}
+        />
+      )}
 
       {/* POPUP KONFIRMASI HAPUS JURNAL PEMBELAJARAN */}
       {deleteConfirmJurnal && (

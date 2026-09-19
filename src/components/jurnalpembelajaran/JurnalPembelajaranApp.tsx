@@ -262,14 +262,16 @@ export default function JurnalPembelajaranApp({ onBack, onOpenSidebar, user }: J
       </div>
 
       {/* Modal for viewing details from dashboard */}
-      <JurnalDetailModal
-        jurnal={viewingJurnal}
-        onClose={() => setViewingJurnal(null)}
-        onEdit={(j) => {
-          setViewingJurnal(null);
-          handleEditJurnal(j);
-        }}
-      />
+      {viewingJurnal && (
+        <JurnalDetailModal
+          jurnal={viewingJurnal}
+          onClose={() => setViewingJurnal(null)}
+          onEdit={(j) => {
+            setViewingJurnal(null);
+            handleEditJurnal(j);
+          }}
+        />
+      )}
     </div>
   );
 }

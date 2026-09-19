@@ -12,8 +12,8 @@ export default function DisiplinLaporan() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any[]>([]);
   const [reportType, setReportType] = useState<'detail' | 'pivot' | 'kasus'>('pivot');
-  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
-  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2026');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026']);
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState({
     startDate: format(new Date(), 'yyyy-MM-01'),
@@ -62,7 +62,7 @@ export default function DisiplinLaporan() {
         // Fetch distinct periodes
         const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
         if (siswaPeriodeData && siswaPeriodeData.length > 0) {
-          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+          const distinctPeriodes = Array.from(new Set(['2026', ...siswaPeriodeData.map(s => s.periode || '2026')]))
             .filter(Boolean)
             .sort((a, b) => b.localeCompare(a));
           setAvailablePeriodes(distinctPeriodes);
@@ -82,7 +82,7 @@ export default function DisiplinLaporan() {
 
         let filtered = (fetchedData || []).filter((d: any) => {
           if (selectedPeriode !== 'ALL') {
-            return (d.siswa?.periode || '2025') === selectedPeriode;
+            return (d.siswa?.periode || '2026') === selectedPeriode;
           }
           return true;
         });

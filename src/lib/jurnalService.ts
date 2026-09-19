@@ -604,7 +604,7 @@ export const fetchAvailablePeriodes = async (): Promise<string[]> => {
     }
   } catch (e) {}
 
-  return ['2026', '2025'];
+  return ['2026'];
 };
 
 // Fetch all students for selection across all classes (for Inklusi or multi-class pickers)
@@ -644,7 +644,7 @@ export const fetchAllSiswaForSelection = async (targetPeriode?: string): Promise
         try {
           const parsed = JSON.parse(local);
           all = parsed.filter((s: any) => {
-            const sPeriode = (s.periode || '2025').toString().trim();
+            const sPeriode = (s.periode || '2026').toString().trim();
             return !activePeriode || activePeriode === 'ALL' || sPeriode === activePeriode;
           });
         } catch (_) {}
@@ -715,7 +715,7 @@ const fetchSiswaBySingleKelas = async (
         const fullList = await fetchAllSiswa();
         allSiswa = fullList.filter(s => {
           const matchKelas = s.kelas === kelas || s.kelas === kelas.replace(/\s+/g, '');
-          const sPeriode = (s.periode || '2025').toString().trim();
+          const sPeriode = (s.periode || '2026').toString().trim();
           const matchPeriode = !activePeriode || activePeriode === 'ALL' || sPeriode === activePeriode;
           return matchKelas && matchPeriode;
         });
@@ -729,7 +729,7 @@ const fetchSiswaBySingleKelas = async (
           const parsed = JSON.parse(local);
           allSiswa = parsed.filter((s: any) => {
             const matchKelas = s.kelas === kelas;
-            const sPeriode = (s.periode || '2025').toString().trim();
+            const sPeriode = (s.periode || '2026').toString().trim();
             const matchPeriode = !activePeriode || activePeriode === 'ALL' || sPeriode === activePeriode;
             return matchKelas && matchPeriode;
           });
@@ -963,4 +963,153 @@ export const sortJurnalByKelasDanJam = (a: JurnalPembelajaran, b: JurnalPembelaj
   const kelasDiff = compareKelas(a.kelas, b.kelas);
   if (kelasDiff !== 0) return kelasDiff;
   return compareJam(a, b);
+};
+
+export const SQL_PURGE_2025_SCRIPT = `-- ==============================================================================
+-- SCRIPT PEMBERSIHAN DATA PERIODE 2025 DI SUPABASE (HANYA SISAKAN 2026)
+-- Jalankan di: https://supabase.com/dashboard/project/ltfwkunozemldjivnqfq/sql
+-- ==============================================================================
+
+-- 1. Hapus transaksi & relasi data siswa periode 2025 / non-2026
+DELETE FROM public.transaksi_pelanggaran 
+WHERE siswa_id IN (SELECT id FROM public.master_siswa WHERE periode = '2025' OR periode IS NULL OR periode != '2026');
+
+DELETE FROM public.transaksi_terlambat 
+WHERE siswa_id IN (SELECT id FROM public.master_siswa WHERE periode = '2025' OR periode IS NULL OR periode != '2026');
+
+DELETE FROM public.disp_transaksi 
+WHERE siswa_id IN (SELECT id FROM public.master_siswa WHERE periode = '2025' OR periode IS NULL OR periode != '2026');
+
+DELETE FROM public.prestasi_siswa 
+WHERE siswa_id IN (SELECT id FROM public.master_siswa WHERE periode = '2025' OR periode IS NULL OR periode != '2026');
+
+DELETE FROM public.bk_transaksi_kasus 
+WHERE siswa_id IN (SELECT id FROM public.master_siswa WHERE periode = '2025' OR periode IS NULL OR periode != '2026');
+
+DELETE FROM public.uks_kunjungan 
+WHERE siswa_id IN (SELECT id FROM public.master_siswa WHERE periode = '2025' OR periode IS NULL OR periode != '2026');
+
+DELETE FROM public.sipena_kunjungan_siswa 
+WHERE siswa_id IN (SELECT id FROM public.master_siswa WHERE periode = '2025' OR periode IS NULL OR periode != '2026');
+
+DELETE FROM public.sipena_peminjaman 
+WHERE siswa_id IN (SELECT id FROM public.master_siswa WHERE periode = '2025' OR periode IS NULL OR periode != '2026');
+
+DELETE FROM public.izin_siswa 
+WHERE siswa_id IN (SELECT id FROM public.master_siswa WHERE periode = '2025' OR periode IS NULL OR periode != '2026');
+
+DELETE FROM public.pengaduan_wali 
+WHERE siswa_id IN (SELECT id FROM public.master_siswa WHERE periode = '2025' OR periode IS NULL OR periode != '2026');
+
+-- 2. Hapus data Master Siswa periode 2025 (HANYA SISAKAN 2026)
+DELETE FROM public.master_siswa 
+WHERE periode = '2025' OR periode IS NULL OR periode != '2026';
+
+-- 3. Hapus data Jurnal Pembelajaran periode 2025 atau sebelum tahun 2026
+DELETE FROM public.jurnal_pembelajaran 
+WHERE periode = '2025' OR (periode IS NULL AND (tanggal < '2026-01-01' OR EXTRACT(YEAR FROM tanggal) < 2026));
+
+-- 4. Kunci default periode ke '2026' agar data baru selalu 2026
+ALTER TABLE public.master_siswa ALTER COLUMN periode SET DEFAULT '2026';
+ALTER TABLE public.jurnal_pembelajaran ALTER COLUMN periode SET DEFAULT '2026';
+
+-- 5. Bersihkan dan optimalkan ruang disk penyimpanan
+VACUUM ANALYZE public.master_siswa;
+VACUUM ANALYZE public.jurnal_pembelajaran;
+`;
+
+/**
+ * Membersihkan data periode 2025 dari memori lokal (localStorage & IndexedDB)
+ * serta mengirim perintah hapus ke Supabase.
+ */
+export const purgePeriode2025Data = async (): Promise<{
+  success: boolean;
+  message: string;
+  deletedLocalSiswa: number;
+  deletedLocalJurnal: number;
+  supabaseError?: string;
+}> => {
+  let deletedLocalSiswa = 0;
+  let deletedLocalJurnal = 0;
+  let supabaseError: string | undefined = undefined;
+
+  // 1. Bersihkan localStorage sitelat_siswa & master_siswa
+  try {
+    const rawSiswa = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
+    if (rawSiswa) {
+      const list = JSON.parse(rawSiswa);
+      if (Array.isArray(list)) {
+        const kept = list.filter((s: any) => {
+          const p = (s.periode || '').toString().trim();
+          return p !== '2025' && (!p || p === '2026');
+        });
+        deletedLocalSiswa = list.length - kept.length;
+        localStorage.setItem('sitelat_siswa', JSON.stringify(kept));
+        localStorage.setItem('master_siswa', JSON.stringify(kept));
+      }
+    }
+  } catch (e: any) {
+    console.error('Error purging local siswa:', e);
+  }
+
+  // 2. Bersihkan localStorage & IndexedDB jurnal_pembelajaran
+  try {
+    const rawJurnal = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (rawJurnal) {
+      const jList = JSON.parse(rawJurnal);
+      if (Array.isArray(jList)) {
+        const keptJurnal = jList.filter((j: any) => {
+          const p = (j.periode || '').toString().trim();
+          const tgl = (j.tanggal || '').toString().trim();
+          if (p === '2025') return false;
+          if (tgl.startsWith('2025')) return false;
+          return true;
+        });
+        deletedLocalJurnal = jList.length - keptJurnal.length;
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(keptJurnal));
+        // Sinkronkan ke IndexedDB
+        await idbSaveAllJurnal(keptJurnal).catch(() => {});
+      }
+    }
+  } catch (e: any) {
+    console.error('Error purging local jurnal:', e);
+  }
+
+  // 3. Eksekusi hapus di Supabase jika terkoneksi
+  if (supabase) {
+    try {
+      // Hapus master_siswa periode 2025
+      const { error: errSiswa } = await supabase
+        .from('master_siswa')
+        .delete()
+        .eq('periode', '2025');
+
+      // Hapus jurnal_pembelajaran periode 2025
+      const { error: errJurnal } = await supabase
+        .from('jurnal_pembelajaran')
+        .delete()
+        .eq('periode', '2025');
+
+      // Hapus jurnal yang tanggalnya di 2025
+      const { error: errJurnalDate } = await supabase
+        .from('jurnal_pembelajaran')
+        .delete()
+        .lt('tanggal', '2026-01-01');
+
+      if (errSiswa || errJurnal || errJurnalDate) {
+        const anyErr = errSiswa || errJurnal || errJurnalDate;
+        supabaseError = anyErr?.message || 'Error executing Supabase delete';
+      }
+    } catch (e: any) {
+      supabaseError = e.message || 'Gagal terhubung ke Supabase';
+    }
+  }
+
+  return {
+    success: true,
+    message: 'Pembersihan data periode 2025 selesai. Hanya periode 2026 yang aktif.',
+    deletedLocalSiswa,
+    deletedLocalJurnal,
+    supabaseError
+  };
 };

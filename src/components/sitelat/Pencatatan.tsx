@@ -25,14 +25,14 @@ export default function Pencatatan() {
   const [isConnected, setIsConnected] = useState(false);
   
   // Selection State
-  const [selectedPeriode, setSelectedPeriode] = useState('2025');
+  const [selectedPeriode, setSelectedPeriode] = useState('2026');
   const [selectedKelas, setSelectedKelas] = useState('');
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
   const [selectedAlasan, setSelectedAlasan] = useState('');
   const [alasanLainnya, setAlasanLainnya] = useState('');
 
   // Extract available periods
-  const availablePeriodes = Array.from(new Set(['2025', ...siswaList.map(s => s.periode || '2025')])).sort((a,b) => b.localeCompare(a));
+  const availablePeriodes = Array.from(new Set(['2026', ...siswaList.map(s => s.periode || '2026')])).sort((a,b) => b.localeCompare(a));
 
   useEffect(() => {
     fetchSiswa();

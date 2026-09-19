@@ -6,8 +6,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 export default function DisiplinDashboard() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
-  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2026');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026']);
   const [stats, setStats] = useState({
     totalKasus: 0,
     kasusBaru: 0,
@@ -44,7 +44,7 @@ export default function DisiplinDashboard() {
         // Fetch distinct periodes
         const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
         if (siswaPeriodeData && siswaPeriodeData.length > 0) {
-          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+          const distinctPeriodes = Array.from(new Set(['2026', ...siswaPeriodeData.map(s => s.periode || '2026')]))
             .filter(Boolean)
             .sort((a, b) => b.localeCompare(a));
           setAvailablePeriodes(distinctPeriodes);
