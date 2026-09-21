@@ -25,10 +25,14 @@ export const JurnalDetailModal: React.FC<JurnalDetailModalProps> = ({ jurnal, on
         setPhotos(jurnal.foto_kegiatan);
       } else {
         setPhotos([]);
+      }
+      
+      // Always trigger background fetch if id exists to ensure we have the full set (not just lightweight backup)
+      if (jurnal.id) {
         setIsLoadingPhotos(true);
         fetchJurnalPhoto(jurnal.id)
           .then(fetched => {
-            if (fetched && fetched.length > 0) {
+            if (fetched && fetched.length > (jurnal.foto_kegiatan?.length || 0)) {
               setPhotos(fetched);
               jurnal.foto_kegiatan = fetched;
             }

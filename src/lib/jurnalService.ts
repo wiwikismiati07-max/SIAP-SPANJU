@@ -116,8 +116,8 @@ export const saveLocalJurnalList = (list: JurnalPembelajaran[]) => {
     try {
       const lightweightList = list.map(item => ({
         ...item,
-        // Keep at most 1 thumbnail or clear photos in localStorage since IndexedDB holds the originals
-        foto_kegiatan: item.foto_kegiatan && item.foto_kegiatan.length > 0 ? [item.foto_kegiatan[0]] : []
+        // Keep at most 1 thumbnail in localStorage since IndexedDB holds the originals
+        foto_kegiatan: item.foto_kegiatan && item.foto_kegiatan.length > 0 ? item.foto_kegiatan.slice(0, 1) : []
       }));
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(lightweightList));
     } catch (innerErr) {
@@ -214,12 +214,17 @@ export const fetchAllJurnal = async (): Promise<JurnalPembelajaran[]> => {
         data.forEach((remote: any) => {
           if (!remote || !remote.id || deletedIds.has(remote.id)) return;
           const localItem = map.get(remote.id);
+          
+          // Determine best photo set: prefer whichever has more photos 
+          // (prevents lightweight localStorage backup from overwriting full remote data)
+          let bestPhotos = Array.isArray(remote.foto_kegiatan) ? remote.foto_kegiatan : [];
+          if (localItem?.foto_kegiatan && localItem.foto_kegiatan.length > bestPhotos.length) {
+            bestPhotos = localItem.foto_kegiatan;
+          }
+
           const merged: JurnalPembelajaran = {
             ...remote,
-            // Keep local photos if available, otherwise array
-            foto_kegiatan: (localItem?.foto_kegiatan && localItem.foto_kegiatan.length > 0)
-              ? localItem.foto_kegiatan
-              : (Array.isArray(remote.foto_kegiatan) ? remote.foto_kegiatan : []),
+            foto_kegiatan: bestPhotos,
             periode: remote.periode || localItem?.periode || ''
           };
           map.set(remote.id, merged);

@@ -133,9 +133,9 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
         setMateri(initialData.materi);
         setKegiatan(initialData.kegiatan || '');
         setFotoKegiatan(initialData.foto_kegiatan || []);
-        if ((!initialData.foto_kegiatan || initialData.foto_kegiatan.length === 0) && initialData.id) {
+        if (initialData.id) {
           fetchJurnalPhoto(initialData.id).then(fetched => {
-            if (fetched && fetched.length > 0) {
+            if (fetched && fetched.length > (initialData.foto_kegiatan?.length || 0)) {
               setFotoKegiatan(fetched);
             }
           }).catch(() => {});
@@ -308,15 +308,20 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    if (fotoKegiatan.length >= 1) {
+      alert('Batas maksimal hanya 1 foto dokumentasi per jurnal.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     setIsUploadingPhoto(true);
-    const fileArray = Array.from(files) as File[];
+    // Only take the first file even if multiple were selected (though we will remove 'multiple' attr)
+    const file = files[0];
 
     try {
-      // Compress each photo down to max 1024x1024 web quality JPEG (~60-100KB)
-      const compressedPhotos = await Promise.all(
-        fileArray.map((file: File) => compressImage(file, 1024, 1024, 0.72))
-      );
-      setFotoKegiatan(prev => [...prev, ...compressedPhotos]);
+      // Compress photo down to max 1024x1024 web quality JPEG (~60-100KB)
+      const compressed = await compressImage(file, 1024, 1024, 0.72);
+      setFotoKegiatan([compressed]); // Replace or set to 1
     } catch (err) {
       console.warn('Gagal memproses foto:', err);
     } finally {
@@ -332,9 +337,13 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
 
   // Add photo via URL
   const handleAddPhotoUrl = () => {
+    if (fotoKegiatan.length >= 1) {
+      alert('Batas maksimal hanya 1 foto dokumentasi per jurnal.');
+      return;
+    }
     const url = prompt('Masukkan tautan URL foto kegiatan:');
     if (url && url.trim()) {
-      setFotoKegiatan(prev => [...prev, url.trim()]);
+      setFotoKegiatan([url.trim()]);
     }
   };
 
@@ -890,14 +899,13 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
             </div>
             <div>
               <h3 className="text-base font-black text-slate-800">Foto Dokumentasi Kegiatan</h3>
-              <p className="text-xs text-slate-400">Unggah bukti visual kegiatan belajar mengajar di kelas</p>
+              <p className="text-xs text-slate-400">Unggah 1 foto bukti visual kegiatan pembelajaran (Maks. 1 Foto)</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <input
               type="file"
               accept="image/*"
-              multiple
               ref={fileInputRef}
               onChange={handlePhotoUpload}
               className="hidden"
@@ -905,15 +913,24 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={isUploadingPhoto}
-              className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+              disabled={isUploadingPhoto || fotoKegiatan.length >= 1}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 ${
+                fotoKegiatan.length >= 1 
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                  : 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200'
+              }`}
             >
               <Upload size={15} /> {isUploadingPhoto ? 'Memproses...' : 'Upload Foto'}
             </button>
             <button
               type="button"
               onClick={handleAddPhotoUrl}
-              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+              disabled={fotoKegiatan.length >= 1}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${
+                fotoKegiatan.length >= 1
+                  ? 'bg-slate-50 text-slate-300 cursor-not-allowed'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
             >
               + Link URL
             </button>
