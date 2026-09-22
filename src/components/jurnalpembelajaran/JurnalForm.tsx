@@ -44,6 +44,7 @@ import {
 } from '../../lib/jurnalService';
 import { PRIMARY_NOTIF_EMAIL, generateJurnalMailtoUrl, generateGmailWebComposeUrl } from '../../lib/emailNotificationService';
 import { compressImage } from '../../lib/imageCompressor';
+import { uploadToImgBB } from '../../lib/imgbbUpload';
 import { KelasSelectorModal } from './KelasSelectorModal';
 
 interface JurnalFormProps {
@@ -86,6 +87,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
 
   const [fotoKegiatan, setFotoKegiatan] = useState<string[]>([]);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState<boolean>(false);
+  const [uploadStatusText, setUploadStatusText] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [siswaList, setSiswaList] = useState<SiswaJurnalItem[]>([]);
@@ -303,7 +305,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
     }
   };
 
-  // Photo upload handler with automatic client-side compression
+  // Photo upload handler with automatic client-side compression & ImgBB cloud conversion
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -315,18 +317,51 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
     }
 
     setIsUploadingPhoto(true);
-    // Only take the first file even if multiple were selected (though we will remove 'multiple' attr)
+    setUploadStatusText('Mengompresi foto...');
     const file = files[0];
 
     try {
-      // Compress photo down to max 1024x1024 web quality JPEG (~60-100KB)
+      // 1. Compress photo client-side first (~60-100KB JPEG)
       const compressed = await compressImage(file, 1024, 1024, 0.72);
-      setFotoKegiatan([compressed]); // Replace or set to 1
+      
+      // 2. Upload compressed photo directly to ImgBB server
+      setUploadStatusText('Mengunggah ke ImgBB server...');
+      try {
+        const imgbbUrl = await uploadToImgBB(compressed, (msg) => setUploadStatusText(msg));
+        setFotoKegiatan([imgbbUrl]);
+        setUploadStatusText('✓ Terhubung ke ImgBB (Link Eksternal)');
+      } catch (imgbbErr: any) {
+        console.warn('Gagal upload ke ImgBB, menggunakan hasil kompresi lokal:', imgbbErr);
+        setFotoKegiatan([compressed]);
+        setUploadStatusText('Cadangan Lokal (Gagal ImgBB)');
+        alert('Foto berhasil dikompresi, namun gagal terhubung ke server ImgBB: ' + (imgbbErr?.message || 'Koneksi terputus') + '. Foto disimpan secara lokal.');
+      }
     } catch (err) {
       console.warn('Gagal memproses foto:', err);
+      alert('Gagal memproses file foto.');
     } finally {
       setIsUploadingPhoto(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      setTimeout(() => setUploadStatusText(''), 4000);
+    }
+  };
+
+  // Convert local base64 photo to ImgBB link on demand
+  const handleConvertLocalToImgbb = async (photoIdx: number) => {
+    const targetPhoto = fotoKegiatan[photoIdx];
+    if (!targetPhoto || targetPhoto.startsWith('http')) return;
+
+    setIsUploadingPhoto(true);
+    setUploadStatusText('Mengunggah foto lokal ke ImgBB...');
+    try {
+      const imgbbUrl = await uploadToImgBB(targetPhoto, (msg) => setUploadStatusText(msg));
+      setFotoKegiatan(prev => prev.map((p, i) => i === photoIdx ? imgbbUrl : p));
+      setUploadStatusText('✓ Sukses konversi ke ImgBB!');
+    } catch (err: any) {
+      alert('Gagal mengunggah ke ImgBB: ' + (err?.message || 'Periksa koneksi internet'));
+    } finally {
+      setIsUploadingPhoto(false);
+      setTimeout(() => setUploadStatusText(''), 3000);
     }
   };
 
@@ -892,17 +927,22 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
 
       {/* SECTION 2: FOTO KEGIATAN */}
       <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center font-bold">
+            <div className="w-9 h-9 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center font-bold shrink-0">
               <Camera size={20} />
             </div>
             <div>
-              <h3 className="text-base font-black text-slate-800">Foto Dokumentasi Kegiatan</h3>
-              <p className="text-xs text-slate-400">Unggah 1 foto bukti visual kegiatan pembelajaran (Maks. 1 Foto)</p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black text-slate-800">Foto Dokumentasi Kegiatan</h3>
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded-full border border-emerald-300">
+                  ImgBB Cloud Linked
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">Unggah foto model Timemark / Kamera — Otomatis tersimpan sebagai Link ImgBB (Maks. 1 Foto)</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 self-start sm:self-center">
             <input
               type="file"
               accept="image/*"
@@ -920,7 +960,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
                   : 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200'
               }`}
             >
-              <Upload size={15} /> {isUploadingPhoto ? 'Memproses...' : 'Upload Foto'}
+              <Upload size={15} /> {isUploadingPhoto ? (uploadStatusText || 'Memproses...') : 'Upload Foto'}
             </button>
             <button
               type="button"
@@ -937,6 +977,13 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
           </div>
         </div>
 
+        {uploadStatusText && (
+          <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3.5 py-2 rounded-xl font-medium animate-fade-in">
+            <Sparkles size={14} className="animate-spin text-amber-600" />
+            <span>Status: <strong>{uploadStatusText}</strong></span>
+          </div>
+        )}
+
         {fotoKegiatan.length === 0 ? (
           <div 
             onClick={() => fileInputRef.current?.click()}
@@ -944,23 +991,84 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
           >
             <ImageIcon size={36} className="mx-auto text-slate-300 mb-2" />
             <p className="text-xs font-bold text-slate-600">Belum ada foto kegiatan diunggah</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">Klik untuk memilih foto dari galeri atau kamera</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Klik untuk memilih/mengambil foto dari Timemark, Kamera, atau Galeri</p>
+            <span className="inline-block mt-2 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+              ⚡ Foto otomatis diubah jadi Link ImgBB agar hemat penyimpanan Supabase
+            </span>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {fotoKegiatan.map((foto, idx) => (
-              <div key={idx} className="group relative rounded-xl overflow-hidden border border-slate-200 aspect-square bg-slate-100 shadow-sm">
-                <img src={foto} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => handleRemovePhoto(idx)}
-                  className="absolute top-1.5 right-1.5 w-7 h-7 bg-red-600 text-white rounded-lg flex items-center justify-center shadow-md opacity-90 hover:opacity-100 hover:scale-105 transition-all"
-                  title="Hapus foto"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            ))}
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {fotoKegiatan.map((foto, idx) => {
+                const isImgbbUrl = foto.includes('ibb.co') || foto.startsWith('http');
+                return (
+                  <div key={idx} className="group relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 shadow-sm flex flex-col">
+                    <div className="relative aspect-video w-full bg-slate-800 overflow-hidden">
+                      <img src={foto} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      
+                      {/* Delete button */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePhoto(idx)}
+                        className="absolute top-2 right-2 w-7 h-7 bg-red-600/90 hover:bg-red-600 text-white rounded-lg flex items-center justify-center shadow-md backdrop-blur-sm transition-all"
+                        title="Hapus foto"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+
+                      {/* External Link button */}
+                      {isImgbbUrl && (
+                        <a
+                          href={foto}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="absolute bottom-2 right-2 px-2.5 py-1 bg-black/60 hover:bg-black/80 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 backdrop-blur-sm transition-all"
+                          title="Buka foto di luar aplikasi (tab baru)"
+                        >
+                          <ExternalLink size={12} /> Buka Eksternal
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Footer Info Card */}
+                    <div className="p-3 bg-white border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-1.5 overflow-hidden">
+                        {isImgbbUrl ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">
+                            <CheckCircle2 size={11} /> Link ImgBB Aktif
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 shrink-0">
+                            <AlertCircle size={11} /> Data Lokal
+                          </span>
+                        )}
+                        <span className="text-[11px] font-mono text-slate-500 truncate" title={foto}>
+                          {foto.startsWith('http') ? foto : 'data:image/...'}
+                        </span>
+                      </div>
+
+                      {!isImgbbUrl && (
+                        <button
+                          type="button"
+                          onClick={() => handleConvertLocalToImgbb(idx)}
+                          disabled={isUploadingPhoto}
+                          className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[10px] font-bold shrink-0 transition-colors shadow-sm"
+                        >
+                          Upload ImgBB
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="text-[11px] text-slate-500 flex items-center gap-1.5 font-medium bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+              <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+              <span>
+                <strong>Tersimpan Efisien:</strong> Hanya tautan string URL ImgBB yang disimpan ke Supabase database, menghemat kapasitas hingga 99.9%.
+              </span>
+            </p>
           </div>
         )}
       </div>
