@@ -44,7 +44,7 @@ import {
 } from '../../lib/jurnalService';
 import { PRIMARY_NOTIF_EMAIL, generateJurnalMailtoUrl, generateGmailWebComposeUrl } from '../../lib/emailNotificationService';
 import { compressImage } from '../../lib/imageCompressor';
-import { uploadToImgBB } from '../../lib/imgbbUpload';
+import { uploadToImgBB, getImgbbApiKey } from '../../lib/imgbbUpload';
 import { KelasSelectorModal } from './KelasSelectorModal';
 
 interface JurnalFormProps {
@@ -324,17 +324,17 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
       // 1. Compress photo client-side first (~60-100KB JPEG)
       const compressed = await compressImage(file, 1024, 1024, 0.72);
       
-      // 2. Upload compressed photo directly to ImgBB server
-      setUploadStatusText('Mengunggah ke ImgBB server...');
+      // 2. Try uploading to cloud image host (ImgBB / Supabase Storage)
+      setUploadStatusText('Mengunggah foto...');
       try {
         const imgbbUrl = await uploadToImgBB(compressed, (msg) => setUploadStatusText(msg));
         setFotoKegiatan([imgbbUrl]);
-        setUploadStatusText('✓ Terhubung ke ImgBB (Link Eksternal)');
-      } catch (imgbbErr: any) {
-        console.warn('Gagal upload ke ImgBB, menggunakan hasil kompresi lokal:', imgbbErr);
+        setUploadStatusText('✓ Tersimpan sebagai Link Online');
+      } catch (uploadErr) {
+        console.warn('Upload online tidak tersedia, foto disimpan secara lokal (terkompresi):', uploadErr);
+        // Seamlessly use compressed photo without blocking errors
         setFotoKegiatan([compressed]);
-        setUploadStatusText('Cadangan Lokal (Gagal ImgBB)');
-        alert('Foto berhasil dikompresi, namun gagal terhubung ke server ImgBB: ' + (imgbbErr?.message || 'Koneksi terputus') + '. Foto disimpan secara lokal.');
+        setUploadStatusText('Foto tersimpan (Lokal)');
       }
     } catch (err) {
       console.warn('Gagal memproses foto:', err);
@@ -342,23 +342,23 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
     } finally {
       setIsUploadingPhoto(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      setTimeout(() => setUploadStatusText(''), 4000);
+      setTimeout(() => setUploadStatusText(''), 3000);
     }
   };
 
-  // Convert local base64 photo to ImgBB link on demand
+  // Convert local base64 photo to online link on demand
   const handleConvertLocalToImgbb = async (photoIdx: number) => {
     const targetPhoto = fotoKegiatan[photoIdx];
     if (!targetPhoto || targetPhoto.startsWith('http')) return;
 
     setIsUploadingPhoto(true);
-    setUploadStatusText('Mengunggah foto lokal ke ImgBB...');
+    setUploadStatusText('Mengunggah foto...');
     try {
       const imgbbUrl = await uploadToImgBB(targetPhoto, (msg) => setUploadStatusText(msg));
       setFotoKegiatan(prev => prev.map((p, i) => i === photoIdx ? imgbbUrl : p));
-      setUploadStatusText('✓ Sukses konversi ke ImgBB!');
+      setUploadStatusText('✓ Sukses tersimpan online!');
     } catch (err: any) {
-      alert('Gagal mengunggah ke ImgBB: ' + (err?.message || 'Periksa koneksi internet'));
+      alert('Gagal mengunggah foto: ' + (err?.message || 'Periksa koneksi'));
     } finally {
       setIsUploadingPhoto(false);
       setTimeout(() => setUploadStatusText(''), 3000);
