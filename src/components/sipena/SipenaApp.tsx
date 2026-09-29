@@ -381,7 +381,18 @@ const SipenaDashboard = () => {
         if (startDate && w.tanggal < startDate) return;
         if (endDate && w.tanggal > endDate) return;
 
-        const attList = w.sipena_kunjungan_warta_siswa || [];
+        const attListRaw = w.sipena_kunjungan_warta_siswa || [];
+        const attDedupeMap = new Map<string, any>();
+        attListRaw.forEach((a: any) => {
+          const normKey = a.master_siswa?.nama
+            ? `nama:${a.master_siswa.nama.toLowerCase().replace(/\s+/g, ' ').trim()}`
+            : `id:${a.siswa_id}`;
+          if (normKey && !attDedupeMap.has(normKey)) {
+            attDedupeMap.set(normKey, a);
+          }
+        });
+        const attList = Array.from(attDedupeMap.values());
+
         attList.forEach((a: any) => {
           if (a.siswa_id) uniqueSiswaWartaSet.add(a.siswa_id);
           if (a.status_kehadiran === 'Hadir') totalHadir++;
@@ -2555,7 +2566,18 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
             </thead>
             <tbody className="divide-y divide-slate-50">
               {visits.map((v) => {
-                const siswaList = v.sipena_kunjungan_warta_siswa || [];
+                const siswaListRaw = v.sipena_kunjungan_warta_siswa || [];
+                const studentDedupeMap = new Map<string, any>();
+                siswaListRaw.forEach((a: any) => {
+                  const normKey = a.master_siswa?.nama
+                    ? `nama:${a.master_siswa.nama.toLowerCase().replace(/\s+/g, ' ').trim()}`
+                    : `id:${a.siswa_id}`;
+                  if (normKey && !studentDedupeMap.has(normKey)) {
+                    studentDedupeMap.set(normKey, a);
+                  }
+                });
+                const siswaList = Array.from(studentDedupeMap.values());
+
                 const totalSiswa = siswaList.length;
                 const hadirCount = siswaList.filter((s: any) => s.status_kehadiran === 'Hadir').length;
                 const izinCount = siswaList.filter((s: any) => s.status_kehadiran === 'Izin').length;

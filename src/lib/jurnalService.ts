@@ -997,6 +997,9 @@ WHERE siswa_id IN (SELECT id FROM public.master_siswa WHERE periode = '2025' OR 
 DELETE FROM public.sipena_kunjungan_siswa 
 WHERE siswa_id IN (SELECT id FROM public.master_siswa WHERE periode = '2025' OR periode IS NULL OR periode != '2026');
 
+DELETE FROM public.sipena_kunjungan_warta_siswa 
+WHERE siswa_id IN (SELECT id FROM public.master_siswa WHERE periode = '2025' OR periode IS NULL OR periode != '2026');
+
 DELETE FROM public.sipena_peminjaman 
 WHERE siswa_id IN (SELECT id FROM public.master_siswa WHERE periode = '2025' OR periode IS NULL OR periode != '2026');
 
@@ -1017,10 +1020,6 @@ WHERE periode = '2025' OR (periode IS NULL AND (tanggal < '2026-01-01' OR EXTRAC
 -- 4. Kunci default periode ke '2026' agar data baru selalu 2026
 ALTER TABLE public.master_siswa ALTER COLUMN periode SET DEFAULT '2026';
 ALTER TABLE public.jurnal_pembelajaran ALTER COLUMN periode SET DEFAULT '2026';
-
--- 5. Bersihkan dan optimalkan ruang disk penyimpanan
-VACUUM ANALYZE public.master_siswa;
-VACUUM ANALYZE public.jurnal_pembelajaran;
 `;
 
 /**
@@ -1083,11 +1082,16 @@ export const purgePeriode2025Data = async (): Promise<{
   // 3. Eksekusi hapus di Supabase jika terkoneksi
   if (supabase) {
     try {
-      // Hapus master_siswa periode 2025
-      const { error: errSiswa } = await supabase
+      // Hapus master_siswa periode 2025, null, atau non-2026
+      const { error: errSiswa2025 } = await supabase
         .from('master_siswa')
         .delete()
         .eq('periode', '2025');
+
+      const { error: errSiswaNot2026 } = await supabase
+        .from('master_siswa')
+        .delete()
+        .neq('periode', '2026');
 
       // Hapus jurnal_pembelajaran periode 2025
       const { error: errJurnal } = await supabase
@@ -1095,15 +1099,20 @@ export const purgePeriode2025Data = async (): Promise<{
         .delete()
         .eq('periode', '2025');
 
-      // Hapus jurnal yang tanggalnya di 2025
+      const { error: errJurnalNot2026 } = await supabase
+        .from('jurnal_pembelajaran')
+        .delete()
+        .neq('periode', '2026');
+
+      // Hapus jurnal yang tanggalnya di 2025 atau sebelum 2026
       const { error: errJurnalDate } = await supabase
         .from('jurnal_pembelajaran')
         .delete()
         .lt('tanggal', '2026-01-01');
 
-      if (errSiswa || errJurnal || errJurnalDate) {
-        const anyErr = errSiswa || errJurnal || errJurnalDate;
-        supabaseError = anyErr?.message || 'Error executing Supabase delete';
+      if (errSiswa2025 || errSiswaNot2026 || errJurnal || errJurnalNot2026 || errJurnalDate) {
+        const anyErr = errSiswa2025 || errSiswaNot2026 || errJurnal || errJurnalNot2026 || errJurnalDate;
+        supabaseError = anyErr?.message || 'Catatan: Beberapa data Supabase mungkin memerlukan pengeksekusian Script SQL langsung.';
       }
     } catch (e: any) {
       supabaseError = e.message || 'Gagal terhubung ke Supabase';
