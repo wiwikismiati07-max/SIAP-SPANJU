@@ -31,11 +31,18 @@ import {
   Clock,
   User,
   RotateCcw,
-  GraduationCap
+  GraduationCap,
+  TrendingUp,
+  TrendingDown,
+  Award,
+  Sparkles,
+  CalendarCheck,
+  Flame,
+  BookMarked
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase, fetchAllSiswa } from '../../lib/supabase';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek, subWeeks, isSameWeek, isSameMonth, parseISO } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -47,7 +54,11 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer, 
-  Cell 
+  Cell,
+  AreaChart,
+  Area,
+  LineChart,
+  Line
 } from 'recharts';
 
 const safeFormatDate = (dateStr: string | null | undefined, formatStr: string = 'dd/MM/yyyy') => {
@@ -271,11 +282,24 @@ const SipenaDashboard = () => {
     kunjunganKelas: 0,
     totalJenisBuku: 0,
     bukuKoleksi: 0,
-    bukuDipinjam: 0
+    bukuDipinjam: 0,
+    totalKunjunganWarta: 0,
+    wartaBulanIni: 0,
+    wartaMingguIni: 0,
+    guruUnikWarta: 0,
+    mapelUnikWarta: 0
   });
   const [chartData, setChartData] = useState<any[]>([]);
   const [topVisitors, setTopVisitors] = useState<any[]>([]);
   const [topBorrowers, setTopBorrowers] = useState<any[]>([]);
+  const [weeklyWartaData, setWeeklyWartaData] = useState<any[]>([]);
+  const [wartaTrend, setWartaTrend] = useState<number>(0);
+  const [wartaAvgWeekly, setWartaAvgWeekly] = useState<number>(0);
+  const [topWartaGurus, setTopWartaGurus] = useState<any[]>([]);
+  const [wartaByMapel, setWartaByMapel] = useState<any[]>([]);
+  const [wartaByKelas, setWartaByKelas] = useState<any[]>([]);
+  const [latestWartaVisits, setLatestWartaVisits] = useState<any[]>([]);
+  const [wartaActiveTab, setWartaActiveTab] = useState<'guru' | 'mapel' | 'riwayat'>('guru');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -286,10 +310,11 @@ const SipenaDashboard = () => {
     try {
       setLoading(true);
       
-      const [kunjungan, buku, pinjam] = await Promise.all([
+      const [kunjungan, buku, pinjam, warta] = await Promise.all([
         supabase.from('sipena_kunjungan_siswa').select('*, master_siswa(nama)'),
         supabase.from('sipena_buku').select('*'),
-        supabase.from('sipena_peminjaman').select('*, master_siswa(nama)')
+        supabase.from('sipena_peminjaman').select('*, master_siswa(nama)'),
+        supabase.from('sipena_kunjungan_warta').select('*, master_guru(nama_guru), master_mapel(nama_mapel)').order('tanggal', { ascending: false })
       ]);
 
       const totalKunjungan = kunjungan.data?.length || 0;
@@ -298,13 +323,162 @@ const SipenaDashboard = () => {
       const bukuKoleksi = buku.data?.reduce((acc, b) => acc + (b.stok_eksemplar || 0), 0) || 0;
       const bukuDipinjam = pinjam.data?.filter(p => p.status === 'Dipinjam').length || 0;
 
+      // WARTA data processing
+      const wartaList = warta.data || [];
+      const totalKunjunganWarta = wartaList.length;
+
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      // Start & End of current week (Monday to Sunday)
+      const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+      const currentWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
+
+      // Previous week
+      const prevWeekStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
+      const prevWeekEnd = endOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
+
+      let wartaBulanIniCount = 0;
+      let wartaMingguIniCount = 0;
+      let wartaMingguLaluCount = 0;
+
+      const uniqueWartaGurus = new Set<string>();
+      const uniqueWartaMapels = new Set<string>();
+
+      wartaList.forEach(w => {
+        if (!w.tanggal) return;
+        const visitDate = new Date(w.tanggal);
+        if (isNaN(visitDate.getTime())) return;
+
+        // Month check
+        if (visitDate.getFullYear() === currentYear && visitDate.getMonth() === currentMonth) {
+          wartaBulanIniCount++;
+        }
+
+        // Current week check
+        if (visitDate >= currentWeekStart && visitDate <= currentWeekEnd) {
+          wartaMingguIniCount++;
+        }
+
+        // Previous week check
+        if (visitDate >= prevWeekStart && visitDate <= prevWeekEnd) {
+          wartaMingguLaluCount++;
+        }
+
+        const guruName = w.master_guru?.nama_guru || w.guru_id;
+        if (guruName) uniqueWartaGurus.add(guruName);
+
+        const mapelName = w.master_mapel?.nama_mapel || w.mapel_id;
+        if (mapelName) uniqueWartaMapels.add(mapelName);
+      });
+
+      // Weekly trend calculation
+      let trend = 0;
+      if (wartaMingguLaluCount > 0) {
+        trend = Math.round(((wartaMingguIniCount - wartaMingguLaluCount) / wartaMingguLaluCount) * 100);
+      } else if (wartaMingguIniCount > 0) {
+        trend = 100;
+      }
+
+      // Generate 6 Weeks of WARTA data (from 5 weeks ago up to current week)
+      const weeklyData: any[] = [];
+      let weeklySum = 0;
+
+      for (let i = 5; i >= 0; i--) {
+        const targetDate = subWeeks(now, i);
+        const wStart = startOfWeek(targetDate, { weekStartsOn: 1 });
+        const wEnd = endOfWeek(targetDate, { weekStartsOn: 1 });
+
+        const countInWeek = wartaList.filter(w => {
+          if (!w.tanggal) return false;
+          const d = new Date(w.tanggal);
+          return !isNaN(d.getTime()) && d >= wStart && d <= wEnd;
+        }).length;
+
+        weeklySum += countInWeek;
+
+        const isCurrent = i === 0;
+        const weekLabel = `${format(wStart, 'd/M')} - ${format(wEnd, 'd/M')}`;
+        const shortName = isCurrent ? 'Minggu Ini' : `Mgg -${i}`;
+
+        weeklyData.push({
+          name: shortName,
+          fullLabel: weekLabel,
+          kunjungan: countInWeek,
+          isCurrent
+        });
+      }
+
+      const avgWeekly = Math.round((weeklySum / 6) * 10) / 10;
+
+      // Top WARTA Gurus
+      const guruVisitMap: Record<string, { name: string; count: number; mapelList: Set<string>; kelasList: Set<string> }> = {};
+      wartaList.forEach(w => {
+        const name = w.master_guru?.nama_guru || 'Guru / Staf';
+        if (!guruVisitMap[name]) {
+          guruVisitMap[name] = { name, count: 0, mapelList: new Set(), kelasList: new Set() };
+        }
+        guruVisitMap[name].count += 1;
+        if (w.master_mapel?.nama_mapel) guruVisitMap[name].mapelList.add(w.master_mapel.nama_mapel);
+        if (w.kelas) guruVisitMap[name].kelasList.add(w.kelas);
+      });
+
+      const sortedGurus = Object.values(guruVisitMap)
+        .map(g => ({
+          name: g.name,
+          count: g.count,
+          mapel: Array.from(g.mapelList).slice(0, 2).join(', ') || '-',
+          kelas: Array.from(g.kelasList).slice(0, 3).join(', ') || '-'
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      // Top Mapel
+      const mapelVisitMap: Record<string, number> = {};
+      wartaList.forEach(w => {
+        const m = w.master_mapel?.nama_mapel || 'Lainnya / Mandiri';
+        mapelVisitMap[m] = (mapelVisitMap[m] || 0) + 1;
+      });
+      const sortedMapel = Object.entries(mapelVisitMap)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      // Top Kelas
+      const kelasVisitMap: Record<string, number> = {};
+      wartaList.forEach(w => {
+        const k = w.kelas || 'Umum';
+        kelasVisitMap[k] = (kelasVisitMap[k] || 0) + 1;
+      });
+      const sortedKelas = Object.entries(kelasVisitMap)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      // Latest 6 Visits
+      const latestWarta = wartaList.slice(0, 6);
+
       setStats({
         totalKunjungan,
         kunjunganKelas: uniqueClasses,
         totalJenisBuku,
         bukuKoleksi,
-        bukuDipinjam
+        bukuDipinjam,
+        totalKunjunganWarta,
+        wartaBulanIni: wartaBulanIniCount,
+        wartaMingguIni: wartaMingguIniCount,
+        guruUnikWarta: uniqueWartaGurus.size,
+        mapelUnikWarta: uniqueWartaMapels.size
       });
+
+      setWeeklyWartaData(weeklyData);
+      setWartaTrend(trend);
+      setWartaAvgWeekly(avgWeekly);
+      setTopWartaGurus(sortedGurus);
+      setWartaByMapel(sortedMapel);
+      setWartaByKelas(sortedKelas);
+      setLatestWartaVisits(latestWarta);
 
       // Chart Data (Top 5 books by stock)
       const sortedBooks = [...(buku.data || [])].sort((a, b) => b.stok_eksemplar - a.stok_eksemplar).slice(0, 5);
@@ -342,43 +516,389 @@ const SipenaDashboard = () => {
   };
 
   const statCards = [
-    { label: 'Total Kunjungan', value: stats.totalKunjungan, icon: Users, color: 'from-emerald-500 to-emerald-700', shadow: 'shadow-emerald-100' },
-    { label: 'Kunjungan Kelas', value: stats.kunjunganKelas, icon: GraduationCap, color: 'from-blue-500 to-blue-700', shadow: 'shadow-blue-100' },
-    { label: 'Total Jenis Buku', value: stats.totalJenisBuku, icon: BookOpen, color: 'from-amber-500 to-amber-700', shadow: 'shadow-amber-100' },
-    { label: 'Buku Koleksi', value: stats.bukuKoleksi, icon: Library, color: 'from-indigo-500 to-indigo-700', shadow: 'shadow-indigo-100' },
-    { label: 'Buku Dipinjam', value: stats.bukuDipinjam, icon: ArrowLeftRight, color: 'from-pink-500 to-rose-700', shadow: 'shadow-rose-100' },
+    { label: 'Kunjungan Warta', value: stats.totalKunjunganWarta, icon: Briefcase, color: 'from-amber-500 to-amber-700', shadow: 'shadow-amber-100', highlight: true, subtext: `${stats.wartaBulanIni} bln ini` },
+    { label: 'Kunjungan Siswa', value: stats.totalKunjungan, icon: Users, color: 'from-emerald-500 to-emerald-700', shadow: 'shadow-emerald-100', highlight: false, subtext: `${stats.kunjunganKelas} kelas aktif` },
+    { label: 'Total Koleksi Buku', value: stats.bukuKoleksi, icon: Library, color: 'from-indigo-500 to-indigo-700', shadow: 'shadow-indigo-100', highlight: false, subtext: `${stats.totalJenisBuku} judul buku` },
+    { label: 'Buku Dipinjam', value: stats.bukuDipinjam, icon: ArrowLeftRight, color: 'from-pink-500 to-rose-700', shadow: 'shadow-rose-100', highlight: false, subtext: 'Sedang dipinjam' },
+    { label: 'Guru & Staf Warta', value: stats.guruUnikWarta, icon: GraduationCap, color: 'from-blue-500 to-blue-700', shadow: 'shadow-blue-100', highlight: false, subtext: `${stats.mapelUnikWarta} mapel terlayani` },
   ];
 
   return (
     <div className="space-y-10">
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+      {/* Top Statistics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
         {statCards.map((card, i) => (
           <motion.div 
             key={i}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            whileHover={{ y: -5 }}
-            className="bg-white p-8 rounded-[2.5rem] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.1)] border border-slate-100 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.15)] transition-all group relative overflow-hidden"
+            transition={{ delay: i * 0.08 }}
+            whileHover={{ y: -4 }}
+            className={`bg-white p-6 rounded-[2rem] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.08)] border transition-all group relative overflow-hidden ${
+              card.highlight ? 'border-amber-200 ring-2 ring-amber-500/10' : 'border-slate-100'
+            }`}
           >
-            <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${card.color} opacity-[0.03] rounded-full -mr-12 -mt-12 blur-2xl`} />
-            <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${card.color} text-white flex items-center justify-center mb-6 shadow-lg ${card.shadow} rotate-3 group-hover:rotate-0 transition-transform`}>
-              <card.icon size={28} />
+            <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${card.color} opacity-[0.04] rounded-full -mr-12 -mt-12 blur-2xl`} />
+            <div className="flex items-center justify-between mb-4">
+              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${card.color} text-white flex items-center justify-center shadow-md ${card.shadow} rotate-2 group-hover:rotate-0 transition-transform`}>
+                <card.icon size={22} />
+              </div>
+              {card.highlight && (
+                <span className="px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
+                  <Sparkles size={10} className="text-amber-500" />
+                  WARTA
+                </span>
+              )}
             </div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{card.label}</p>
-            <h4 className="text-3xl font-black text-slate-900">{card.value}</h4>
+            <div className="flex items-baseline justify-between">
+              <h4 className="text-3xl font-black text-slate-900">{card.value}</h4>
+              <span className="text-[10px] font-bold text-slate-400">{card.subtext}</span>
+            </div>
           </motion.div>
         ))}
       </div>
 
+      {/* SECTION: REKAP & PROGRES KUNJUNGAN WARTA */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-gradient-to-b from-white to-amber-50/20 rounded-[3rem] p-6 md:p-10 shadow-[0_20px_50px_rgba(245,158,11,0.06)] border border-amber-100/80 space-y-8"
+      >
+        {/* Warta Section Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-amber-100/60">
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 text-white flex items-center justify-center shadow-lg shadow-amber-200/50 shrink-0">
+              <Briefcase size={26} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider">
+                  Program WARTA
+                </span>
+                <span className="text-xs font-bold text-slate-400">• Literasi Guru & Staf</span>
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight mt-1">
+                Rekap & Progres Kunjungan WARTA
+              </h3>
+              <p className="text-xs font-bold text-slate-500 mt-0.5">
+                Monitoring keaktifan kunjungan guru dan staf dalam pemanfaatan perpustakaan
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Stat Badges */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="bg-white px-4 py-3 rounded-2xl border border-amber-100 shadow-sm flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-black">
+                <CalendarCheck size={18} />
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Minggu Ini</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-base font-black text-amber-600">{stats.wartaMingguIni} Kunjungan</p>
+                  {wartaTrend !== 0 && (
+                    <span className={`flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-md ${
+                      wartaTrend > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                    }`}>
+                      {wartaTrend > 0 ? <TrendingUp size={11} className="mr-0.5" /> : <TrendingDown size={11} className="mr-0.5" />}
+                      {wartaTrend > 0 ? `+${wartaTrend}%` : `${wartaTrend}%`}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white px-4 py-3 rounded-2xl border border-amber-100 shadow-sm flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-black">
+                <Flame size={18} />
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Bulan Ini</p>
+                <p className="text-base font-black text-slate-800">{stats.wartaBulanIni} Kunjungan</p>
+              </div>
+            </div>
+
+            <div className="bg-white px-4 py-3 rounded-2xl border border-amber-100 shadow-sm flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-black">
+                <GraduationCap size={18} />
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Guru Terlibat</p>
+                <p className="text-base font-black text-slate-800">{stats.guruUnikWarta} Orang</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Warta Charts & Breakdown Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Chart: Progres Kunjungan WARTA Mingguan */}
+          <div className="lg:col-span-7 bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col justify-between">
+            <div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                    <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight">Progres Kunjungan WARTA Mingguan</h4>
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                    Tren 6 Minggu Terakhir (Capaian & Performa)
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 bg-amber-50/80 px-3 py-1.5 rounded-xl border border-amber-200/60">
+                  <BarChart3 size={14} className="text-amber-600" />
+                  <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider">
+                    Rata-rata: {wartaAvgWeekly} / mgg
+                  </span>
+                </div>
+              </div>
+
+              {/* Chart Container */}
+              <div className="h-[280px] w-full mt-4">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weeklyWartaData} margin={{ top: 15, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="wartaBarGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#D97706" stopOpacity={1} />
+                        <stop offset="100%" stopColor="#F59E0B" stopOpacity={0.8} />
+                      </linearGradient>
+                      <linearGradient id="wartaBarCurrentGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#4F46E5" stopOpacity={1} />
+                        <stop offset="100%" stopColor="#6366F1" stopOpacity={0.85} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#64748B', fontSize: 11, fontWeight: 800 }} 
+                      dy={10}
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 700 }}
+                      allowDecimals={false}
+                    />
+                    <Tooltip 
+                      cursor={{ fill: '#FEF3C7', opacity: 0.3 }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-slate-900 text-white p-3 rounded-xl shadow-xl text-xs space-y-1">
+                              <p className="font-bold text-amber-300">{data.name} ({data.fullLabel})</p>
+                              <p className="text-slate-200">
+                                Total: <span className="font-black text-white">{data.kunjungan} Kunjungan</span>
+                              </p>
+                              {data.isCurrent && (
+                                <p className="text-[10px] text-emerald-400 font-bold">● Periode Berjalan</p>
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="kunjungan" radius={[10, 10, 0, 0]} barSize={38}>
+                      {weeklyWartaData.map((entry, index) => (
+                        <Cell 
+                          key={`warta-cell-${index}`} 
+                          fill={entry.isCurrent ? 'url(#wartaBarCurrentGradient)' : 'url(#wartaBarGradient)'} 
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Weekly Breakdown Pills */}
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-6 pt-6 border-t border-slate-100">
+              {weeklyWartaData.map((w, idx) => (
+                <div 
+                  key={idx} 
+                  className={`p-2.5 rounded-xl text-center border transition-all ${
+                    w.isCurrent 
+                      ? 'bg-indigo-50/80 border-indigo-200 text-indigo-900 shadow-sm' 
+                      : 'bg-slate-50/60 border-slate-100 text-slate-700'
+                  }`}
+                >
+                  <p className="text-[9px] font-black text-slate-400 uppercase truncate">{w.fullLabel}</p>
+                  <p className={`text-base font-black mt-0.5 ${w.isCurrent ? 'text-indigo-600' : 'text-slate-800'}`}>
+                    {w.kunjungan}
+                  </p>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase">Kunjungan</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Card: Rekap Kunjungan WARTA (Top Guru, Mapel, Riwayat) */}
+          <div className="lg:col-span-5 bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col">
+            <div className="flex items-center justify-between gap-2 mb-6">
+              <div>
+                <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight">Rekap Kunjungan WARTA</h4>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                  Analisis Guru, Mapel & Riwayat
+                </p>
+              </div>
+              
+              {/* Tab Selector */}
+              <div className="flex bg-slate-100 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setWartaActiveTab('guru')}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                    wartaActiveTab === 'guru' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Top Guru
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWartaActiveTab('mapel')}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                    wartaActiveTab === 'mapel' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Mapel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWartaActiveTab('riwayat')}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                    wartaActiveTab === 'riwayat' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Riwayat
+                </button>
+              </div>
+            </div>
+
+            {/* Tab Contents */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 max-h-[340px]">
+              {wartaActiveTab === 'guru' && (
+                <>
+                  {topWartaGurus.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 font-bold text-xs">
+                      Belum ada data kunjungan WARTA.
+                    </div>
+                  ) : (
+                    topWartaGurus.map((g, i) => (
+                      <div 
+                        key={i} 
+                        className="flex items-center justify-between p-3.5 bg-slate-50/70 hover:bg-amber-50/40 rounded-2xl border border-slate-100 hover:border-amber-200 transition-all group"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
+                            i === 0 ? 'bg-amber-100 text-amber-700 shadow-sm' :
+                            i === 1 ? 'bg-slate-200 text-slate-700' :
+                            i === 2 ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            {i === 0 ? <Award size={18} className="text-amber-600" /> : `#${i + 1}`}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-slate-800 truncate">{g.name}</p>
+                            <p className="text-[10px] font-bold text-slate-400 truncate">
+                              Mapel: <span className="text-slate-600">{g.mapel}</span>
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0 pl-3">
+                          <span className="text-sm font-black text-amber-600">{g.count}</span>
+                          <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-widest">Kunjungan</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </>
+              )}
+
+              {wartaActiveTab === 'mapel' && (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Mata Pelajaran Terbanyak</p>
+                    {wartaByMapel.length === 0 ? (
+                      <div className="text-center py-6 text-slate-400 font-bold text-xs">Belum ada data mapel.</div>
+                    ) : (
+                      wartaByMapel.map((m, i) => {
+                        const pct = stats.totalKunjunganWarta > 0 ? Math.round((m.count / stats.totalKunjunganWarta) * 100) : 0;
+                        return (
+                          <div key={i} className="mb-2.5">
+                            <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
+                              <span className="truncate">{m.name}</span>
+                              <span className="font-black text-amber-600 shrink-0">{m.count}x ({pct}%)</span>
+                            </div>
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                              <div className="bg-amber-500 h-full rounded-full" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Kelas yang Dikunjungi</p>
+                    <div className="flex flex-wrap gap-2">
+                      {wartaByKelas.map((k, i) => (
+                        <div key={i} className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-100 text-xs font-bold text-slate-700 flex items-center gap-2">
+                          <span className="font-black text-indigo-600">{k.name}</span>
+                          <span className="px-1.5 py-0.5 rounded-md bg-white text-[10px] font-black text-slate-500 shadow-sm">{k.count}x</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {wartaActiveTab === 'riwayat' && (
+                <>
+                  {latestWartaVisits.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 font-bold text-xs">
+                      Belum ada riwayat kunjungan WARTA.
+                    </div>
+                  ) : (
+                    latestWartaVisits.map((v, i) => (
+                      <div key={i} className="p-3 bg-slate-50/70 rounded-2xl border border-slate-100 space-y-1">
+                        <div className="flex items-center justify-between text-[10px] font-bold">
+                          <span className="text-slate-400 flex items-center gap-1">
+                            <Calendar size={11} /> {safeFormatDate(v.tanggal, 'd MMM yyyy')} {v.jam ? `• ${v.jam.substring(0, 5)}` : ''}
+                          </span>
+                          {v.kelas && (
+                            <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-black text-[9px]">
+                              Kelas {v.kelas}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs font-black text-slate-800">{v.master_guru?.nama_guru || 'Guru / Staf'}</p>
+                        {v.master_mapel?.nama_mapel && (
+                          <p className="text-[10px] font-bold text-amber-700">
+                            Mapel: {v.master_mapel.nama_mapel}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* SECTION: STATISTIK BUKU & KUNJUNGAN SISWA */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white p-10 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden group"
+          className="bg-white p-8 md:p-10 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden group"
         >
           <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-indigo-600" />
-          <div className="flex items-center justify-between mb-10">
+          <div className="flex items-center justify-between mb-8">
             <div>
               <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Grafik Stok Buku</h4>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Top 5 Buku dengan Stok Terbanyak</p>
@@ -387,7 +907,7 @@ const SipenaDashboard = () => {
               <BarChart3 size={24} />
             </div>
           </div>
-          <div className="h-[350px] w-full">
+          <div className="h-[320px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
@@ -423,16 +943,16 @@ const SipenaDashboard = () => {
           <motion.div 
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-white p-10 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden"
+            className="bg-white p-8 md:p-10 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden"
           >
             <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-emerald-500 to-teal-600" />
             <div className="flex items-center justify-between mb-8">
-              <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Top Pengunjung</h4>
+              <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Top Pengunjung Siswa</h4>
               <Users size={24} className="text-emerald-500" />
             </div>
             <div className="space-y-4">
               {topVisitors.map((v, i) => (
-                <div key={i} className="flex items-center justify-between p-5 bg-slate-50/50 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-md transition-all group">
+                <div key={i} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-md transition-all group">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-black text-sm group-hover:scale-110 transition-transform">
                       {v.name[0]}
@@ -455,16 +975,16 @@ const SipenaDashboard = () => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white p-10 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden"
+            className="bg-white p-8 md:p-10 rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-slate-100 relative overflow-hidden"
           >
             <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-pink-500 to-rose-600" />
             <div className="flex items-center justify-between mb-8">
-              <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Top Peminjam</h4>
+              <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Top Peminjam Buku</h4>
               <ArrowLeftRight size={24} className="text-pink-500" />
             </div>
             <div className="space-y-4">
               {topBorrowers.map((b, i) => (
-                <div key={i} className="flex items-center justify-between p-5 bg-slate-50/50 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-md transition-all group">
+                <div key={i} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-md transition-all group">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center font-black text-sm group-hover:scale-110 transition-transform">
                       {b.name[0]}
