@@ -3636,7 +3636,7 @@ const SipenaLaporan: React.FC<{ user?: any, setMessage?: (msg: { type: 'success'
         if (filter.startDate) query = query.gte('tanggal', filter.startDate);
         if (filter.endDate) query = query.lte('tanggal', filter.endDate);
       } else if (reportType === 'kunjungan_warta') {
-        query = supabase.from('sipena_kunjungan_warta').select('*, master_guru(nama_guru), master_mapel(nama_mapel)').order('tanggal', { ascending: false });
+        query = supabase.from('sipena_kunjungan_warta').select('*, master_guru(nama_guru), master_mapel(nama_mapel), sipena_kunjungan_warta_siswa(*, master_siswa(nama))').order('tanggal', { ascending: false });
         if (filter.startDate) query = query.gte('tanggal', filter.startDate);
         if (filter.endDate) query = query.lte('tanggal', filter.endDate);
       } else {
@@ -3674,8 +3674,8 @@ const SipenaLaporan: React.FC<{ user?: any, setMessage?: (msg: { type: 'success'
         totalCols = 6;
       } else if (reportType === 'kunjungan_warta') {
         title = 'Laporan Kunjungan Warta';
-        headers = ['NO', 'TANGGAL', 'JAM', 'GURU', 'MATA PELAJARAN', 'KELAS'];
-        totalCols = 6;
+        headers = ['NO', 'TANGGAL', 'GURU', 'MATA PELAJARAN', 'KELAS', 'JUMLAH HADIR', 'JUMLAH ABSEN'];
+        totalCols = 7;
       } else {
         title = 'Laporan Peminjaman Buku';
         headers = ['NO', 'TANGGAL PINJAM', 'NAMA SISWA', 'KELAS', 'JUDUL BUKU', 'JUMLAH', 'STATUS'];
@@ -3716,13 +3716,28 @@ const SipenaLaporan: React.FC<{ user?: any, setMessage?: (msg: { type: 'success'
         });
       } else if (reportType === 'kunjungan_warta') {
         data.forEach((v, index) => {
+          const attListRaw = v.sipena_kunjungan_warta_siswa || [];
+          const attMap = new Map<string, any>();
+          attListRaw.forEach((a: any) => {
+            const normKey = a.master_siswa?.nama
+              ? `nama:${a.master_siswa.nama.toLowerCase().replace(/\s+/g, ' ').trim()}`
+              : `id:${a.siswa_id}`;
+            if (normKey && !attMap.has(normKey)) {
+              attMap.set(normKey, a);
+            }
+          });
+          const attList = Array.from(attMap.values());
+          const jmlHadir = attList.filter((a: any) => a.status_kehadiran === 'Hadir').length;
+          const jmlAbsen = attList.filter((a: any) => a.status_kehadiran && a.status_kehadiran !== 'Hadir').length;
+
           worksheet.addRow([
             index + 1,
             safeFormatDate(v.tanggal),
-            v.jam,
-            v.master_guru?.nama_guru,
-            v.master_mapel?.nama_mapel,
-            v.kelas
+            v.master_guru?.nama_guru || '-',
+            v.master_mapel?.nama_mapel || '-',
+            v.kelas || '-',
+            jmlHadir,
+            jmlAbsen
           ]);
           rowCount++;
         });
@@ -3910,10 +3925,12 @@ const SipenaLaporan: React.FC<{ user?: any, setMessage?: (msg: { type: 'success'
                       )}
                       {reportType === 'kunjungan_warta' && (
                         <>
-                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Tgl Awal</th>
-                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Tgl Akhir</th>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Tanggal</th>
                           <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Guru</th>
-                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700 text-center">Jam</th>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700">Mata Pelajaran</th>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700 text-center">Kelas</th>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700 text-center">Jml Hadir</th>
+                          <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border border-blue-700 text-center">Jml Absen</th>
                         </>
                       )}
                       {reportType === 'peminjaman' && (
@@ -3944,14 +3961,32 @@ const SipenaLaporan: React.FC<{ user?: any, setMessage?: (msg: { type: 'success'
                             <td className="px-4 py-3 text-[10px] text-slate-600 border border-slate-200">{item.keperluan}</td>
                           </>
                         )}
-                        {reportType === 'kunjungan_warta' && (
-                          <>
-                            <td className="px-4 py-3 text-[10px] font-bold text-slate-800 border border-slate-200">{safeFormatDate(item.tanggal_awal)}</td>
-                            <td className="px-4 py-3 text-[10px] font-bold text-slate-800 border border-slate-200">{safeFormatDate(item.tanggal_akhir)}</td>
-                            <td className="px-4 py-3 text-[10px] text-slate-600 border border-slate-200">{item.master_guru?.nama_guru} ({item.kelas})</td>
-                            <td className="px-4 py-3 text-[10px] font-black text-slate-800 border border-slate-200 text-center">{item.jam?.substring(0, 5)}</td>
-                          </>
-                        )}
+                        {reportType === 'kunjungan_warta' && (() => {
+                          const attListRaw = item.sipena_kunjungan_warta_siswa || [];
+                          const attMap = new Map<string, any>();
+                          attListRaw.forEach((a: any) => {
+                            const normKey = a.master_siswa?.nama
+                              ? `nama:${a.master_siswa.nama.toLowerCase().replace(/\s+/g, ' ').trim()}`
+                              : `id:${a.siswa_id}`;
+                            if (normKey && !attMap.has(normKey)) {
+                              attMap.set(normKey, a);
+                            }
+                          });
+                          const attList = Array.from(attMap.values());
+                          const jmlHadir = attList.filter((a: any) => a.status_kehadiran === 'Hadir').length;
+                          const jmlAbsen = attList.filter((a: any) => a.status_kehadiran && a.status_kehadiran !== 'Hadir').length;
+
+                          return (
+                            <>
+                              <td className="px-4 py-3 text-[10px] font-bold text-slate-800 border border-slate-200">{safeFormatDate(item.tanggal)}</td>
+                              <td className="px-4 py-3 text-[10px] font-bold text-slate-800 border border-slate-200">{item.master_guru?.nama_guru || '-'}</td>
+                              <td className="px-4 py-3 text-[10px] text-slate-600 border border-slate-200">{item.master_mapel?.nama_mapel || '-'}</td>
+                              <td className="px-4 py-3 text-[10px] font-black text-slate-800 border border-slate-200 text-center">Kelas {item.kelas || '-'}</td>
+                              <td className="px-4 py-3 text-[10px] font-black text-emerald-700 border border-slate-200 text-center bg-emerald-50/50">{jmlHadir} Siswa</td>
+                              <td className="px-4 py-3 text-[10px] font-black text-rose-700 border border-slate-200 text-center bg-rose-50/50">{jmlAbsen} Siswa</td>
+                            </>
+                          );
+                        })()}
                         {reportType === 'peminjaman' && (
                           <>
                             <td className="px-4 py-3 text-[10px] font-bold text-slate-800 border border-slate-200">{safeFormatDate(item.tanggal_pinjam)}</td>
@@ -4070,10 +4105,11 @@ const SipenaLaporan: React.FC<{ user?: any, setMessage?: (msg: { type: 'success'
                 )}
                 {reportType === 'kunjungan_warta' && (
                   <>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tgl Awal</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tgl Akhir</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</th>
                     <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Guru</th>
-                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Jam</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Mata Pelajaran</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Kelas</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Kehadiran Siswa</th>
                   </>
                 )}
                 {reportType === 'peminjaman' && (
@@ -4102,14 +4138,44 @@ const SipenaLaporan: React.FC<{ user?: any, setMessage?: (msg: { type: 'success'
                       <td className="px-8 py-6 text-xs text-slate-500">{item.keperluan}</td>
                     </>
                   )}
-                  {reportType === 'kunjungan_warta' && (
-                    <>
-                      <td className="px-8 py-6 text-xs font-bold text-slate-800">{safeFormatDate(item.tanggal_awal)}</td>
-                      <td className="px-8 py-6 text-xs font-bold text-slate-800">{safeFormatDate(item.tanggal_akhir)}</td>
-                      <td className="px-8 py-6 text-xs text-slate-500">{item.master_guru?.nama_guru} ({item.kelas})</td>
-                      <td className="px-8 py-6 text-xs font-black text-slate-800 text-right">{item.jam?.substring(0, 5)} WIB</td>
-                    </>
-                  )}
+                  {reportType === 'kunjungan_warta' && (() => {
+                    const attListRaw = item.sipena_kunjungan_warta_siswa || [];
+                    const attMap = new Map<string, any>();
+                    attListRaw.forEach((a: any) => {
+                      const normKey = a.master_siswa?.nama
+                        ? `nama:${a.master_siswa.nama.toLowerCase().replace(/\s+/g, ' ').trim()}`
+                        : `id:${a.siswa_id}`;
+                      if (normKey && !attMap.has(normKey)) {
+                        attMap.set(normKey, a);
+                      }
+                    });
+                    const attList = Array.from(attMap.values());
+                    const jmlHadir = attList.filter((a: any) => a.status_kehadiran === 'Hadir').length;
+                    const jmlAbsen = attList.filter((a: any) => a.status_kehadiran && a.status_kehadiran !== 'Hadir').length;
+
+                    return (
+                      <>
+                        <td className="px-8 py-6 text-xs font-bold text-slate-800">{safeFormatDate(item.tanggal)}</td>
+                        <td className="px-8 py-6 text-xs font-black text-slate-800">{item.master_guru?.nama_guru || '-'}</td>
+                        <td className="px-8 py-6 text-xs text-slate-600">
+                          <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-[10px] font-black uppercase tracking-wider">
+                            {item.master_mapel?.nama_mapel || '-'}
+                          </span>
+                        </td>
+                        <td className="px-8 py-6 text-xs font-black text-slate-800">Kelas {item.kelas || '-'}</td>
+                        <td className="px-8 py-6 text-xs text-center">
+                          <div className="inline-flex items-center gap-2">
+                            <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-lg font-black text-xs">
+                              {jmlHadir} Hadir
+                            </span>
+                            <span className="px-3 py-1 bg-rose-100 text-rose-800 rounded-lg font-black text-xs">
+                              {jmlAbsen} Absen
+                            </span>
+                          </div>
+                        </td>
+                      </>
+                    );
+                  })()}
                   {reportType === 'peminjaman' && (
                     <>
                       <td className="px-8 py-6 text-xs font-bold text-slate-800">{safeFormatDate(item.tanggal_pinjam)}</td>
