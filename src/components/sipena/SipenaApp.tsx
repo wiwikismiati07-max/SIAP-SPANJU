@@ -316,9 +316,13 @@ const SipenaDashboard = () => {
       if (startDate) kunjunganQuery = kunjunganQuery.gte('tanggal', startDate);
       if (endDate) kunjunganQuery = kunjunganQuery.lte('tanggal', endDate);
 
+      const refDate = endDate ? parseISO(endDate) : new Date();
+      const sixWeeksAgoStr = format(subWeeks(startOfWeek(refDate, { weekStartsOn: 1 }), 6), 'yyyy-MM-dd');
+
       let wartaQuery = supabase.from('sipena_kunjungan_warta').select('*, master_guru(nama_guru), master_mapel(nama_mapel)').order('tanggal', { ascending: false });
-      if (startDate) wartaQuery = wartaQuery.gte('tanggal', startDate);
       if (endDate) wartaQuery = wartaQuery.lte('tanggal', endDate);
+      // Fetch at least 6 weeks back from refDate so 6-week chart is fully populated
+      wartaQuery = wartaQuery.gte('tanggal', startDate && startDate < sixWeeksAgoStr ? startDate : sixWeeksAgoStr);
 
       let pinjamQuery = supabase.from('sipena_peminjaman').select('*, master_siswa(nama)');
       if (startDate) pinjamQuery = pinjamQuery.gte('tanggal_pinjam', startDate);
@@ -339,19 +343,24 @@ const SipenaDashboard = () => {
 
       // WARTA data processing
       const wartaList = warta.data || [];
-      const totalKunjunganWarta = wartaList.length;
+      // Filter warta total within chosen [startDate, endDate] range if specified
+      const totalKunjunganWarta = wartaList.filter(w => {
+        if (!w.tanggal) return false;
+        if (startDate && w.tanggal < startDate) return false;
+        if (endDate && w.tanggal > endDate) return false;
+        return true;
+      }).length;
 
-      const now = new Date();
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
+      const currentMonth = refDate.getMonth();
+      const currentYear = refDate.getFullYear();
 
-      // Start & End of current week (Monday to Sunday)
-      const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 });
-      const currentWeekEnd = endOfWeek(now, { weekStartsOn: 1 });
+      // Start & End of reference week (Monday to Sunday)
+      const currentWeekStart = startOfWeek(refDate, { weekStartsOn: 1 });
+      const currentWeekEnd = endOfWeek(refDate, { weekStartsOn: 1 });
 
       // Previous week
-      const prevWeekStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
-      const prevWeekEnd = endOfWeek(subWeeks(now, 1), { weekStartsOn: 1 });
+      const prevWeekStart = startOfWeek(subWeeks(refDate, 1), { weekStartsOn: 1 });
+      const prevWeekEnd = endOfWeek(subWeeks(refDate, 1), { weekStartsOn: 1 });
 
       let wartaBulanIniCount = 0;
       let wartaMingguIniCount = 0;
@@ -365,12 +374,12 @@ const SipenaDashboard = () => {
         const visitDate = new Date(w.tanggal);
         if (isNaN(visitDate.getTime())) return;
 
-        // Month check
+        // Month check based on reference date
         if (visitDate.getFullYear() === currentYear && visitDate.getMonth() === currentMonth) {
           wartaBulanIniCount++;
         }
 
-        // Current week check
+        // Reference week check
         if (visitDate >= currentWeekStart && visitDate <= currentWeekEnd) {
           wartaMingguIniCount++;
         }
@@ -395,12 +404,12 @@ const SipenaDashboard = () => {
         trend = 100;
       }
 
-      // Generate 6 Weeks of WARTA data (from 5 weeks ago up to current week)
+      // Generate 6 Weeks of WARTA data (from 5 weeks ago up to reference week)
       const weeklyData: any[] = [];
       let weeklySum = 0;
 
       for (let i = 5; i >= 0; i--) {
-        const targetDate = subWeeks(now, i);
+        const targetDate = subWeeks(refDate, i);
         const wStart = startOfWeek(targetDate, { weekStartsOn: 1 });
         const wEnd = endOfWeek(targetDate, { weekStartsOn: 1 });
 
@@ -414,7 +423,7 @@ const SipenaDashboard = () => {
 
         const isCurrent = i === 0;
         const weekLabel = `${format(wStart, 'd/M')} - ${format(wEnd, 'd/M')}`;
-        const shortName = isCurrent ? 'Minggu Ini' : `Mgg -${i}`;
+        const shortName = isCurrent ? (endDate ? 'Mgg Sampai' : 'Minggu Ini') : (i === 1 ? 'Mgg Lalu' : `Mgg -${i}`);
 
         weeklyData.push({
           name: shortName,
@@ -2073,6 +2082,11 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
     endDate: ''
   });
   
+  // Student attendance states
+  const [classSiswa, setClassSiswa] = useState<any[]>([]);
+  const [siswaAttendance, setSiswaAttendance] = useState<Record<string, { status: 'Hadir' | 'Izin' | 'Sakit' | 'Alpa', selected: boolean }>>({});
+  const [loadingSiswa, setLoadingSiswa] = useState(false);
+
   const [formData, setFormData] = useState({
     tanggal: format(new Date(), 'yyyy-MM-dd'),
     jam: format(new Date(), 'HH:mm'),
@@ -2088,20 +2102,88 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
     fetchMasters();
   }, [historyFilter]);
 
+  // Fetch class students when modal opens or kelas changes
+  useEffect(() => {
+    if (isModalOpen && formData.kelas) {
+      fetchClassSiswa(formData.kelas);
+    } else if (!formData.kelas) {
+      setClassSiswa([]);
+      setSiswaAttendance({});
+    }
+  }, [formData.kelas, isModalOpen]);
+
+  const fetchClassSiswa = async (kelasName: string) => {
+    setLoadingSiswa(true);
+    try {
+      const { data, error } = await supabase
+        .from('master_siswa')
+        .select('id, nis, nama, kelas')
+        .eq('kelas', kelasName)
+        .order('nama');
+      if (error) throw error;
+
+      const siswaList = data || [];
+      setClassSiswa(siswaList);
+
+      let savedMap: Record<string, 'Hadir' | 'Izin' | 'Sakit' | 'Alpa'> = {};
+      if (editingId) {
+        try {
+          const { data: savedAtt } = await supabase
+            .from('sipena_kunjungan_warta_siswa')
+            .select('siswa_id, status_kehadiran')
+            .eq('kunjungan_warta_id', editingId);
+          if (savedAtt && savedAtt.length > 0) {
+            savedAtt.forEach(a => {
+              savedMap[a.siswa_id] = a.status_kehadiran || 'Hadir';
+            });
+          }
+        } catch (err) {
+          console.warn('Could not fetch saved attendance:', err);
+        }
+      }
+
+      // Default all students checked (selected: true) and default status: 'Hadir'
+      const attState: Record<string, { status: 'Hadir' | 'Izin' | 'Sakit' | 'Alpa', selected: boolean }> = {};
+      siswaList.forEach(s => {
+        attState[s.id] = {
+          status: savedMap[s.id] || 'Hadir',
+          selected: editingId ? (savedMap[s.id] !== undefined) : true
+        };
+      });
+      setSiswaAttendance(attState);
+    } catch (err) {
+      console.error('Error loading class siswa:', err);
+    } finally {
+      setLoadingSiswa(false);
+    }
+  };
+
   const fetchVisits = async () => {
     try {
       setLoading(true);
+      
       let query = supabase
         .from('sipena_kunjungan_warta')
-        .select('*, master_guru(nama_guru), master_mapel(nama_mapel)')
+        .select('*, master_guru(nama_guru), master_mapel(nama_mapel), sipena_kunjungan_warta_siswa(*, master_siswa(nama))')
         .order('tanggal', { ascending: false });
 
       if (historyFilter.startDate) query = query.gte('tanggal', historyFilter.startDate);
       if (historyFilter.endDate) query = query.lte('tanggal', historyFilter.endDate);
 
       const { data, error } = await query;
-      if (error) throw error;
-      setVisits(data || []);
+      if (error) {
+        // Fallback if sipena_kunjungan_warta_siswa table doesn't exist yet
+        let fallbackQuery = supabase
+          .from('sipena_kunjungan_warta')
+          .select('*, master_guru(nama_guru), master_mapel(nama_mapel)')
+          .order('tanggal', { ascending: false });
+        if (historyFilter.startDate) fallbackQuery = fallbackQuery.gte('tanggal', historyFilter.startDate);
+        if (historyFilter.endDate) fallbackQuery = fallbackQuery.lte('tanggal', historyFilter.endDate);
+        const fb = await fallbackQuery;
+        setVisits(fb.data || []);
+      } else {
+        setVisits(data || []);
+      }
     } catch (error) {
       console.error('Error fetching visits:', error);
     } finally {
@@ -2118,10 +2200,31 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
     setMapels(m.data || []);
   };
 
+  const handleToggleSelectAll = (select: boolean) => {
+    setSiswaAttendance(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(id => {
+        next[id] = { ...next[id], selected: select };
+      });
+      return next;
+    });
+  };
+
+  const handleSetAllStatus = (status: 'Hadir' | 'Izin' | 'Sakit' | 'Alpa') => {
+    setSiswaAttendance(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(id => {
+        next[id] = { ...next[id], status, selected: true };
+      });
+      return next;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setLoading(true);
+      let wartaId = editingId;
       
       if (editingId) {
         const { error } = await supabase
@@ -2130,8 +2233,41 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
           .eq('id', editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('sipena_kunjungan_warta').insert([formData]);
+        const { data, error } = await supabase
+          .from('sipena_kunjungan_warta')
+          .insert([formData])
+          .select('id')
+          .single();
         if (error) throw error;
+        wartaId = data.id;
+      }
+
+      // Save student attendance
+      if (wartaId) {
+        try {
+          // Clean previous attendance
+          await supabase
+            .from('sipena_kunjungan_warta_siswa')
+            .delete()
+            .eq('kunjungan_warta_id', wartaId);
+
+          const attendanceRecords = (Object.entries(siswaAttendance) as [string, { status: 'Hadir' | 'Izin' | 'Sakit' | 'Alpa'; selected: boolean }][])
+            .filter(([_, item]) => item.selected)
+            .map(([siswaId, item]) => ({
+              kunjungan_warta_id: wartaId,
+              siswa_id: siswaId,
+              status_kehadiran: item.status
+            }));
+
+          if (attendanceRecords.length > 0) {
+            const { error: attErr } = await supabase
+              .from('sipena_kunjungan_warta_siswa')
+              .insert(attendanceRecords);
+            if (attErr) console.warn('Note: sipena_kunjungan_warta_siswa table may need creation script:', attErr);
+          }
+        } catch (attE) {
+          console.warn('Student attendance insert skipped/error:', attE);
+        }
       }
       
       if (setMessage) {
@@ -2188,7 +2324,7 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h3 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Kunjungan Warta</h3>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Catat kunjungan guru dan staf</p>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Catat kunjungan guru, staf dan presensi siswa</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm">
@@ -2227,6 +2363,8 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
                   guru_id: '',
                   mapel_id: ''
                 });
+                setClassSiswa([]);
+                setSiswaAttendance({});
                 setIsModalOpen(true);
               }}
               className="p-3 bg-amber-600 text-white rounded-2xl hover:bg-amber-700 transition-all flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg shadow-amber-200 shrink-0"
@@ -2246,119 +2384,301 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Waktu</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Guru</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Mata Pelajaran</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Kelas</th>
+                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Kelas & Siswa</th>
                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {visits.map((v) => (
-                <tr key={v.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="px-8 py-6">
-                    <p className="text-xs font-black text-slate-800">
-                      {safeFormatDate(v.tanggal, 'dd MMM yyyy')}
-                    </p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{v.jam?.substring(0, 5)} WIB</p>
-                  </td>
-                  <td className="px-8 py-6">
-                    <p className="text-sm font-black text-slate-800">{v.master_guru?.nama_guru || '-'}</p>
-                  </td>
-                  <td className="px-8 py-6">
-                    <span className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest">
-                      {v.master_mapel?.nama_mapel || '-'}
-                    </span>
-                  </td>
-                  <td className="px-8 py-6">
-                    <p className="text-xs font-black text-slate-800">{v.kelas || '-'}</p>
-                  </td>
-                  <td className="px-8 py-6 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {(isAdmin || isEditor) && (
-                        <button onClick={() => handleEdit(v)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all" title="Edit Data">
-                          <Edit size={16} />
-                        </button>
-                      )}
-                      {isAdmin && (
-                        <button onClick={() => handleDelete(v.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all" title="Hapus Data">
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {visits.map((v) => {
+                const siswaList = v.sipena_kunjungan_warta_siswa || [];
+                const totalSiswa = siswaList.length;
+                const hadirCount = siswaList.filter((s: any) => s.status_kehadiran === 'Hadir').length;
+                const izinCount = siswaList.filter((s: any) => s.status_kehadiran === 'Izin').length;
+                const sakitCount = siswaList.filter((s: any) => s.status_kehadiran === 'Sakit').length;
+                const alpaCount = siswaList.filter((s: any) => s.status_kehadiran === 'Alpa').length;
+
+                return (
+                  <tr key={v.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-8 py-6">
+                      <p className="text-xs font-black text-slate-800">
+                        {safeFormatDate(v.tanggal, 'dd MMM yyyy')}
+                      </p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{v.jam?.substring(0, 5)} WIB</p>
+                    </td>
+                    <td className="px-8 py-6">
+                      <p className="text-sm font-black text-slate-800">{v.master_guru?.nama_guru || '-'}</p>
+                    </td>
+                    <td className="px-8 py-6">
+                      <span className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-[10px] font-black uppercase tracking-widest">
+                        {v.master_mapel?.nama_mapel || '-'}
+                      </span>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="space-y-1">
+                        <p className="text-xs font-black text-slate-800">Kelas {v.kelas || '-'}</p>
+                        {totalSiswa > 0 ? (
+                          <div className="flex items-center gap-1.5 text-[9px] font-black">
+                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md">
+                              {hadirCount} Hadir
+                            </span>
+                            {izinCount > 0 && (
+                              <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-md">
+                                {izinCount} Izin
+                              </span>
+                            )}
+                            {sakitCount > 0 && (
+                              <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md">
+                                {sakitCount} Sakit
+                              </span>
+                            )}
+                            {alpaCount > 0 && (
+                              <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded-md">
+                                {alpaCount} Alpa
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] font-bold text-slate-400">Presensi tidak dicatat</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-8 py-6 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {(isAdmin || isEditor) && (
+                          <button onClick={() => handleEdit(v)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all" title="Edit Data">
+                            <Edit size={16} />
+                          </button>
+                        )}
+                        {isAdmin && (
+                          <button onClick={() => handleDelete(v.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl opacity-0 group-hover:opacity-100 transition-all" title="Hapus Data">
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Modal Catat Kunjungan Warta */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8">
-              <h4 className="text-xl font-black text-slate-800 uppercase mb-6">{editingId ? 'Edit Kunjungan Warta' : 'Catat Kunjungan Warta'}</h4>
-              <form onSubmit={handleSubmit} className="space-y-4">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="relative bg-white w-full max-w-2xl max-h-[90vh] flex flex-col rounded-[2.5rem] shadow-2xl p-6 md:p-8">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Tanggal</label>
-                  <input 
-                    type="date"
-                    required
-                    value={formData.tanggal}
-                    onChange={(e) => setFormData({...formData, tanggal: e.target.value})}
-                    className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-500 transition-all"
-                  />
+                  <h4 className="text-xl font-black text-slate-800 uppercase">{editingId ? 'Edit Kunjungan Warta' : 'Catat Kunjungan Warta'}</h4>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Lengkapi data guru, kelas, dan presensi siswa</p>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Jam</label>
-                  <input 
-                    type="time"
-                    required
-                    value={formData.jam}
-                    onChange={(e) => setFormData({...formData, jam: e.target.value})}
-                    className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-amber-500 transition-all"
-                  />
+                <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Tanggal *</label>
+                    <input 
+                      type="date"
+                      required
+                      value={formData.tanggal}
+                      onChange={(e) => setFormData({...formData, tanggal: e.target.value})}
+                      className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-amber-500 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Jam *</label>
+                    <input 
+                      type="time"
+                      required
+                      value={formData.jam}
+                      onChange={(e) => setFormData({...formData, jam: e.target.value})}
+                      className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none focus:ring-2 focus:ring-amber-500 transition-all"
+                    />
+                  </div>
                 </div>
+
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Guru</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Guru *</label>
                   <select 
                     required
                     value={formData.guru_id}
                     onChange={(e) => setFormData({...formData, guru_id: e.target.value})}
-                    className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none"
+                    className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none"
                   >
                     <option value="">Pilih Guru</option>
                     {gurus.map(g => <option key={g.id} value={g.id}>{g.nama_guru}</option>)}
                   </select>
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Mata Pelajaran</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Mata Pelajaran *</label>
                     <select 
                       required
                       value={formData.mapel_id}
                       onChange={(e) => setFormData({...formData, mapel_id: e.target.value})}
-                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none"
+                      className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none"
                     >
                       <option value="">Pilih Mapel</option>
                       {mapels.map(m => <option key={m.id} value={m.id}>{m.nama_mapel}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Kelas</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2">Kelas *</label>
                     <select 
+                      required
                       value={formData.kelas}
                       onChange={(e) => setFormData({...formData, kelas: e.target.value})}
-                      className="w-full px-6 py-4 bg-slate-50 border-none rounded-2xl text-sm font-bold outline-none"
+                      className="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl text-xs font-bold outline-none"
                     >
                       <option value="">Pilih Kelas</option>
                       {classes.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                 </div>
-                <button type="submit" disabled={loading} className="w-full py-4 bg-amber-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-amber-200 disabled:opacity-50">
-                  {editingId ? 'Perbarui Kunjungan' : 'Simpan Kunjungan'}
-                </button>
+
+                {/* Section List Siswa per Kelas & Absensi */}
+                {formData.kelas && (
+                  <div className="space-y-3 pt-3 border-t border-slate-100">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <label className="block text-[11px] font-black text-slate-800 uppercase tracking-tight">
+                          Daftar Siswa Kelas {formData.kelas} ({classSiswa.length} Siswa)
+                        </label>
+                        <p className="text-[10px] font-bold text-slate-400">
+                          Default seluruh siswa dicentang (Hadir). Ubah status jika ada Izin/Sakit/Alpa.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSelectAll(true)}
+                          className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors"
+                        >
+                          Centang Semua
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSelectAll(false)}
+                          className="px-2.5 py-1 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors"
+                        >
+                          Hapus Semua
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Attendance Counters Bar */}
+                    <div className="grid grid-cols-4 gap-2 text-center text-xs font-black">
+                      <button 
+                        type="button" 
+                        onClick={() => handleSetAllStatus('Hadir')}
+                        className="p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                        title="Set Semua Hadir"
+                      >
+                        Hadir: {(Object.values(siswaAttendance) as { status: string; selected: boolean }[]).filter(a => a.selected && a.status === 'Hadir').length}
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => handleSetAllStatus('Izin')}
+                        className="p-2 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors"
+                        title="Set Semua Izin"
+                      >
+                        Izin: {(Object.values(siswaAttendance) as { status: string; selected: boolean }[]).filter(a => a.selected && a.status === 'Izin').length}
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => handleSetAllStatus('Sakit')}
+                        className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors"
+                        title="Set Semua Sakit"
+                      >
+                        Sakit: {(Object.values(siswaAttendance) as { status: string; selected: boolean }[]).filter(a => a.selected && a.status === 'Sakit').length}
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => handleSetAllStatus('Alpa')}
+                        className="p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 transition-colors"
+                        title="Set Semua Alpa"
+                      >
+                        Alpa: {(Object.values(siswaAttendance) as { status: string; selected: boolean }[]).filter(a => a.selected && a.status === 'Alpa').length}
+                      </button>
+                    </div>
+
+                    {/* Scrollable List of Students */}
+                    <div className="max-h-60 overflow-y-auto custom-scrollbar border border-slate-200 rounded-2xl divide-y divide-slate-100 bg-slate-50/50">
+                      {loadingSiswa ? (
+                        <div className="p-6 text-center text-xs font-bold text-slate-400">Memuat data siswa kelas {formData.kelas}...</div>
+                      ) : classSiswa.length === 0 ? (
+                        <div className="p-6 text-center text-xs font-bold text-slate-400">Tidak ada siswa ditemukan di kelas {formData.kelas}.</div>
+                      ) : (
+                        classSiswa.map((s) => {
+                          const item = siswaAttendance[s.id] || { status: 'Hadir', selected: true };
+                          return (
+                            <div key={s.id} className="p-2.5 flex items-center justify-between gap-3 hover:bg-white transition-colors">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={item.selected}
+                                  onChange={(e) => {
+                                    setSiswaAttendance(prev => ({
+                                      ...prev,
+                                      [s.id]: { ...item, selected: e.target.checked }
+                                    }));
+                                  }}
+                                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                                />
+                                <div className="min-w-0">
+                                  <p className="text-xs font-black text-slate-800 truncate">{s.nama}</p>
+                                  <p className="text-[10px] font-bold text-slate-400">{s.nis || `Kelas ${s.kelas}`}</p>
+                                </div>
+                              </div>
+
+                              {/* Attendance Status Pills (Hadir, Izin, Sakit, Alpa) */}
+                              {item.selected && (
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {(['Hadir', 'Izin', 'Sakit', 'Alpa'] as const).map((st) => (
+                                    <button
+                                      key={st}
+                                      type="button"
+                                      onClick={() => {
+                                        setSiswaAttendance(prev => ({
+                                          ...prev,
+                                          [s.id]: { status: st, selected: true }
+                                        }));
+                                      }}
+                                      className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase transition-all ${
+                                        item.status === st
+                                          ? st === 'Hadir' ? 'bg-emerald-600 text-white shadow-sm'
+                                          : st === 'Izin' ? 'bg-blue-600 text-white shadow-sm'
+                                          : st === 'Sakit' ? 'bg-amber-600 text-white shadow-sm'
+                                          : 'bg-rose-600 text-white shadow-sm'
+                                          : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-100'
+                                      }`}
+                                    >
+                                      {st}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-2">
+                  <button type="submit" disabled={loading} className="w-full py-4 bg-amber-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-amber-200 disabled:opacity-50 hover:bg-amber-700 transition-all">
+                    {editingId ? 'Perbarui Kunjungan' : 'Simpan Kunjungan'}
+                  </button>
+                </div>
               </form>
             </motion.div>
           </div>
