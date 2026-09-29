@@ -43,7 +43,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase, fetchAllSiswa, filterLatestStudents } from '../../lib/supabase';
-import { format, startOfWeek, endOfWeek, subWeeks, isSameWeek, isSameMonth, parseISO } from 'date-fns';
+import { format, startOfWeek, endOfWeek, subWeeks, subMonths, startOfMonth, endOfMonth, isSameWeek, isSameMonth, parseISO } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -309,9 +309,9 @@ const SipenaDashboard = () => {
   const [chartData, setChartData] = useState<any[]>([]);
   const [topVisitors, setTopVisitors] = useState<any[]>([]);
   const [topBorrowers, setTopBorrowers] = useState<any[]>([]);
-  const [weeklyWartaData, setWeeklyWartaData] = useState<any[]>([]);
+  const [monthlyWartaData, setMonthlyWartaData] = useState<any[]>([]);
   const [wartaTrend, setWartaTrend] = useState<number>(0);
-  const [wartaAvgWeekly, setWartaAvgWeekly] = useState<number>(0);
+  const [wartaAvgMonthly, setWartaAvgMonthly] = useState<number>(0);
   const [topWartaGurus, setTopWartaGurus] = useState<any[]>([]);
   const [wartaByMapel, setWartaByMapel] = useState<any[]>([]);
   const [wartaByKelas, setWartaByKelas] = useState<any[]>([]);
@@ -478,36 +478,40 @@ const SipenaDashboard = () => {
         trend = 100;
       }
 
-      // Generate 6 Weeks of WARTA data (from 5 weeks ago up to reference week)
-      const weeklyData: any[] = [];
-      let weeklySum = 0;
+      // Generate 6 Months of WARTA data (from 5 months ago up to reference month)
+      const monthlyData: any[] = [];
+      let monthlySum = 0;
 
       for (let i = 5; i >= 0; i--) {
-        const targetDate = subWeeks(refDate, i);
-        const wStart = startOfWeek(targetDate, { weekStartsOn: 1 });
-        const wEnd = endOfWeek(targetDate, { weekStartsOn: 1 });
+        const targetDate = subMonths(refDate, i);
+        const mStart = startOfMonth(targetDate);
+        const mEnd = endOfMonth(targetDate);
 
-        const countInWeek = wartaList.filter(w => {
+        const countInMonth = wartaList.filter(w => {
           if (!w.tanggal) return false;
           const d = new Date(w.tanggal);
-          return !isNaN(d.getTime()) && d >= wStart && d <= wEnd;
+          return !isNaN(d.getTime()) && d >= mStart && d <= mEnd;
         }).length;
 
-        weeklySum += countInWeek;
+        monthlySum += countInMonth;
 
         const isCurrent = i === 0;
-        const weekLabel = `${format(wStart, 'd/M')} - ${format(wEnd, 'd/M')}`;
-        const shortName = isCurrent ? (endDate ? 'Mgg Sampai' : 'Minggu Ini') : (i === 1 ? 'Mgg Lalu' : `Mgg -${i}`);
+        const monthFullLabel = format(targetDate, 'MMMM yyyy', { locale: idLocale });
+        const shortName = isCurrent 
+          ? (endDate ? format(targetDate, 'MMM yyyy', { locale: idLocale }) : 'Bulan Ini')
+          : (i === 1 ? 'Bln Lalu' : format(targetDate, 'MMM', { locale: idLocale }));
 
-        weeklyData.push({
+        monthlyData.push({
           name: shortName,
-          fullLabel: weekLabel,
-          kunjungan: countInWeek,
+          fullLabel: monthFullLabel,
+          kunjungan: countInMonth,
           isCurrent
         });
       }
 
-      const avgWeekly = Math.round((weeklySum / 6) * 10) / 10;
+      const avgMonthly = Math.round((monthlySum / 6) * 10) / 10;
+      setMonthlyWartaData(monthlyData);
+      setWartaAvgMonthly(avgMonthly);
 
       // Top WARTA Gurus
       const guruVisitMap: Record<string, { name: string; count: number; mapelList: Set<string>; kelasList: Set<string> }> = {};
@@ -569,9 +573,7 @@ const SipenaDashboard = () => {
         mapelUnikWarta: uniqueWartaMapels.size
       });
 
-      setWeeklyWartaData(weeklyData);
       setWartaTrend(trend);
-      setWartaAvgWeekly(avgWeekly);
       setTopWartaGurus(sortedGurus);
       setWartaByMapel(sortedMapel);
       setWartaByKelas(sortedKelas);
@@ -859,23 +861,23 @@ const SipenaDashboard = () => {
 
         {/* Warta Charts & Breakdown Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Chart: Progres Kunjungan WARTA Mingguan */}
+          {/* Chart: Progres Kunjungan WARTA Bulanan */}
           <div className="lg:col-span-7 bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-slate-100 flex flex-col justify-between">
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                    <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight">Progres Kunjungan WARTA Mingguan</h4>
+                    <h4 className="text-lg font-black text-slate-900 uppercase tracking-tight">Progres Kunjungan WARTA Bulanan</h4>
                   </div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                    Tren 6 Minggu Terakhir (Capaian & Performa)
+                    Tren 6 Bulan Terakhir (Capaian & Performa)
                   </p>
                 </div>
                 <div className="flex items-center gap-2 bg-amber-50/80 px-3 py-1.5 rounded-xl border border-amber-200/60">
                   <BarChart3 size={14} className="text-amber-600" />
                   <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider">
-                    Rata-rata: {wartaAvgWeekly} / mgg
+                    Rata-rata: {wartaAvgMonthly} / bln
                   </span>
                 </div>
               </div>
@@ -883,7 +885,7 @@ const SipenaDashboard = () => {
               {/* Chart Container */}
               <div className="h-[280px] w-full mt-4">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={weeklyWartaData} margin={{ top: 15, right: 10, left: -20, bottom: 0 }}>
+                  <BarChart data={monthlyWartaData} margin={{ top: 15, right: 10, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="wartaBarGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#D97706" stopOpacity={1} />
@@ -915,7 +917,7 @@ const SipenaDashboard = () => {
                           const data = payload[0].payload;
                           return (
                             <div className="bg-slate-900 text-white p-3 rounded-xl shadow-xl text-xs space-y-1">
-                              <p className="font-bold text-amber-300">{data.name} ({data.fullLabel})</p>
+                              <p className="font-bold text-amber-300">{data.fullLabel}</p>
                               <p className="text-slate-200">
                                 Total: <span className="font-black text-white">{data.kunjungan} Kunjungan</span>
                               </p>
@@ -929,7 +931,7 @@ const SipenaDashboard = () => {
                       }}
                     />
                     <Bar dataKey="kunjungan" radius={[10, 10, 0, 0]} barSize={38}>
-                      {weeklyWartaData.map((entry, index) => (
+                      {monthlyWartaData.map((entry, index) => (
                         <Cell 
                           key={`warta-cell-${index}`} 
                           fill={entry.isCurrent ? 'url(#wartaBarCurrentGradient)' : 'url(#wartaBarGradient)'} 
@@ -941,9 +943,9 @@ const SipenaDashboard = () => {
               </div>
             </div>
 
-            {/* Weekly Breakdown Pills */}
+            {/* Monthly Breakdown Pills */}
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-6 pt-6 border-t border-slate-100">
-              {weeklyWartaData.map((w, idx) => (
+              {monthlyWartaData.map((w, idx) => (
                 <div 
                   key={idx} 
                   className={`p-2.5 rounded-xl text-center border transition-all ${
