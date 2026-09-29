@@ -1,6 +1,6 @@
 import { JurnalPembelajaran } from '../types/jurnalpembelajaran';
 
-export const PRIMARY_NOTIF_EMAIL = 'wiwikismiati07@gmail.com';
+export const PRIMARY_NOTIF_EMAIL = '';
 
 export interface EmailNotifResult {
   success: boolean;
@@ -295,6 +295,15 @@ export const dispatchJurnalEmailNotification = async (
   jurnal: JurnalPembelajaran,
   targetEmail: string = PRIMARY_NOTIF_EMAIL
 ): Promise<EmailNotifResult> => {
+  if (!targetEmail || targetEmail === 'wiwikismiati07@gmail.com') {
+    return {
+      success: true,
+      delivered: false,
+      recipient: '',
+      method: 'simulated',
+      message: 'Notifikasi email telah dinonaktifkan.'
+    };
+  }
   const subject = generateJurnalEmailSubject(jurnal);
   const text = generateJurnalEmailText(jurnal);
   const html = generateJurnalEmailHtml(jurnal);

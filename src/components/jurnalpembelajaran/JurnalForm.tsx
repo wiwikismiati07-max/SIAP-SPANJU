@@ -506,9 +506,9 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
               </h2>
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 <p className="text-xs text-slate-400 font-medium">Catat agenda belajar mengajar, materi, presensi, dan evaluasi siswa</p>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-amber-50 border border-amber-200/80 rounded-full text-[11px] font-semibold text-amber-800">
-                  <Mail size={12} className="text-amber-600" />
-                  <span>Notifikasi Email: <strong className="text-amber-900">{PRIMARY_NOTIF_EMAIL}</strong></span>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-slate-100 border border-slate-200 rounded-full text-[11px] font-semibold text-slate-600">
+                  <Mail size={12} className="text-slate-400" />
+                  <span>Notifikasi Email: <strong className="text-slate-600">{PRIMARY_NOTIF_EMAIL || 'Nonaktif'}</strong></span>
                 </div>
               </div>
             </div>
@@ -1358,8 +1358,8 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
             </span>
           ) : (
             <span className="flex items-center gap-1.5 text-slate-500">
-              <Mail size={14} className="text-amber-600" />
-              <span>Notifikasi otomatis dikirim ke: <strong className="text-slate-800">{PRIMARY_NOTIF_EMAIL}</strong></span>
+              <Mail size={14} className="text-slate-400" />
+              <span>Notifikasi Email: <strong className="text-slate-600">{PRIMARY_NOTIF_EMAIL || 'Nonaktif'}</strong></span>
             </span>
           )}
         </div>

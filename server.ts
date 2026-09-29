@@ -43,11 +43,20 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Endpoint to send learning journal notification to wiwikismiati07@gmail.com
+// Endpoint to send learning journal notification to email (disabled)
 app.post('/api/notify-jurnal', async (req, res) => {
   try {
     const { recipient, subject, text, html, fields, jurnal } = req.body;
-    const targetEmail = recipient || 'wiwikismiati07@gmail.com';
+    const targetEmail = recipient || '';
+
+    if (!targetEmail || targetEmail === 'wiwikismiati07@gmail.com') {
+      return res.json({
+        success: true,
+        delivered: false,
+        method: 'disabled',
+        message: 'Notifikasi email telah dinonaktifkan.'
+      });
+    }
 
     console.log(`[Email Notification] Request received for ${targetEmail}`);
     if (jurnal) {
