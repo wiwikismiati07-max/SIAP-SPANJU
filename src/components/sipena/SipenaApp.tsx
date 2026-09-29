@@ -42,7 +42,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { supabase, fetchAllSiswa } from '../../lib/supabase';
+import { supabase, fetchAllSiswa, filterLatestStudents } from '../../lib/supabase';
 import { format, startOfWeek, endOfWeek, subWeeks, isSameWeek, isSameMonth, parseISO } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import * as XLSX from 'xlsx';
@@ -343,15 +343,15 @@ const SipenaDashboard = () => {
       if (startDate) pinjamQuery = pinjamQuery.gte('tanggal_pinjam', startDate);
       if (endDate) pinjamQuery = pinjamQuery.lte('tanggal_pinjam', endDate);
 
-      const [kunjungan, buku, pinjam, warta, masterSiswaRes] = await Promise.all([
+      const [kunjungan, buku, pinjam, warta, latestStudents] = await Promise.all([
         kunjunganQuery,
         supabase.from('sipena_buku').select('*'),
         pinjamQuery,
         wartaQuery,
-        supabase.from('master_siswa').select('id')
+        fetchAllSiswa()
       ]);
 
-      const totalSiswaMaster = masterSiswaRes.data?.length || 0;
+      const totalSiswaMaster = latestStudents.length;
 
       const totalKunjungan = kunjungan.data?.length || 0;
       const uniqueClasses = new Set(kunjungan.data?.map(v => v.kelas)).size;
@@ -2240,6 +2240,7 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
   const [classSiswa, setClassSiswa] = useState<any[]>([]);
   const [siswaAttendance, setSiswaAttendance] = useState<Record<string, { status: 'Hadir' | 'Izin' | 'Sakit' | 'Alpa', selected: boolean }>>({});
   const [loadingSiswa, setLoadingSiswa] = useState(false);
+  const [searchClassSiswa, setSearchClassSiswa] = useState('');
 
   const [formData, setFormData] = useState({
     tanggal: format(new Date(), 'yyyy-MM-dd'),
@@ -2269,26 +2270,31 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
   const fetchClassSiswa = async (kelasName: string) => {
     setLoadingSiswa(true);
     try {
-      const { data, error } = await supabase
-        .from('master_siswa')
-        .select('id, nis, nama, kelas')
-        .eq('kelas', kelasName)
-        .order('nama');
-      if (error) throw error;
+      const latestStudents = await fetchAllSiswa();
 
-      const siswaList = data || [];
+      const targetClass = (kelasName || '').trim().toUpperCase();
+      const siswaList = latestStudents.filter(s => 
+        (s.kelas || '').toString().trim().toUpperCase() === targetClass
+      );
       setClassSiswa(siswaList);
 
       let savedMap: Record<string, 'Hadir' | 'Izin' | 'Sakit' | 'Alpa'> = {};
+      let savedSiswaIds = new Set<string>();
       if (editingId) {
         try {
           const { data: savedAtt } = await supabase
             .from('sipena_kunjungan_warta_siswa')
-            .select('siswa_id, status_kehadiran')
+            .select('siswa_id, status_kehadiran, master_siswa(nis, nama)')
             .eq('kunjungan_warta_id', editingId);
           if (savedAtt && savedAtt.length > 0) {
-            savedAtt.forEach(a => {
-              savedMap[a.siswa_id] = a.status_kehadiran || 'Hadir';
+            savedAtt.forEach((a: any) => {
+              const status = a.status_kehadiran || 'Hadir';
+              if (a.siswa_id) {
+                savedMap[a.siswa_id] = status;
+                savedSiswaIds.add(a.siswa_id);
+              }
+              if (a.master_siswa?.nis) savedMap[`nis:${a.master_siswa.nis}`] = status;
+              if (a.master_siswa?.nama) savedMap[`nama:${a.master_siswa.nama.toLowerCase().trim()}`] = status;
             });
           }
         } catch (err) {
@@ -2299,9 +2305,14 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
       // Default all students checked (selected: true) and default status: 'Hadir'
       const attState: Record<string, { status: 'Hadir' | 'Izin' | 'Sakit' | 'Alpa', selected: boolean }> = {};
       siswaList.forEach(s => {
+        const nisKey = s.nis ? `nis:${s.nis}` : null;
+        const namaKey = s.nama ? `nama:${s.nama.toLowerCase().trim()}` : null;
+        const matchedStatus = savedMap[s.id] || (nisKey ? savedMap[nisKey] : null) || (namaKey ? savedMap[namaKey] : null);
+        const isMatched = savedSiswaIds.has(s.id) || (matchedStatus !== undefined && matchedStatus !== null);
+
         attState[s.id] = {
-          status: savedMap[s.id] || 'Hadir',
-          selected: editingId ? (savedMap[s.id] !== undefined) : true
+          status: (matchedStatus as any) || 'Hadir',
+          selected: editingId ? isMatched : true
         };
       });
       setSiswaAttendance(attState);
@@ -2764,6 +2775,18 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
                       </button>
                     </div>
 
+                    {/* Search Bar for Class Students */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Cari nama atau NIS siswa di kelas ini..."
+                        value={searchClassSiswa}
+                        onChange={(e) => setSearchClassSiswa(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2.5 bg-slate-100/80 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-amber-500 transition-all placeholder:font-normal placeholder:text-slate-400"
+                      />
+                      <Search size={14} className="absolute left-3 top-3 text-slate-400" />
+                    </div>
+
                     {/* Scrollable List of Students */}
                     <div className="max-h-60 overflow-y-auto custom-scrollbar border border-slate-200 rounded-2xl divide-y divide-slate-100 bg-slate-50/50">
                       {loadingSiswa ? (
@@ -2771,7 +2794,13 @@ const SipenaKunjunganWarta: React.FC<{ user?: any, setMessage?: (msg: { type: 's
                       ) : classSiswa.length === 0 ? (
                         <div className="p-6 text-center text-xs font-bold text-slate-400">Tidak ada siswa ditemukan di kelas {formData.kelas}.</div>
                       ) : (
-                        classSiswa.map((s) => {
+                        classSiswa
+                          .filter(s => {
+                            if (!searchClassSiswa) return true;
+                            const q = searchClassSiswa.toLowerCase().trim();
+                            return (s.nama || '').toLowerCase().includes(q) || (s.nis || '').toString().includes(q);
+                          })
+                          .map((s) => {
                           const item = siswaAttendance[s.id] || { status: 'Hadir', selected: true };
                           return (
                             <div key={s.id} className="p-2.5 flex items-center justify-between gap-3 hover:bg-white transition-colors">
