@@ -277,6 +277,8 @@ const SipenaApp: React.FC<SipenaAppProps & { user?: any }> = ({ onBack, onOpenSi
 // --- Sub-Components ---
 
 const SipenaDashboard = () => {
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [stats, setStats] = useState({
     totalKunjungan: 0,
     kunjunganKelas: 0,
@@ -304,17 +306,29 @@ const SipenaDashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [startDate, endDate]);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       
+      let kunjunganQuery = supabase.from('sipena_kunjungan_siswa').select('*, master_siswa(nama)');
+      if (startDate) kunjunganQuery = kunjunganQuery.gte('tanggal', startDate);
+      if (endDate) kunjunganQuery = kunjunganQuery.lte('tanggal', endDate);
+
+      let wartaQuery = supabase.from('sipena_kunjungan_warta').select('*, master_guru(nama_guru), master_mapel(nama_mapel)').order('tanggal', { ascending: false });
+      if (startDate) wartaQuery = wartaQuery.gte('tanggal', startDate);
+      if (endDate) wartaQuery = wartaQuery.lte('tanggal', endDate);
+
+      let pinjamQuery = supabase.from('sipena_peminjaman').select('*, master_siswa(nama)');
+      if (startDate) pinjamQuery = pinjamQuery.gte('tanggal_pinjam', startDate);
+      if (endDate) pinjamQuery = pinjamQuery.lte('tanggal_pinjam', endDate);
+
       const [kunjungan, buku, pinjam, warta] = await Promise.all([
-        supabase.from('sipena_kunjungan_siswa').select('*, master_siswa(nama)'),
+        kunjunganQuery,
         supabase.from('sipena_buku').select('*'),
-        supabase.from('sipena_peminjaman').select('*, master_siswa(nama)'),
-        supabase.from('sipena_kunjungan_warta').select('*, master_guru(nama_guru), master_mapel(nama_mapel)').order('tanggal', { ascending: false })
+        pinjamQuery,
+        wartaQuery
       ]);
 
       const totalKunjungan = kunjungan.data?.length || 0;
@@ -524,7 +538,123 @@ const SipenaDashboard = () => {
   ];
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
+      {/* Filter Periode Kunjungan: Mulai s/d Sampai */}
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white p-5 md:p-6 rounded-[2.5rem] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.06)] border border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-4"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center shadow-md shadow-indigo-100 shrink-0">
+            <Calendar size={20} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Filter Tanggal Kunjungan</h3>
+              {(startDate || endDate) && (
+                <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 text-[9px] font-black uppercase">
+                  Aktif
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+              {startDate || endDate 
+                ? `Rentang filter: ${startDate ? safeFormatDate(startDate, 'd MMM yyyy') : 'Semua'} s/d ${endDate ? safeFormatDate(endDate, 'd MMM yyyy') : 'Sekarang'}`
+                : 'Pilih tanggal "Mulai" dan "Sampai" untuk memfilter statistik kunjungan'
+              }
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Input Mulai */}
+          <div className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100/80 transition-colors px-3.5 py-2.5 rounded-2xl border border-slate-200">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Mulai:</span>
+            <input 
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-800 outline-none cursor-pointer"
+              title="Tanggal Mulai Kunjungan"
+            />
+          </div>
+
+          <span className="text-xs font-black text-slate-300 hidden sm:inline">-</span>
+
+          {/* Input Sampai */}
+          <div className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100/80 transition-colors px-3.5 py-2.5 rounded-2xl border border-slate-200">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Sampai:</span>
+            <input 
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-800 outline-none cursor-pointer"
+              title="Tanggal Sampai Kunjungan"
+            />
+          </div>
+
+          {/* Quick Presets */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl">
+            <button
+              type="button"
+              onClick={() => {
+                const today = format(new Date(), 'yyyy-MM-dd');
+                setStartDate(today);
+                setEndDate(today);
+              }}
+              className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all ${
+                startDate === format(new Date(), 'yyyy-MM-dd') && endDate === format(new Date(), 'yyyy-MM-dd')
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              Hari Ini
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const now = new Date();
+                setStartDate(format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'));
+                setEndDate(format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'));
+              }}
+              className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-600 hover:text-slate-900 rounded-xl hover:bg-white/60 transition-all"
+            >
+              Minggu Ini
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const now = new Date();
+                const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+                const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                setStartDate(format(firstDay, 'yyyy-MM-dd'));
+                setEndDate(format(lastDay, 'yyyy-MM-dd'));
+              }}
+              className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-600 hover:text-slate-900 rounded-xl hover:bg-white/60 transition-all"
+            >
+              Bulan Ini
+            </button>
+          </div>
+
+          {/* Reset Button */}
+          {(startDate || endDate) && (
+            <button
+              type="button"
+              onClick={() => {
+                setStartDate('');
+                setEndDate('');
+              }}
+              className="px-3.5 py-2 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[10px] font-black uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-sm"
+              title="Reset Filter Tanggal Kunjungan"
+            >
+              <RotateCcw size={13} />
+              Reset
+            </button>
+          )}
+        </div>
+      </motion.div>
+
       {/* Top Statistics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
         {statCards.map((card, i) => (
