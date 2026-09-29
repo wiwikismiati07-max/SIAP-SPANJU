@@ -38,7 +38,8 @@ import {
   Sparkles,
   CalendarCheck,
   Flame,
-  BookMarked
+  BookMarked,
+  UserCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase, fetchAllSiswa } from '../../lib/supabase';
@@ -291,6 +292,20 @@ const SipenaDashboard = () => {
     guruUnikWarta: 0,
     mapelUnikWarta: 0
   });
+  const [wartaStudentStats, setWartaStudentStats] = useState({
+    totalRecorded: 0,
+    totalHadir: 0,
+    totalIzin: 0,
+    totalSakit: 0,
+    totalAlpa: 0,
+    persentaseHadir: 0,
+    persentaseIzin: 0,
+    persentaseSakit: 0,
+    persentaseAlpa: 0,
+    uniqueSiswaCount: 0,
+    totalSiswaMaster: 0,
+    persentasePartisipasiSekolah: 0
+  });
   const [chartData, setChartData] = useState<any[]>([]);
   const [topVisitors, setTopVisitors] = useState<any[]>([]);
   const [topBorrowers, setTopBorrowers] = useState<any[]>([]);
@@ -301,7 +316,7 @@ const SipenaDashboard = () => {
   const [wartaByMapel, setWartaByMapel] = useState<any[]>([]);
   const [wartaByKelas, setWartaByKelas] = useState<any[]>([]);
   const [latestWartaVisits, setLatestWartaVisits] = useState<any[]>([]);
-  const [wartaActiveTab, setWartaActiveTab] = useState<'guru' | 'mapel' | 'riwayat'>('guru');
+  const [wartaActiveTab, setWartaActiveTab] = useState<'guru' | 'mapel' | 'absensi' | 'riwayat'>('guru');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -319,7 +334,7 @@ const SipenaDashboard = () => {
       const refDate = endDate ? parseISO(endDate) : new Date();
       const sixWeeksAgoStr = format(subWeeks(startOfWeek(refDate, { weekStartsOn: 1 }), 6), 'yyyy-MM-dd');
 
-      let wartaQuery = supabase.from('sipena_kunjungan_warta').select('*, master_guru(nama_guru), master_mapel(nama_mapel)').order('tanggal', { ascending: false });
+      let wartaQuery = supabase.from('sipena_kunjungan_warta').select('*, master_guru(nama_guru), master_mapel(nama_mapel), sipena_kunjungan_warta_siswa(*, master_siswa(nama))').order('tanggal', { ascending: false });
       if (endDate) wartaQuery = wartaQuery.lte('tanggal', endDate);
       // Fetch at least 6 weeks back from refDate so 6-week chart is fully populated
       wartaQuery = wartaQuery.gte('tanggal', startDate && startDate < sixWeeksAgoStr ? startDate : sixWeeksAgoStr);
@@ -328,12 +343,15 @@ const SipenaDashboard = () => {
       if (startDate) pinjamQuery = pinjamQuery.gte('tanggal_pinjam', startDate);
       if (endDate) pinjamQuery = pinjamQuery.lte('tanggal_pinjam', endDate);
 
-      const [kunjungan, buku, pinjam, warta] = await Promise.all([
+      const [kunjungan, buku, pinjam, warta, masterSiswaRes] = await Promise.all([
         kunjunganQuery,
         supabase.from('sipena_buku').select('*'),
         pinjamQuery,
-        wartaQuery
+        wartaQuery,
+        supabase.from('master_siswa').select('id')
       ]);
+
+      const totalSiswaMaster = masterSiswaRes.data?.length || 0;
 
       const totalKunjungan = kunjungan.data?.length || 0;
       const uniqueClasses = new Set(kunjungan.data?.map(v => v.kelas)).size;
@@ -350,6 +368,51 @@ const SipenaDashboard = () => {
         if (endDate && w.tanggal > endDate) return false;
         return true;
       }).length;
+
+      // Student attendance stats for WARTA
+      let totalHadir = 0;
+      let totalIzin = 0;
+      let totalSakit = 0;
+      let totalAlpa = 0;
+      const uniqueSiswaWartaSet = new Set<string>();
+
+      wartaList.forEach(w => {
+        if (!w.tanggal) return;
+        if (startDate && w.tanggal < startDate) return;
+        if (endDate && w.tanggal > endDate) return;
+
+        const attList = w.sipena_kunjungan_warta_siswa || [];
+        attList.forEach((a: any) => {
+          if (a.siswa_id) uniqueSiswaWartaSet.add(a.siswa_id);
+          if (a.status_kehadiran === 'Hadir') totalHadir++;
+          else if (a.status_kehadiran === 'Izin') totalIzin++;
+          else if (a.status_kehadiran === 'Sakit') totalSakit++;
+          else if (a.status_kehadiran === 'Alpa') totalAlpa++;
+        });
+      });
+
+      const totalRecorded = totalHadir + totalIzin + totalSakit + totalAlpa;
+      const persentaseHadir = totalRecorded > 0 ? Math.round((totalHadir / totalRecorded) * 1000) / 10 : 0;
+      const persentaseIzin = totalRecorded > 0 ? Math.round((totalIzin / totalRecorded) * 1000) / 10 : 0;
+      const persentaseSakit = totalRecorded > 0 ? Math.round((totalSakit / totalRecorded) * 1000) / 10 : 0;
+      const persentaseAlpa = totalRecorded > 0 ? Math.round((totalAlpa / totalRecorded) * 1000) / 10 : 0;
+      const uniqueSiswaCount = uniqueSiswaWartaSet.size;
+      const persentasePartisipasiSekolah = totalSiswaMaster > 0 ? Math.round((uniqueSiswaCount / totalSiswaMaster) * 1000) / 10 : 0;
+
+      setWartaStudentStats({
+        totalRecorded,
+        totalHadir,
+        totalIzin,
+        totalSakit,
+        totalAlpa,
+        persentaseHadir,
+        persentaseIzin,
+        persentaseSakit,
+        persentaseAlpa,
+        uniqueSiswaCount,
+        totalSiswaMaster,
+        persentasePartisipasiSekolah
+      });
 
       const currentMonth = refDate.getMonth();
       const currentYear = refDate.getFullYear();
@@ -767,6 +830,19 @@ const SipenaDashboard = () => {
                 <p className="text-base font-black text-slate-800">{stats.guruUnikWarta} Orang</p>
               </div>
             </div>
+
+            <div className="bg-white px-4 py-3 rounded-2xl border border-amber-100 shadow-sm flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black">
+                <UserCheck size={18} />
+              </div>
+              <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">% Kehadiran Siswa</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-base font-black text-emerald-600">{wartaStudentStats.persentaseHadir}%</p>
+                  <span className="text-[10px] font-bold text-slate-400">({wartaStudentStats.totalHadir}/{wartaStudentStats.totalRecorded})</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -890,7 +966,7 @@ const SipenaDashboard = () => {
                 <button
                   type="button"
                   onClick={() => setWartaActiveTab('guru')}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
                     wartaActiveTab === 'guru' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
@@ -899,7 +975,7 @@ const SipenaDashboard = () => {
                 <button
                   type="button"
                   onClick={() => setWartaActiveTab('mapel')}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
                     wartaActiveTab === 'mapel' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
@@ -907,8 +983,17 @@ const SipenaDashboard = () => {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setWartaActiveTab('absensi')}
+                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                    wartaActiveTab === 'absensi' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  % Siswa
+                </button>
+                <button
+                  type="button"
                   onClick={() => setWartaActiveTab('riwayat')}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
                     wartaActiveTab === 'riwayat' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
@@ -989,6 +1074,75 @@ const SipenaDashboard = () => {
                           <span className="px-1.5 py-0.5 rounded-md bg-white text-[10px] font-black text-slate-500 shadow-sm">{k.count}x</span>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {wartaActiveTab === 'absensi' && (
+                <div className="space-y-3.5">
+                  {/* Summary Card */}
+                  <div className="p-3.5 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl flex items-center justify-between">
+                    <div>
+                      <p className="text-[9px] font-black text-emerald-800 uppercase tracking-wider">Persentase Kehadiran Siswa</p>
+                      <p className="text-2xl font-black text-emerald-700 mt-0.5">{wartaStudentStats.persentaseHadir}%</p>
+                      <p className="text-[9px] font-bold text-slate-500 mt-0.5">
+                        {wartaStudentStats.totalHadir} Hadir dari {wartaStudentStats.totalRecorded} total presensi
+                      </p>
+                    </div>
+                    <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black text-base shadow-md shadow-emerald-200 shrink-0">
+                      <UserCheck size={22} />
+                    </div>
+                  </div>
+
+                  {/* Attendance Breakdown Progress Bars */}
+                  <div className="space-y-2">
+                    <div>
+                      <div className="flex justify-between text-[11px] font-bold text-slate-700 mb-0.5">
+                        <span>Hadir</span>
+                        <span className="font-black text-emerald-600">{wartaStudentStats.persentaseHadir}% ({wartaStudentStats.totalHadir} Siswa)</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${wartaStudentStats.persentaseHadir}%` }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[11px] font-bold text-slate-700 mb-0.5">
+                        <span>Izin</span>
+                        <span className="font-black text-blue-600">{wartaStudentStats.persentaseIzin}% ({wartaStudentStats.totalIzin} Siswa)</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div className="bg-blue-500 h-full rounded-full" style={{ width: `${wartaStudentStats.persentaseIzin}%` }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[11px] font-bold text-slate-700 mb-0.5">
+                        <span>Sakit</span>
+                        <span className="font-black text-amber-600">{wartaStudentStats.persentaseSakit}% ({wartaStudentStats.totalSakit} Siswa)</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div className="bg-amber-500 h-full rounded-full" style={{ width: `${wartaStudentStats.persentaseSakit}%` }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[11px] font-bold text-slate-700 mb-0.5">
+                        <span>Alpa</span>
+                        <span className="font-black text-rose-600">{wartaStudentStats.persentaseAlpa}% ({wartaStudentStats.totalAlpa} Siswa)</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div className="bg-rose-500 h-full rounded-full" style={{ width: `${wartaStudentStats.persentaseAlpa}%` }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* School Student Coverage */}
+                  <div className="pt-2.5 border-t border-slate-100">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
+                      <span>Total Partisipasi Siswa Sekolah:</span>
+                      <span className="font-black text-indigo-600">{wartaStudentStats.uniqueSiswaCount} / {wartaStudentStats.totalSiswaMaster} Siswa ({wartaStudentStats.persentasePartisipasiSekolah}%)</span>
                     </div>
                   </div>
                 </div>
