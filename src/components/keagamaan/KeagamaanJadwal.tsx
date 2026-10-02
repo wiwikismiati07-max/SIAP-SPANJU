@@ -20,6 +20,9 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterBulan, setFilterBulan] = useState('');
+  const [filterMinggu, setFilterMinggu] = useState('');
+  const [sortWeekAsc, setSortWeekAsc] = useState(true);
 
   const [formData, setFormData] = useState({
     kegiatan_id: '',
@@ -32,11 +35,16 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
   });
 
   const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-  const weeks = [1, 2, 3, 4];
+  const weeks = [1, 2, 3, 4, 5];
   const months = [
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
   ];
+  
+  const monthOrder: Record<string, number> = {
+    'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4, 'Mei': 5, 'Juni': 6,
+    'Juli': 7, 'Agustus': 8, 'September': 9, 'Oktober': 10, 'November': 11, 'Desember': 12
+  };
   
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 16 }, (_, i) => currentYear - 5 + i);
@@ -64,9 +72,8 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
           *,
           kegiatan:agama_program(nama_kegiatan)
         `)
-        .order('tahun', { ascending: false })
-        .order('bulan', { ascending: false })
-        .order('minggu_ke', { ascending: false });
+        .order('minggu_ke', { ascending: true })
+        .order('tahun', { ascending: false });
       
       if (error) throw error;
       setJadwalList(data || []);
@@ -187,7 +194,7 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
       headerRow.getCell(i + 1).value = col.header;
     });
 
-    jadwalList.forEach((item, index) => {
+    filteredJadwalList.forEach((item, index) => {
       worksheet.addRow({
         no: index + 1,
         kegiatan: item.kegiatan?.nama_kegiatan,
@@ -200,10 +207,10 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
       });
     });
 
-    applyColorfulTableStyle(worksheet, headerRowIndex, jadwalList.length, columns.length);
+    applyColorfulTableStyle(worksheet, headerRowIndex, filteredJadwalList.length, columns.length);
     
     // --- SIGNATURE SECTION ---
-    const footerStartRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : (headerRowIndex + jadwalList.length + 2);
+    const footerStartRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : (headerRowIndex + filteredJadwalList.length + 2);
     const leftColStart = 2;
     const leftColEnd = 4;
     const rightColStart = 6;
@@ -368,17 +375,34 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
     reader.readAsBinaryString(file);
   };
 
-  const filteredJadwalList = jadwalList.filter(jadwal => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (jadwal.kegiatan?.nama_kegiatan || '').toLowerCase().includes(q) ||
-      (jadwal.hari || '').toLowerCase().includes(q) ||
-      (jadwal.bulan || '').toLowerCase().includes(q) ||
-      (jadwal.kelas || '').toLowerCase().includes(q) ||
-      (jadwal.keterangan || '').toLowerCase().includes(q)
-    );
-  });
+  const filteredJadwalList = [...jadwalList]
+    .filter(jadwal => {
+      if (filterBulan && jadwal.bulan !== filterBulan) return false;
+      if (filterMinggu && Number(jadwal.minggu_ke) !== Number(filterMinggu)) return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        (jadwal.kegiatan?.nama_kegiatan || '').toLowerCase().includes(q) ||
+        (jadwal.hari || '').toLowerCase().includes(q) ||
+        (jadwal.bulan || '').toLowerCase().includes(q) ||
+        (jadwal.kelas || '').toLowerCase().includes(q) ||
+        (jadwal.keterangan || '').toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => {
+      // 1. Urutkan Minggu Ke: 1, 2, 3, 4, 5
+      const wA = Number(a.minggu_ke) || 1;
+      const wB = Number(b.minggu_ke) || 1;
+      if (wA !== wB) {
+        return sortWeekAsc ? wA - wB : wB - wA;
+      }
+      // 2. Bulan
+      const mA = monthOrder[a.bulan] || 0;
+      const mB = monthOrder[b.bulan] || 0;
+      if (mA !== mB) return mA - mB;
+      // 3. Tahun
+      return (b.tahun || 0) - (a.tahun || 0);
+    });
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
@@ -423,8 +447,8 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
       </div>
 
       <div className="bg-white rounded-2xl md:rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-4 sm:p-6 border-b border-slate-100 flex items-center justify-between">
-          <div className="relative w-full max-w-md">
+        <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+          <div className="relative flex-1 min-w-[220px] max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
@@ -434,14 +458,58 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
               className="w-full pl-11 pr-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 text-xs sm:text-sm font-medium outline-none focus:border-emerald-500 transition-all"
             />
           </div>
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="ml-2 text-xs font-bold text-slate-400 hover:text-slate-600"
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Filter Minggu */}
+            <select
+              value={filterMinggu}
+              onChange={e => setFilterMinggu(e.target.value)}
+              className="px-3 py-2 sm:py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-emerald-500 cursor-pointer"
             >
-              Reset
+              <option value="">Semua Minggu</option>
+              {weeks.map(w => (
+                <option key={w} value={w}>Minggu {w}</option>
+              ))}
+            </select>
+
+            {/* Filter Bulan */}
+            <select
+              value={filterBulan}
+              onChange={e => setFilterBulan(e.target.value)}
+              className="px-3 py-2 sm:py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-emerald-500 cursor-pointer"
+            >
+              <option value="">Semua Bulan</option>
+              {months.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+
+            {/* Tombol Urutan Minggu 1-5 */}
+            <button
+              onClick={() => setSortWeekAsc(!sortWeekAsc)}
+              className={`flex items-center gap-1.5 px-3 py-2 sm:py-2.5 rounded-xl text-xs font-black transition-all border shadow-xs ${
+                sortWeekAsc 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' 
+                  : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+              }`}
+              title="Klik untuk ubah urutan minggu"
+            >
+              <span>Urutan: Minggu {sortWeekAsc ? '1 → 5' : '5 → 1'}</span>
             </button>
-          )}
+
+            {(searchQuery || filterBulan || filterMinggu) && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilterBulan('');
+                  setFilterMinggu('');
+                }}
+                className="text-xs font-bold text-rose-500 hover:text-rose-700 px-2 py-1"
+              >
+                Reset
+              </button>
+            )}
+          </div>
         </div>
         
         <div className="overflow-x-auto custom-scrollbar">
@@ -449,7 +517,18 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
             <thead>
               <tr className="bg-slate-50/70">
                 <th className="px-5 sm:px-7 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Kegiatan</th>
-                <th className="px-5 sm:px-7 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Waktu</th>
+                <th 
+                  className="px-5 sm:px-7 py-4 text-[10px] font-black text-emerald-700 uppercase tracking-widest cursor-pointer hover:bg-emerald-50/50 transition-colors"
+                  onClick={() => setSortWeekAsc(!sortWeekAsc)}
+                  title="Klik untuk ubah urutan minggu"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Waktu</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-black">
+                      Minggu {sortWeekAsc ? '1-5' : '5-1'}
+                    </span>
+                  </div>
+                </th>
                 <th className="px-5 sm:px-7 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Kelas</th>
                 <th className="px-5 sm:px-7 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Keterangan</th>
                 <th className="px-5 sm:px-7 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
