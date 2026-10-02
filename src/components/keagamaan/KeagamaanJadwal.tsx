@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { Calendar, Clock, BookOpen, Users, Save, X, Edit2, Trash2, Search, Download, Plus, FileSpreadsheet, Upload } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AgamaProgram, AgamaJadwal } from '../../types/keagamaan';
@@ -122,6 +121,15 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
       keterangan: ''
     });
     setEditingId(null);
+  };
+
+  const openAddModal = () => {
+    resetForm();
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    resetForm();
     setIsModalOpen(false);
   };
 
@@ -403,10 +411,8 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
           </button>
           {canAdd && (
             <button
-              onClick={() => {
-                resetForm();
-                setIsModalOpen(true);
-              }}
+              type="button"
+              onClick={openAddModal}
               className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-emerald-600 text-white rounded-xl md:rounded-2xl font-black text-xs sm:text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95"
             >
               <Plus size={16} />
@@ -518,16 +524,16 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
         </div>
       </div>
 
-      {/* Modal Form - Rendered via Portal to document.body for perfect full-screen viewport on mobile and laptop */}
+      {/* Modal Form */}
       <AnimatePresence>
-        {isModalOpen && typeof document !== 'undefined' && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
+        {isModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
             {/* Full-screen Backdrop */}
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={resetForm}
+              onClick={closeModal}
               className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" 
             />
 
@@ -536,7 +542,7 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="relative bg-white w-full max-w-lg md:max-w-xl rounded-2xl md:rounded-[28px] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] my-auto z-10 border border-slate-100"
+              className="relative bg-white w-full max-w-lg md:max-w-xl rounded-2xl md:rounded-[28px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] my-auto z-10 border border-slate-100"
             >
               {/* Compact Fixed Header */}
               <div className="bg-emerald-600 px-5 py-3.5 sm:px-6 sm:py-4 text-white flex items-center justify-between shrink-0 shadow-sm">
@@ -550,7 +556,7 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
                 </div>
                 <button 
                   type="button"
-                  onClick={resetForm} 
+                  onClick={closeModal} 
                   className="p-1.5 sm:p-2 hover:bg-white/10 rounded-xl transition-colors text-white/90 hover:text-white"
                   title="Tutup Form"
                 >
@@ -664,7 +670,7 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
                 <div className="flex gap-2.5 sm:gap-3 pt-2 sm:pt-3 shrink-0">
                   <button
                     type="button"
-                    onClick={resetForm}
+                    onClick={closeModal}
                     className="flex-1 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-xs sm:text-sm hover:bg-slate-50 active:scale-95 transition-all"
                   >
                     Batal
@@ -679,8 +685,7 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
                 </div>
               </form>
             </motion.div>
-          </div>,
-          document.body
+          </div>
         )}
       </AnimatePresence>
     </div>
