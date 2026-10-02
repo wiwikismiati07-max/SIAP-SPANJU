@@ -43,7 +43,9 @@ import {
   findGuruNip,
   fetchJurnalPhoto,
   restoreMasterData,
-  DEFAULT_GURU_LIST
+  DEFAULT_GURU_LIST,
+  isExcludedGuru,
+  deduplicateGuruList
 } from '../../lib/jurnalService';
 import { PRIMARY_NOTIF_EMAIL, generateJurnalMailtoUrl, generateGmailWebComposeUrl } from '../../lib/emailNotificationService';
 import { compressImage } from '../../lib/imageCompressor';
@@ -71,27 +73,43 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((g: any) => ({
+          const list = parsed.map((g: any) => ({
             id: g.id || `g-${Math.random().toString(36).substring(2, 7)}`,
             nama_guru: (g.nama_guru || g.nama || g.nama_lengkap || '').trim(),
             nip: (g.nip || g.NIP || g.nip_guru || '').toString().trim()
-          })).filter(g => g.nama_guru);
+          })).filter(g => g.nama_guru && !isExcludedGuru(g.nama_guru));
+          const deduped = deduplicateGuruList(list);
+          if (deduped.length > 0) return deduped;
         }
       }
     } catch (_) {}
-    return DEFAULT_GURU_LIST;
+    return deduplicateGuruList(DEFAULT_GURU_LIST.filter(g => !isExcludedGuru(g.nama_guru)));
   };
 
   const getInitialMapels = () => {
+    const normalizeMapelName = (name: string): string => {
+      const trimmed = name.trim();
+      if (trimmed.toLowerCase() === 'seni budaya') {
+        return 'Seni Budaya dan Prakarya';
+      }
+      return trimmed;
+    };
+
     try {
       const raw = localStorage.getItem('master_mapel');
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((m: any, idx: number) => ({
+          const list = parsed.map((m: any, idx: number) => ({
             id: m.id || `m-${idx + 1}`,
-            nama_mapel: (m.nama_mapel || m.nama || String(m)).toString().trim()
-          })).filter(m => m.nama_mapel);
+            nama_mapel: normalizeMapelName((m.nama_mapel || m.nama || String(m)).toString())
+          })).filter(m => m.nama_mapel && m.nama_mapel.toLowerCase() !== 'prakarya');
+
+          // Ensure 'Seni Budaya dan Prakarya' is present if needed
+          if (!list.some(m => m.nama_mapel.toLowerCase() === 'seni budaya dan prakarya')) {
+            list.push({ id: 'm-sbdp', nama_mapel: 'Seni Budaya dan Prakarya' });
+          }
+          return list;
         }
       }
     } catch (_) {}
@@ -104,12 +122,24 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
   const [selectedPeriode, setSelectedPeriode] = useState<string>(() => initialData?.periode || getInitialPeriodes()[1] || '2026');
 
   const [mapelList, setMapelList] = useState<{ id: string; nama_mapel: string }[]>(getInitialMapels);
-  const [selectedMapel, setSelectedMapel] = useState<string>(() => initialData?.nama_mapel || getInitialMapels()[0]?.nama_mapel || '');
+  const [selectedMapel, setSelectedMapel] = useState<string>(() => {
+    const initial = initialData?.nama_mapel || getInitialMapels()[0]?.nama_mapel || '';
+    if (initial.toLowerCase() === 'prakarya' || initial.toLowerCase() === 'seni budaya') {
+      return 'Seni Budaya dan Prakarya';
+    }
+    return initial;
+  });
   const [customMapel, setCustomMapel] = useState<string>('');
   const [isCustomMapel, setIsCustomMapel] = useState<boolean>(false);
 
   const [guruList, setGuruList] = useState<{ id: string; nama_guru: string; nip?: string }[]>(getInitialGurus);
-  const [selectedGuru, setSelectedGuru] = useState<string>(() => initialData?.nama_guru || getInitialGurus()[0]?.nama_guru || '');
+  const [selectedGuru, setSelectedGuru] = useState<string>(() => {
+    const initial = initialData?.nama_guru || getInitialGurus()[0]?.nama_guru || '';
+    if (isExcludedGuru(initial)) {
+      return 'WIWIK ISMIATI, S.Pd.';
+    }
+    return initial;
+  });
   const [customGuru, setCustomGuru] = useState<string>('');
   const [isCustomGuru, setIsCustomGuru] = useState<boolean>(false);
 
@@ -144,8 +174,12 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
         fetchMapelList(),
         fetchAvailablePeriodes()
       ]);
-      setGuruList(gurus);
-      setMapelList(mapels);
+      const cleanMapels = mapels
+        .filter(m => m.nama_mapel.toLowerCase() !== 'prakarya')
+        .map(m => m.nama_mapel.toLowerCase() === 'seni budaya' ? { ...m, nama_mapel: 'Seni Budaya dan Prakarya' } : m);
+      const cleanGurus = deduplicateGuruList(gurus.filter(g => !isExcludedGuru(g.nama_guru)));
+      setGuruList(cleanGurus);
+      setMapelList(cleanMapels);
       setAvailablePeriodes(periodes);
 
       const defPeriode = initialData?.periode || periodes[0] || '2026';
@@ -183,24 +217,28 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
         }
         setSiswaList(initialData.siswa_list || []);
 
-        const mapelExists = mapels.some(m => m.nama_mapel.toLowerCase() === (initialData.nama_mapel || '').toLowerCase());
+        const mapelExists = cleanMapels.some(m => m.nama_mapel.toLowerCase() === (initialData.nama_mapel || '').toLowerCase());
         if (mapelExists) {
-          const matched = mapels.find(m => m.nama_mapel.toLowerCase() === (initialData.nama_mapel || '').toLowerCase());
+          const matched = cleanMapels.find(m => m.nama_mapel.toLowerCase() === (initialData.nama_mapel || '').toLowerCase());
           setSelectedMapel(matched?.nama_mapel || initialData.nama_mapel);
         } else if (initialData.nama_mapel) {
           setSelectedMapel(initialData.nama_mapel);
         }
 
-        const guruExists = gurus.some(g => g.nama_guru.toLowerCase() === (initialData.nama_guru || '').toLowerCase());
-        if (guruExists) {
-          const matched = gurus.find(g => g.nama_guru.toLowerCase() === (initialData.nama_guru || '').toLowerCase());
+        const guruExists = cleanGurus.some(g => g.nama_guru.toLowerCase() === (initialData.nama_guru || '').toLowerCase());
+        if (guruExists && !isExcludedGuru(initialData.nama_guru)) {
+          const matched = cleanGurus.find(g => g.nama_guru.toLowerCase() === (initialData.nama_guru || '').toLowerCase());
           setSelectedGuru(matched?.nama_guru || initialData.nama_guru);
-        } else if (initialData.nama_guru) {
+        } else if (initialData.nama_guru && !isExcludedGuru(initialData.nama_guru)) {
           setSelectedGuru(initialData.nama_guru);
+        } else {
+          setSelectedGuru(cleanGurus[0]?.nama_guru || 'WIWIK ISMIATI, S.Pd.');
         }
       } else {
-        if (mapels.length > 0 && !selectedMapel) setSelectedMapel(mapels[0].nama_mapel);
-        if (gurus.length > 0 && !selectedGuru) setSelectedGuru(gurus[0].nama_guru);
+        if (cleanMapels.length > 0 && !selectedMapel) setSelectedMapel(cleanMapels[0].nama_mapel);
+        if (cleanGurus.length > 0 && (!selectedGuru || isExcludedGuru(selectedGuru))) {
+          setSelectedGuru(cleanGurus[0].nama_guru);
+        }
       }
     };
 
@@ -876,9 +914,11 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
                 onChange={e => setSelectedMapel(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-semibold transition-all"
               >
-                {mapelList.map(m => (
-                  <option key={m.id} value={m.nama_mapel}>{m.nama_mapel}</option>
-                ))}
+                {mapelList
+                  .filter(m => m.nama_mapel.toLowerCase() !== 'prakarya')
+                  .map(m => (
+                    <option key={m.id} value={m.nama_mapel}>{m.nama_mapel}</option>
+                  ))}
               </select>
             )}
           </div>
@@ -912,7 +952,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
                 onChange={e => setSelectedGuru(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-semibold transition-all"
               >
-                {guruList.map(g => (
+                {deduplicateGuruList(guruList.filter(g => !isExcludedGuru(g.nama_guru))).map(g => (
                   <option key={g.id} value={g.nama_guru}>
                     {g.nama_guru} {g.nip ? `(NIP: ${g.nip})` : ''}
                   </option>

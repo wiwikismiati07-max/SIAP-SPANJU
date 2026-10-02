@@ -126,19 +126,28 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
     try {
       setLoading(true);
       if (!supabase) return;
+      
       const { data, error } = await supabase
         .from('agama_absensi')
-        .select(`
-          *,
-          siswa:master_siswa(nama, kelas),
-          kegiatan:agama_program(nama_kegiatan),
-          wali_kelas:master_guru(nama_guru)
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
       
       if (error) throw error;
-      setAbsensiList(data || []);
+      
+      const mapped = (data || []).map(item => {
+        const student = students.find(s => String(s.id) === String(item.siswa_id));
+        const program = programs.find(p => String(p.id) === String(item.kegiatan_id));
+        const teacher = teachers.find(t => String(t.id) === String(item.wali_kelas_id));
+        return {
+          ...item,
+          siswa: student || item.siswa || { nama: 'Unknown', kelas: '-' },
+          kegiatan: program || item.kegiatan || { nama_kegiatan: 'Kegiatan' },
+          wali_kelas: teacher || item.wali_kelas || { nama_guru: '-' }
+        };
+      });
+
+      setAbsensiList(mapped);
     } catch (error) {
       console.error('Error fetching absensi:', error);
     } finally {

@@ -19,6 +19,16 @@ const KeagamaanMaster: React.FC = () => {
   const fetchPrograms = async () => {
     try {
       setLoading(true);
+      if (!supabase) {
+        setPrograms([
+          { id: 'prog-dhuha', nama_kegiatan: 'Sholat Dhuha Berjamaah', waktu: '06:45 - 07:15' },
+          { id: 'prog-dhuhur', nama_kegiatan: 'Sholat Dhuhur Berjamaah', waktu: '12:00 - 12:35' },
+          { id: 'prog-tadarus', nama_kegiatan: "Tadarus & Literasi Al-Qur'an", waktu: '06:30 - 07:00' },
+          { id: 'prog-keputrian', nama_kegiatan: 'Kajian Keputrian', waktu: '11:45 - 12:30' },
+          { id: 'prog-istighosah', nama_kegiatan: 'Istighosah & Doa Bersama', waktu: '06:30 - 07:15' }
+        ]);
+        return;
+      }
       const { data, error } = await supabase
         .from('agama_program')
         .select('*')
@@ -28,6 +38,10 @@ const KeagamaanMaster: React.FC = () => {
       setPrograms(data || []);
     } catch (error) {
       console.error('Error fetching programs:', error);
+      setPrograms([
+        { id: 'prog-dhuha', nama_kegiatan: 'Sholat Dhuha Berjamaah', waktu: '06:45 - 07:15' },
+        { id: 'prog-dhuhur', nama_kegiatan: 'Sholat Dhuhur Berjamaah', waktu: '12:00 - 12:35' }
+      ]);
     } finally {
       setLoading(false);
     }

@@ -42,7 +42,8 @@ import {
   findGuruNip,
   compareKelas,
   compareJam,
-  sortJurnalByKelasDanJam
+  sortJurnalByKelasDanJam,
+  isExcludedGuru
 } from '../../lib/jurnalService';
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 
@@ -143,7 +144,11 @@ export const JurnalLaporan: React.FC<JurnalLaporanProps> = ({ jurnalList, onRefr
 
   const distinctGuru = useMemo(() => {
     const set = new Set<string>();
-    jurnalList.forEach(j => { if (j.nama_guru) set.add(j.nama_guru); });
+    jurnalList.forEach(j => { 
+      if (j.nama_guru && !isExcludedGuru(j.nama_guru)) {
+        set.add(j.nama_guru);
+      }
+    });
     return Array.from(set).sort();
   }, [jurnalList]);
 

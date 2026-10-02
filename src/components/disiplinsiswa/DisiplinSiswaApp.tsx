@@ -4,10 +4,12 @@ import DisiplinDashboard from './DisiplinDashboard';
 import DisiplinMaster from './DisiplinMaster';
 import DisiplinTransaksi from './DisiplinTransaksi';
 import DisiplinLaporan from './DisiplinLaporan';
+import { SupabaseConfigModal } from '../common/SupabaseConfigModal';
 
 export default function DisiplinSiswaApp({ onBack, onOpenSidebar, user }: { onBack?: () => void, onOpenSidebar?: () => void, user?: any }) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'transaksi' | 'laporan'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDbModalOpen, setIsDbModalOpen] = useState(false);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
   const isAdmin = user?.role === 'full';
@@ -77,6 +79,14 @@ export default function DisiplinSiswaApp({ onBack, onOpenSidebar, user }: { onBa
             </nav>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsDbModalOpen(true)}
+                className="p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition-colors"
+                title="Koneksi Database Supabase"
+              >
+                <Database size={20} />
+              </button>
+
               {/* Hamburger Menu for Sidebar */}
               <button 
                 className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
@@ -156,6 +166,11 @@ export default function DisiplinSiswaApp({ onBack, onOpenSidebar, user }: { onBa
           {activeTab === 'master' && <DisiplinMaster />}
         </div>
       </div>
+
+      <SupabaseConfigModal 
+        isOpen={isDbModalOpen} 
+        onClose={() => setIsDbModalOpen(false)} 
+      />
     </div>
   );
 }

@@ -58,45 +58,86 @@ const KeagamaanLaporan: React.FC = () => {
   };
 
   const fetchInitialData = async () => {
-    const { data: pData } = await supabase.from('agama_program').select('*').order('nama_kegiatan');
-    setPrograms(pData || []);
+    if (!supabase) return;
+    try {
+      const { data: pData } = await supabase.from('agama_program').select('*').order('nama_kegiatan');
+      setPrograms(pData || []);
+    } catch (e) {
+      console.warn('Error fetching programs for report:', e);
+    }
   };
 
   const fetchReport = async () => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
 
-      // Fetch distinct periodes
-      const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
-      if (siswaPeriodeData && siswaPeriodeData.length > 0) {
-        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+      // Fetch distinct periodes & students & programs & teachers in parallel
+      const [siswaRes, progRes, guruRes] = await Promise.allSettled([
+        supabase.from('master_siswa').select('id, nama, kelas, periode'),
+        supabase.from('agama_program').select('id, nama_kegiatan'),
+        supabase.from('master_guru').select('id, nama_guru')
+      ]);
+
+      const allSiswa: any[] = siswaRes.status === 'fulfilled' && siswaRes.value.data ? siswaRes.value.data : [];
+      const allPrograms: any[] = progRes.status === 'fulfilled' && progRes.value.data ? progRes.value.data : [];
+      const allGuru: any[] = guruRes.status === 'fulfilled' && guruRes.value.data ? guruRes.value.data : [];
+
+      if (allSiswa.length > 0) {
+        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...allSiswa.map(s => s.periode || '2026')]))
           .filter(Boolean)
           .sort((a, b) => b.localeCompare(a));
         setAvailablePeriodes(distinctPeriodes);
       }
 
+      const siswaMap = new Map<string, any>();
+      allSiswa.forEach(s => {
+        if (s.id) siswaMap.set(String(s.id), s);
+      });
+
+      const progMap = new Map<string, any>();
+      allPrograms.forEach(p => {
+        if (p.id) progMap.set(String(p.id), p);
+      });
+
+      const guruMap = new Map<string, any>();
+      allGuru.forEach(g => {
+        if (g.id) guruMap.set(String(g.id), g);
+      });
+
       let query = supabase
         .from('agama_absensi')
-        .select(`
-          *,
-          siswa:master_siswa(nama, kelas, periode),
-          kegiatan:agama_program(nama_kegiatan),
-          wali_kelas:master_guru(nama_guru)
-        `)
+        .select('*')
         .gte('tanggal', filters.startDate)
         .lte('tanggal', filters.endDate)
         .order('tanggal', { ascending: false })
         .order('jam', { ascending: false });
 
-      if (filters.kelas) query = query.eq('kelas', filters.kelas);
       if (filters.kegiatanId) query = query.eq('kegiatan_id', filters.kegiatanId);
       
       const { data: rData, error } = await query;
       if (error) throw error;
 
-      let filtered = (rData || []).filter(d => {
+      let joined = (rData || []).map(item => {
+        const s = siswaMap.get(String(item.siswa_id)) || item.siswa;
+        const p = progMap.get(String(item.kegiatan_id)) || item.kegiatan;
+        const g = guruMap.get(String(item.wali_kelas_id)) || item.wali_kelas;
+        return {
+          ...item,
+          siswa: s || { nama: 'Unknown', kelas: '-', periode: '2026' },
+          kegiatan: p || { nama_kegiatan: 'Kegiatan Keagamaan' },
+          wali_kelas: g || { nama_guru: '-' }
+        };
+      });
+
+      let filtered = joined.filter(d => {
+        if (filters.kelas && d.siswa?.kelas !== filters.kelas) return false;
         if (selectedPeriode !== 'ALL') {
-          return (d.siswa?.periode || '2025') === selectedPeriode;
+          return (d.siswa?.periode || '2026') === selectedPeriode;
         }
         return true;
       });

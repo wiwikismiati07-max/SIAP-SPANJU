@@ -42,10 +42,12 @@ import {
   Phone,
   BookOpen,
   Youtube,
-  Instagram
+  Instagram,
+  Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from './lib/supabase';
+import { SupabaseConfigModal } from './components/common/SupabaseConfigModal';
 
 // --- Types & Constants ---
 
@@ -126,6 +128,7 @@ export default function App() {
   const [showInfografisLanding, setShowInfografisLanding] = useState(true);
   const [showKelulusanPublic, setShowKelulusanPublic] = useState(false);
   const [showTracingPublic, setShowTracingPublic] = useState(false);
+  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
 
   // Responsive handling & restore session
@@ -540,13 +543,21 @@ export default function App() {
             </>
           )}
         </div>
-        <div className="p-4 border-t border-white/50 min-w-[280px]">
+        <div className="p-4 border-t border-white/50 min-w-[280px] space-y-2">
+          <button 
+            onClick={() => setIsSupabaseModalOpen(true)}
+            className="w-full flex items-center gap-3 p-3.5 rounded-2xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all font-black uppercase tracking-wider text-xs border border-emerald-200/60"
+            title="Pengaturan Koneksi Database Supabase"
+          >
+            <Database size={16} className="text-emerald-600" />
+            <span>Koneksi Supabase</span>
+          </button>
           <button 
             onClick={handleLogout}
-            className="w-full flex items-center gap-4 p-4 rounded-2xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all font-black uppercase tracking-widest text-xs"
+            className="w-full flex items-center gap-3 p-3.5 rounded-2xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all font-black uppercase tracking-widest text-xs"
           >
-            <LogOut size={18} />
-            Keluar Aplikasi
+            <LogOut size={16} />
+            <span>Keluar Aplikasi</span>
           </button>
         </div>
       </motion.aside>
@@ -1109,6 +1120,11 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+
+      <SupabaseConfigModal 
+        isOpen={isSupabaseModalOpen} 
+        onClose={() => setIsSupabaseModalOpen(false)} 
+      />
 
       <style>{`
         .scrollbar-hide::-webkit-scrollbar {

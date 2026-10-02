@@ -47,10 +47,9 @@ export const DEFAULT_MAPEL = [
   'Ilmu Pengetahuan Alam (IPA)',
   'Ilmu Pengetahuan Sosial (IPS)',
   'Bahasa Inggris',
-  'Seni Budaya',
+  'Seni Budaya dan Prakarya',
   'Pendidikan Jasmani, Olahraga, dan Kesehatan (PJOK)',
   'Informatika',
-  'Prakarya',
   'Bahasa Daerah (Jawa)',
   'Bimbingan dan Konseling (BK)'
 ];
