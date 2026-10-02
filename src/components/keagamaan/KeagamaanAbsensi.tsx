@@ -575,21 +575,21 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
   });
 
   return (
-    <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
       {/* Form Section */}
-      <div className="bg-gradient-to-br from-emerald-600 to-teal-800 rounded-[40px] p-2 shadow-xl shadow-emerald-900/10">
-        <div className="p-8 sm:p-10 text-white">
-          <h2 className="text-2xl sm:text-3xl font-black mb-2">Formulir Presensi Kegiatan Keagamaan</h2>
-          <p className="text-emerald-100/80 font-medium tracking-wide">
+      <div className="bg-gradient-to-br from-emerald-600 to-teal-800 rounded-2xl sm:rounded-3xl md:rounded-[40px] p-1 sm:p-2 shadow-xl shadow-emerald-900/10">
+        <div className="p-4 sm:p-6 md:p-10 text-white">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-black mb-1 sm:mb-2">Formulir Presensi Kegiatan Keagamaan</h2>
+          <p className="text-emerald-100/80 text-xs sm:text-sm font-medium tracking-wide">
             Kelola presensi, absensi, dan nilai kegiatan keagamaan siswa secara terpadu per kelas
           </p>
         </div>
         
-        <div className="bg-white m-2 rounded-[32px] p-6 sm:p-10">
+        <div className="bg-white m-1 sm:m-2 rounded-xl sm:rounded-2xl md:rounded-[32px] p-3.5 sm:p-6 md:p-8">
           {editingId && (
-            <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-4 sm:mb-6 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-amber-50 border border-amber-200 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <AlertCircle className="text-amber-600" size={20} />
+                <AlertCircle className="text-amber-600 shrink-0" size={18} />
                 <span className="text-xs sm:text-sm font-bold text-amber-800">
                   Mode Edit Riwayat: Mengubah presensi untuk <strong>{editingStudentName}</strong>
                 </span>
@@ -599,7 +599,7 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
                   type="button"
                   onClick={handleSingleUpdate}
                   disabled={submitting}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
+                  className="px-3.5 py-1.5 sm:px-4 sm:py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
                 >
                   Perbarui Baris Ini Saja
                 </button>
@@ -610,7 +610,7 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
                     setEditingStudentName('');
                     setSearchSiswa('');
                   }}
-                  className="px-3 py-2 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all flex items-center gap-1"
+                  className="px-3 py-1.5 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all flex items-center gap-1"
                 >
                   <X size={14} /> Batal
                 </button>
@@ -618,8 +618,8 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 md:gap-6">
               {/* Tanggal Kegiatan */}
               <div className="space-y-2">
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Tanggal Kegiatan</label>

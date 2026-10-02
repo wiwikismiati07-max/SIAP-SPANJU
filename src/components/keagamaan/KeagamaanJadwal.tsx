@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar, Clock, BookOpen, Users, Save, X, Edit2, Trash2, Search, Download, Plus, FileSpreadsheet, Upload } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AgamaProgram, AgamaJadwal } from '../../types/keagamaan';
@@ -9,12 +10,41 @@ import ExcelJS from 'exceljs';
 import * as XLSX from 'xlsx';
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 
+const DEFAULT_PROGRAMS: AgamaProgram[] = [
+  { id: 'prog-dhuha', nama_kegiatan: 'Sholat Dhuha Berjamaah', waktu: '06:45 - 07:15' },
+  { id: 'prog-dhuhur', nama_kegiatan: 'Sholat Dhuhur Berjamaah', waktu: '12:00 - 12:35' },
+  { id: 'prog-keputrian', nama_kegiatan: 'Kajian Keputrian', waktu: '11:45 - 12:30' },
+  { id: 'prog-tadarus', nama_kegiatan: "Tadarus & Literasi Al-Qur'an", waktu: '06:30 - 07:00' },
+  { id: 'prog-istighosah', nama_kegiatan: 'Istighosah & Doa Bersama', waktu: '06:30 - 07:15' },
+  { id: 'prog-infaq', nama_kegiatan: 'Jumat Berkah & Infaq', waktu: '06:45 - 07:30' },
+];
+
+const QUICK_CLASSES = [
+  '7A', '7B', '7C', '7D', '7E', '7F',
+  '8A', '8B', '8C', '8D', '8E', '8F',
+  '9A', '9B', '9C', '9D', '9E', '9F',
+  'Semua Kelas'
+];
+
+const getWeekBadgeColor = (w: number) => {
+  switch (Number(w)) {
+    case 1: return 'bg-emerald-100 text-emerald-800 border-emerald-300';
+    case 2: return 'bg-blue-100 text-blue-800 border-blue-300';
+    case 3: return 'bg-purple-100 text-purple-800 border-purple-300';
+    case 4: return 'bg-amber-100 text-amber-800 border-amber-300';
+    case 5: return 'bg-rose-100 text-rose-800 border-rose-300';
+    default: return 'bg-slate-100 text-slate-800 border-slate-300';
+  }
+};
+
 const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
-  const canDelete = user?.role === 'full';
-  const canEdit = user?.role === 'entry' || user?.role === 'full';
-  const canAdd = user?.role === 'entry' || user?.role === 'full';
+  const isViewer = user?.role === 'view';
+  const canDelete = !isViewer;
+  const canEdit = !isViewer;
+  const canAdd = !isViewer;
+
   const [jadwalList, setJadwalList] = useState<AgamaJadwal[]>([]);
-  const [programs, setPrograms] = useState<AgamaProgram[]>([]);
+  const [programs, setPrograms] = useState<AgamaProgram[]>(DEFAULT_PROGRAMS);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,6 +65,10 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
   });
 
   const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+  const dayOrder: Record<string, number> = {
+    'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5, 'Sabtu': 6, 'Minggu': 7
+  };
+
   const weeks = [1, 2, 3, 4, 5];
   const months = [
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
@@ -56,16 +90,30 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
 
   const fetchInitialData = async () => {
     try {
-      const { data } = await supabase.from('agama_program').select('*').order('nama_kegiatan');
-      setPrograms(data || []);
+      if (!supabase) {
+        setPrograms(DEFAULT_PROGRAMS);
+        return;
+      }
+      const { data, error } = await supabase.from('agama_program').select('*').order('nama_kegiatan');
+      if (error || !data || data.length === 0) {
+        setPrograms(DEFAULT_PROGRAMS);
+      } else {
+        setPrograms(data);
+      }
     } catch (error) {
       console.error('Error fetching programs:', error);
+      setPrograms(DEFAULT_PROGRAMS);
     }
   };
 
   const fetchJadwal = async () => {
     try {
       setLoading(true);
+      if (!supabase) {
+        const saved = localStorage.getItem('local_agama_jadwal');
+        if (saved) setJadwalList(JSON.parse(saved));
+        return;
+      }
       const { data, error } = await supabase
         .from('agama_jadwal')
         .select(`
@@ -75,10 +123,27 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
         .order('minggu_ke', { ascending: true })
         .order('tahun', { ascending: false });
       
-      if (error) throw error;
-      setJadwalList(data || []);
+      if (error) {
+        console.warn('Error fetching jadwal from Supabase, checking local cache:', error);
+        const saved = localStorage.getItem('local_agama_jadwal');
+        if (saved) setJadwalList(JSON.parse(saved));
+      } else if (data) {
+        const enriched = data.map((item: any) => {
+          if (!item.kegiatan?.nama_kegiatan && item.kegiatan_id) {
+            const found = DEFAULT_PROGRAMS.find(p => p.id === item.kegiatan_id);
+            if (found) {
+              return { ...item, kegiatan: { nama_kegiatan: found.nama_kegiatan } };
+            }
+          }
+          return item;
+        });
+        setJadwalList(enriched);
+        localStorage.setItem('local_agama_jadwal', JSON.stringify(enriched));
+      }
     } catch (error) {
       console.error('Error fetching jadwal:', error);
+      const saved = localStorage.getItem('local_agama_jadwal');
+      if (saved) setJadwalList(JSON.parse(saved));
     } finally {
       setLoading(false);
     }
@@ -86,32 +151,85 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.kegiatan_id || !formData.hari || !formData.kelas) {
-      alert('Mohon lengkapi data wajib');
+    if (!formData.kegiatan_id || !formData.hari || !formData.kelas.trim()) {
+      alert('Mohon lengkapi data wajib: Kegiatan, Hari, dan Kelas.');
       return;
     }
 
     try {
       setSubmitting(true);
-      if (editingId) {
-        const { error } = await supabase
-          .from('agama_jadwal')
-          .update(formData)
-          .eq('id', editingId);
-        if (error) throw error;
+      const payload = {
+        kegiatan_id: formData.kegiatan_id,
+        hari: formData.hari,
+        minggu_ke: Number(formData.minggu_ke) || 1,
+        bulan: formData.bulan,
+        tahun: Number(formData.tahun) || new Date().getFullYear(),
+        kelas: formData.kelas.trim(),
+        keterangan: formData.keterangan?.trim() || null
+      };
+
+      const selectedProgram = programs.find(p => p.id === formData.kegiatan_id);
+      const programName = selectedProgram?.nama_kegiatan || 'Kegiatan Keagamaan';
+
+      if (supabase) {
+        if (editingId) {
+          const { error } = await supabase
+            .from('agama_jadwal')
+            .update(payload)
+            .eq('id', editingId);
+          if (error) throw error;
+        } else {
+          // If kegiatan_id is a default synthetic ID (starts with prog-), try to find or create real record in agama_program
+          if (payload.kegiatan_id.startsWith('prog-')) {
+            try {
+              const { data: createdProg } = await supabase
+                .from('agama_program')
+                .insert([{ nama_kegiatan: programName, waktu: selectedProgram?.waktu || 'Rutin' }])
+                .select()
+                .single();
+              if (createdProg) {
+                payload.kegiatan_id = createdProg.id;
+              }
+            } catch (pErr) {
+              console.warn('Could not auto-insert program, using original id:', pErr);
+            }
+          }
+
+          const { error } = await supabase
+            .from('agama_jadwal')
+            .insert([payload]);
+          if (error) throw error;
+        }
       } else {
-        const { error } = await supabase
-          .from('agama_jadwal')
-          .insert([formData]);
-        if (error) throw error;
+        // Offline / fallback mode
+        if (editingId) {
+          setJadwalList(prev => {
+            const next = prev.map(item => item.id === editingId ? { ...item, ...payload, keterangan: payload.keterangan || undefined, kegiatan: { nama_kegiatan: programName } } : item);
+            localStorage.setItem('local_agama_jadwal', JSON.stringify(next));
+            return next;
+          });
+        } else {
+          const newItem: AgamaJadwal = {
+            id: 'jadwal_' + Date.now(),
+            ...payload,
+            keterangan: payload.keterangan || undefined,
+            kegiatan: { nama_kegiatan: programName }
+          };
+          setJadwalList(prev => {
+            const next = [newItem, ...prev];
+            localStorage.setItem('local_agama_jadwal', JSON.stringify(next));
+            return next;
+          });
+        }
       }
 
+      setIsModalOpen(false);
       resetForm();
       fetchJadwal();
-      alert('Berhasil menyimpan jadwal');
+      alert(editingId ? 'Jadwal berhasil diperbarui!' : 'Jadwal baru berhasil ditambahkan!');
     } catch (error: any) {
       console.error('Error saving jadwal:', error);
-      alert(`Gagal menyimpan jadwal: ${error.message}`);
+      alert(`Gagal menyimpan jadwal: ${error.message || 'Terjadi kesalahan sistem'}`);
     } finally {
       setSubmitting(false);
     }
@@ -145,9 +263,9 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
     setFormData({
       kegiatan_id: jadwal.kegiatan_id,
       hari: jadwal.hari,
-      minggu_ke: jadwal.minggu_ke,
+      minggu_ke: Number(jadwal.minggu_ke) || 1,
       bulan: jadwal.bulan,
-      tahun: jadwal.tahun,
+      tahun: Number(jadwal.tahun) || new Date().getFullYear(),
       kelas: jadwal.kelas,
       keterangan: jadwal.keterangan || ''
     });
@@ -396,11 +514,18 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
       if (wA !== wB) {
         return sortWeekAsc ? wA - wB : wB - wA;
       }
-      // 2. Bulan
+      // 2. Urutkan Hari (Senin -> Minggu)
+      const hA = dayOrder[a.hari] || 99;
+      const hB = dayOrder[b.hari] || 99;
+      if (hA !== hB) return hA - hB;
+      // 3. Urutkan Kelas
+      const kComp = (a.kelas || '').localeCompare(b.kelas || '');
+      if (kComp !== 0) return kComp;
+      // 4. Bulan
       const mA = monthOrder[a.bulan] || 0;
       const mB = monthOrder[b.bulan] || 0;
       if (mA !== mB) return mA - mB;
-      // 3. Tahun
+      // 5. Tahun
       return (b.tahun || 0) - (a.tahun || 0);
     });
 
@@ -409,7 +534,7 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Jadwal Kegiatan Mingguan</h2>
-          <p className="text-xs md:text-sm text-slate-400 font-medium mt-1">Kelola jadwal rutin kegiatan keagamaan siswa</p>
+          <p className="text-xs md:text-sm text-slate-400 font-medium mt-1">Kelola jadwal rutin kegiatan keagamaan siswa (Urutan Minggu 1 - 5)</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
@@ -447,12 +572,58 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
       </div>
 
       <div className="bg-white rounded-2xl md:rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
+        {/* Quick Filter Minggu 1 - 5 Pills Header */}
+        <div className="px-4 sm:px-6 pt-4 pb-3 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 overflow-x-auto py-1 max-w-full custom-scrollbar">
+            <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider shrink-0 mr-1">
+              Minggu Ke:
+            </span>
+            <button
+              type="button"
+              onClick={() => setFilterMinggu('')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                !filterMinggu 
+                  ? 'bg-slate-900 text-white shadow-xs' 
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Semua Minggu
+            </button>
+            {weeks.map(w => (
+              <button
+                key={w}
+                type="button"
+                onClick={() => setFilterMinggu(filterMinggu === String(w) ? '' : String(w))}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all shrink-0 flex items-center gap-1.5 ${
+                  filterMinggu === String(w)
+                    ? 'bg-emerald-600 text-white shadow-xs shadow-emerald-300'
+                    : 'bg-white border border-slate-200 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700'
+                }`}
+              >
+                <span>Minggu {w}</span>
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setSortWeekAsc(!sortWeekAsc)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all border shadow-xs ${
+              sortWeekAsc 
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' 
+                : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+            }`}
+            title="Klik untuk membalik urutan minggu"
+          >
+            <span>Urutan: Minggu {sortWeekAsc ? '1 → 5 (A-Z)' : '5 → 1 (Z-A)'}</span>
+          </button>
+        </div>
+
         <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <div className="relative flex-1 min-w-[220px] max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
-              placeholder="Cari jadwal, kelas, atau kegiatan..." 
+              placeholder="Cari kegiatan, hari, kelas, keterangan..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-11 pr-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 text-xs sm:text-sm font-medium outline-none focus:border-emerald-500 transition-all"
@@ -460,18 +631,6 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Filter Minggu */}
-            <select
-              value={filterMinggu}
-              onChange={e => setFilterMinggu(e.target.value)}
-              className="px-3 py-2 sm:py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-emerald-500 cursor-pointer"
-            >
-              <option value="">Semua Minggu</option>
-              {weeks.map(w => (
-                <option key={w} value={w}>Minggu {w}</option>
-              ))}
-            </select>
-
             {/* Filter Bulan */}
             <select
               value={filterBulan}
@@ -484,19 +643,6 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
               ))}
             </select>
 
-            {/* Tombol Urutan Minggu 1-5 */}
-            <button
-              onClick={() => setSortWeekAsc(!sortWeekAsc)}
-              className={`flex items-center gap-1.5 px-3 py-2 sm:py-2.5 rounded-xl text-xs font-black transition-all border shadow-xs ${
-                sortWeekAsc 
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' 
-                  : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-              }`}
-              title="Klik untuk ubah urutan minggu"
-            >
-              <span>Urutan: Minggu {sortWeekAsc ? '1 → 5' : '5 → 1'}</span>
-            </button>
-
             {(searchQuery || filterBulan || filterMinggu) && (
               <button
                 onClick={() => {
@@ -506,7 +652,7 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
                 }}
                 className="text-xs font-bold text-rose-500 hover:text-rose-700 px-2 py-1"
               >
-                Reset
+                Reset Filter
               </button>
             )}
           </div>
@@ -523,9 +669,9 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
                   title="Klik untuk ubah urutan minggu"
                 >
                   <div className="flex items-center gap-1.5">
-                    <span>Waktu</span>
+                    <span>Minggu & Waktu</span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-black">
-                      Minggu {sortWeekAsc ? '1-5' : '5-1'}
+                      {sortWeekAsc ? 'Minggu 1 → 5' : 'Minggu 5 → 1'}
                     </span>
                   </div>
                 </th>
@@ -537,12 +683,12 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic text-sm">Memuat data...</td>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic text-sm">Memuat data jadwal...</td>
                 </tr>
               ) : filteredJadwalList.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic text-sm">
-                    {searchQuery ? 'Tidak ada jadwal yang sesuai pencarian.' : 'Belum ada jadwal yang dibuat.'}
+                    {searchQuery || filterBulan || filterMinggu ? 'Tidak ada jadwal yang sesuai filter.' : 'Belum ada jadwal yang dibuat. Klik tombol "+ Tambah Jadwal" di atas.'}
                   </td>
                 </tr>
               ) : (
@@ -560,9 +706,11 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
                       </div>
                     </td>
                     <td className="px-5 sm:px-7 py-4">
-                      <div className="space-y-0.5">
-                        <p className="text-xs sm:text-sm font-bold text-slate-700">Minggu ke-{jadwal.minggu_ke}</p>
-                        <p className="text-[11px] text-slate-400">{jadwal.bulan} {jadwal.tahun}</p>
+                      <div className="flex flex-col gap-1">
+                        <span className={`inline-flex items-center w-fit px-2.5 py-0.5 rounded-lg text-xs font-black border ${getWeekBadgeColor(jadwal.minggu_ke)}`}>
+                          Minggu {jadwal.minggu_ke}
+                        </span>
+                        <p className="text-[11px] text-slate-400 font-medium">{jadwal.bulan} {jadwal.tahun}</p>
                       </div>
                     </td>
                     <td className="px-5 sm:px-7 py-4">
@@ -603,170 +751,190 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
         </div>
       </div>
 
-      {/* Modal Form */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
-            {/* Full-screen Backdrop */}
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeModal}
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" 
-            />
+      {/* Modal Form with Portal to document.body for responsive view on mobile phone & laptop */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isModalOpen && (
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+              {/* Full-screen Backdrop */}
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={closeModal}
+                className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm" 
+              />
 
-            {/* Modal Dialog Box */}
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="relative bg-white w-full max-w-lg md:max-w-xl rounded-2xl md:rounded-[28px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] my-auto z-10 border border-slate-100"
-            >
-              {/* Compact Fixed Header */}
-              <div className="bg-emerald-600 px-5 py-3.5 sm:px-6 sm:py-4 text-white flex items-center justify-between shrink-0 shadow-sm">
-                <div>
-                  <h3 className="text-base sm:text-lg md:text-xl font-black leading-tight">
-                    {editingId ? 'Edit Jadwal Kegiatan' : 'Tambah Jadwal Baru'}
-                  </h3>
-                  <p className="text-emerald-100/90 text-[11px] sm:text-xs font-medium mt-0.5">
-                    Lengkapi detail jadwal kegiatan mingguan
-                  </p>
-                </div>
-                <button 
-                  type="button"
-                  onClick={closeModal} 
-                  className="p-1.5 sm:p-2 hover:bg-white/10 rounded-xl transition-colors text-white/90 hover:text-white"
-                  title="Tutup Form"
-                >
-                  <X size={20} className="sm:w-6 sm:h-6" />
-                </button>
-              </div>
-
-              {/* Scrollable Form Body - Fits cleanly on mobile & laptop screens */}
-              <form onSubmit={handleSubmit} className="p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-3.5 overflow-y-auto custom-scrollbar flex-1">
-                <div className="space-y-1 sm:space-y-1.5">
-                  <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
-                    Pilih Kegiatan
-                  </label>
-                  <select
-                    required
-                    className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 bg-white"
-                    value={formData.kegiatan_id}
-                    onChange={e => setFormData({ ...formData, kegiatan_id: e.target.value })}
-                  >
-                    <option value="">-- Pilih Kegiatan --</option>
-                    {programs.map(p => <option key={p.id} value={p.id}>{p.nama_kegiatan}</option>)}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5">
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
-                      Hari
-                    </label>
-                    <select
-                      required
-                      className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 bg-white"
-                      value={formData.hari}
-                      onChange={e => setFormData({ ...formData, hari: e.target.value })}
-                    >
-                      <option value="">-- Pilih Hari --</option>
-                      {days.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
+              {/* Modal Dialog Box */}
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                className="relative bg-white w-full max-w-lg md:max-w-xl rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh] my-auto z-10 border border-slate-100"
+              >
+                {/* Compact Fixed Header */}
+                <div className="bg-emerald-600 px-4 py-3 sm:px-6 sm:py-4 text-white flex items-center justify-between shrink-0 shadow-sm">
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black leading-tight">
+                      {editingId ? 'Edit Jadwal Kegiatan' : 'Tambah Jadwal Baru'}
+                    </h3>
+                    <p className="text-emerald-100/90 text-[11px] sm:text-xs font-medium mt-0.5">
+                      Lengkapi detail jadwal kegiatan mingguan (Minggu 1 - 5)
+                    </p>
                   </div>
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
-                      Minggu Ke
-                    </label>
-                    <select
-                      required
-                      className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 bg-white"
-                      value={formData.minggu_ke}
-                      onChange={e => setFormData({ ...formData, minggu_ke: parseInt(e.target.value) })}
-                    >
-                      {weeks.map(w => <option key={w} value={w}>Minggu {w}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5">
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
-                      Bulan
-                    </label>
-                    <select
-                      required
-                      className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 bg-white"
-                      value={formData.bulan}
-                      onChange={e => setFormData({ ...formData, bulan: e.target.value })}
-                    >
-                      {months.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
-                      Tahun
-                    </label>
-                    <select
-                      required
-                      className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 bg-white"
-                      value={formData.tahun}
-                      onChange={e => setFormData({ ...formData, tahun: parseInt(e.target.value) })}
-                    >
-                      {years.map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1 sm:space-y-1.5">
-                  <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
-                    Kelas (Contoh: 7A, 8B, atau Semua Kelas)
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Masukkan kelas..."
-                    className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700"
-                    value={formData.kelas}
-                    onChange={e => setFormData({ ...formData, kelas: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-1 sm:space-y-1.5">
-                  <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
-                    Keterangan (Opsional)
-                  </label>
-                  <textarea
-                    placeholder="Tambahkan keterangan..."
-                    className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 h-16 sm:h-20 resize-none"
-                    value={formData.keterangan}
-                    onChange={e => setFormData({ ...formData, keterangan: e.target.value })}
-                  />
-                </div>
-
-                {/* Visible Action Buttons */}
-                <div className="flex gap-2.5 sm:gap-3 pt-2 sm:pt-3 shrink-0">
-                  <button
+                  <button 
                     type="button"
-                    onClick={closeModal}
-                    className="flex-1 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-xs sm:text-sm hover:bg-slate-50 active:scale-95 transition-all"
+                    onClick={closeModal} 
+                    className="p-1.5 sm:p-2 hover:bg-white/10 rounded-xl transition-colors text-white/90 hover:text-white"
+                    title="Tutup Form"
                   >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="flex-[2] py-2.5 sm:py-3 rounded-xl md:rounded-2xl bg-emerald-600 text-white font-black text-xs sm:text-sm hover:bg-emerald-700 shadow-md shadow-emerald-200 active:scale-95 transition-all disabled:opacity-50"
-                  >
-                    {submitting ? 'Menyimpan...' : 'Simpan Jadwal'}
+                    <X size={20} />
                   </button>
                 </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+
+                {/* Scrollable Form Body - Fully intact on phone & laptop */}
+                <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-3 sm:space-y-4 overflow-y-auto custom-scrollbar flex-1">
+                  <div className="space-y-1">
+                    <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
+                      Pilih Kegiatan <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      required
+                      className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 bg-white"
+                      value={formData.kegiatan_id}
+                      onChange={e => setFormData({ ...formData, kegiatan_id: e.target.value })}
+                    >
+                      <option value="">-- Pilih Kegiatan --</option>
+                      {programs.map(p => <option key={p.id} value={p.id}>{p.nama_kegiatan} {p.waktu ? `(${p.waktu})` : ''}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5">
+                    <div className="space-y-1">
+                      <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
+                        Hari <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        required
+                        className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 bg-white"
+                        value={formData.hari}
+                        onChange={e => setFormData({ ...formData, hari: e.target.value })}
+                      >
+                        <option value="">-- Pilih Hari --</option>
+                        {days.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
+                        Minggu Ke <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        required
+                        className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 bg-white"
+                        value={formData.minggu_ke}
+                        onChange={e => setFormData({ ...formData, minggu_ke: parseInt(e.target.value) })}
+                      >
+                        {weeks.map(w => <option key={w} value={w}>Minggu {w}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5">
+                    <div className="space-y-1">
+                      <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
+                        Bulan <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        required
+                        className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 bg-white"
+                        value={formData.bulan}
+                        onChange={e => setFormData({ ...formData, bulan: e.target.value })}
+                      >
+                        {months.map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
+                        Tahun <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        required
+                        className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 bg-white"
+                        value={formData.tahun}
+                        onChange={e => setFormData({ ...formData, tahun: parseInt(e.target.value) })}
+                      >
+                        {years.map(y => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
+                      Kelas <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Masukkan kelas (cth: 7A, 8B, atau Semua Kelas)..."
+                      className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700"
+                      value={formData.kelas}
+                      onChange={e => setFormData({ ...formData, kelas: e.target.value })}
+                    />
+                    {/* Quick Class Pills for Mobile & Laptop Fast Selection */}
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {QUICK_CLASSES.map(cls => (
+                        <button
+                          key={cls}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, kelas: cls })}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
+                            formData.kelas === cls 
+                              ? 'bg-emerald-600 text-white shadow-xs' 
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {cls}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
+                      Keterangan (Opsional)
+                    </label>
+                    <textarea
+                      placeholder="Tambahkan keterangan atau catatan..."
+                      className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-medium text-xs sm:text-sm text-slate-700 h-16 sm:h-20 resize-none"
+                      value={formData.keterangan}
+                      onChange={e => setFormData({ ...formData, keterangan: e.target.value })}
+                    />
+                  </div>
+
+                  {/* Visible Action Buttons */}
+                  <div className="flex gap-2.5 sm:gap-3 pt-2 sm:pt-3 shrink-0">
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      className="flex-1 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-xs sm:text-sm hover:bg-slate-50 active:scale-95 transition-all"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="flex-[2] py-2.5 sm:py-3 rounded-xl md:rounded-2xl bg-emerald-600 text-white font-black text-xs sm:text-sm hover:bg-emerald-700 shadow-md shadow-emerald-200 active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      {submitting ? 'Menyimpan...' : (editingId ? 'Simpan Perubahan' : 'Simpan Jadwal')}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };
