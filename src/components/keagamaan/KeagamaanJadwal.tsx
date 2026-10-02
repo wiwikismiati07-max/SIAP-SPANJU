@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar, Clock, BookOpen, Users, Save, X, Edit2, Trash2, Search, Download, Plus, FileSpreadsheet, Upload } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AgamaProgram, AgamaJadwal } from '../../types/keagamaan';
@@ -19,6 +20,7 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
   const [submitting, setSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [formData, setFormData] = useState({
     kegiatan_id: '',
@@ -358,31 +360,45 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
     reader.readAsBinaryString(file);
   };
 
+  const filteredJadwalList = jadwalList.filter(jadwal => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (jadwal.kegiatan?.nama_kegiatan || '').toLowerCase().includes(q) ||
+      (jadwal.hari || '').toLowerCase().includes(q) ||
+      (jadwal.bulan || '').toLowerCase().includes(q) ||
+      (jadwal.kelas || '').toLowerCase().includes(q) ||
+      (jadwal.keterangan || '').toLowerCase().includes(q)
+    );
+  });
+
   return (
-    <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight">Jadwal Kegiatan Mingguan</h2>
-          <p className="text-sm text-slate-400 font-medium mt-1">Kelola jadwal rutin kegiatan keagamaan siswa</p>
+          <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Jadwal Kegiatan Mingguan</h2>
+          <p className="text-xs md:text-sm text-slate-400 font-medium mt-1">Kelola jadwal rutin kegiatan keagamaan siswa</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             onClick={downloadTemplate}
-            className="flex items-center gap-2 px-4 py-3 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all shadow-sm"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white border-2 border-slate-100 text-slate-600 rounded-xl md:rounded-2xl font-bold text-xs sm:text-sm hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+            title="Download Template Excel"
           >
-            <Download size={18} className="text-blue-500" />
+            <Download size={16} className="text-blue-500" />
             Template
           </button>
-          <label className="flex items-center gap-2 px-4 py-3 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all shadow-sm cursor-pointer">
-            <Upload size={18} className="text-amber-500" />
+          <label className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white border-2 border-slate-100 text-slate-600 rounded-xl md:rounded-2xl font-bold text-xs sm:text-sm hover:bg-slate-50 transition-all shadow-sm cursor-pointer active:scale-95">
+            <Upload size={16} className="text-amber-500" />
             Upload Data
             <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleExcelUpload} />
           </label>
           <button
             onClick={exportToExcel}
-            className="flex items-center gap-2 px-4 py-3 bg-white border-2 border-slate-100 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-50 transition-all shadow-sm"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white border-2 border-slate-100 text-slate-600 rounded-xl md:rounded-2xl font-bold text-xs sm:text-sm hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+            title="Export Ke Excel"
           >
-            <FileSpreadsheet size={18} className="text-emerald-500" />
+            <FileSpreadsheet size={16} className="text-emerald-500" />
             Export Excel
           </button>
           {canAdd && (
@@ -391,91 +407,105 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
                 resetForm();
                 setIsModalOpen(true);
               }}
-              className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl font-black text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
+              className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2 sm:py-2.5 bg-emerald-600 text-white rounded-xl md:rounded-2xl font-black text-xs sm:text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 active:scale-95"
             >
-              <Plus size={18} />
+              <Plus size={16} />
               Tambah Jadwal
             </button>
           )}
         </div>
       </div>
 
-      <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-8 border-b border-slate-50 flex items-center justify-between">
+      <div className="bg-white rounded-2xl md:rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
+        <div className="p-4 sm:p-6 border-b border-slate-100 flex items-center justify-between">
           <div className="relative w-full max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
-              placeholder="Cari jadwal atau kegiatan..." 
-              className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-slate-50 text-sm font-medium outline-none focus:border-emerald-500/20 transition-all"
+              placeholder="Cari jadwal, kelas, atau kegiatan..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-11 pr-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 text-xs sm:text-sm font-medium outline-none focus:border-emerald-500 transition-all"
             />
           </div>
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="ml-2 text-xs font-bold text-slate-400 hover:text-slate-600"
+            >
+              Reset
+            </button>
+          )}
         </div>
         
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50/50">
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Kegiatan</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Waktu</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Kelas</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Keterangan</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Aksi</th>
+              <tr className="bg-slate-50/70">
+                <th className="px-5 sm:px-7 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Kegiatan</th>
+                <th className="px-5 sm:px-7 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Waktu</th>
+                <th className="px-5 sm:px-7 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Kelas</th>
+                <th className="px-5 sm:px-7 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Keterangan</th>
+                <th className="px-5 sm:px-7 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-8 py-12 text-center text-slate-400 italic">Memuat data...</td>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic text-sm">Memuat data...</td>
                 </tr>
-              ) : jadwalList.length === 0 ? (
+              ) : filteredJadwalList.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-8 py-12 text-center text-slate-400 italic">Belum ada jadwal yang dibuat.</td>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                    {searchQuery ? 'Tidak ada jadwal yang sesuai pencarian.' : 'Belum ada jadwal yang dibuat.'}
+                  </td>
                 </tr>
               ) : (
-                jadwalList.map(jadwal => (
-                  <tr key={jadwal.id} className="hover:bg-slate-50/50 transition-all group">
-                    <td className="px-8 py-5">
+                filteredJadwalList.map(jadwal => (
+                  <tr key={jadwal.id} className="hover:bg-slate-50/60 transition-all group">
+                    <td className="px-5 sm:px-7 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
-                          <BookOpen size={20} />
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+                          <BookOpen size={18} />
                         </div>
-                        <div>
-                          <p className="font-bold text-slate-700">{jadwal.kegiatan?.nama_kegiatan}</p>
-                          <p className="text-xs text-slate-400">{jadwal.hari}</p>
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-800 text-xs sm:text-sm truncate">{jadwal.kegiatan?.nama_kegiatan}</p>
+                          <p className="text-[11px] text-slate-400 font-medium">{jadwal.hari}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-8 py-5">
-                      <div className="space-y-1">
-                        <p className="text-sm font-bold text-slate-600">Minggu ke-{jadwal.minggu_ke}</p>
-                        <p className="text-xs text-slate-400">{jadwal.bulan} {jadwal.tahun}</p>
+                    <td className="px-5 sm:px-7 py-4">
+                      <div className="space-y-0.5">
+                        <p className="text-xs sm:text-sm font-bold text-slate-700">Minggu ke-{jadwal.minggu_ke}</p>
+                        <p className="text-[11px] text-slate-400">{jadwal.bulan} {jadwal.tahun}</p>
                       </div>
                     </td>
-                    <td className="px-8 py-5">
-                      <span className="px-3 py-1 rounded-lg bg-blue-50 text-blue-600 text-[10px] font-bold uppercase">
+                    <td className="px-5 sm:px-7 py-4">
+                      <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-black uppercase">
                         {jadwal.kelas}
                       </span>
                     </td>
-                    <td className="px-8 py-5">
-                      <p className="text-sm text-slate-500 max-w-xs truncate">{jadwal.keterangan || '-'}</p>
+                    <td className="px-5 sm:px-7 py-4">
+                      <p className="text-xs sm:text-sm text-slate-500 max-w-xs truncate">{jadwal.keterangan || '-'}</p>
                     </td>
-                    <td className="px-8 py-5 text-right">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                    <td className="px-5 sm:px-7 py-4 text-right">
+                      <div className="flex justify-end gap-1.5 opacity-90 sm:opacity-0 group-hover:opacity-100 transition-all">
                         {canEdit && (
                           <button
                             onClick={() => handleEdit(jadwal)}
-                            className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all"
+                            className="p-1.5 sm:p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all active:scale-90"
+                            title="Edit Jadwal"
                           >
-                            <Edit2 size={16} />
+                            <Edit2 size={15} />
                           </button>
                         )}
                         {canDelete && (
                           <button
                             onClick={() => handleDelete(jadwal.id)}
-                            className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all"
+                            className="p-1.5 sm:p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all active:scale-90"
+                            title="Hapus Jadwal"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={15} />
                           </button>
                         )}
                       </div>
@@ -488,39 +518,55 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
         </div>
       </div>
 
-      {/* Modal Form */}
+      {/* Modal Form - Rendered via Portal to document.body for perfect full-screen viewport on mobile and laptop */}
       <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        {isModalOpen && typeof document !== 'undefined' && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
+            {/* Full-screen Backdrop */}
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={resetForm}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" 
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" 
             />
+
+            {/* Modal Dialog Box */}
             <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden"
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative bg-white w-full max-w-lg md:max-w-xl rounded-2xl md:rounded-[28px] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] my-auto z-10 border border-slate-100"
             >
-              <div className="bg-emerald-600 p-8 text-white flex items-center justify-between">
+              {/* Compact Fixed Header */}
+              <div className="bg-emerald-600 px-5 py-3.5 sm:px-6 sm:py-4 text-white flex items-center justify-between shrink-0 shadow-sm">
                 <div>
-                  <h3 className="text-2xl font-black">{editingId ? 'Edit Jadwal' : 'Tambah Jadwal Baru'}</h3>
-                  <p className="text-emerald-100/80 text-sm font-medium">Lengkapi detail jadwal kegiatan mingguan</p>
+                  <h3 className="text-base sm:text-lg md:text-xl font-black leading-tight">
+                    {editingId ? 'Edit Jadwal Kegiatan' : 'Tambah Jadwal Baru'}
+                  </h3>
+                  <p className="text-emerald-100/90 text-[11px] sm:text-xs font-medium mt-0.5">
+                    Lengkapi detail jadwal kegiatan mingguan
+                  </p>
                 </div>
-                <button onClick={resetForm} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-                  <X size={24} />
+                <button 
+                  type="button"
+                  onClick={resetForm} 
+                  className="p-1.5 sm:p-2 hover:bg-white/10 rounded-xl transition-colors text-white/90 hover:text-white"
+                  title="Tutup Form"
+                >
+                  <X size={20} className="sm:w-6 sm:h-6" />
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-8 space-y-6">
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Pilih Kegiatan</label>
+              {/* Scrollable Form Body - Fits cleanly on mobile & laptop screens */}
+              <form onSubmit={handleSubmit} className="p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-3.5 overflow-y-auto custom-scrollbar flex-1">
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
+                    Pilih Kegiatan
+                  </label>
                   <select
                     required
-                    className="w-full px-6 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none bg-white"
+                    className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 bg-white"
                     value={formData.kegiatan_id}
                     onChange={e => setFormData({ ...formData, kegiatan_id: e.target.value })}
                   >
@@ -529,12 +575,14 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Hari</label>
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5">
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
+                      Hari
+                    </label>
                     <select
                       required
-                      className="w-full px-6 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none bg-white"
+                      className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 bg-white"
                       value={formData.hari}
                       onChange={e => setFormData({ ...formData, hari: e.target.value })}
                     >
@@ -542,11 +590,13 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
                       {days.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
-                  <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Minggu Ke</label>
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
+                      Minggu Ke
+                    </label>
                     <select
                       required
-                      className="w-full px-6 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none bg-white"
+                      className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 bg-white"
                       value={formData.minggu_ke}
                       onChange={e => setFormData({ ...formData, minggu_ke: parseInt(e.target.value) })}
                     >
@@ -555,23 +605,27 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Bulan</label>
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5">
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
+                      Bulan
+                    </label>
                     <select
                       required
-                      className="w-full px-6 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none bg-white"
+                      className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 bg-white"
                       value={formData.bulan}
                       onChange={e => setFormData({ ...formData, bulan: e.target.value })}
                     >
                       {months.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </div>
-                  <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Tahun</label>
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
+                      Tahun
+                    </label>
                     <select
                       required
-                      className="w-full px-6 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 appearance-none bg-white"
+                      className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 bg-white"
                       value={formData.tahun}
                       onChange={e => setFormData({ ...formData, tahun: parseInt(e.target.value) })}
                     >
@@ -580,47 +634,53 @@ const KeagamaanJadwal: React.FC<{ user?: any }> = ({ user }) => {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Kelas (Contoh: 7A, 8B, atau Semua Kelas)</label>
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
+                    Kelas (Contoh: 7A, 8B, atau Semua Kelas)
+                  </label>
                   <input
                     type="text"
                     required
                     placeholder="Masukkan kelas..."
-                    className="w-full px-6 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700"
+                    className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700"
                     value={formData.kelas}
                     onChange={e => setFormData({ ...formData, kelas: e.target.value })}
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Keterangan (Opsional)</label>
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider ml-1">
+                    Keterangan (Opsional)
+                  </label>
                   <textarea
                     placeholder="Tambahkan keterangan..."
-                    className="w-full px-6 py-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 h-24 resize-none"
+                    className="w-full px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-xs sm:text-sm text-slate-700 h-16 sm:h-20 resize-none"
                     value={formData.keterangan}
                     onChange={e => setFormData({ ...formData, keterangan: e.target.value })}
                   />
                 </div>
 
-                <div className="flex gap-4 pt-4">
+                {/* Visible Action Buttons */}
+                <div className="flex gap-2.5 sm:gap-3 pt-2 sm:pt-3 shrink-0">
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="flex-1 py-4 rounded-2xl border-2 border-slate-100 text-slate-600 font-bold hover:bg-slate-50 transition-all"
+                    className="flex-1 py-2.5 sm:py-3 rounded-xl md:rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-xs sm:text-sm hover:bg-slate-50 active:scale-95 transition-all"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex-[2] py-4 rounded-2xl bg-emerald-600 text-white font-black hover:bg-emerald-700 shadow-xl shadow-emerald-200 transition-all disabled:opacity-50"
+                    className="flex-[2] py-2.5 sm:py-3 rounded-xl md:rounded-2xl bg-emerald-600 text-white font-black text-xs sm:text-sm hover:bg-emerald-700 shadow-md shadow-emerald-200 active:scale-95 transition-all disabled:opacity-50"
                   >
                     {submitting ? 'Menyimpan...' : 'Simpan Jadwal'}
                   </button>
                 </div>
               </form>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
     </div>
