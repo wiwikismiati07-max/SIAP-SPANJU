@@ -12,7 +12,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import { JurnalPembelajaran } from '../../types/jurnalpembelajaran';
-import { fetchAllJurnal } from '../../lib/jurnalService';
+import { fetchAllJurnal, restoreMasterData } from '../../lib/jurnalService';
 import { JurnalDashboard } from './JurnalDashboard';
 import { JurnalForm } from './JurnalForm';
 import { JurnalLaporan } from './JurnalLaporan';
@@ -55,6 +55,7 @@ export default function JurnalPembelajaranApp({ onBack, onOpenSidebar, user }: J
 
   useEffect(() => {
     if (!isTamu) {
+      restoreMasterData().catch(() => {});
       loadData();
     }
   }, [isTamu]);

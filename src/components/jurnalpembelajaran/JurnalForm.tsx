@@ -29,7 +29,8 @@ import {
   DAFTAR_KELAS, 
   JAM_PELAJARAN_OPTIONS,
   JADWAL_BEL_SEKOLAH,
-  calculateJamPelajaranNumbers
+  calculateJamPelajaranNumbers,
+  DEFAULT_MAPEL
 } from '../../types/jurnalpembelajaran';
 import { 
   fetchGuruList, 
@@ -40,7 +41,9 @@ import {
   generateUUID,
   isValidUUID,
   findGuruNip,
-  fetchJurnalPhoto
+  fetchJurnalPhoto,
+  restoreMasterData,
+  DEFAULT_GURU_LIST
 } from '../../lib/jurnalService';
 import { PRIMARY_NOTIF_EMAIL, generateJurnalMailtoUrl, generateGmailWebComposeUrl } from '../../lib/emailNotificationService';
 import { compressImage } from '../../lib/imageCompressor';
@@ -62,16 +65,51 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
   const [customJamDari, setCustomJamDari] = useState<number>(3);
   const [customJamKe, setCustomJamKe] = useState<number>(5);
   
-  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>([]);
-  const [selectedPeriode, setSelectedPeriode] = useState<string>('');
+  const getInitialGurus = () => {
+    try {
+      const raw = localStorage.getItem('master_guru') || localStorage.getItem('sitelat_guru');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((g: any) => ({
+            id: g.id || `g-${Math.random().toString(36).substring(2, 7)}`,
+            nama_guru: (g.nama_guru || g.nama || g.nama_lengkap || '').trim(),
+            nip: (g.nip || g.NIP || g.nip_guru || '').toString().trim()
+          })).filter(g => g.nama_guru);
+        }
+      }
+    } catch (_) {}
+    return DEFAULT_GURU_LIST;
+  };
 
-  const [mapelList, setMapelList] = useState<{ id: string; nama_mapel: string }[]>([]);
-  const [selectedMapel, setSelectedMapel] = useState<string>('');
+  const getInitialMapels = () => {
+    try {
+      const raw = localStorage.getItem('master_mapel');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((m: any, idx: number) => ({
+            id: m.id || `m-${idx + 1}`,
+            nama_mapel: (m.nama_mapel || m.nama || String(m)).toString().trim()
+          })).filter(m => m.nama_mapel);
+        }
+      }
+    } catch (_) {}
+    return DEFAULT_MAPEL.map((m, idx) => ({ id: `m-${idx + 1}`, nama_mapel: m }));
+  };
+
+  const getInitialPeriodes = () => ['2025/2026', '2026', '2025', '2024/2025'];
+
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(getInitialPeriodes);
+  const [selectedPeriode, setSelectedPeriode] = useState<string>(() => initialData?.periode || getInitialPeriodes()[1] || '2026');
+
+  const [mapelList, setMapelList] = useState<{ id: string; nama_mapel: string }[]>(getInitialMapels);
+  const [selectedMapel, setSelectedMapel] = useState<string>(() => initialData?.nama_mapel || getInitialMapels()[0]?.nama_mapel || '');
   const [customMapel, setCustomMapel] = useState<string>('');
   const [isCustomMapel, setIsCustomMapel] = useState<boolean>(false);
 
-  const [guruList, setGuruList] = useState<{ id: string; nama_guru: string; nip?: string }[]>([]);
-  const [selectedGuru, setSelectedGuru] = useState<string>('');
+  const [guruList, setGuruList] = useState<{ id: string; nama_guru: string; nip?: string }[]>(getInitialGurus);
+  const [selectedGuru, setSelectedGuru] = useState<string>(() => initialData?.nama_guru || getInitialGurus()[0]?.nama_guru || '');
   const [customGuru, setCustomGuru] = useState<string>('');
   const [isCustomGuru, setIsCustomGuru] = useState<boolean>(false);
 
@@ -100,6 +138,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
   // Load masters on mount
   useEffect(() => {
     const loadMasters = async () => {
+      await restoreMasterData().catch(() => {});
       const [gurus, mapels, periodes] = await Promise.all([
         fetchGuruList(),
         fetchMapelList(),
@@ -144,24 +183,24 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
         }
         setSiswaList(initialData.siswa_list || []);
 
-        const mapelExists = mapels.some(m => m.nama_mapel === initialData.nama_mapel);
+        const mapelExists = mapels.some(m => m.nama_mapel.toLowerCase() === (initialData.nama_mapel || '').toLowerCase());
         if (mapelExists) {
+          const matched = mapels.find(m => m.nama_mapel.toLowerCase() === (initialData.nama_mapel || '').toLowerCase());
+          setSelectedMapel(matched?.nama_mapel || initialData.nama_mapel);
+        } else if (initialData.nama_mapel) {
           setSelectedMapel(initialData.nama_mapel);
-        } else {
-          setIsCustomMapel(true);
-          setCustomMapel(initialData.nama_mapel);
         }
 
-        const guruExists = gurus.some(g => g.nama_guru === initialData.nama_guru);
+        const guruExists = gurus.some(g => g.nama_guru.toLowerCase() === (initialData.nama_guru || '').toLowerCase());
         if (guruExists) {
+          const matched = gurus.find(g => g.nama_guru.toLowerCase() === (initialData.nama_guru || '').toLowerCase());
+          setSelectedGuru(matched?.nama_guru || initialData.nama_guru);
+        } else if (initialData.nama_guru) {
           setSelectedGuru(initialData.nama_guru);
-        } else {
-          setIsCustomGuru(true);
-          setCustomGuru(initialData.nama_guru);
         }
       } else {
-        if (mapels.length > 0) setSelectedMapel(mapels[0].nama_mapel);
-        if (gurus.length > 0) setSelectedGuru(gurus[0].nama_guru);
+        if (mapels.length > 0 && !selectedMapel) setSelectedMapel(mapels[0].nama_mapel);
+        if (gurus.length > 0 && !selectedGuru) setSelectedGuru(gurus[0].nama_guru);
       }
     };
 

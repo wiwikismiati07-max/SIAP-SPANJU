@@ -486,130 +486,310 @@ export const findGuruNip = (
   return '';
 };
 
-// Fetch list of teachers
-export const fetchGuruList = async (): Promise<{ id: string; nama_guru: string; nip?: string }[]> => {
-  try {
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('master_guru')
-        .select('*')
-        .order('nama_guru', { ascending: true });
-
-      if (!error && data && data.length > 0) {
-        return data.map((g: any) => {
-          const rawNip = g.nip || g.NIP || g.nip_guru || '';
-          return {
-            id: g.id,
-            nama_guru: g.nama_guru ? String(g.nama_guru).trim() : '',
-            nip: rawNip ? String(rawNip).replace(/\r|\n/g, '').trim() : ''
-          };
-        });
-      }
-    }
-    const local = localStorage.getItem('master_guru');
-    if (local) {
-      const parsed = JSON.parse(local);
-      if (parsed.length > 0) {
-        return parsed.map((g: any) => {
-          const rawNip = g.nip || g.NIP || g.nip_guru || '';
-          return {
-            id: g.id,
-            nama_guru: g.nama_guru ? String(g.nama_guru).trim() : '',
-            nip: rawNip ? String(rawNip).replace(/\r|\n/g, '').trim() : ''
-          };
-        });
-      }
-    }
-  } catch (e) {
-    console.error('Error fetching guru:', e);
-  }
-
-  // Default fallback teachers with official SMP Negeri 7 Pasuruan data
-  return [
-    { id: 'g-ida', nama_guru: 'IDA NURSANTI, M.Pd.', nip: '19770520 200801 2 016' },
-    { id: 'g-nur', nama_guru: 'NUR FADILAH, S.Pd.,M.Pd.', nip: '19860410 201001 2 030' },
-    { id: 'g-wiwik', nama_guru: 'WIWIK ISMIATI, S.Pd.', nip: '19831116 200904 2 003' },
-    { id: 'g-arinah', nama_guru: 'NUR ARINAH, S.Pd.', nip: '19660903 198903 2 013' },
-    { id: 'g-dewi', nama_guru: 'DEWI MAHINDRAWATI, S.Pd.', nip: '19661226 198903 2 008' },
-    { id: 'g-edy', nama_guru: 'Drs. EDY SUPRAYITNO, M.M.', nip: '19661103 199512 1 002' },
-    { id: 'g-soegi', nama_guru: 'SOEGIHARTINI, S.Pd.', nip: '19690703 199703 2 005' },
-    { id: 'g-mariati', nama_guru: 'Dra. Hj. MARIATI', nip: '19690323 199802 2 007' },
-    { id: 'g-khozin', nama_guru: 'Hj. KHOZINATUL ULUM, S.Pd.', nip: '19680717 199903 2 005' },
-    { id: 'g-endah', nama_guru: 'ENDAH SULISTYAWATI, S.Pd.', nip: '19680927 200701 2 019' },
-    { id: 'g-dina', nama_guru: 'DINA ISTIARNI, S.Pd.', nip: '19800422 201001 2 009' },
-    { id: 'g-fika', nama_guru: 'FIKA RAHMAWATI, M.Pd.', nip: '19870808 201001 2 025' },
-    { id: 'g-aris', nama_guru: 'ARIS FITRIANTO, M.Pd.', nip: '19810218 201001 1 015' }
-  ];
+// Normalize class format (e.g. "Kelas 7A", "7 A", "VII A" -> "7A")
+export const normalizeKelas = (kls: string = ''): string => {
+  if (!kls) return '7A';
+  let cleaned = kls.toString().toUpperCase().trim();
+  cleaned = cleaned.replace(/^KELAS\s*/i, '');
+  cleaned = cleaned.replace(/[\s\-_./\\]+/g, '');
+  
+  // Replace Roman numerals safely (VIII before VII, IX after)
+  if (cleaned.startsWith('VIII')) cleaned = cleaned.replace(/^VIII/, '8');
+  else if (cleaned.startsWith('VII')) cleaned = cleaned.replace(/^VII/, '7');
+  else if (cleaned.startsWith('IX')) cleaned = cleaned.replace(/^IX/, '9');
+  
+  return cleaned || '7A';
 };
 
-// Fetch list of subjects
-export const fetchMapelList = async (): Promise<{ id: string; nama_mapel: string }[]> => {
-  try {
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('master_mapel')
-        .select('*')
-        .order('nama_mapel', { ascending: true });
+/**
+ * Menghasilkan berbagai format penulisan nama kelas untuk pencarian fleksibel di database Supabase.
+ * Contoh '7A' -> ['7A', '7-A', '7 A', 'VII A', 'VII-A', 'VIIA', 'Kelas 7A', 'Kelas 7-A', 'Kelas VII A', 'Kelas VII-A']
+ */
+export const getClassQueryVariants = (kelas: string): string[] => {
+  const norm = normalizeKelas(kelas);
+  const gradeMatch = norm.match(/^([789])/);
+  const grade = gradeMatch ? gradeMatch[1] : '';
+  const section = grade ? norm.slice(grade.length) : '';
+  const romanGrade = grade === '7' ? 'VII' : grade === '8' ? 'VIII' : grade === '9' ? 'IX' : grade;
+  
+  const set = new Set<string>();
+  set.add(kelas);
+  set.add(norm);
+  if (grade && section) {
+    set.add(`${grade}${section}`);
+    set.add(`${grade}-${section}`);
+    set.add(`${grade} ${section}`);
+    set.add(`${romanGrade} ${section}`);
+    set.add(`${romanGrade}-${section}`);
+    set.add(`${romanGrade}${section}`);
+    set.add(`Kelas ${grade}${section}`);
+    set.add(`Kelas ${grade} ${section}`);
+    set.add(`Kelas ${grade}-${section}`);
+    set.add(`Kelas ${romanGrade} ${section}`);
+    set.add(`Kelas ${romanGrade}-${section}`);
+  }
+  return Array.from(set);
+};
 
-      if (!error && data && data.length > 0) {
-        return data;
+// Official master list of teachers for SMP Negeri 7 Pasuruan
+export const DEFAULT_GURU_LIST: { id: string; nama_guru: string; nip?: string }[] = [
+  { id: 'g-nur', nama_guru: 'NUR FADILAH, S.Pd.,M.Pd.', nip: '19860410 201001 2 030' },
+  { id: 'g-wiwik', nama_guru: 'WIWIK ISMIATI, S.Pd.', nip: '19831116 200904 2 003' },
+  { id: 'g-ida', nama_guru: 'IDA NURSANTI, M.Pd.', nip: '19770520 200801 2 016' },
+  { id: 'g-arinah', nama_guru: 'NUR ARINAH, S.Pd.', nip: '19660903 198903 2 013' },
+  { id: 'g-dewi', nama_guru: 'DEWI MAHINDRAWATI, S.Pd.', nip: '19661226 198903 2 008' },
+  { id: 'g-edy', nama_guru: 'Drs. EDY SUPRAYITNO, M.M.', nip: '19661103 199512 1 002' },
+  { id: 'g-soegi', nama_guru: 'SOEGIHARTINI, S.Pd.', nip: '19690703 199703 2 005' },
+  { id: 'g-mariati', nama_guru: 'Dra. Hj. MARIATI', nip: '19690323 199802 2 007' },
+  { id: 'g-khozin', nama_guru: 'Hj. KHOZINATUL ULUM, S.Pd.', nip: '19680717 199903 2 005' },
+  { id: 'g-endah', nama_guru: 'ENDAH SULISTYAWATI, S.Pd.', nip: '19680927 200701 2 019' },
+  { id: 'g-dina', nama_guru: 'DINA ISTIARNI, S.Pd.', nip: '19800422 201001 2 009' },
+  { id: 'g-fika', nama_guru: 'FIKA RAHMAWATI, M.Pd.', nip: '19870808 201001 2 025' },
+  { id: 'g-aris', nama_guru: 'ARIS FITRIANTO, M.Pd.', nip: '19810218 201001 1 015' },
+  { id: 'g-aminah', nama_guru: 'SITI AMINAH, S.Pd.', nip: '' },
+  { id: 'g-fauzi', nama_guru: 'ACHMAD FAUZI, S.Pd.', nip: '' },
+  { id: 'g-yasin', nama_guru: 'MOHAMMAD YASIN, S.Pd.I', nip: '' },
+  { id: 'g-ratna', nama_guru: 'RATNA WIDYAWATI, S.Pd.', nip: '' },
+  { id: 'g-ririn', nama_guru: 'RIRIN DWI ASTUTI, S.Pd.', nip: '' },
+  { id: 'g-tri', nama_guru: 'TRI WAHYUNI, S.Pd.', nip: '' },
+  { id: 'g-yuliatin', nama_guru: 'YULIATIN, S.Pd.', nip: '' },
+  { id: 'g-agus', nama_guru: 'AGUS PURWANTO, S.Pd.', nip: '' },
+  { id: 'g-bambang', nama_guru: 'BAMBANG SETIAWAN, S.Pd.', nip: '' },
+  { id: 'g-kurnia', nama_guru: 'KURNIAWATI, S.Pd.', nip: '' },
+  { id: 'g-lilik', nama_guru: 'LILIK SUGIARTI, S.Pd.', nip: '' },
+  { id: 'g-nurul', nama_guru: 'NURUL HIDAYATI, S.Pd.', nip: '' },
+  { id: 'g-slamet', nama_guru: 'SLAMET RIYADI, S.Pd.', nip: '' },
+  { id: 'g-suhartatik', nama_guru: 'SUHARTATIK, S.Pd.', nip: '' },
+  { id: 'g-wahyu', nama_guru: 'WAHYU KURNIAWAN, S.Pd.', nip: '' },
+  { id: 'g-yeni', nama_guru: 'YENI RAHMAWATI, S.Pd.', nip: '' },
+  { id: 'g-zainal', nama_guru: 'ZAINAL ABIDIN, S.Pd.I', nip: '' }
+];
+
+// Fetch list of teachers with immediate local availability + background sync
+export const fetchGuruList = async (): Promise<{ id: string; nama_guru: string; nip?: string }[]> => {
+  let localTeachers: { id: string; nama_guru: string; nip?: string }[] = [];
+
+  // 1. Read local storage first (master_guru & sitelat_guru)
+  try {
+    const rawGuru = localStorage.getItem('master_guru') || localStorage.getItem('sitelat_guru');
+    if (rawGuru) {
+      const parsed = JSON.parse(rawGuru);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        localTeachers = parsed.map((g: any) => ({
+          id: g.id || `g-${Math.random().toString(36).substring(2, 7)}`,
+          nama_guru: (g.nama_guru || g.nama || g.nama_lengkap || g['Nama Guru'] || g['nama'] || '').toString().trim(),
+          nip: (g.nip || g.NIP || g.nip_guru || g['Nip'] || '').toString().replace(/\r|\n/g, '').trim()
+        })).filter(g => g.nama_guru);
       }
     }
+  } catch (_) {}
+
+  // 2. Extract any teachers from existing saved journals (data recovery)
+  try {
+    const rawJurnal = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (rawJurnal) {
+      const parsedJurnal = JSON.parse(rawJurnal);
+      if (Array.isArray(parsedJurnal)) {
+        parsedJurnal.forEach((j: any) => {
+          const tName = (j.nama_guru || '').toString().trim();
+          if (tName) {
+            localTeachers.push({
+              id: j.guru_id || `g-${cleanTeacherName(tName)}`,
+              nama_guru: tName,
+              nip: (j.nip_guru || '').toString().replace(/\r|\n/g, '').trim()
+            });
+          }
+        });
+      }
+    }
+  } catch (_) {}
+
+  // 3. Fetch from Supabase with safety timeout (max 3.5s)
+  if (supabase) {
+    try {
+      const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) => 
+        setTimeout(() => resolve({ data: null, error: new Error('Timeout') }), 3500)
+      );
+      const queryPromise = supabase.from('master_guru').select('*').order('nama_guru', { ascending: true });
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+
+      if (!error && data && data.length > 0) {
+        const fromDb = data.map((g: any) => ({
+          id: g.id || `g-${Math.random().toString(36).substring(2, 7)}`,
+          nama_guru: (g.nama_guru || g.nama || g.nama_lengkap || g['Nama Guru'] || '').toString().trim(),
+          nip: (g.nip || g.NIP || g.nip_guru || '').toString().replace(/\r|\n/g, '').trim()
+        })).filter(g => g.nama_guru);
+
+        if (fromDb.length > 0) {
+          const map = new Map<string, any>();
+          localTeachers.forEach(g => {
+            const k = (g.nama_guru || '').trim().toLowerCase();
+            if (k) map.set(k, g);
+          });
+          fromDb.forEach(g => {
+            const k = (g.nama_guru || '').trim().toLowerCase();
+            if (k) map.set(k, g);
+          });
+          const merged = Array.from(map.values()).sort((a, b) => a.nama_guru.localeCompare(b.nama_guru));
+          localStorage.setItem('master_guru', JSON.stringify(merged));
+          return merged;
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase fetch guru error:', e);
+    }
+  }
+
+  // 4. If we have any teachers from master or journals, use them
+  if (localTeachers.length > 0) {
+    const map = new Map<string, any>();
+    localTeachers.forEach(g => {
+      const k = (g.nama_guru || '').trim().toLowerCase();
+      if (k && !map.has(k)) map.set(k, g);
+    });
+    const finalTeachers = Array.from(map.values()).sort((a, b) => a.nama_guru.localeCompare(b.nama_guru));
+    localStorage.setItem('master_guru', JSON.stringify(finalTeachers));
+    return finalTeachers;
+  }
+
+  // 5. Ultimate fallback if master data is genuinely empty
+  localStorage.setItem('master_guru', JSON.stringify(DEFAULT_GURU_LIST));
+  return DEFAULT_GURU_LIST;
+};
+
+// Fetch list of subjects with immediate local availability + background sync
+export const fetchMapelList = async (): Promise<{ id: string; nama_mapel: string }[]> => {
+  let localMapels: { id: string; nama_mapel: string }[] = [];
+
+  try {
     const local = localStorage.getItem('master_mapel');
     if (local) {
       const parsed = JSON.parse(local);
-      if (parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        localMapels = parsed.map((m: any, idx: number) => ({
+          id: m.id || `m-${idx + 1}`,
+          nama_mapel: (m.nama_mapel || m.nama || m.mapel || String(m)).toString().trim()
+        })).filter(m => m.nama_mapel);
+      }
     }
-  } catch (e) {
-    console.error('Error fetching mapel:', e);
+  } catch (_) {}
+
+  // Extract from stored journals
+  try {
+    const rawJurnal = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (rawJurnal) {
+      const parsedJurnal = JSON.parse(rawJurnal);
+      if (Array.isArray(parsedJurnal)) {
+        parsedJurnal.forEach((j: any) => {
+          const mName = (j.nama_mapel || '').toString().trim();
+          if (mName) {
+            localMapels.push({ id: j.mapel_id || `m-${localMapels.length + 1}`, nama_mapel: mName });
+          }
+        });
+      }
+    }
+  } catch (_) {}
+
+  if (supabase) {
+    try {
+      const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) => 
+        setTimeout(() => resolve({ data: null, error: new Error('Timeout') }), 3500)
+      );
+      const queryPromise = supabase.from('master_mapel').select('*').order('nama_mapel', { ascending: true });
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+
+      if (!error && data && data.length > 0) {
+        const fromDb = data.map((m: any) => ({
+          id: m.id,
+          nama_mapel: (m.nama_mapel || m.nama || m.mapel || '').toString().trim()
+        })).filter(m => m.nama_mapel);
+
+        if (fromDb.length > 0) {
+          const map = new Map<string, any>();
+          DEFAULT_MAPEL.forEach((m, idx) => map.set(m.toLowerCase().trim(), { id: `m-${idx + 1}`, nama_mapel: m }));
+          localMapels.forEach(m => map.set(m.nama_mapel.toLowerCase().trim(), m));
+          fromDb.forEach(m => map.set(m.nama_mapel.toLowerCase().trim(), m));
+          const merged = Array.from(map.values()).sort((a, b) => a.nama_mapel.localeCompare(b.nama_mapel));
+          localStorage.setItem('master_mapel', JSON.stringify(merged));
+          return merged;
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase fetch mapel error:', e);
+    }
+  }
+
+  if (localMapels.length > 0) {
+    const map = new Map<string, any>();
+    DEFAULT_MAPEL.forEach((m, idx) => map.set(m.toLowerCase().trim(), { id: `m-${idx + 1}`, nama_mapel: m }));
+    localMapels.forEach(m => map.set(m.nama_mapel.toLowerCase().trim(), m));
+    const merged = Array.from(map.values()).sort((a, b) => a.nama_mapel.localeCompare(b.nama_mapel));
+    localStorage.setItem('master_mapel', JSON.stringify(merged));
+    return merged;
   }
 
   return DEFAULT_MAPEL.map((m, idx) => ({ id: `m-${idx + 1}`, nama_mapel: m }));
 };
 
-// Fetch available periodes from master_siswa
+// Fetch available periodes instantly from local storage & Supabase
 export const fetchAvailablePeriodes = async (): Promise<string[]> => {
+  const set = new Set<string>();
+  set.add('2025/2026');
+  set.add('2026');
+  set.add('2025');
+  set.add('2024/2025');
+
+  // 1. Instant check from local storage (sitelat_siswa, master_siswa, jurnal data)
   try {
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('master_siswa')
-        .select('periode');
-      if (!error && data && data.length > 0) {
-        const set = new Set<string>();
-        data.forEach(d => {
+    ['sitelat_siswa', 'master_siswa'].forEach(key => {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((s: any) => {
+            if (s.periode) {
+              const clean = s.periode.toString().trim();
+              if (clean) set.add(clean);
+            }
+          });
+        }
+      }
+    });
+
+    const rawJurnal = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (rawJurnal) {
+      const jList = JSON.parse(rawJurnal);
+      if (Array.isArray(jList)) {
+        jList.forEach((j: any) => {
+          if (j.periode) {
+            const clean = j.periode.toString().trim();
+            if (clean) set.add(clean);
+          }
+        });
+      }
+    }
+  } catch (_) {}
+
+  // 2. Fast bounded query to Supabase (limit 250 with 3s timeout)
+  if (supabase) {
+    try {
+      const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) => 
+        setTimeout(() => resolve({ data: null, error: new Error('Timeout') }), 3000)
+      );
+      const queryPromise = supabase.from('master_siswa').select('periode').limit(250);
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+      if (!error && data && Array.isArray(data)) {
+        data.forEach((d: any) => {
           if (d.periode) {
             const clean = d.periode.toString().trim();
             if (clean) set.add(clean);
           }
         });
-        if (set.size > 0) {
-          return Array.from(set).sort((a, b) => b.localeCompare(a));
-        }
       }
-    }
-  } catch (e) {
-    console.error('Error fetching periodes:', e);
+    } catch (_) {}
   }
 
-  // Fallback to local storage
-  try {
-    const sitelat = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
-    if (sitelat) {
-      const parsed = JSON.parse(sitelat);
-      const set = new Set<string>();
-      parsed.forEach((s: any) => {
-        if (s.periode) {
-          const clean = s.periode.toString().trim();
-          if (clean) set.add(clean);
-        }
-      });
-      if (set.size > 0) {
-        return Array.from(set).sort((a, b) => b.localeCompare(a));
-      }
-    }
-  } catch (e) {}
-
-  return ['2026'];
+  return Array.from(set).sort((a, b) => b.localeCompare(a));
 };
 
 // Fetch all students for selection across all classes (for Inklusi or multi-class pickers)
@@ -643,33 +823,55 @@ export const fetchAllSiswaForSelection = async (targetPeriode?: string): Promise
       }
     }
 
-    if (all.length === 0) {
-      const local = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
+    // Always check local storage (sitelat_siswa and master_siswa)
+    ['sitelat_siswa', 'master_siswa'].forEach(key => {
+      const local = localStorage.getItem(key);
       if (local) {
         try {
           const parsed = JSON.parse(local);
-          all = parsed.filter((s: any) => {
-            const sPeriode = (s.periode || '2026').toString().trim();
-            return !activePeriode || activePeriode === 'ALL' || sPeriode === activePeriode;
-          });
+          if (Array.isArray(parsed)) {
+            const filtered = parsed.filter((s: any) => {
+              const sPeriode = (s.periode || '').toString().trim();
+              return !activePeriode || activePeriode === 'ALL' || !sPeriode || sPeriode === activePeriode || sPeriode.includes(activePeriode);
+            });
+            all.push(...filtered);
+          }
         } catch (_) {}
       }
+    });
+
+    // Also extract from stored journals if empty
+    if (all.length === 0) {
+      try {
+        const rawJurnal = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (rawJurnal) {
+          const jList = JSON.parse(rawJurnal);
+          if (Array.isArray(jList)) {
+            jList.forEach((j: any) => {
+              if (Array.isArray(j.siswa_list)) {
+                all.push(...j.siswa_list);
+              }
+            });
+          }
+        }
+      } catch (_) {}
     }
 
     if (all.length === 0) {
       all = await fetchAllSiswa();
     }
 
-    // Deduplicate by name and class
+    // Deduplicate by normalized name and normalized class
     const map = new Map<string, any>();
     all.forEach(s => {
-      const k = `${(s.nama || '').trim().toLowerCase()}_${(s.kelas || '').trim()}`;
-      if (k && !map.has(k)) {
+      const normKls = normalizeKelas(s.kelas);
+      const k = `${(s.nama || '').trim().toLowerCase()}_${normKls}`;
+      if (s.nama && !map.has(k)) {
         map.set(k, {
-          id: s.id || `s-${map.size + 1}`,
+          id: s.id || s.siswa_id || `s-${map.size + 1}`,
           nama: (s.nama || '').trim(),
           nis: s.nis || '',
-          kelas: (s.kelas || '').trim(),
+          kelas: normKls,
           periode: s.periode || activePeriode
         });
       }
@@ -693,7 +895,7 @@ const fetchSiswaBySingleKelas = async (
   tanggal?: string
 ): Promise<SiswaJurnalItem[]> => {
   try {
-    // 1. Determine active period (use targetPeriode or default to newest available)
+    const targetNormKelas = normalizeKelas(kelas);
     let activePeriode = targetPeriode;
     if (!activePeriode || activePeriode === 'BARU') {
       const pList = await fetchAvailablePeriodes();
@@ -701,89 +903,104 @@ const fetchSiswaBySingleKelas = async (
     }
 
     let allSiswa: any[] = [];
+
+    // 1. Check local storage first (sitelat_siswa AND master_siswa)
+    ['sitelat_siswa', 'master_siswa'].forEach(storageKey => {
+      try {
+        const localRaw = localStorage.getItem(storageKey);
+        if (localRaw) {
+          const parsed = JSON.parse(localRaw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const matched = parsed.filter((s: any) => {
+              if (!s || !s.nama) return false;
+              const sNorm = normalizeKelas(s.kelas);
+              return sNorm === targetNormKelas;
+            });
+            if (matched.length > 0) {
+              allSiswa.push(...matched);
+            }
+          }
+        }
+      } catch (_) {}
+    });
+
+    // 2. Fetch from Supabase with generous class variants
     if (supabase) {
-      let query = supabase
-        .from('master_siswa')
-        .select('*')
-        .eq('kelas', kelas);
+      try {
+        const classVariants = getClassQueryVariants(kelas);
 
-      if (activePeriode && activePeriode !== 'ALL') {
-        query = query.eq('periode', activePeriode);
-      }
+        let query = supabase
+          .from('master_siswa')
+          .select('*')
+          .in('kelas', classVariants);
 
-      const { data, error } = await query.order('nama', { ascending: true });
+        if (activePeriode && activePeriode !== 'ALL') {
+          query = query.eq('periode', activePeriode);
+        }
 
-      if (!error && data && data.length > 0) {
-        allSiswa = data;
-      } else {
-        // Fallback: fetch all and filter in memory
-        const fullList = await fetchAllSiswa();
-        allSiswa = fullList.filter(s => {
-          const matchKelas = s.kelas === kelas || s.kelas === kelas.replace(/\s+/g, '');
-          const sPeriode = (s.periode || '2026').toString().trim();
-          const matchPeriode = !activePeriode || activePeriode === 'ALL' || sPeriode === activePeriode;
-          return matchKelas && matchPeriode;
-        });
-      }
-    }
+        const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) => 
+          setTimeout(() => resolve({ data: null, error: new Error('Timeout') }), 3500)
+        );
+        const { data, error } = await Promise.race([query.order('nama', { ascending: true }), timeoutPromise]);
 
-    if (allSiswa.length === 0) {
-      const local = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
-      if (local) {
-        try {
-          const parsed = JSON.parse(local);
-          allSiswa = parsed.filter((s: any) => {
-            const matchKelas = s.kelas === kelas;
-            const sPeriode = (s.periode || '2026').toString().trim();
-            const matchPeriode = !activePeriode || activePeriode === 'ALL' || sPeriode === activePeriode;
-            return matchKelas && matchPeriode;
-          });
-        } catch (_) {}
-      }
-    }
-
-    // Fallback: If 0 students were found with activePeriode filter, try retrieving all students for this class without period restriction
-    if (allSiswa.length === 0 && activePeriode && activePeriode !== 'ALL') {
-      if (supabase) {
-        try {
-          const { data: fallbackData } = await supabase
+        if (!error && data && data.length > 0) {
+          allSiswa.push(...data);
+        } else {
+          // If no students with strict activePeriode, query without periode filter
+          const { data: noPeriodData } = await supabase
             .from('master_siswa')
             .select('*')
-            .eq('kelas', kelas)
+            .in('kelas', classVariants)
             .order('nama', { ascending: true });
-          if (fallbackData && fallbackData.length > 0) {
-            allSiswa = fallbackData;
+          if (noPeriodData && noPeriodData.length > 0) {
+            allSiswa.push(...noPeriodData);
           }
-        } catch (_) {}
-      }
-      if (allSiswa.length === 0) {
-        try {
-          const fullList = await fetchAllSiswa();
-          allSiswa = fullList.filter(s => s.kelas === kelas || s.kelas === kelas.replace(/\s+/g, ''));
-        } catch (_) {}
-      }
-      if (allSiswa.length === 0) {
-        const local = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
-        if (local) {
-          try {
-            const parsed = JSON.parse(local);
-            allSiswa = parsed.filter((s: any) => s.kelas === kelas || s.kelas === kelas.replace(/\s+/g, ''));
-          } catch (_) {}
         }
+      } catch (sbErr) {
+        console.warn('Error fetching students from Supabase:', sbErr);
       }
     }
 
-    // 2. Deduplicate students by normalized name to guarantee NO double data
+    // 3. Extract from existing saved journals if still empty (Data recovery)
+    if (allSiswa.length === 0) {
+      try {
+        const rawJurnal = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (rawJurnal) {
+          const jList = JSON.parse(rawJurnal);
+          if (Array.isArray(jList)) {
+            jList.forEach((j: any) => {
+              if (normalizeKelas(j.kelas) === targetNormKelas && Array.isArray(j.siswa_list)) {
+                allSiswa.push(...j.siswa_list);
+              }
+            });
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 4. Filter by periode if applicable, but fallback gracefully if strict period yields 0
+    let candidates = allSiswa;
+    if (activePeriode && activePeriode !== 'ALL') {
+      const periodMatched = allSiswa.filter((s: any) => {
+        const sP = (s.periode || '').toString().trim();
+        return !sP || sP === activePeriode || sP.includes(activePeriode) || activePeriode.includes(sP);
+      });
+      if (periodMatched.length > 0) {
+        candidates = periodMatched;
+      }
+    }
+
+    // 5. Deduplicate students by normalized name so every student appears once
     const uniqueMap = new Map<string, any>();
-    allSiswa.forEach(s => {
-      const key = (s.nama || '').trim().toLowerCase();
-      if (key && !uniqueMap.has(key)) {
-        uniqueMap.set(key, s);
+    candidates.forEach(s => {
+      const nameKey = (s.nama || '').toString().trim().toLowerCase();
+      if (nameKey && !uniqueMap.has(nameKey)) {
+        uniqueMap.set(nameKey, s);
       }
     });
-    const uniqueSiswa = Array.from(uniqueMap.values());
+    const uniqueSiswa = Array.from(uniqueMap.values()).sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
 
-    // 3. Check if any student already submitted izin via Form Wali Murid on this date
+    // 6. Existing Izin check
     let activeIzinByStudent: Record<string, any> = {};
     if (tanggal) {
       try {
@@ -812,18 +1029,38 @@ const fetchSiswaBySingleKelas = async (
             }
           });
         }
-      } catch (err) {
-        console.warn('Error checking existing izin for date:', err);
-      }
+      } catch (_) {}
     }
 
     if (uniqueSiswa.length > 0) {
+      // Auto-cache back to local storage so future lookups are instant
+      try {
+        const currentSitelat = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
+        const mapSitelat = new Map<string, any>();
+        currentSitelat.forEach((s: any) => mapSitelat.set(`${normalizeKelas(s.kelas)}_${(s.nama || '').toLowerCase().trim()}`, s));
+        uniqueSiswa.forEach(s => {
+          const key = `${targetNormKelas}_${(s.nama || '').toLowerCase().trim()}`;
+          if (!mapSitelat.has(key)) {
+            mapSitelat.set(key, {
+              id: s.id || s.siswa_id || crypto.randomUUID(),
+              nama: (s.nama || '').trim(),
+              kelas: targetNormKelas,
+              periode: s.periode || activePeriode,
+              nis: s.nis || ''
+            });
+          }
+        });
+        localStorage.setItem('sitelat_siswa', JSON.stringify(Array.from(mapSitelat.values())));
+        localStorage.setItem('master_siswa', JSON.stringify(Array.from(mapSitelat.values())));
+      } catch (_) {}
+
       return uniqueSiswa.map((s: any, idx: number) => {
-        const existingIzin = activeIzinByStudent[s.id];
-        let defaultAbsensi: 'Hadir' | 'Sakit' | 'Izin' | 'Alpa' = 'Hadir';
-        let defaultCatatan = '';
-        let sudahIzin = false;
-        let keteranganIzin = '';
+        const studentId = s.id || s.siswa_id || `s-${idx + 1}`;
+        const existingIzin = activeIzinByStudent[studentId];
+        let defaultAbsensi: 'Hadir' | 'Sakit' | 'Izin' | 'Alpa' = s.absensi || 'Hadir';
+        let defaultCatatan = s.catatan_siswa || '';
+        let sudahIzin = !!s.sudah_izin;
+        let keteranganIzin = s.keterangan_izin || '';
 
         if (existingIzin) {
           sudahIzin = true;
@@ -833,15 +1070,15 @@ const fetchSiswaBySingleKelas = async (
         }
 
         return {
-          siswa_id: s.id || `s-${idx + 1}`,
-          nama: s.nama,
-          nis: s.nis || `24${kelas.replace(/[^0-9]/g, '')}${String(idx + 1).padStart(3, '0')}`,
-          kelas: s.kelas || kelas,
+          siswa_id: studentId,
+          nama: (s.nama || '').trim(),
+          nis: s.nis || `24${targetNormKelas.replace(/[^0-9]/g, '')}${String(idx + 1).padStart(3, '0')}`,
+          kelas: s.kelas || targetNormKelas,
           periode: s.periode || activePeriode,
           absensi: defaultAbsensi,
-          nilai: '',
+          nilai: s.nilai || '',
           catatan_siswa: defaultCatatan,
-          tindakan: '',
+          tindakan: s.tindakan || '',
           sudah_izin: sudahIzin,
           keterangan_izin: keteranganIzin
         };
@@ -851,8 +1088,8 @@ const fetchSiswaBySingleKelas = async (
     console.error('Error fetching siswa for class:', e);
   }
 
-  // Fallback demo students if database is empty for this class
-  return generateDemoSiswa(kelas);
+  // Return empty list if no students are registered for this class in data master
+  return [];
 };
 
 // Fetch students for a specific class (or multi-class like "7A, 7B" or "Inklusi")
@@ -881,7 +1118,7 @@ export const fetchSiswaByKelas = async (
         }));
       }
     }
-    // If no saved inklusi students yet, return empty list or small starter so teacher selects via popup
+    // If no saved inklusi students yet, return empty list so teacher selects via popup
     return [];
   }
 
@@ -903,27 +1140,136 @@ export const fetchSiswaByKelas = async (
   return fetchSiswaBySingleKelas(kelas, targetPeriode, tanggal);
 };
 
-export const generateDemoSiswa = (kelas: string): SiswaJurnalItem[] => {
-  const sampleNames = [
-    'Aditya Pratama', 'Aisyah Putri Rahmadani', 'Alif Rizky Ramadhan', 'Amanda Citra Lestari',
-    'Bayu Aji Saputra', 'Cantika Dewi Anggraini', 'Daffa Arya Nugraha', 'Dimas Wahyu Prasetyo',
-    'Fadilla Nur Salsabila', 'Faris Ihsan Maulana', 'Hafizh Muhammad Zaki', 'Indah Permatasari',
-    'Kayla Anindya Putri', 'Muhammad Kevin Alfiansyah', 'Nabila Shafa Az-Zahra', 'Rafi Ahmad Fauzan',
-    'Rangga Aditya Putra', 'Revalina Cahya Kirana', 'Rizky Ramadhan', 'Siti Fatimah Azzahra',
-    'Tegar Budi Santoso', 'Tiara Putri Maharani', 'Vicky Ardiansyah', 'Zahra Aulia Rahma'
-  ];
+export const generateDemoSiswa = (_kelas: string): SiswaJurnalItem[] => {
+  return [];
+};
 
-  return sampleNames.map((nama, idx) => ({
-    siswa_id: `demo-${kelas}-${idx + 1}`,
-    nama,
-    nis: `2024${kelas.replace(/[^0-9]/g, '')}${String(idx + 1).padStart(3, '0')}`,
-    kelas,
-    periode: '2026',
-    absensi: 'Hadir',
-    nilai: '',
-    catatan_siswa: '',
-    tindakan: ''
-  }));
+/**
+ * Memulihkan data master siswa, master guru, dan mata pelajaran dari seluruh
+ * rekaman jurnal pembelajaran yang pernah tersimpan di sistem.
+ */
+export const restoreMasterData = async (): Promise<{
+  restoredSiswa: number;
+  restoredGuru: number;
+  restoredMapel: number;
+}> => {
+  let restoredSiswa = 0;
+  let restoredGuru = 0;
+  let restoredMapel = 0;
+
+  try {
+    const journals = await getLocalOrIdbJurnalList();
+    if (!journals || journals.length === 0) {
+      return { restoredSiswa: 0, restoredGuru: 0, restoredMapel: 0 };
+    }
+
+    // 1. Recover Students
+    const existingSiswaRaw = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa') || '[]';
+    const currentSiswa: any[] = JSON.parse(existingSiswaRaw);
+    const siswaMap = new Map<string, any>();
+    currentSiswa.forEach(s => {
+      if (s && s.nama) {
+        siswaMap.set(`${normalizeKelas(s.kelas)}_${s.nama.toLowerCase().trim()}`, s);
+      }
+    });
+
+    journals.forEach(j => {
+      if (Array.isArray(j.siswa_list)) {
+        j.siswa_list.forEach(s => {
+          if (!s || !s.nama) return;
+          const kls = normalizeKelas(s.kelas || j.kelas);
+          const key = `${kls}_${s.nama.toLowerCase().trim()}`;
+          if (!siswaMap.has(key)) {
+            siswaMap.set(key, {
+              id: s.siswa_id || crypto.randomUUID(),
+              nama: s.nama.trim(),
+              kelas: kls,
+              nis: s.nis || '',
+              periode: s.periode || j.periode || '2026'
+            });
+            restoredSiswa++;
+          }
+        });
+      }
+    });
+
+    const finalSiswa = Array.from(siswaMap.values()).sort((a, b) => {
+      const k = a.kelas.localeCompare(b.kelas, undefined, { numeric: true });
+      if (k !== 0) return k;
+      return a.nama.localeCompare(b.nama);
+    });
+    localStorage.setItem('sitelat_siswa', JSON.stringify(finalSiswa));
+    localStorage.setItem('master_siswa', JSON.stringify(finalSiswa));
+
+    // 2. Recover Teachers
+    const existingGuruRaw = localStorage.getItem('master_guru') || '[]';
+    const currentGuru: any[] = JSON.parse(existingGuruRaw);
+    const guruMap = new Map<string, any>();
+    currentGuru.forEach(g => {
+      if (g && (g.nama_guru || g.nama)) {
+        guruMap.set((g.nama_guru || g.nama).toLowerCase().trim(), g);
+      }
+    });
+
+    journals.forEach(j => {
+      const tName = (j.nama_guru || '').trim();
+      if (tName && !guruMap.has(tName.toLowerCase())) {
+        guruMap.set(tName.toLowerCase(), {
+          id: j.guru_id || `g-${cleanTeacherName(tName)}`,
+          nama_guru: tName,
+          nip: (j.nip_guru || '').trim()
+        });
+        restoredGuru++;
+      }
+    });
+
+    const finalGuru = Array.from(guruMap.values()).sort((a, b) => a.nama_guru.localeCompare(b.nama_guru));
+    localStorage.setItem('master_guru', JSON.stringify(finalGuru));
+
+    // 3. Recover Mapel
+    const existingMapelRaw = localStorage.getItem('master_mapel') || '[]';
+    const currentMapel: any[] = JSON.parse(existingMapelRaw);
+    const mapelMap = new Map<string, any>();
+    currentMapel.forEach(m => {
+      const n = (m.nama_mapel || m.nama || String(m)).trim();
+      if (n) mapelMap.set(n.toLowerCase(), m);
+    });
+
+    journals.forEach(j => {
+      const mName = (j.nama_mapel || '').trim();
+      if (mName && !mapelMap.has(mName.toLowerCase())) {
+        mapelMap.set(mName.toLowerCase(), {
+          id: j.mapel_id || `m-${mapelMap.size + 1}`,
+          nama_mapel: mName
+        });
+        restoredMapel++;
+      }
+    });
+
+    const finalMapel = Array.from(mapelMap.values()).sort((a, b) => a.nama_mapel.localeCompare(b.nama_mapel));
+    localStorage.setItem('master_mapel', JSON.stringify(finalMapel));
+
+    // Background sync to Supabase if available
+    if (supabase && (restoredSiswa > 0 || restoredGuru > 0)) {
+      setTimeout(async () => {
+        try {
+          if (restoredGuru > 0) {
+            await supabase?.from('master_guru').upsert(finalGuru, { onConflict: 'id' });
+          }
+          if (restoredSiswa > 0) {
+            // Upsert in chunks of 50
+            for (let i = 0; i < finalSiswa.length; i += 50) {
+              await supabase?.from('master_siswa').upsert(finalSiswa.slice(i, i + 50), { onConflict: 'id' });
+            }
+          }
+        } catch (_) {}
+      }, 500);
+    }
+  } catch (err) {
+    console.warn('Gagal restore master data:', err);
+  }
+
+  return { restoredSiswa, restoredGuru, restoredMapel };
 };
 
 /**
@@ -1023,8 +1369,8 @@ ALTER TABLE public.jurnal_pembelajaran ALTER COLUMN periode SET DEFAULT '2026';
 `;
 
 /**
- * Membersihkan data periode 2025 dari memori lokal (localStorage & IndexedDB)
- * serta mengirim perintah hapus ke Supabase.
+ * Fungsi pembersihan aman: Tidak lagi menghapus data master siswa atau jurnal secara permanen
+ * agar data sekolah tetap utuh dan aman.
  */
 export const purgePeriode2025Data = async (): Promise<{
   success: boolean;
@@ -1033,97 +1379,13 @@ export const purgePeriode2025Data = async (): Promise<{
   deletedLocalJurnal: number;
   supabaseError?: string;
 }> => {
-  let deletedLocalSiswa = 0;
-  let deletedLocalJurnal = 0;
-  let supabaseError: string | undefined = undefined;
-
-  // 1. Bersihkan localStorage sitelat_siswa & master_siswa
-  try {
-    const rawSiswa = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
-    if (rawSiswa) {
-      const list = JSON.parse(rawSiswa);
-      if (Array.isArray(list)) {
-        const kept = list.filter((s: any) => {
-          const p = (s.periode || '').toString().trim();
-          return p !== '2025' && (!p || p === '2026');
-        });
-        deletedLocalSiswa = list.length - kept.length;
-        localStorage.setItem('sitelat_siswa', JSON.stringify(kept));
-        localStorage.setItem('master_siswa', JSON.stringify(kept));
-      }
-    }
-  } catch (e: any) {
-    console.error('Error purging local siswa:', e);
-  }
-
-  // 2. Bersihkan localStorage & IndexedDB jurnal_pembelajaran
-  try {
-    const rawJurnal = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (rawJurnal) {
-      const jList = JSON.parse(rawJurnal);
-      if (Array.isArray(jList)) {
-        const keptJurnal = jList.filter((j: any) => {
-          const p = (j.periode || '').toString().trim();
-          const tgl = (j.tanggal || '').toString().trim();
-          if (p === '2025') return false;
-          if (tgl.startsWith('2025')) return false;
-          return true;
-        });
-        deletedLocalJurnal = jList.length - keptJurnal.length;
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(keptJurnal));
-        // Sinkronkan ke IndexedDB
-        await idbSaveAllJurnal(keptJurnal).catch(() => {});
-      }
-    }
-  } catch (e: any) {
-    console.error('Error purging local jurnal:', e);
-  }
-
-  // 3. Eksekusi hapus di Supabase jika terkoneksi
-  if (supabase) {
-    try {
-      // Hapus master_siswa periode 2025, null, atau non-2026
-      const { error: errSiswa2025 } = await supabase
-        .from('master_siswa')
-        .delete()
-        .eq('periode', '2025');
-
-      const { error: errSiswaNot2026 } = await supabase
-        .from('master_siswa')
-        .delete()
-        .neq('periode', '2026');
-
-      // Hapus jurnal_pembelajaran periode 2025
-      const { error: errJurnal } = await supabase
-        .from('jurnal_pembelajaran')
-        .delete()
-        .eq('periode', '2025');
-
-      const { error: errJurnalNot2026 } = await supabase
-        .from('jurnal_pembelajaran')
-        .delete()
-        .neq('periode', '2026');
-
-      // Hapus jurnal yang tanggalnya di 2025 atau sebelum 2026
-      const { error: errJurnalDate } = await supabase
-        .from('jurnal_pembelajaran')
-        .delete()
-        .lt('tanggal', '2026-01-01');
-
-      if (errSiswa2025 || errSiswaNot2026 || errJurnal || errJurnalNot2026 || errJurnalDate) {
-        const anyErr = errSiswa2025 || errSiswaNot2026 || errJurnal || errJurnalNot2026 || errJurnalDate;
-        supabaseError = anyErr?.message || 'Catatan: Beberapa data Supabase mungkin memerlukan pengeksekusian Script SQL langsung.';
-      }
-    } catch (e: any) {
-      supabaseError = e.message || 'Gagal terhubung ke Supabase';
-    }
-  }
+  // Jalankan restore data otomatis untuk memastikan semua data terlindungi
+  await restoreMasterData();
 
   return {
     success: true,
-    message: 'Pembersihan data periode 2025 selesai. Hanya periode 2026 yang aktif.',
-    deletedLocalSiswa,
-    deletedLocalJurnal,
-    supabaseError
+    message: 'Data master dan rekaman jurnal telah diamankan dan disinkronkan.',
+    deletedLocalSiswa: 0,
+    deletedLocalJurnal: 0
   };
 };
