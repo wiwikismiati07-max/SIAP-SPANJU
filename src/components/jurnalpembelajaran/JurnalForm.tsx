@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   X,
   UserCheck,
+  UserPlus,
   Mail,
   Send,
   ExternalLink
@@ -45,7 +46,9 @@ import {
   restoreMasterData,
   DEFAULT_GURU_LIST,
   isExcludedGuru,
-  deduplicateGuruList
+  deduplicateGuruList,
+  deduplicateMapelList,
+  addMasterGuru
 } from '../../lib/jurnalService';
 import { PRIMARY_NOTIF_EMAIL, generateJurnalMailtoUrl, generateGmailWebComposeUrl } from '../../lib/emailNotificationService';
 import { compressImage } from '../../lib/imageCompressor';
@@ -78,7 +81,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
             nama_guru: (g.nama_guru || g.nama || g.nama_lengkap || '').trim(),
             nip: (g.nip || g.NIP || g.nip_guru || '').toString().trim()
           })).filter(g => g.nama_guru && !isExcludedGuru(g.nama_guru));
-          const deduped = deduplicateGuruList(list);
+          const deduped = deduplicateGuruList([...DEFAULT_GURU_LIST, ...list]);
           if (deduped.length > 0) return deduped;
         }
       }
@@ -87,33 +90,24 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
   };
 
   const getInitialMapels = () => {
-    const normalizeMapelName = (name: string): string => {
-      const trimmed = name.trim();
-      if (trimmed.toLowerCase() === 'seni budaya') {
-        return 'Seni Budaya dan Prakarya';
-      }
-      return trimmed;
-    };
-
     try {
       const raw = localStorage.getItem('master_mapel');
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const list = parsed.map((m: any, idx: number) => ({
-            id: m.id || `m-${idx + 1}`,
-            nama_mapel: normalizeMapelName((m.nama_mapel || m.nama || String(m)).toString())
-          })).filter(m => m.nama_mapel && m.nama_mapel.toLowerCase() !== 'prakarya');
-
-          // Ensure 'Seni Budaya dan Prakarya' is present if needed
-          if (!list.some(m => m.nama_mapel.toLowerCase() === 'seni budaya dan prakarya')) {
-            list.push({ id: 'm-sbdp', nama_mapel: 'Seni Budaya dan Prakarya' });
-          }
-          return list;
+          const list = parsed.map((m: any) => ({
+            id: m.id,
+            nama_mapel: (m.nama_mapel || m.nama || String(m)).toString()
+          }));
+          const deduped = deduplicateMapelList([
+            ...DEFAULT_MAPEL.map((m, idx) => ({ id: `def-mapel-${idx + 1}`, nama_mapel: m })),
+            ...list
+          ]);
+          if (deduped.length > 0) return deduped;
         }
       }
     } catch (_) {}
-    return DEFAULT_MAPEL.map((m, idx) => ({ id: `m-${idx + 1}`, nama_mapel: m }));
+    return deduplicateMapelList(DEFAULT_MAPEL.map((m, idx) => ({ id: `def-mapel-${idx + 1}`, nama_mapel: m })));
   };
 
   const getInitialPeriodes = () => ['2025/2026', '2026', '2025', '2024/2025'];
@@ -142,6 +136,12 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
   });
   const [customGuru, setCustomGuru] = useState<string>('');
   const [isCustomGuru, setIsCustomGuru] = useState<boolean>(false);
+
+  // Modal Tambah Guru Baru
+  const [showAddGuruModal, setShowAddGuruModal] = useState<boolean>(false);
+  const [newGuruNama, setNewGuruNama] = useState<string>('');
+  const [newGuruNip, setNewGuruNip] = useState<string>('');
+  const [isSavingNewGuru, setIsSavingNewGuru] = useState<boolean>(false);
 
   const [kelas, setKelas] = useState<string>('7A');
   const [isKelasModalOpen, setIsKelasModalOpen] = useState<boolean>(false);
@@ -174,9 +174,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
         fetchMapelList(),
         fetchAvailablePeriodes()
       ]);
-      const cleanMapels = mapels
-        .filter(m => m.nama_mapel.toLowerCase() !== 'prakarya')
-        .map(m => m.nama_mapel.toLowerCase() === 'seni budaya' ? { ...m, nama_mapel: 'Seni Budaya dan Prakarya' } : m);
+      const cleanMapels = deduplicateMapelList(mapels);
       const cleanGurus = deduplicateGuruList(gurus.filter(g => !isExcludedGuru(g.nama_guru)));
       setGuruList(cleanGurus);
       setMapelList(cleanMapels);
@@ -557,7 +555,8 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
   );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in duration-300">
+    <>
+      <form onSubmit={handleSubmit} className="space-y-8 animate-in fade-in duration-300">
       {/* Alert status */}
       {statusMessage && (
         <div className={`p-4 rounded-2xl flex items-center gap-3 ${
@@ -916,8 +915,10 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
               >
                 {mapelList
                   .filter(m => m.nama_mapel.toLowerCase() !== 'prakarya')
-                  .map(m => (
-                    <option key={m.id} value={m.nama_mapel}>{m.nama_mapel}</option>
+                  .map((m, idx) => (
+                    <option key={`${m.id || 'mapel'}-${idx}-${m.nama_mapel}`} value={m.nama_mapel}>
+                      {m.nama_mapel}
+                    </option>
                   ))}
               </select>
             )}
@@ -926,16 +927,26 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
           {/* Guru Pengajar */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                <User size={14} className="inline mr-1 text-amber-500" /> Pengajar (Guru)
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
+                <User size={14} className="text-amber-500" /> Pengajar (Guru)
               </label>
-              <button
-                type="button"
-                onClick={() => setIsCustomGuru(!isCustomGuru)}
-                className="text-[11px] font-bold text-amber-600 hover:text-amber-700"
-              >
-                {isCustomGuru ? 'Pilih dari List' : '+ Ketik Nama Guru'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddGuruModal(true)}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-all active:scale-95 cursor-pointer shadow-2xs"
+                  title="Tambah data guru baru ke master daftar pengajar"
+                >
+                  <Plus size={13} className="stroke-[3]" /> Tambah Guru
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCustomGuru(!isCustomGuru)}
+                  className="text-[11px] font-bold text-amber-600 hover:text-amber-700 hover:underline cursor-pointer"
+                >
+                  {isCustomGuru ? 'Pilih dari List' : 'Ketik Manual'}
+                </button>
+              </div>
             </div>
 
             {isCustomGuru ? (
@@ -952,8 +963,8 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
                 onChange={e => setSelectedGuru(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-sm font-semibold transition-all"
               >
-                {deduplicateGuruList(guruList.filter(g => !isExcludedGuru(g.nama_guru))).map(g => (
-                  <option key={g.id} value={g.nama_guru}>
+                {deduplicateGuruList(guruList.filter(g => !isExcludedGuru(g.nama_guru))).map((g, idx) => (
+                  <option key={`${g.id || 'guru'}-${idx}-${g.nama_guru}`} value={g.nama_guru}>
                     {g.nama_guru} {g.nip ? `(NIP: ${g.nip})` : ''}
                   </option>
                 ))}
@@ -1462,6 +1473,7 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
           </button>
         </div>
       </div>
+    </form>
 
       {/* Modal Popup Pemilih Multi-Kelas & Siswa Inklusi */}
       <KelasSelectorModal
@@ -1474,6 +1486,130 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
         onApplyMultiKelas={handleApplyMultiKelas}
         onApplyInklusi={handleApplyInklusi}
       />
-    </form>
+
+      {/* Modal Input Tambah Guru Baru */}
+      {showAddGuruModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shadow-xs">
+                  <UserPlus size={20} />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-800 text-base">Input Tambah Guru Baru</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Tambahkan ke daftar pengajar jurnal</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddGuruModal(false);
+                  setNewGuruNama('');
+                  setNewGuruNip('');
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Nama Lengkap & Gelar <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Dra. Hj. Siti Aminah, M.Pd."
+                  value={newGuruNama}
+                  onChange={e => setNewGuruNama(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm font-semibold text-slate-800"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  NIP Guru <span className="text-slate-400 font-normal">(Opsional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: 19750812 200501 2 004"
+                  value={newGuruNip}
+                  onChange={e => setNewGuruNip(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm font-semibold text-slate-800"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddGuruModal(false);
+                    setNewGuruNama('');
+                    setNewGuruNip('');
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingNewGuru || !newGuruNama.trim()}
+                  onClick={async () => {
+                    const trimmed = newGuruNama.trim();
+                    if (!trimmed) return;
+                    try {
+                      setIsSavingNewGuru(true);
+                      const res = await addMasterGuru(trimmed, newGuruNip);
+                      if (res.success && res.guru) {
+                        const updatedGurus = deduplicateGuruList(res.list);
+                        setGuruList(updatedGurus);
+                        setSelectedGuru(res.guru.nama_guru);
+                        setIsCustomGuru(false);
+                        setShowAddGuruModal(false);
+                        setNewGuruNama('');
+                        setNewGuruNip('');
+                        setStatusMessage({
+                          type: 'success',
+                          text: `Guru "${res.guru.nama_guru}" berhasil ditambahkan & langsung dipilih!`
+                        });
+                        setTimeout(() => setStatusMessage(null), 4000);
+                      } else {
+                        alert(res.error || 'Gagal menambahkan guru');
+                      }
+                    } catch (err: any) {
+                      alert(err.message || 'Gagal menambahkan guru');
+                    } finally {
+                      setIsSavingNewGuru(false);
+                    }
+                  }}
+                  className="px-5 py-2.5 text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-200 transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer active:scale-95"
+                >
+                  {isSavingNewGuru ? (
+                    <span>Menyimpan...</span>
+                  ) : (
+                    <>
+                      <Plus size={14} className="stroke-[3]" /> Simpan & Pilih Guru
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };

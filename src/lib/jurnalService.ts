@@ -535,6 +535,7 @@ export const getClassQueryVariants = (kelas: string): string[] => {
 export const DEFAULT_GURU_LIST: { id: string; nama_guru: string; nip?: string }[] = [
   { id: 'g-nur', nama_guru: 'NUR FADILAH, S.Pd.,M.Pd.', nip: '19860410 201001 2 030' },
   { id: 'g-wiwik', nama_guru: 'WIWIK ISMIATI, S.Pd.', nip: '19831116 200904 2 003' },
+  { id: 'g-hendrik', nama_guru: 'HENDRIK SAPUTRA, S.Pd.', nip: '19850728 200904 1 001' },
   { id: 'g-ida', nama_guru: 'IDA NURSANTI, M.Pd.', nip: '19770520 200801 2 016' },
   { id: 'g-arinah', nama_guru: 'NUR ARINAH, S.Pd.', nip: '19660903 198903 2 013' },
   { id: 'g-dewi', nama_guru: 'DEWI MAHINDRAWATI, S.Pd.', nip: '19661226 198903 2 008' },
@@ -566,26 +567,17 @@ export const DEFAULT_GURU_LIST: { id: string; nama_guru: string; nip?: string }[
 ];
 
 /**
- * Filter untuk mengecualikan nama guru ganda atau tidak diinginkan pada pilihan Pengajar (Guru)
- * (seperti "Guru Inval WIWIK ISMIATI" karena sudah ada "WIWIK ISMIATI, S.Pd." & "Hendrik saputra")
+ * Filter untuk mengecualikan nama guru tidak valid (seperti "Guru Inval WIWIK ISMIATI" karena sudah ada "WIWIK ISMIATI, S.Pd.")
  */
 export const isExcludedGuru = (namaGuru?: string): boolean => {
   if (!namaGuru) return false;
   const lower = namaGuru.trim().toLowerCase();
   
-  // 1. Hapus "Guru Inval WIWIK ISMIATI" dan segala variasi guru inval / inval
+  // Hapus "Guru Inval WIWIK ISMIATI" dan segala variasi yang menggunakan kata "inval"
   if (
     lower.includes('inval') ||
     lower.includes('guru inval') ||
     lower.startsWith('inval')
-  ) {
-    return true;
-  }
-  
-  // 2. Hapus "Hendrik saputra" dan segala variasinya
-  if (
-    lower.includes('hendrik') ||
-    lower.includes('saputra')
   ) {
     return true;
   }
@@ -626,7 +618,101 @@ export const deduplicateGuruList = (
     }
   });
 
-  return Array.from(map.values()).sort((a, b) => a.nama_guru.localeCompare(b.nama_guru));
+  const usedIds = new Set<string>();
+  return Array.from(map.values())
+    .sort((a, b) => a.nama_guru.localeCompare(b.nama_guru))
+    .map((g, idx) => {
+      let safeId = g.id || `g-${idx + 1}`;
+      if (usedIds.has(safeId)) {
+        safeId = `g-${cleanTeacherName(g.nama_guru).replace(/\s+/g, '-')}-${idx + 1}`;
+      }
+      usedIds.add(safeId);
+      return { ...g, id: safeId };
+    });
+};
+
+/**
+ * Menambahkan guru baru ke master_guru (localStorage & Supabase)
+ */
+export const addMasterGuru = async (
+  nama_guru: string,
+  nip?: string
+): Promise<{
+  success: boolean;
+  guru?: { id: string; nama_guru: string; nip?: string };
+  list: { id: string; nama_guru: string; nip?: string }[];
+  error?: string;
+}> => {
+  const trimmedName = (nama_guru || '').trim();
+  const trimmedNip = (nip || '').replace(/\r|\n/g, '').trim();
+
+  if (!trimmedName) {
+    return { success: false, list: [], error: 'Nama guru wajib diisi!' };
+  }
+
+  const newGuru = {
+    id: generateUUID(),
+    nama_guru: trimmedName,
+    nip: trimmedNip
+  };
+
+  // 1. Update localStorage master_guru & sitelat_guru
+  let existingList: { id: string; nama_guru: string; nip?: string }[] = [];
+  try {
+    const raw = localStorage.getItem('master_guru') || localStorage.getItem('sitelat_guru');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        existingList = parsed.map((g: any) => ({
+          id: g.id || generateUUID(),
+          nama_guru: (g.nama_guru || g.nama || g.nama_lengkap || '').toString().trim(),
+          nip: (g.nip || g.NIP || g.nip_guru || '').toString().trim()
+        })).filter(g => g.nama_guru);
+      }
+    }
+  } catch (_) {}
+
+  if (existingList.length === 0) {
+    existingList = [...DEFAULT_GURU_LIST];
+  }
+
+  // Upsert by cleanTeacherName or exact match so adding a new teacher or updating NIP works smoothly
+  const baseNew = cleanTeacherName(trimmedName);
+  const filteredExisting = existingList.filter(g => cleanTeacherName(g.nama_guru) !== baseNew);
+  const updatedList = [...filteredExisting, newGuru].sort((a, b) => a.nama_guru.localeCompare(b.nama_guru));
+
+  localStorage.setItem('master_guru', JSON.stringify(updatedList));
+  localStorage.setItem('sitelat_guru', JSON.stringify(updatedList));
+
+  // 2. Sync to Supabase master_guru
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('master_guru').upsert([
+        {
+          id: newGuru.id,
+          nama_guru: newGuru.nama_guru,
+          ...(newGuru.nip ? { nip: newGuru.nip } : {})
+        }
+      ]);
+      if (error) {
+        // Fallback if nip column is not in table schema
+        await supabase.from('master_guru').upsert([
+          {
+            id: newGuru.id,
+            nama_guru: newGuru.nama_guru
+          }
+        ]);
+      }
+    } catch (err) {
+      console.warn('Supabase addMasterGuru warning:', err);
+    }
+  }
+
+  return {
+    success: true,
+    guru: newGuru,
+    list: updatedList
+  };
 };
 
 // Fetch list of teachers with immediate local availability + background sync
@@ -704,7 +790,7 @@ export const fetchGuruList = async (): Promise<{ id: string; nama_guru: string; 
         })).filter(g => g.nama_guru && !isExcludedGuru(g.nama_guru));
 
         if (fromDb.length > 0) {
-          const merged = deduplicateGuruList([...localTeachers, ...fromDb]);
+          const merged = deduplicateGuruList([...DEFAULT_GURU_LIST, ...localTeachers, ...fromDb]);
           localStorage.setItem('master_guru', JSON.stringify(merged));
           return merged;
         }
@@ -716,7 +802,7 @@ export const fetchGuruList = async (): Promise<{ id: string; nama_guru: string; 
 
   // 4. If we have any teachers from master or journals, use them
   if (localTeachers.length > 0) {
-    const finalTeachers = deduplicateGuruList(localTeachers);
+    const finalTeachers = deduplicateGuruList([...DEFAULT_GURU_LIST, ...localTeachers]);
     localStorage.setItem('master_guru', JSON.stringify(finalTeachers));
     return finalTeachers;
   }
@@ -725,6 +811,45 @@ export const fetchGuruList = async (): Promise<{ id: string; nama_guru: string; 
   const defaultCleaned = deduplicateGuruList(DEFAULT_GURU_LIST.filter(g => !isExcludedGuru(g.nama_guru)));
   localStorage.setItem('master_guru', JSON.stringify(defaultCleaned));
   return defaultCleaned;
+};
+
+/**
+ * Menghilangkan duplikasi mata pelajaran & memastikan setiap item memiliki ID unik (mencegah duplikat key m-9 dsb)
+ */
+export const deduplicateMapelList = (
+  list: { id?: string; nama_mapel: string }[]
+): { id: string; nama_mapel: string }[] => {
+  const normalizeMapelName = (name: string): string => {
+    const trimmed = (name || '').trim();
+    if (trimmed.toLowerCase() === 'seni budaya') {
+      return 'Seni Budaya dan Prakarya';
+    }
+    return trimmed;
+  };
+
+  const map = new Map<string, { id?: string; nama_mapel: string }>();
+  list.forEach(item => {
+    const normalized = normalizeMapelName(item.nama_mapel);
+    if (!normalized || normalized.toLowerCase() === 'prakarya') return;
+    const key = normalized.toLowerCase();
+    if (!map.has(key)) {
+      map.set(key, { id: item.id, nama_mapel: normalized });
+    }
+  });
+
+  const usedIds = new Set<string>();
+  return Array.from(map.values())
+    .sort((a, b) => a.nama_mapel.localeCompare(b.nama_mapel))
+    .map((m, idx) => {
+      const slug = m.nama_mapel.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      // Hindari penggunaan ID generik pendek seperti m-9 yang rawan bentrok
+      let safeId = m.id && !/^m-\d+$/i.test(m.id) && !usedIds.has(m.id) ? m.id : `mapel-${slug || idx + 1}`;
+      if (usedIds.has(safeId)) {
+        safeId = `mapel-${slug}-${idx + 1}`;
+      }
+      usedIds.add(safeId);
+      return { id: safeId, nama_mapel: m.nama_mapel };
+    });
 };
 
 // Fetch list of subjects with immediate local availability + background sync
@@ -745,7 +870,7 @@ export const fetchMapelList = async (): Promise<{ id: string; nama_mapel: string
       const parsed = JSON.parse(local);
       if (Array.isArray(parsed) && parsed.length > 0) {
         localMapels = parsed.map((m: any, idx: number) => ({
-          id: m.id || `m-${idx + 1}`,
+          id: m.id || `mapel-${idx + 1}`,
           nama_mapel: normalizeMapelName((m.nama_mapel || m.nama || m.mapel || String(m)).toString())
         })).filter(m => m.nama_mapel && m.nama_mapel.toLowerCase() !== 'prakarya');
       }
@@ -761,12 +886,14 @@ export const fetchMapelList = async (): Promise<{ id: string; nama_mapel: string
         parsedJurnal.forEach((j: any) => {
           const mName = (j.nama_mapel || '').toString().trim();
           if (mName && mName.toLowerCase() !== 'prakarya') {
-            localMapels.push({ id: j.mapel_id || `m-${localMapels.length + 1}`, nama_mapel: normalizeMapelName(mName) });
+            localMapels.push({ id: j.mapel_id || `mapel-${localMapels.length + 1}`, nama_mapel: normalizeMapelName(mName) });
           }
         });
       }
     }
   } catch (_) {}
+
+  const defaultItems = DEFAULT_MAPEL.map((m, idx) => ({ id: `def-mapel-${idx + 1}`, nama_mapel: m }));
 
   if (supabase) {
     try {
@@ -783,21 +910,7 @@ export const fetchMapelList = async (): Promise<{ id: string; nama_mapel: string
         })).filter(m => m.nama_mapel && m.nama_mapel.toLowerCase() !== 'prakarya');
 
         if (fromDb.length > 0) {
-          const map = new Map<string, any>();
-          DEFAULT_MAPEL.forEach((m, idx) => map.set(m.toLowerCase().trim(), { id: `m-${idx + 1}`, nama_mapel: m }));
-          localMapels.forEach(m => {
-            if (m.nama_mapel.toLowerCase() !== 'prakarya') {
-              map.set(m.nama_mapel.toLowerCase().trim(), m);
-            }
-          });
-          fromDb.forEach(m => {
-            if (m.nama_mapel.toLowerCase() !== 'prakarya') {
-              map.set(m.nama_mapel.toLowerCase().trim(), m);
-            }
-          });
-          const merged = Array.from(map.values())
-            .filter(m => m.nama_mapel.toLowerCase() !== 'prakarya')
-            .sort((a, b) => a.nama_mapel.localeCompare(b.nama_mapel));
+          const merged = deduplicateMapelList([...defaultItems, ...localMapels, ...fromDb]);
           localStorage.setItem('master_mapel', JSON.stringify(merged));
           return merged;
         }
@@ -807,16 +920,7 @@ export const fetchMapelList = async (): Promise<{ id: string; nama_mapel: string
     }
   }
 
-  const map = new Map<string, any>();
-  DEFAULT_MAPEL.forEach((m, idx) => map.set(m.toLowerCase().trim(), { id: `m-${idx + 1}`, nama_mapel: m }));
-  localMapels.forEach(m => {
-    if (m.nama_mapel.toLowerCase() !== 'prakarya') {
-      map.set(m.nama_mapel.toLowerCase().trim(), m);
-    }
-  });
-  const merged = Array.from(map.values())
-    .filter(m => m.nama_mapel.toLowerCase() !== 'prakarya')
-    .sort((a, b) => a.nama_mapel.localeCompare(b.nama_mapel));
+  const merged = deduplicateMapelList([...defaultItems, ...localMapels]);
   localStorage.setItem('master_mapel', JSON.stringify(merged));
   return merged;
 };
@@ -1325,12 +1429,12 @@ export const restoreMasterData = async (): Promise<{
     // 3. Recover Mapel
     const existingMapelRaw = localStorage.getItem('master_mapel') || '[]';
     const currentMapel: any[] = JSON.parse(existingMapelRaw);
-    const mapelMap = new Map<string, any>();
+    const recoveredMapels: { id?: string; nama_mapel: string }[] = [];
     currentMapel.forEach(m => {
       const rawN = (m.nama_mapel || m.nama || String(m)).trim();
       if (rawN && rawN.toLowerCase() !== 'prakarya') {
         const n = rawN.toLowerCase() === 'seni budaya' ? 'Seni Budaya dan Prakarya' : rawN;
-        mapelMap.set(n.toLowerCase(), { ...m, nama_mapel: n });
+        recoveredMapels.push({ id: m.id, nama_mapel: n });
       }
     });
 
@@ -1338,19 +1442,12 @@ export const restoreMasterData = async (): Promise<{
       const rawM = (j.nama_mapel || '').trim();
       if (rawM && rawM.toLowerCase() !== 'prakarya') {
         const mName = rawM.toLowerCase() === 'seni budaya' ? 'Seni Budaya dan Prakarya' : rawM;
-        if (!mapelMap.has(mName.toLowerCase())) {
-          mapelMap.set(mName.toLowerCase(), {
-            id: j.mapel_id || `m-${mapelMap.size + 1}`,
-            nama_mapel: mName
-          });
-          restoredMapel++;
-        }
+        recoveredMapels.push({ id: j.mapel_id, nama_mapel: mName });
+        restoredMapel++;
       }
     });
 
-    const finalMapel = Array.from(mapelMap.values())
-      .filter(m => m.nama_mapel.toLowerCase() !== 'prakarya')
-      .sort((a, b) => a.nama_mapel.localeCompare(b.nama_mapel));
+    const finalMapel = deduplicateMapelList(recoveredMapels);
     localStorage.setItem('master_mapel', JSON.stringify(finalMapel));
 
     // Background sync to Supabase if available

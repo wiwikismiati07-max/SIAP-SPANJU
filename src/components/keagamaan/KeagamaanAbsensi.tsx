@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, User, Users, Activity, Save, X, Edit2, Trash2, Search, Upload, Download, Check, Plus, UserCheck, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, User, Users, Activity, Save, X, Edit2, Trash2, Search, Upload, Download, Check, Plus, UserCheck, AlertCircle, UserPlus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { AgamaAbsensi, AgamaProgram } from '../../types/keagamaan';
+import { fetchGuruList, addMasterGuru, deduplicateGuruList, isExcludedGuru } from '../../lib/jurnalService';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
@@ -37,6 +38,12 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
   const [filterKelas, setFilterKelas] = useState('');
   const [filterKeterangan, setFilterKeterangan] = useState('');
   const [filterPeriode, setFilterPeriode] = useState('2026');
+
+  // State Input Tambah Guru Baru
+  const [showAddGuruModal, setShowAddGuruModal] = useState(false);
+  const [newGuruNama, setNewGuruNama] = useState('');
+  const [newGuruNip, setNewGuruNip] = useState('');
+  const [isSavingNewGuru, setIsSavingNewGuru] = useState(false);
 
   const [formData, setFormData] = useState({
     siswa_id: '',
@@ -100,14 +107,14 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
 
   const fetchInitialData = async () => {
     try {
-      const [pRes, tRes, sData] = await Promise.all([
+      const [pRes, gList, sData] = await Promise.all([
         supabase ? supabase.from('agama_program').select('*').order('nama_kegiatan') : Promise.resolve({ data: [] }),
-        supabase ? supabase.from('master_guru').select('*').order('nama_guru') : Promise.resolve({ data: [] }),
+        fetchGuruList(),
         fetchAllMasterSiswa()
       ]);
 
       const programList = pRes.data || [];
-      const teacherList = tRes.data || [];
+      const teacherList = deduplicateGuruList((gList || []).filter(g => !isExcludedGuru(g.nama_guru)));
       setPrograms(programList);
       setTeachers(teacherList);
       setStudents(sData || []);
@@ -713,7 +720,16 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
 
               {/* Wali Kelas */}
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Wali Kelas / Guru Pengampu</label>
+                <div className="flex items-center justify-between ml-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Wali Kelas / Guru Pengampu</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddGuruModal(true)}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Plus size={13} className="stroke-[3]" /> Tambah Guru
+                  </button>
+                </div>
                 <div className="relative group">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors" size={20} />
                   <select
@@ -723,7 +739,7 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
                     onChange={e => setFormData({ ...formData, wali_kelas_id: e.target.value })}
                   >
                     <option value="">-- Pilih Wali Kelas / Guru --</option>
-                    {teachers.map(t => <option key={t.id} value={t.id}>{t.nama_guru}</option>)}
+                    {teachers.map((t, idx) => <option key={`${t.id || 'guru'}-${idx}`} value={t.id}>{t.nama_guru}</option>)}
                   </select>
                 </div>
               </div>
@@ -1143,6 +1159,115 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
           </table>
         </div>
       </div>
+
+      {/* Modal Input Tambah Guru Baru */}
+      {showAddGuruModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shadow-xs">
+                  <UserPlus size={20} />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-800 text-base">Input Tambah Guru Baru</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Tambahkan ke daftar Wali Kelas / Guru Pengampu</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddGuruModal(false);
+                  setNewGuruNama('');
+                  setNewGuruNip('');
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Nama Lengkap & Gelar <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Dra. Hj. Siti Aminah, M.Pd."
+                  value={newGuruNama}
+                  onChange={e => setNewGuruNama(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm font-semibold text-slate-800"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  NIP Guru <span className="text-slate-400 font-normal">(Opsional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: 19750812 200501 2 004"
+                  value={newGuruNip}
+                  onChange={e => setNewGuruNip(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm font-semibold text-slate-800"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddGuruModal(false);
+                    setNewGuruNama('');
+                    setNewGuruNip('');
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingNewGuru || !newGuruNama.trim()}
+                  onClick={async () => {
+                    const trimmed = newGuruNama.trim();
+                    if (!trimmed) return;
+                    try {
+                      setIsSavingNewGuru(true);
+                      const res = await addMasterGuru(trimmed, newGuruNip);
+                      if (res.success && res.guru) {
+                        const updatedTeachers = deduplicateGuruList(res.list);
+                        setTeachers(updatedTeachers);
+                        const added = updatedTeachers.find(t => t.nama_guru.toLowerCase() === res.guru!.nama_guru.toLowerCase()) || res.guru;
+                        setFormData(prev => ({ ...prev, wali_kelas_id: added.id }));
+                        setShowAddGuruModal(false);
+                        setNewGuruNama('');
+                        setNewGuruNip('');
+                      } else {
+                        alert(res.error || 'Gagal menambahkan guru');
+                      }
+                    } catch (err: any) {
+                      alert(err.message || 'Gagal menambahkan guru');
+                    } finally {
+                      setIsSavingNewGuru(false);
+                    }
+                  }}
+                  className="px-5 py-2.5 text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-200 transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer active:scale-95"
+                >
+                  {isSavingNewGuru ? (
+                    <span>Menyimpan...</span>
+                  ) : (
+                    <>
+                      <Plus size={14} className="stroke-[3]" /> Simpan & Pilih Guru
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
