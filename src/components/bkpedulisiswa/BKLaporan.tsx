@@ -14,8 +14,8 @@ export default function BKLaporan() {
   const [data, setData] = useState<TransaksiKasus[]>([]);
   const [reportType, setReportType] = useState<'kasus' | 'tindak_lanjut'>('kasus');
   const [viewMode, setViewMode] = useState<'table' | 'tree'>('table');
-  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
-  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2026');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026']);
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState({
     startDate: format(new Date(), 'yyyy-MM-01'),

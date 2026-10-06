@@ -110,10 +110,10 @@ export const JurnalForm: React.FC<JurnalFormProps> = ({ initialData, onSaved, on
     return deduplicateMapelList(DEFAULT_MAPEL.map((m, idx) => ({ id: `def-mapel-${idx + 1}`, nama_mapel: m })));
   };
 
-  const getInitialPeriodes = () => ['2025/2026', '2026', '2025', '2024/2025'];
+  const getInitialPeriodes = () => ['2026', '2025/2026'];
 
   const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(getInitialPeriodes);
-  const [selectedPeriode, setSelectedPeriode] = useState<string>(() => initialData?.periode || getInitialPeriodes()[1] || '2026');
+  const [selectedPeriode, setSelectedPeriode] = useState<string>(() => initialData?.periode || '2026');
 
   const [mapelList, setMapelList] = useState<{ id: string; nama_mapel: string }[]>(getInitialMapels);
   const [selectedMapel, setSelectedMapel] = useState<string>(() => {

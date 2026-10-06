@@ -94,6 +94,7 @@ export default function ManagementSiswaApp() {
         const { data, error } = await supabase
           .from('master_siswa')
           .select('*')
+          .neq('periode', '2025')
           .order('periode', { ascending: false })
           .order('kelas', { ascending: true })
           .order('nama', { ascending: true });
@@ -101,28 +102,35 @@ export default function ManagementSiswaApp() {
         if (error) {
           console.warn('Error fetching master_siswa from Supabase, relying on hybrid merge:', error.message);
         } else if (data) {
-          supaData = data.map(s => ({
-            ...s,
-            kelas: normalizeKelas(s.kelas),
-            periode: (s.periode || '2026').toString().trim()
-          }));
+          supaData = data
+            .filter(s => (s.periode || '').toString().trim() !== '2025')
+            .map(s => ({
+              ...s,
+              kelas: normalizeKelas(s.kelas),
+              periode: (s.periode || '2026').toString().trim()
+            }));
         }
+
+        // Background delete any remaining 2025 students from Supabase
+        Promise.resolve(supabase.from('master_siswa').delete().eq('periode', '2025')).catch(() => {});
       }
 
       // Always load local students as well
-      const saved = localStorage.getItem('sitelat_siswa');
+      const saved = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
       let localData: SiswaData[] = [];
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          localData = parsed.map((s: any) => ({
-            id: s.id || crypto.randomUUID(),
-            nama: (s.nama || '').trim(),
-            kelas: normalizeKelas(s.kelas || '7A'),
-            periode: (s.periode || '2026').toString().trim(),
-            nis: (s.nis || '').toString().trim(),
-            jenis_kelamin: (s.jenis_kelamin || '').toString().trim().toUpperCase()
-          }));
+          localData = parsed
+            .filter((s: any) => (s.periode || '').toString().trim() !== '2025')
+            .map((s: any) => ({
+              id: s.id || crypto.randomUUID(),
+              nama: (s.nama || '').trim(),
+              kelas: normalizeKelas(s.kelas || '7A'),
+              periode: (s.periode || '2026').toString().trim(),
+              nis: (s.nis || '').toString().trim(),
+              jenis_kelamin: (s.jenis_kelamin || '').toString().trim().toUpperCase()
+            }));
         } catch (e) {
           console.error('Error parsing local storage:', e);
         }
@@ -145,13 +153,13 @@ export default function ManagementSiswaApp() {
 
       const combined = Array.from(map.values());
 
-      // Save combined back to localStorage
-      if (combined.length > 0) {
-        localStorage.setItem('sitelat_siswa', JSON.stringify(combined));
-      }
+      // Save combined back to localStorage (clean of 2025)
+      const cleanCombined = combined.filter(s => (s.periode || '').toString().trim() !== '2025');
+      localStorage.setItem('sitelat_siswa', JSON.stringify(cleanCombined));
+      localStorage.setItem('master_siswa', JSON.stringify(cleanCombined));
 
-      setStudents(combined);
-      extractPeriodes(combined);
+      setStudents(cleanCombined);
+      extractPeriodes(cleanCombined);
     } catch (err) {
       console.error('Fetch error:', err);
       loadLocalStudents();
@@ -161,18 +169,20 @@ export default function ManagementSiswaApp() {
   };
 
   const loadLocalStudents = () => {
-    const saved = localStorage.getItem('sitelat_siswa');
+    const saved = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        const normalized = parsed.map((s: any) => ({
-          id: s.id || crypto.randomUUID(),
-          nama: (s.nama || '').trim(),
-          kelas: normalizeKelas(s.kelas || '7A'),
-          periode: (s.periode || '2025').toString().trim(),
-          nis: (s.nis || '').toString().trim(),
-          jenis_kelamin: (s.jenis_kelamin || '').toString().trim().toUpperCase()
-        }));
+        const normalized = parsed
+          .filter((s: any) => (s.periode || '').toString().trim() !== '2025')
+          .map((s: any) => ({
+            id: s.id || crypto.randomUUID(),
+            nama: (s.nama || '').trim(),
+            kelas: normalizeKelas(s.kelas || '7A'),
+            periode: (s.periode || '2026').toString().trim(),
+            nis: (s.nis || '').toString().trim(),
+            jenis_kelamin: (s.jenis_kelamin || '').toString().trim().toUpperCase()
+          }));
         setStudents(normalized);
         extractPeriodes(normalized);
       } catch (e) {
@@ -187,7 +197,8 @@ export default function ManagementSiswaApp() {
     const periodsSet = new Set<string>();
     periodsSet.add('2026');
     list.forEach(s => {
-      if (s.periode) periodsSet.add(s.periode.toString().trim());
+      const p = (s.periode || '').toString().trim();
+      if (p && p !== '2025') periodsSet.add(p);
     });
     const sorted = Array.from(periodsSet).sort((a, b) => b.localeCompare(a));
     setAvailablePeriodes(sorted);
@@ -284,7 +295,7 @@ export default function ManagementSiswaApp() {
       extractPeriodes(updatedList);
 
       setShowAddModal(false);
-      setFormData({ nama: '', kelas: '7A', periode: '2025', nis: '', jenis_kelamin: 'L' });
+      setFormData({ nama: '', kelas: '7A', periode: '2026', nis: '', jenis_kelamin: 'L' });
       alert('Siswa berhasil ditambahkan!');
     } catch (err: any) {
       alert('Gagal menambah siswa: ' + err.message);
@@ -299,7 +310,7 @@ export default function ManagementSiswaApp() {
     setFormData({
       nama: s.nama,
       kelas: s.kelas,
-      periode: s.periode || '2025',
+      periode: s.periode || '2026',
       nis: s.nis || '',
       jenis_kelamin: s.jenis_kelamin || 'L'
     });
@@ -313,7 +324,7 @@ export default function ManagementSiswaApp() {
       ...editingStudent,
       nama: formData.nama.trim(),
       kelas: formData.kelas || editingStudent.kelas,
-      periode: formData.periode?.trim() || editingStudent.periode || '2025',
+      periode: formData.periode?.trim() || editingStudent.periode || '2026',
       nis: formData.nis?.trim() || '',
       jenis_kelamin: formData.jenis_kelamin || 'L'
     };
@@ -374,6 +385,7 @@ export default function ManagementSiswaApp() {
       const updatedList = students.filter(s => s.id !== deletingStudent.id);
       setStudents(updatedList);
       localStorage.setItem('sitelat_siswa', JSON.stringify(updatedList));
+      localStorage.setItem('master_siswa', JSON.stringify(updatedList));
       extractPeriodes(updatedList);
 
       setShowDeleteModal(false);

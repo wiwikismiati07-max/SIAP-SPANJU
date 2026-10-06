@@ -6,8 +6,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 export default function BKDashboard() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
-  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2026');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026']);
   const [dateRange, setDateRange] = useState({
     start: (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')),
     end: (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0'))

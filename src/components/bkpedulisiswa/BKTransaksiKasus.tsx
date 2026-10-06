@@ -466,7 +466,7 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
   const norm = (str?: string) => (str || '').toString().trim().toLowerCase();
 
   const availablePeriodes = Array.from(
-    new Set(['2026', '2025', ...siswa.map(s => s.periode).filter(Boolean)])
+    new Set(['2026', ...siswa.map(s => s.periode).filter(p => Boolean(p) && p !== '2025')])
   ).sort((a, b) => String(b).localeCompare(String(a)));
 
   const filteredSiswa = siswa.filter(s => {

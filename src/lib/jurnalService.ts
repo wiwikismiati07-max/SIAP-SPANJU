@@ -531,53 +531,59 @@ export const getClassQueryVariants = (kelas: string): string[] => {
   return Array.from(set);
 };
 
-// Official master list of teachers for SMP Negeri 7 Pasuruan
-export const DEFAULT_GURU_LIST: { id: string; nama_guru: string; nip?: string }[] = [
-  { id: 'g-nur', nama_guru: 'NUR FADILAH, S.Pd.,M.Pd.', nip: '19860410 201001 2 030' },
-  { id: 'g-wiwik', nama_guru: 'WIWIK ISMIATI, S.Pd.', nip: '19831116 200904 2 003' },
+// Check if NIP is valid (non-empty, length >= 6, not placeholder)
+export const hasValidNip = (nip?: string): boolean => {
+  if (!nip) return false;
+  const clean = nip.toString().replace(/\r|\n/g, '').trim();
+  return clean.length >= 6 && clean !== '-' && clean !== '0' && clean.toLowerCase() !== 'null' && clean.toLowerCase() !== 'undefined';
+};
+
+// Official master list of teachers for SMP Negeri 7 Pasuruan (HANYA GURU YANG MEMILIKI NIP LENGKAP)
+export const DEFAULT_GURU_LIST: { id: string; nama_guru: string; nip: string }[] = [
+  { id: 'g-andika', nama_guru: 'ANDIKA MARDIATUL MASRUROH, S.Pd.I', nip: '19910430 201903 2 007' },
+  { id: 'g-aris', nama_guru: 'ARIS FITRIANTO, M.Pd.', nip: '19810218 201001 1 015' },
+  { id: 'g-cahyo', nama_guru: 'CAHYO KURNIANTO, S.Pd', nip: '19941116 202221 1 001' },
+  { id: 'g-dewi', nama_guru: 'DEWI MAHINDRAWATI, S.Pd.', nip: '19661226 198903 2 008' },
+  { id: 'g-dina', nama_guru: 'DINA ISTIARNI, S.Pd.', nip: '19800422 201001 2 009' },
+  { id: 'g-mariati', nama_guru: 'Dra. Hj. MARIATI', nip: '19690323 199802 2 007' },
+  { id: 'g-edy', nama_guru: 'Drs. EDY SUPRAYITNO, M.M.', nip: '19661103 199512 1 002' },
+  { id: 'g-dwi-rosalinda', nama_guru: 'DWI ROSALINDA, S.Pd', nip: '19950209 202421 2 023' },
+  { id: 'g-eki', nama_guru: 'EKI FEBRIANI, S.Pd.', nip: '19940214 202221 2 014' },
+  { id: 'g-endah', nama_guru: 'ENDAH SULISTYAWATI, S.Pd.', nip: '19680927 200701 2 019' },
+  { id: 'g-enny', nama_guru: 'ENNY YULIASIH, S.Pd.', nip: '19770710 200801 2 026' },
+  { id: 'g-fika', nama_guru: 'FIKA RAHMAWATI, M.Pd.', nip: '19870808 201001 2 025' },
   { id: 'g-hendrik', nama_guru: 'HENDRIK SAPUTRA, S.Pd.', nip: '19850728 200904 1 001' },
+  { id: 'g-khozin', nama_guru: 'Hj. KHOZINATUL ULUM, S.Pd.', nip: '19680717 199903 2 005' },
   { id: 'g-ida', nama_guru: 'IDA NURSANTI, M.Pd.', nip: '19770520 200801 2 016' },
   { id: 'g-arinah', nama_guru: 'NUR ARINAH, S.Pd.', nip: '19660903 198903 2 013' },
-  { id: 'g-dewi', nama_guru: 'DEWI MAHINDRAWATI, S.Pd.', nip: '19661226 198903 2 008' },
-  { id: 'g-edy', nama_guru: 'Drs. EDY SUPRAYITNO, M.M.', nip: '19661103 199512 1 002' },
+  { id: 'g-nur', nama_guru: 'NUR FADILAH, S.Pd.,M.Pd.', nip: '19860410 201001 2 030' },
   { id: 'g-soegi', nama_guru: 'SOEGIHARTINI, S.Pd.', nip: '19690703 199703 2 005' },
-  { id: 'g-mariati', nama_guru: 'Dra. Hj. MARIATI', nip: '19690323 199802 2 007' },
-  { id: 'g-khozin', nama_guru: 'Hj. KHOZINATUL ULUM, S.Pd.', nip: '19680717 199903 2 005' },
-  { id: 'g-endah', nama_guru: 'ENDAH SULISTYAWATI, S.Pd.', nip: '19680927 200701 2 019' },
-  { id: 'g-dina', nama_guru: 'DINA ISTIARNI, S.Pd.', nip: '19800422 201001 2 009' },
-  { id: 'g-fika', nama_guru: 'FIKA RAHMAWATI, M.Pd.', nip: '19870808 201001 2 025' },
-  { id: 'g-aris', nama_guru: 'ARIS FITRIANTO, M.Pd.', nip: '19810218 201001 1 015' },
-  { id: 'g-aminah', nama_guru: 'SITI AMINAH, S.Pd.', nip: '' },
-  { id: 'g-fauzi', nama_guru: 'ACHMAD FAUZI, S.Pd.', nip: '' },
-  { id: 'g-yasin', nama_guru: 'MOHAMMAD YASIN, S.Pd.I', nip: '' },
-  { id: 'g-ratna', nama_guru: 'RATNA WIDYAWATI, S.Pd.', nip: '' },
-  { id: 'g-ririn', nama_guru: 'RIRIN DWI ASTUTI, S.Pd.', nip: '' },
-  { id: 'g-tri', nama_guru: 'TRI WAHYUNI, S.Pd.', nip: '' },
-  { id: 'g-yuliatin', nama_guru: 'YULIATIN, S.Pd.', nip: '' },
-  { id: 'g-agus', nama_guru: 'AGUS PURWANTO, S.Pd.', nip: '' },
-  { id: 'g-bambang', nama_guru: 'BAMBANG SETIAWAN, S.Pd.', nip: '' },
-  { id: 'g-kurnia', nama_guru: 'KURNIAWATI, S.Pd.', nip: '' },
-  { id: 'g-lilik', nama_guru: 'LILIK SUGIARTI, S.Pd.', nip: '' },
-  { id: 'g-nurul', nama_guru: 'NURUL HIDAYATI, S.Pd.', nip: '' },
-  { id: 'g-slamet', nama_guru: 'SLAMET RIYADI, S.Pd.', nip: '' },
-  { id: 'g-suhartatik', nama_guru: 'SUHARTATIK, S.Pd.', nip: '' },
-  { id: 'g-wahyu', nama_guru: 'WAHYU KURNIAWAN, S.Pd.', nip: '' },
-  { id: 'g-yeni', nama_guru: 'YENI RAHMAWATI, S.Pd.', nip: '' },
-  { id: 'g-zainal', nama_guru: 'ZAINAL ABIDIN, S.Pd.I', nip: '' }
+  { id: 'g-wiwik', nama_guru: 'WIWIK ISMIATI, S.Pd.', nip: '19831116 200904 2 003' }
 ];
 
 /**
- * Filter untuk mengecualikan nama guru tidak valid (seperti "Guru Inval WIWIK ISMIATI" karena sudah ada "WIWIK ISMIATI, S.Pd.")
+ * Filter untuk mengecualikan nama guru tidak valid (seperti "Guru Inval WIWIK ISMIATI" atau yang bukan guru SMPN 7)
  */
 export const isExcludedGuru = (namaGuru?: string): boolean => {
   if (!namaGuru) return false;
   const lower = namaGuru.trim().toLowerCase();
   
-  // Hapus "Guru Inval WIWIK ISMIATI" dan segala variasi yang menggunakan kata "inval"
+  // 1. Hapus "Guru Inval WIWIK ISMIATI" dan segala variasi yang menggunakan kata "inval"
   if (
     lower.includes('inval') ||
     lower.includes('guru inval') ||
     lower.startsWith('inval')
+  ) {
+    return true;
+  }
+
+  // 2. Hapus nama-nama yang bukan guru SMPN 7 Pasuruan (Abdul Malik, Achmad Fauzi, Agus Purwanto, Bambang Setiawan)
+  if (
+    lower.includes('abdul malik') ||
+    lower.includes('achmad fauzi') ||
+    lower.includes('ahmad fauzi') ||
+    lower.includes('agus purwanto') ||
+    lower.includes('bambang setiawan')
   ) {
     return true;
   }
@@ -586,8 +592,7 @@ export const isExcludedGuru = (namaGuru?: string): boolean => {
 };
 
 /**
- * Menghilangkan duplikasi nama guru berdasarkan nama dasar (mengabaikan gelar seperti S.Pd, M.Pd, dsb).
- * Jika ada "WIWIK ISMIATI" dan "WIWIK ISMIATI, S.Pd.", utamakan yang memiliki gelar lengkap atau NIP.
+ * Menghilangkan duplikasi nama guru berdasarkan nama dasar & HANYA menyertakan guru yang memiliki NIP.
  */
 export const deduplicateGuruList = (
   list: { id: string; nama_guru: string; nip?: string }[]
@@ -599,21 +604,18 @@ export const deduplicateGuruList = (
     const trimmed = g.nama_guru.trim();
     if (!trimmed || isExcludedGuru(trimmed)) return;
 
+    // HANYA SERTAKAN GURU YANG MEMILIKI NIP VALID
+    if (!hasValidNip(g.nip)) return;
+
     const baseKey = cleanTeacherName(trimmed);
     if (!baseKey) return;
 
     if (!map.has(baseKey)) {
-      map.set(baseKey, { ...g, nama_guru: trimmed });
+      map.set(baseKey, { ...g, nama_guru: trimmed, nip: (g.nip || '').trim() });
     } else {
       const existing = map.get(baseKey)!;
-      const existingHasNip = Boolean(existing.nip && existing.nip.trim().length > 3 && existing.nip.trim() !== '-');
-      const newHasNip = Boolean(g.nip && g.nip.trim().length > 3 && g.nip.trim() !== '-');
-
-      if (!existingHasNip && newHasNip) {
-        map.set(baseKey, { ...g, nama_guru: trimmed });
-      } else if (existingHasNip === newHasNip && trimmed.length > existing.nama_guru.length) {
-        // Pilih nama yang memiliki gelar lengkap
-        map.set(baseKey, { ...g, nama_guru: trimmed });
+      if (trimmed.length > existing.nama_guru.length) {
+        map.set(baseKey, { ...g, nama_guru: trimmed, nip: (g.nip || existing.nip || '').trim() });
       }
     }
   });
@@ -925,13 +927,60 @@ export const fetchMapelList = async (): Promise<{ id: string; nama_mapel: string
   return merged;
 };
 
+// Utility to permanently purge 2025 student records and non-SMPN7 teachers from local storage
+export const purge2025FromLocalStorage = () => {
+  try {
+    ['sitelat_siswa', 'master_siswa'].forEach(key => {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter((s: any) => {
+            const p = (s?.periode || '').toString().trim();
+            return p !== '2025';
+          });
+          if (cleaned.length !== parsed.length) {
+            localStorage.setItem(key, JSON.stringify(cleaned));
+          }
+        }
+      }
+    });
+
+    ['master_guru', 'sitelat_guru'].forEach(key => {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter((g: any) => {
+            const n = (g.nama_guru || g.nama || g.nama_lengkap || '').toString().trim();
+            const nip = (g.nip || g.NIP || g.nip_guru || '').toString().trim();
+            return n && !isExcludedGuru(n) && hasValidNip(nip);
+          });
+          localStorage.setItem(key, JSON.stringify(deduplicateGuruList(cleaned)));
+        }
+      }
+    });
+
+    if (supabase) {
+      ['%malik%', '%fauzi%', '%agus purwanto%', '%bambang setiawan%'].forEach(pat => {
+        Promise.resolve(supabase.from('master_guru').delete().ilike('nama_guru', pat)).catch(() => {});
+      });
+      Promise.resolve(supabase.from('master_guru').delete().or('nip.is.null,nip.eq.,nip.eq.-')).catch(() => {});
+    }
+  } catch (_) {}
+};
+
+// Run automatically on module evaluation
+if (typeof window !== 'undefined') {
+  purge2025FromLocalStorage();
+}
+
 // Fetch available periodes instantly from local storage & Supabase
 export const fetchAvailablePeriodes = async (): Promise<string[]> => {
+  purge2025FromLocalStorage();
   const set = new Set<string>();
-  set.add('2025/2026');
   set.add('2026');
-  set.add('2025');
-  set.add('2024/2025');
+  set.add('2025/2026');
 
   // 1. Instant check from local storage (sitelat_siswa, master_siswa, jurnal data)
   try {
@@ -943,7 +992,7 @@ export const fetchAvailablePeriodes = async (): Promise<string[]> => {
           parsed.forEach((s: any) => {
             if (s.periode) {
               const clean = s.periode.toString().trim();
-              if (clean) set.add(clean);
+              if (clean && clean !== '2025') set.add(clean);
             }
           });
         }
@@ -957,7 +1006,7 @@ export const fetchAvailablePeriodes = async (): Promise<string[]> => {
         jList.forEach((j: any) => {
           if (j.periode) {
             const clean = j.periode.toString().trim();
-            if (clean) set.add(clean);
+            if (clean && clean !== '2025') set.add(clean);
           }
         });
       }
@@ -970,13 +1019,13 @@ export const fetchAvailablePeriodes = async (): Promise<string[]> => {
       const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) => 
         setTimeout(() => resolve({ data: null, error: new Error('Timeout') }), 3000)
       );
-      const queryPromise = supabase.from('master_siswa').select('periode').limit(250);
+      const queryPromise = supabase.from('master_siswa').select('periode').neq('periode', '2025').limit(250);
       const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
       if (!error && data && Array.isArray(data)) {
         data.forEach((d: any) => {
           if (d.periode) {
             const clean = d.periode.toString().trim();
-            if (clean) set.add(clean);
+            if (clean && clean !== '2025') set.add(clean);
           }
         });
       }
@@ -1357,20 +1406,31 @@ export const restoreMasterData = async (): Promise<{
       return { restoredSiswa: 0, restoredGuru: 0, restoredMapel: 0 };
     }
 
-    // 1. Recover Students
+    // 1. Recover Students (Hanya Siswa Periode 2026, buang periode 2025)
     const existingSiswaRaw = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa') || '[]';
     const currentSiswa: any[] = JSON.parse(existingSiswaRaw);
     const siswaMap = new Map<string, any>();
     currentSiswa.forEach(s => {
-      if (s && s.nama) {
-        siswaMap.set(`${normalizeKelas(s.kelas)}_${s.nama.toLowerCase().trim()}`, s);
+      const p = (s?.periode || '').toString().trim();
+      if (s && s.nama && p !== '2025') {
+        siswaMap.set(`${normalizeKelas(s.kelas)}_${s.nama.toLowerCase().trim()}`, {
+          ...s,
+          periode: s.periode || '2026'
+        });
       }
     });
 
     journals.forEach(j => {
+      const jPeriode = (j.periode || '').toString().trim();
+      const is2025Journal = jPeriode === '2025' || (j.tanggal && j.tanggal.startsWith('2025-'));
+      if (is2025Journal) return; // Skip old 2025 journals from recovering students
+
       if (Array.isArray(j.siswa_list)) {
         j.siswa_list.forEach(s => {
           if (!s || !s.nama) return;
+          const sP = (s.periode || '').toString().trim();
+          if (sP === '2025') return; // Skip 2025 student records
+
           const kls = normalizeKelas(s.kelas || j.kelas);
           const key = `${kls}_${s.nama.toLowerCase().trim()}`;
           if (!siswaMap.has(key)) {
@@ -1395,29 +1455,31 @@ export const restoreMasterData = async (): Promise<{
     localStorage.setItem('sitelat_siswa', JSON.stringify(finalSiswa));
     localStorage.setItem('master_siswa', JSON.stringify(finalSiswa));
 
-    // 2. Recover Teachers
+    // 2. Recover Teachers (Hanya Guru dengan NIP Valid)
     const existingGuruRaw = localStorage.getItem('master_guru') || '[]';
     const currentGuru: any[] = JSON.parse(existingGuruRaw);
     const recoveredGurus: any[] = [];
     
     currentGuru.forEach(g => {
       const gName = (g.nama_guru || g.nama || '').trim();
-      if (gName && !isExcludedGuru(gName)) {
+      const gNip = (g.nip || g.NIP || g.nip_guru || '').toString().trim();
+      if (gName && !isExcludedGuru(gName) && hasValidNip(gNip)) {
         recoveredGurus.push({
           id: g.id || `g-${cleanTeacherName(gName)}`,
           nama_guru: gName,
-          nip: (g.nip || g.NIP || g.nip_guru || '').toString().trim()
+          nip: gNip
         });
       }
     });
 
     journals.forEach(j => {
       const tName = (j.nama_guru || '').trim();
-      if (tName && !isExcludedGuru(tName)) {
+      const tNip = (j.nip_guru || '').toString().trim();
+      if (tName && !isExcludedGuru(tName) && hasValidNip(tNip)) {
         recoveredGurus.push({
           id: j.guru_id || `g-${cleanTeacherName(tName)}`,
           nama_guru: tName,
-          nip: (j.nip_guru || '').trim()
+          nip: tNip
         });
         restoredGuru++;
       }
@@ -1570,8 +1632,8 @@ ALTER TABLE public.jurnal_pembelajaran ALTER COLUMN periode SET DEFAULT '2026';
 `;
 
 /**
- * Fungsi pembersihan aman: Tidak lagi menghapus data master siswa atau jurnal secara permanen
- * agar data sekolah tetap utuh dan aman.
+ * Fungsi pembersihan data siswa dan catatan periode 2025 secara permanen
+ * agar tidak terjadi data ganda dan hanya menyisakan data periode 2026.
  */
 export const purgePeriode2025Data = async (): Promise<{
   success: boolean;
@@ -1580,13 +1642,91 @@ export const purgePeriode2025Data = async (): Promise<{
   deletedLocalJurnal: number;
   supabaseError?: string;
 }> => {
-  // Jalankan restore data otomatis untuk memastikan semua data terlindungi
-  await restoreMasterData();
+  let deletedLocalSiswa = 0;
+  let deletedLocalJurnal = 0;
+
+  // 1. Bersihkan localStorage (sitelat_siswa & master_siswa)
+  try {
+    ['sitelat_siswa', 'master_siswa'].forEach(key => {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const kept = parsed.filter((s: any) => {
+            const p = (s?.periode || '').toString().trim();
+            const is2025 = p === '2025';
+            if (is2025) deletedLocalSiswa++;
+            return !is2025;
+          });
+          localStorage.setItem(key, JSON.stringify(kept));
+        }
+      }
+    });
+  } catch (e) {
+    console.warn('Gagal membersihkan siswa di localStorage:', e);
+  }
+
+  // 2. Bersihkan localStorage jurnal_pembelajaran yang bertanggal/berperiode 2025
+  try {
+    const rawJurnal = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (rawJurnal) {
+      const parsed = JSON.parse(rawJurnal);
+      if (Array.isArray(parsed)) {
+        const kept = parsed.filter((j: any) => {
+          const p = (j?.periode || '').toString().trim();
+          const is2025 = p === '2025' || (j.tanggal && j.tanggal.startsWith('2025-'));
+          if (is2025) deletedLocalJurnal++;
+          return !is2025;
+        });
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(kept));
+      }
+    }
+  } catch (e) {
+    console.warn('Gagal membersihkan jurnal di localStorage:', e);
+  }
+
+  // 3. Bersihkan IndexedDB
+  try {
+    const allJurnals = await idbGetAllJurnal();
+    if (allJurnals && Array.isArray(allJurnals)) {
+      for (const j of allJurnals) {
+        const is2025 = (j.periode || '').toString().trim() === '2025' || (j.tanggal && j.tanggal.startsWith('2025-'));
+        if (is2025 && j.id) {
+          await idbDeleteJurnal(j.id);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Gagal membersihkan IndexedDB:', e);
+  }
+
+  // 4. Hapus data periode 2025 di Supabase
+  let supabaseError: string | undefined;
+  if (supabase) {
+    try {
+      const { error: errSiswa } = await supabase
+        .from('master_siswa')
+        .delete()
+        .eq('periode', '2025');
+
+      if (errSiswa) {
+        supabaseError = errSiswa.message;
+      }
+
+      await supabase
+        .from('jurnal_pembelajaran')
+        .delete()
+        .eq('periode', '2025');
+    } catch (sbErr: any) {
+      supabaseError = sbErr.message || String(sbErr);
+    }
+  }
 
   return {
     success: true,
-    message: 'Data master dan rekaman jurnal telah diamankan dan disinkronkan.',
-    deletedLocalSiswa: 0,
-    deletedLocalJurnal: 0
+    message: 'Data siswa & transaksi periode 2025 berhasil dibersihkan! Aplikasi kini hanya menampilkan data periode 2026.',
+    deletedLocalSiswa,
+    deletedLocalJurnal,
+    supabaseError
   };
 };
