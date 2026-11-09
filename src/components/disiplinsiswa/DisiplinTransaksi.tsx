@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Siswa } from '../../types/izinsiswa';
-import { Save, Search, User, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, CheckCircle2, Trash2, Edit2, X, ClipboardList, Plus, Paperclip, FileText as FileIcon, Upload, Download, RotateCw } from 'lucide-react';
+import { Save, Search, User, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, CheckCircle2, Trash2, Edit2, X, ClipboardList, Plus, Paperclip, FileText as FileIcon, Upload, Download, RotateCw, ListFilter } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { deduplicateGuruList, isExcludedGuru, hasValidNip } from '../../lib/jurnalService';
 
 export default function DisiplinTransaksi({ user }: { user?: any }) {
   const isAdmin = user?.role === 'full';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Upload, Trash2, Plus, Search, Database, AlertCircle, Download, FileJson } from 'lucide-react';
+import { Upload, Trash2, Plus, Search, Database, AlertCircle, Download, FileJson, CheckCircle2, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { MasterKasus } from '../../types/bkpedulisiswa';
 
@@ -9,6 +9,9 @@ export default function BKMasterKasus() {
   const [kasus, setKasus] = useState<MasterKasus[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [deletingItem, setDeletingItem] = useState<MasterKasus | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [newKasus, setNewKasus] = useState({
     nama_kasus: '',
     kategori: 'Berat',
@@ -19,6 +22,13 @@ export default function BKMasterKasus() {
     fetchKasus();
   }, []);
 
+  const showToast = (type: 'success' | 'error', text: string) => {
+    setStatusMessage({ type, text });
+    setTimeout(() => {
+      setStatusMessage(prev => (prev?.text === text ? null : prev));
+    }, 4500);
+  };
+
   const fetchKasus = async () => {
     setLoading(true);
     try {
@@ -27,8 +37,9 @@ export default function BKMasterKasus() {
         if (error) throw error;
         setKasus(data || []);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching master kasus:', error);
+      showToast('error', 'Gagal memuat master kasus: ' + (error.message || String(error)));
     } finally {
       setLoading(false);
     }
@@ -57,9 +68,10 @@ export default function BKMasterKasus() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        showToast('success', 'Backup berhasil diunduh.');
       }
     } catch (error: any) {
-      alert('Error backup: ' + error.message);
+      showToast('error', 'Error backup: ' + error.message);
     }
   };
 
@@ -73,8 +85,6 @@ export default function BKMasterKasus() {
         const content = evt.target?.result as string;
         const backupData = JSON.parse(content);
 
-        if (!confirm('Restore data akan menimpa data yang ada (jika ID sama) atau menambah data baru. Lanjutkan?')) return;
-
         setLoading(true);
         if (supabase) {
           if (backupData.bk_master_kasus) {
@@ -86,11 +96,11 @@ export default function BKMasterKasus() {
           if (backupData.master_guru) {
             await supabase.from('master_guru').upsert(backupData.master_guru);
           }
-          alert('Restore data berhasil!');
+          showToast('success', 'Restore data berhasil!');
           fetchKasus();
         }
       } catch (err: any) {
-        alert('Error restore: ' + err.message);
+        showToast('error', 'Error restore: ' + err.message);
       } finally {
         setLoading(false);
       }
@@ -100,30 +110,48 @@ export default function BKMasterKasus() {
   };
 
   const handleAdd = async () => {
-    if (!newKasus.nama_kasus) return;
+    if (!newKasus.nama_kasus.trim()) {
+      showToast('error', 'Mohon isi nama kasus.');
+      return;
+    }
     try {
       if (supabase) {
         const { error } = await supabase.from('bk_master_kasus').insert([newKasus]);
         if (error) throw error;
+        showToast('success', `Kasus "${newKasus.nama_kasus}" berhasil ditambahkan.`);
         setNewKasus({ nama_kasus: '', kategori: 'Berat', poin: 0 });
         setShowAddForm(false);
         fetchKasus();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding kasus:', error);
+      showToast('error', 'Gagal menambah: ' + (error.message || String(error)));
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Hapus data ini?')) return;
+  const executeDelete = async (item: MasterKasus) => {
+    if (!item?.id) return;
+    setIsDeleting(true);
     try {
       if (supabase) {
-        const { error } = await supabase.from('bk_master_kasus').delete().eq('id', id);
+        // Safe FK handling: unlink any transaksi_kasus referencing this kasus_id
+        await supabase
+          .from('bk_transaksi_kasus')
+          .update({ kasus_id: null })
+          .eq('kasus_id', item.id);
+
+        const { error } = await supabase.from('bk_master_kasus').delete().eq('id', item.id);
         if (error) throw error;
-        fetchKasus();
       }
-    } catch (error) {
+
+      setKasus(prev => prev.filter(k => k.id !== item.id));
+      showToast('success', `Kasus "${item.nama_kasus}" berhasil dihapus.`);
+      setDeletingItem(null);
+    } catch (error: any) {
       console.error('Error deleting kasus:', error);
+      showToast('error', 'Gagal menghapus kasus: ' + (error.message || String(error)));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -143,7 +171,7 @@ export default function BKMasterKasus() {
         const jsonData = XLSX.utils.sheet_to_json(ws);
 
         if (jsonData.length === 0) {
-          alert('File Excel kosong atau tidak terbaca.');
+          showToast('error', 'File Excel kosong atau tidak terbaca.');
           return;
         }
 
@@ -168,7 +196,7 @@ export default function BKMasterKasus() {
         }).filter(r => r.nama_kasus);
 
         if (formattedData.length === 0) {
-          alert('Tidak ada data yang valid ditemukan. Pastikan header kolom benar (Contoh: NAMA KASUS, KATEGORI, POIN)');
+          showToast('error', 'Tidak ada data yang valid ditemukan. Pastikan header kolom benar (Contoh: NAMA KASUS, KATEGORI, POIN)');
           return;
         }
 
@@ -176,17 +204,17 @@ export default function BKMasterKasus() {
           setLoading(true);
           const { error } = await supabase.from('bk_master_kasus').insert(formattedData);
           if (error) {
-            alert('Gagal menyimpan ke database: ' + error.message);
+            showToast('error', 'Gagal menyimpan ke database: ' + error.message);
           } else {
-            alert(`Berhasil mengupload ${formattedData.length} data!`);
+            showToast('success', `Berhasil mengupload ${formattedData.length} data!`);
             await fetchKasus();
           }
         } else {
-          alert('Koneksi database tidak tersedia.');
+          showToast('error', 'Koneksi database tidak tersedia.');
         }
       } catch (err: any) {
         console.error('Upload error:', err);
-        alert('Terjadi kesalahan saat memproses file: ' + err.message);
+        showToast('error', 'Terjadi kesalahan saat memproses file: ' + err.message);
       } finally {
         setLoading(false);
       }
@@ -202,6 +230,22 @@ export default function BKMasterKasus() {
 
   return (
     <div className="space-y-6">
+      {statusMessage && (
+        <div className={`p-4 rounded-xl flex items-center justify-between gap-3 text-sm font-medium ${
+          statusMessage.type === 'success' 
+            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
+            : 'bg-rose-50 text-rose-800 border border-rose-200'
+        }`}>
+          <div className="flex items-center gap-2">
+            {statusMessage.type === 'success' ? <CheckCircle2 size={18} className="text-emerald-600" /> : <AlertCircle size={18} className="text-rose-600" />}
+            <span>{statusMessage.text}</span>
+          </div>
+          <button onClick={() => setStatusMessage(null)} className="p-1 hover:bg-black/5 rounded">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Master Kasus (BK)</h2>
@@ -331,8 +375,9 @@ export default function BKMasterKasus() {
                     <td className="px-6 py-4 text-slate-600 font-bold">{k.poin}</td>
                     <td className="px-6 py-4 text-right">
                       <button 
-                        onClick={() => handleDelete(k.id)}
+                        onClick={() => setDeletingItem(k)}
                         className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                        title="Hapus Kasus"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -344,6 +389,53 @@ export default function BKMasterKasus() {
           </table>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deletingItem && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 text-center mb-1">Hapus Kasus?</h3>
+            <p className="text-sm text-slate-500 text-center mb-4">
+              Apakah Anda yakin ingin menghapus data kasus ini?
+            </p>
+            <div className="p-3 bg-slate-50 rounded-xl mb-6 border border-slate-200 text-xs text-slate-700 space-y-1">
+              <div><span className="font-semibold text-slate-500">Nama:</span> <span className="font-bold text-slate-800">{deletingItem.nama_kasus}</span></div>
+              <div><span className="font-semibold text-slate-500">Kategori:</span> {deletingItem.kategori} ({deletingItem.poin} poin)</div>
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingItem(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => executeDelete(deletingItem)}
+                disabled={isDeleting}
+                className="px-5 py-2 text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-lg shadow-rose-200 disabled:opacity-50 flex items-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <Database size={16} className="animate-spin" />
+                    Menghapus...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    Ya, Hapus
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
