@@ -9,11 +9,11 @@ import { saveAs } from 'file-saver';
 import TahunAjaranModal from '../common/TahunAjaranModal';
 
 const PrestasiLaporan: React.FC = () => {
-  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2026');
   const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [dateRange, setDateRange] = useState({
-    from: format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'),
-    to: format(new Date(), 'yyyy-MM-dd')
+    from: '2026-01-01',
+    to: '2026-12-31'
   });
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<any[]>([]);
@@ -28,18 +28,10 @@ const PrestasiLaporan: React.FC = () => {
     if (newPeriode !== 'ALL') {
       const year = parseInt(newPeriode, 10);
       if (!isNaN(year)) {
-        const currentYear = new Date().getFullYear();
-        if (year === currentYear) {
-          setDateRange({
-            from: format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'),
-            to: format(new Date(), 'yyyy-MM-dd')
-          });
-        } else {
-          setDateRange({
-            from: `${year}-01-01`,
-            to: `${year}-12-31`
-          });
-        }
+        setDateRange({
+          from: `${year}-01-01`,
+          to: `${year}-12-31`
+        });
       }
     }
   };
@@ -52,26 +44,41 @@ const PrestasiLaporan: React.FC = () => {
       // Fetch distinct periodes
       const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
       if (siswaPeriodeData && siswaPeriodeData.length > 0) {
-        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2026')]))
           .filter(Boolean)
           .sort((a, b) => b.localeCompare(a));
         setAvailablePeriodes(distinctPeriodes);
       }
 
-      const { data, error } = await supabase
+      const { data: rawPrestasi, error } = await supabase
         .from('prestasi_siswa')
-        .select('*, siswa:master_siswa(nama, periode), wali_kelas:master_guru(nama_guru)')
-        .gte('tanggal', dateRange.from)
-        .lte('tanggal', dateRange.to)
+        .select('*')
         .order('tanggal', { ascending: false });
 
       if (error) throw error;
-      
-      const filtered = (data || []).filter(item => {
-        if (selectedPeriode !== 'ALL') {
-          return (item.siswa?.periode || '2025') === selectedPeriode;
-        }
-        return true;
+
+      const { data: allSiswa } = await supabase.from('master_siswa').select('id, nama, periode');
+      const { data: allGuru } = await supabase.from('master_guru').select('id, nama_guru');
+
+      const siswaMap = new Map(allSiswa?.map(s => [s.id, s]) || []);
+      const guruMap = new Map(allGuru?.map(g => [g.id, g]) || []);
+
+      const mapped = (rawPrestasi || []).map(p => {
+        const siswa = siswaMap.get(p.siswa_id) || { nama: p.nama_siswa || 'Siswa', periode: p.tanggal?.substring(0, 4) || '2026' };
+        const wali = guruMap.get(p.wali_kelas_id);
+        const periode = p.tanggal?.substring(0, 4) || siswa.periode || '2026';
+        return {
+          ...p,
+          siswa,
+          wali_kelas: wali,
+          computed_periode: periode
+        };
+      });
+
+      const filtered = mapped.filter(item => {
+        const inDate = item.tanggal >= dateRange.from && item.tanggal <= dateRange.to;
+        const inPeriode = selectedPeriode === 'ALL' || item.computed_periode === selectedPeriode;
+        return inDate && inPeriode;
       });
 
       setReportData(filtered);
