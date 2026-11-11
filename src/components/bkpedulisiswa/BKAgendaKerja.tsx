@@ -53,6 +53,7 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   // Student search modal state
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
@@ -342,12 +343,12 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => window.print()}
+            onClick={() => setIsPrintModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all"
             title="Cetak Agenda Kerja"
           >
             <Printer size={16} />
-            <span>Cetak Agenda</span>
+            <span>Cetak / Laporan Agenda</span>
           </button>
         </div>
       </div>
@@ -965,6 +966,110 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
                 className="px-5 py-2.5 text-xs font-black text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md shadow-rose-200"
               >
                 Ya, Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Print Preview Modal */}
+      {isPrintModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
+            {/* Kop Surat */}
+            <div className="text-center border-b-4 border-double border-slate-800 pb-4 mb-6">
+              <div className="flex items-center justify-center gap-4 mb-2">
+                <img src="https://iili.io/KDFk4fI.png" alt="Logo SMPN 7" className="w-16 h-16 object-contain" />
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">PEMERINTAH KOTA PASURUAN • DINAS PENDIDIKAN DAN KEBUDAYAAN</h4>
+                  <h2 className="text-lg font-black uppercase text-slate-900">UPT SMP NEGERI 7 PASURUAN</h2>
+                  <p className="text-[10px] text-slate-600 font-medium">Jl. Ki Hajar Dewantara No. 27, Pasuruan, Jawa Timur • Telp: (0343) 424355</p>
+                  <p className="text-[9px] font-bold text-blue-800 uppercase tracking-widest">LAPORAN AGENDA KERJA HARIAN BIMBINGAN DAN KONSELING (BK)</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-800">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <p><span className="font-bold">Guru BK:</span> {formData.guru_bk}</p>
+                  <p><span className="font-bold">Satuan Pendidikan:</span> UPT SMP Negeri 7 Pasuruan</p>
+                </div>
+                <div className="text-right">
+                  <p>Tanggal Cetak: {new Date().toLocaleDateString('id-ID', { dateStyle: 'full' })}</p>
+                  <p><span className="font-bold">Total Agenda:</span> {agendas.length} Kegiatan</p>
+                </div>
+              </div>
+
+              {/* Table of Agendas */}
+              <table className="w-full border-collapse border border-slate-300 text-xs text-slate-800">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-700 font-bold text-center">
+                    <th className="border border-slate-300 p-2 w-10">No</th>
+                    <th className="border border-slate-300 p-2 w-28">Tanggal & Waktu</th>
+                    <th className="border border-slate-300 p-2 w-32">Sasaran</th>
+                    <th className="border border-slate-300 p-2">Uraian Kegiatan</th>
+                    <th className="border border-slate-300 p-2 w-28">Hasil / Evaluasi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {agendas.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="border border-slate-300 p-4 text-center text-slate-400 italic">Belum ada agenda kerja.</td>
+                    </tr>
+                  ) : (
+                    agendas.map((item, idx) => {
+                      const d = getDateInfo(item.tanggal);
+                      return (
+                        <tr key={item.id} className="align-top">
+                          <td className="border border-slate-300 p-2 text-center font-bold">{idx + 1}</td>
+                          <td className="border border-slate-300 p-2">
+                            <div className="font-bold">{item.tanggal}</div>
+                            <div className="text-[10px] text-slate-500">{d.hari} • {item.waktu || '07.15 WIB'}</div>
+                          </td>
+                          <td className="border border-slate-300 p-2 font-bold text-blue-900">{item.sasaran}</td>
+                          <td className="border border-slate-300 p-2 leading-relaxed">{item.uraian_kegiatan}</td>
+                          <td className="border border-slate-300 p-2">{item.hasil || 'Terlaksana'}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+
+              {/* Tanda Tangan */}
+              <div className="grid grid-cols-2 pt-10 text-xs text-center page-break-inside-avoid">
+                <div>
+                  <p>Mengetahui,</p>
+                  <p>Kepala UPT SMPN 7 Pasuruan</p>
+                  <div className="h-16" />
+                  <p className="font-black underline uppercase">NUR FADILAH, S.Pd</p>
+                  <p className="text-[10px] text-slate-500">NIP. 19860410 201001 2 030</p>
+                </div>
+                <div>
+                  <p>Pasuruan, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  <p>Guru Bimbingan Konseling,</p>
+                  <div className="h-16" />
+                  <p className="font-black underline uppercase">WIWIK ISMIATI, S.Pd</p>
+                  <p className="text-[10px] text-slate-500">NIP. 19831116 200904 2 003</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-8 pt-4 border-t border-slate-100 print:hidden">
+              <button
+                type="button"
+                onClick={() => setIsPrintModalOpen(false)}
+                className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-md shadow-blue-200"
+              >
+                <Printer size={16} />
+                <span>Cetak / Simpan PDF</span>
               </button>
             </div>
           </div>
