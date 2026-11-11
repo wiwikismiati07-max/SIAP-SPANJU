@@ -70,6 +70,14 @@ export const filterLatestStudents = (allStudents: any[]): any[] => {
     };
   });
 
+  // Sort validStudents so real IDs and preferred records come first
+  validStudents.sort((a, b) => {
+    const aIsReal = !String(a.id || '').startsWith('pad-') && !String(a.id || '').startsWith('demo-');
+    const bIsReal = !String(b.id || '').startsWith('pad-') && !String(b.id || '').startsWith('demo-');
+    if (aIsReal !== bIsReal) return aIsReal ? -1 : 1;
+    return 0;
+  });
+
   const studentMapByKey = new Map<string, any>();
 
   validStudents.forEach(s => {
@@ -386,7 +394,7 @@ export const fetchAllSiswa = async (): Promise<any[]> => {
     } catch {}
   }
 
-  let combined = [...localSiswa, ...allSiswa];
+  let combined = [...allSiswa, ...localSiswa];
   let filtered = filterLatestStudents(combined);
 
   // Guarantee 767 total students for 2026

@@ -1,6 +1,6 @@
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { IzinWithSiswa } from '../../types/izinsiswa';
 import { Download, Search, Calendar as CalendarIcon, Edit, Trash2, X, FileText, Users, BarChart3, AlertTriangle, ExternalLink, Upload, ChevronDown } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, startOfYear } from 'date-fns';
@@ -101,32 +101,34 @@ export default function LaporanIzin({ user }: { user?: any }) {
     }
   };
 
+  const normalizeName = (name?: string) => {
+    if (!name) return '';
+    return name.toString().toLowerCase().replace(/\s+/g, ' ').trim();
+  };
+
+  const isStudentMatch = (i: IzinWithSiswa, student: any) => {
+    if (!i || !student) return false;
+    if (i.siswa_id && String(i.siswa_id) === String(student.id)) return true;
+    if (i.siswa?.id && String(i.siswa.id) === String(student.id)) return true;
+    if (i.siswa_id && (student as any).siswa_id && String(i.siswa_id) === String((student as any).siswa_id)) return true;
+    
+    const pName = normalizeName(i.siswa?.nama || (i as any).nama_siswa);
+    const sName = normalizeName(student.nama);
+    if (pName && sName && pName === sName) return true;
+
+    return false;
+  };
+
   const fetchStudentsInClass = async () => {
     try {
-      if (supabase) {
-        let query = supabase
-          .from('master_siswa')
-          .select('*')
-          .eq('kelas', selectedKelas)
-          .order('nama', { ascending: true });
-        
-        if (selectedPeriode !== 'ALL') {
-          query = query.eq('periode', selectedPeriode);
-        }
-        const { data: sData } = await query;
-        
-        // Safeguard: Ensure unique students by name and class in UI
-        const uniqueStudents = sData ? Array.from(new Map(sData.map(s => [`${s.nama}-${s.kelas}`.toUpperCase(), s])).values()) : [];
-        setStudentsInClass(uniqueStudents);
-      } else {
-        const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
-        const filtered = localSiswa
-          .filter((s: any) => s.kelas === selectedKelas && (selectedPeriode === 'ALL' || (s.periode || '2025') === selectedPeriode))
-          .sort((a: any, b: any) => a.nama.localeCompare(b.nama));
-          
-        const uniqueStudents = Array.from(new Map(filtered.map((s: any) => [`${s.nama}-${s.kelas}`.toUpperCase(), s])).values());
-        setStudentsInClass(uniqueStudents);
+      const allSiswa = await fetchAllSiswa();
+      let filtered = allSiswa.filter((s: any) => s.kelas === selectedKelas);
+      if (selectedPeriode !== 'ALL') {
+        filtered = filtered.filter((s: any) => (s.periode || '2026') === selectedPeriode);
       }
+      filtered.sort((a: any, b: any) => (a.nama || '').localeCompare(b.nama || ''));
+      const uniqueStudents = Array.from(new Map(filtered.map(s => [`${s.nama}-${s.kelas}`.toUpperCase(), s])).values());
+      setStudentsInClass(uniqueStudents);
     } catch (error) {
       console.error('Error fetching students:', error);
     }
@@ -135,16 +137,17 @@ export default function LaporanIzin({ user }: { user?: any }) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      if (supabase) {
-        // Fetch distinct periodes
-        const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
-        if (siswaPeriodeData && siswaPeriodeData.length > 0) {
-          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
-            .filter(Boolean)
-            .sort((a, b) => b.localeCompare(a));
-          setAvailablePeriodes(distinctPeriodes);
-        }
+      const sData = await fetchAllSiswa();
+      if (sData && sData.length > 0) {
+        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...sData.map(s => s.periode || '2026')]))
+          .filter(Boolean)
+          .sort((a, b) => b.localeCompare(a));
+        setAvailablePeriodes(distinctPeriodes);
+      }
 
+      const activeSData = selectedPeriode === 'ALL' ? sData : sData.filter(s => (s.periode || '2026') === selectedPeriode);
+
+      if (supabase) {
         const { data: iData } = await supabase
           .from('izin_siswa')
           .select('*')
@@ -157,34 +160,65 @@ export default function LaporanIzin({ user }: { user?: any }) {
           if (selectedPeriode !== 'ALL') {
             siswaQuery = siswaQuery.eq('periode', selectedPeriode);
           }
-          const { data: sData } = await siswaQuery;
+          const { data: directMasterSiswa } = await siswaQuery;
           const { data: gData } = await supabase.from('master_guru').select('*');
           const { data: mData } = await supabase.from('master_mapel').select('*');
           
-          const joinedData = iData.map(i => ({
-            ...i,
-            siswa: sData?.find(s => s.id === i.siswa_id),
-            guru: gData?.find(g => g.id === i.guru_id),
-            mapel: mData?.find(m => m.id === i.mapel_id)
-          })).filter(i => i.siswa !== undefined);
+          const joinedData = iData.map(i => {
+            let foundSiswa = directMasterSiswa?.find(s => String(s.id) === String(i.siswa_id));
+            if (!foundSiswa) {
+              foundSiswa = activeSData.find(s => String(s.id) === String(i.siswa_id) || (s.siswa_id && String(s.siswa_id) === String(i.siswa_id))) ||
+                           sData.find(s => String(s.id) === String(i.siswa_id) || (s.siswa_id && String(s.siswa_id) === String(i.siswa_id)));
+            }
+            if (!foundSiswa) {
+              const targetName = normalizeName(i.siswa?.nama || i.nama_siswa);
+              if (targetName) {
+                foundSiswa = directMasterSiswa?.find(s => normalizeName(s.nama) === targetName) ||
+                             sData.find(s => normalizeName(s.nama) === targetName);
+              }
+            }
+            
+            const fallbackSiswa = foundSiswa || i.siswa || { 
+              id: i.siswa_id, 
+              nama: i.nama_siswa || 'Siswa', 
+              kelas: i.kelas || '-' 
+            };
+
+            return {
+              ...i,
+              siswa: fallbackSiswa,
+              guru: gData?.find(g => String(g.id) === String(i.guru_id)),
+              mapel: mData?.find(m => String(m.id) === String(i.mapel_id))
+            };
+          });
           
           setData(joinedData as IzinWithSiswa[]);
         }
       } else {
         const localData = JSON.parse(localStorage.getItem('izinsiswa_data') || '[]');
-        const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
         const localGuru = JSON.parse(localStorage.getItem('master_guru') || '[]');
         const localMapel = JSON.parse(localStorage.getItem('master_mapel') || '[]');
         
         const filtered = localData
           .filter((d: any) => d.tanggal_mulai >= dateRange.start && d.tanggal_mulai <= dateRange.end)
-          .map((d: any) => ({
-            ...d,
-            siswa: localSiswa.find((s: any) => s.id === d.siswa_id && (selectedPeriode === 'ALL' || (s.periode || '2025') === selectedPeriode)),
-            guru: localGuru.find((g: any) => g.id === d.guru_id),
-            mapel: localMapel.find((m: any) => m.id === d.mapel_id)
-          }))
-          .filter((d: any) => d.siswa !== undefined)
+          .map((d: any) => {
+            let foundSiswa = activeSData.find(s => String(s.id) === String(d.siswa_id));
+            if (!foundSiswa) {
+              foundSiswa = sData.find(s => String(s.id) === String(d.siswa_id));
+            }
+            if (!foundSiswa) {
+              const targetName = normalizeName(d.siswa?.nama || d.nama_siswa);
+              if (targetName) {
+                foundSiswa = sData.find(s => normalizeName(s.nama) === targetName);
+              }
+            }
+            return {
+              ...d,
+              siswa: foundSiswa || d.siswa || { id: d.siswa_id, nama: d.nama_siswa || 'Siswa', kelas: d.kelas || '-' },
+              guru: localGuru.find((g: any) => String(g.id) === String(d.guru_id)),
+              mapel: localMapel.find((m: any) => String(m.id) === String(d.mapel_id))
+            };
+          })
           .sort((a: any, b: any) => new Date(b.tanggal_mulai).getTime() - new Date(a.tanggal_mulai).getTime());
           
         setData(filtered);
@@ -306,7 +340,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
         }
 
         studentsToReport.forEach((student, index) => {
-          const studentIzins = data.filter(i => i.siswa_id === student.id && i.status === 'Disetujui');
+          const studentIzins = data.filter(i => isStudentMatch(i, student) && i.status === 'Disetujui');
           const countSakit = studentIzins.filter(i => i.alasan === 'Sakit').length;
           const countIzin = studentIzins.filter(i => 
             i.alasan === 'Izin' || 
@@ -455,11 +489,14 @@ export default function LaporanIzin({ user }: { user?: any }) {
   };
 
   const filteredData = data.filter(d => {
-    const matchSearch = d.siswa?.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        d.siswa?.kelas.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        d.alasan.toLowerCase().includes(searchTerm.toLowerCase());
+    const studentName = d.siswa?.nama || (d as any).nama_siswa || '';
+    const studentClass = d.siswa?.kelas || (d as any).kelas || '';
+    const searchLow = searchTerm.toLowerCase();
+    const matchSearch = studentName.toLowerCase().includes(searchLow) ||
+                        studentClass.toLowerCase().includes(searchLow) ||
+                        (d.alasan || '').toLowerCase().includes(searchLow);
     const matchTipe = filterTipe === 'Semua' || d.diajukan_oleh === filterTipe;
-    const matchKelas = selectedKelas ? d.siswa?.kelas === selectedKelas : true;
+    const matchKelas = selectedKelas ? (studentClass === selectedKelas || d.siswa?.kelas === selectedKelas) : true;
     return matchSearch && matchTipe && matchKelas;
   });
 
@@ -698,7 +735,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {studentsInClass.map((student, index) => {
-                      const studentIzins = data.filter(i => i.siswa_id === student.id && i.status === 'Disetujui');
+                      const studentIzins = data.filter(i => isStudentMatch(i, student) && i.status === 'Disetujui');
                       const countSakit = studentIzins.filter(i => i.alasan === 'Sakit').length;
                       const countIzin = studentIzins.filter(i => 
                         i.alasan === 'Izin' || 
@@ -736,21 +773,21 @@ export default function LaporanIzin({ user }: { user?: any }) {
                     <tr>
                       <td colSpan={2} className="p-4 text-right text-slate-700">Total:</td>
                       <td className="p-4 text-center text-blue-600">
-                        {studentsInClass.reduce((acc, s) => acc + data.filter(i => i.siswa_id === s.id && i.status === 'Disetujui' && i.alasan === 'Sakit').length, 0)}
+                        {studentsInClass.reduce((acc, s) => acc + data.filter(i => isStudentMatch(i, s) && i.status === 'Disetujui' && i.alasan === 'Sakit').length, 0)}
                       </td>
                       <td className="p-4 text-center text-emerald-600">
                         {studentsInClass.reduce((acc, s) => acc + data.filter(i => 
-                          i.siswa_id === s.id && 
+                          isStudentMatch(i, s) && 
                           i.status === 'Disetujui' && 
                           (i.alasan === 'Izin' || i.alasan === 'Acara Keluarga' || i.alasan === 'Keperluan Mendesak' || i.alasan === 'Kepentingan Mendesak')
                         ).length, 0)}
                       </td>
                       <td className="p-4 text-center text-rose-600">
-                        {studentsInClass.reduce((acc, s) => acc + data.filter(i => i.siswa_id === s.id && i.status === 'Disetujui' && i.alasan === 'Alpa').length, 0)}
+                        {studentsInClass.reduce((acc, s) => acc + data.filter(i => isStudentMatch(i, s) && i.status === 'Disetujui' && i.alasan === 'Alpa').length, 0)}
                       </td>
                       <td className="p-4 text-center text-slate-500">
                         {studentsInClass.reduce((acc, s) => acc + data.filter(i => 
-                          i.siswa_id === s.id && 
+                          isStudentMatch(i, s) && 
                           i.status === 'Disetujui' && 
                           (i.alasan === 'Lainnya' || 
                            i.alasan.toLowerCase() === 'dispensasi' ||
@@ -764,7 +801,7 @@ export default function LaporanIzin({ user }: { user?: any }) {
                       </td>
                       <td className="p-4 text-center text-slate-800">
                         {studentsInClass.reduce((acc, s) => acc + data.filter(i => 
-                          i.siswa_id === s.id && 
+                          isStudentMatch(i, s) && 
                           i.status === 'Disetujui'
                         ).length, 0)}
                       </td>
