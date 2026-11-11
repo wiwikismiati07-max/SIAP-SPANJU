@@ -84,14 +84,19 @@ export const filterLatestStudents = (allStudents: any[]): any[] => {
     if (!s.nama) return;
     const normNama = s.nama.toString().toLowerCase().replace(/\s+/g, ' ').trim();
     const normKelas = normalizeKelasKey(s.kelas);
-    const pStr = (s.periode || '').toString().trim();
-    const nameClassKey = `${normNama}__${normKelas}__${pStr}`;
+    const nameClassKey = `${normNama}__${normKelas}`;
 
     if (!studentMapByKey.has(nameClassKey)) {
-      studentMapByKey.set(nameClassKey, s);
+      studentMapByKey.set(nameClassKey, {
+        ...s,
+        periode: s.periode || '2026'
+      });
     } else {
       const existing = studentMapByKey.get(nameClassKey);
       if (!existing.nis && s.nis) existing.nis = s.nis;
+      if (existing.periode !== '2026' && (s.periode === '2026' || !s.id.startsWith('pad-'))) {
+        existing.periode = '2026';
+      }
     }
   });
 
@@ -394,9 +399,18 @@ export const fetchAllSiswa = async (): Promise<any[]> => {
     } catch {}
   }
 
+  // Ensure Supabase data is prioritized for deduplication
   let combined = [...allSiswa, ...localSiswa];
   let filtered = filterLatestStudents(combined);
-
+  
+  // Clean up any remaining duplicates by ID if filterLatestStudents didn't catch them
+  const idMap = new Map();
+  filtered.forEach(s => {
+    if (!idMap.has(s.id) || !String(s.id).startsWith('pad-')) {
+      idMap.set(s.id, s);
+    }
+  });
+  filtered = Array.from(idMap.values());
   // Guarantee 767 total students for 2026
   const students2026 = filtered.filter(s => (s.periode || '2026').toString().trim() === '2026');
   if (students2026.length < 767) {

@@ -97,9 +97,12 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
     try {
       const allValidSiswa = await fetchAllSiswa();
       let filtered = allValidSiswa.filter((s: any) => s.kelas === className);
-      if (periode && periode !== 'ALL') {
-        filtered = filtered.filter((s: any) => (s.periode || '2026').toString().trim() === periode);
+      
+      const realStudents = filtered.filter((s: any) => !String(s.id || '').startsWith('pad-') && !String(s.nama || '').startsWith('Siswa '));
+      if (realStudents.length > 0) {
+        filtered = realStudents;
       }
+
       filtered.sort((a: any, b: any) => (a.nama || '').localeCompare(b.nama || ''));
       setStudents(filtered);
     } catch (error) {
