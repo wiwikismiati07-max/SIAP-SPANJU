@@ -14,13 +14,14 @@ export default function BKUndanganOrtu({ user }: { user?: any }) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [printItem, setPrintItem] = useState<UndanganOrtuBK | null>(null);
 
+  const [selectedClass, setSelectedClass] = useState<string>('7-A');
   const defaultDate = new Date().toISOString().split('T')[0];
 
   const [formData, setFormData] = useState({
     nomor_surat: `421.3/BK-${String(Math.floor(Math.random() * 900) + 100)}/SMPN7/XI/2026`,
     siswa_id: '',
     nama_siswa: '',
-    kelas: '7A',
+    kelas: '7-A',
     nama_ortu: '',
     tanggal_hadir: defaultDate,
     jam_hadir: '08:30 WIB',
@@ -235,12 +236,33 @@ export default function BKUndanganOrtu({ user }: { user?: any }) {
             </div>
           </div>
 
-          {/* Student Selector */}
+          {/* Student Selector: Kelas First, then Filtered Siswa */}
           <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-4">
             <div className="text-xs font-black uppercase text-slate-700 tracking-wider">
               Data Siswa & Orang Tua
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">Kelas</label>
+                <select
+                  value={selectedClass}
+                  onChange={e => {
+                    const cls = e.target.value;
+                    setSelectedClass(cls);
+                    setFormData(prev => ({ ...prev, kelas: cls, siswa_id: '', nama_siswa: '' }));
+                  }}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 text-sm bg-white"
+                >
+                  {[
+                    '7-A', '7-B', '7-C', '7-D', '7-E', '7-F', '7-G', '7-H',
+                    '8-A', '8-B', '8-C', '8-D', '8-E', '8-F', '8-G', '8-H',
+                    '9-A', '9-B', '9-C', '9-D', '9-E', '9-F', '9-G', '9-H'
+                  ].map(k => (
+                    <option key={k} value={k}>Kelas {k}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="sm:col-span-2">
                 <label className="block text-[11px] font-bold text-slate-500 mb-1">Cari / Pilih Siswa</label>
                 {siswaList.length > 0 ? (
@@ -249,10 +271,12 @@ export default function BKUndanganOrtu({ user }: { user?: any }) {
                     onChange={e => handleSelectSiswa(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 text-sm bg-white"
                   >
-                    <option value="">-- Pilih Siswa dari Database --</option>
-                    {siswaList.map(s => (
-                      <option key={s.id} value={s.id}>{s.nama} ({s.kelas})</option>
-                    ))}
+                    <option value="">-- Pilih Siswa Kelas {selectedClass} --</option>
+                    {siswaList
+                      .filter(s => (s.kelas || '').trim() === selectedClass.trim())
+                      .map(s => (
+                        <option key={s.id} value={s.id}>{s.nama} {s.nis ? `(NIS: ${s.nis})` : ''}</option>
+                      ))}
                   </select>
                 ) : (
                   <input 
@@ -264,18 +288,6 @@ export default function BKUndanganOrtu({ user }: { user?: any }) {
                     required
                   />
                 )}
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 mb-1">Kelas</label>
-                <input 
-                  type="text"
-                  placeholder="Contoh: 7A, 8B..."
-                  value={formData.kelas}
-                  onChange={e => setFormData({ ...formData, kelas: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 text-sm"
-                  required
-                />
               </div>
 
               <div className="sm:col-span-3">

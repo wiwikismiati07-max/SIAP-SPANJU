@@ -277,7 +277,7 @@ export default function App() {
     { id: 'uks', title: 'UKS SMPN7', subtitle: 'UNIT KESEHATAN SEKOLAH (BARU)', icon: HeartPulse, color: 'from-rose-500 to-rose-600', shadow: 'shadow-rose-200', roles: ['view', 'entry', 'full'] },
     { id: 'kelulusan', title: 'CEK KELULUSAN', subtitle: 'KELULUSAN KELAS 9', icon: GraduationCap, color: 'from-blue-600 to-indigo-700', shadow: 'shadow-blue-300', roles: ['view', 'entry', 'full'] },
     { id: 'tracing_alumni', title: 'TRACING ALUMNI', subtitle: 'PENELUSURAN ALUMNI', icon: Users, color: 'from-indigo-600 to-purple-600', shadow: 'shadow-indigo-300', roles: ['view', 'entry', 'full'] },
-    { id: 'sabda_bk', title: 'SABDA BK SPANJU', subtitle: 'ADMINISTRASI BK DIGITAL (BARU)', icon: BarChart3, color: 'from-purple-600 to-indigo-700', shadow: 'shadow-purple-200', roles: ['view', 'entry', 'full'] },
+    { id: 'sabda_bk', title: 'BK PEDULI SISWA', subtitle: 'ADMINISTRASI BK DIGITAL (BARU)', icon: BarChart3, color: 'from-purple-600 to-indigo-700', shadow: 'shadow-purple-200', roles: ['view', 'entry', 'full'] },
     { id: 'disiplinsiswa', title: 'DISIPLIN SISWA', subtitle: 'KASUS RINGAN (GURU)', icon: ClipboardList, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200', roles: ['view', 'entry', 'full'] },
     { id: 'kilas', title: 'KILAS APLIKASI', subtitle: 'REFERENSI DASAR', icon: Book, color: 'from-amber-500 to-amber-600', shadow: 'shadow-amber-200', roles: ['view', 'entry', 'full'] },
     { id: 'program', title: 'Arsip Digital 8 Program Prioritas Spanju', subtitle: 'SMPN 7 PASURUAN', icon: LayoutDashboard, color: 'from-cyan-500 to-cyan-600', shadow: 'shadow-cyan-200', roles: ['view', 'entry', 'full'] },
