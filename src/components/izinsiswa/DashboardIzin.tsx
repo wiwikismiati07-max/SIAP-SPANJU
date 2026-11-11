@@ -9,7 +9,7 @@ export default function DashboardIzin() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [data, setData] = useState<IzinWithSiswa[]>([]);
-  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2026');
   const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [dateRange, setDateRange] = useState({
     start: format(new Date(), 'yyyy-MM-dd'),
@@ -113,21 +113,12 @@ export default function DashboardIzin() {
 
       setData(allData);
 
-      // Fetch Total Siswa for selectedPeriode
-      let totalSiswaCount = 0;
-      if (supabase) {
-        let query = supabase.from('master_siswa').select('*', { count: 'exact', head: true });
-        if (selectedPeriode !== 'ALL') {
-          query = query.eq('periode', selectedPeriode);
-        }
-        const { count } = await query;
-        totalSiswaCount = count || 0;
-      } else {
-        const localSiswa = JSON.parse(localStorage.getItem('master_siswa') || '[]');
-        totalSiswaCount = selectedPeriode === 'ALL' 
-          ? localSiswa.length 
-          : localSiswa.filter((s: any) => (s.periode || '2025') === selectedPeriode).length;
-      }
+      // Fetch Total Siswa for selectedPeriode using fetchAllSiswa
+      const allValidSiswa = await fetchAllSiswa();
+      const sDataForPeriode = selectedPeriode === 'ALL'
+        ? allValidSiswa
+        : allValidSiswa.filter(s => (s.periode || '2026').toString().trim() === selectedPeriode);
+      const totalSiswaCount = sDataForPeriode.length;
 
       // Selected range stats
       const filteredData = allData.filter(d => d.tanggal_mulai >= dateRange.start && d.tanggal_mulai <= dateRange.end);
