@@ -627,7 +627,7 @@ export const saveSabdaRecord = async <T extends { id: string }>(
     existing = [];
   }
 
-  const index = existing.findIndex(item => item.id === record.id);
+  const index = existing.findIndex(item => String(item.id) === String(record.id));
   let updatedList: T[] = [];
   if (index >= 0) {
     updatedList = [...existing];
@@ -677,7 +677,7 @@ export const deleteSabdaRecord = async <T extends { id: string }>(
     existing = [];
   }
 
-  const updatedList = existing.filter(item => item.id !== id);
+  const updatedList = existing.filter(item => String(item.id) !== String(id));
   localStorage.setItem(storageKey, JSON.stringify(updatedList));
 
   try {
