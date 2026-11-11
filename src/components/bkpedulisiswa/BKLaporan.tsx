@@ -9,7 +9,7 @@ import { id as idLocale } from 'date-fns/locale';
 import { TransaksiKasus } from '../../types/bkpedulisiswa';
 import TahunAjaranModal from '../common/TahunAjaranModal';
 
-export default function BKLaporan() {
+export default function BKLaporan({ user }: { user?: any } = {}) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<TransaksiKasus[]>([]);
   const [reportType, setReportType] = useState<'kasus' | 'tindak_lanjut'>('kasus');
@@ -256,8 +256,8 @@ export default function BKLaporan() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Laporan Digital Counseling</h2>
-          <p className="text-sm text-slate-500">Rekapitulasi data kasus dan tindak lanjut siswa</p>
+          <h2 className="text-2xl font-black text-slate-800">Laporan SABDA BK SPANJU</h2>
+          <p className="text-sm font-medium text-slate-500">Rekapitulasi data konseling & tindak lanjut siswa • SMPN 7 Pasuruan</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="bg-slate-100 p-1 rounded-xl flex gap-1 mr-2">

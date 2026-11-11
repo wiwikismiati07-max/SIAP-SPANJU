@@ -43,7 +43,8 @@ import {
   BookOpen,
   Youtube,
   Instagram,
-  Database
+  Database,
+  BarChart3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from './lib/supabase';
@@ -63,7 +64,7 @@ interface AppLink {
 const ICON_MAP: Record<string, React.ElementType> = {
   Globe, Shield, Book, Users, Activity, FileText, Calendar, 
   MessageSquare, Briefcase, Zap, Search, ClipboardList, 
-  FileCheck, Award, LayoutDashboard, Sparkles, Youtube, Instagram
+  FileCheck, Award, LayoutDashboard, Sparkles, Youtube, Instagram, BarChart3
 };
 
 const COLORS = [
@@ -100,6 +101,7 @@ import PengaduanWaliApp from './components/pengaduan/PengaduanWaliApp';
 import SipenaApp from './components/sipena/SipenaApp';
 import SurveyApp from './components/survey/SurveyApp';
 import DisiplinSiswaApp from './components/disiplinsiswa/DisiplinSiswaApp';
+import BKPeduliSiswaApp from './components/bkpedulisiswa/BKPeduliSiswaApp';
 import JurnalPembelajaranApp from './components/jurnalpembelajaran/JurnalPembelajaranApp';
 import KelulusanApp from './components/kelulusan/KelulusanApp';
 import KelulusanAdmin from './components/kelulusan/KelulusanAdmin';
@@ -121,7 +123,7 @@ export default function App() {
   const [userLinks, setUserLinks] = useState<AppLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'menu_aplikasi' | 'app' | 'sitelat' | 'izinsiswa' | 'disiplinsiswa' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | 'jurnal_pembelajaran' | 'survey' | 'hotline' | 'kelulusan' | 'setup_kelulusan' | 'tracing_alumni' | 'tutorial_aplikasi' | 'management_siswa' | 'management_login' | null>(null);
+  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'menu_aplikasi' | 'app' | 'sitelat' | 'izinsiswa' | 'disiplinsiswa' | 'sabda_bk' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | 'jurnal_pembelajaran' | 'survey' | 'hotline' | 'kelulusan' | 'setup_kelulusan' | 'tracing_alumni' | 'tutorial_aplikasi' | 'management_siswa' | 'management_login' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -275,6 +277,7 @@ export default function App() {
     { id: 'uks', title: 'UKS SMPN7', subtitle: 'UNIT KESEHATAN SEKOLAH (BARU)', icon: HeartPulse, color: 'from-rose-500 to-rose-600', shadow: 'shadow-rose-200', roles: ['view', 'entry', 'full'] },
     { id: 'kelulusan', title: 'CEK KELULUSAN', subtitle: 'KELULUSAN KELAS 9', icon: GraduationCap, color: 'from-blue-600 to-indigo-700', shadow: 'shadow-blue-300', roles: ['view', 'entry', 'full'] },
     { id: 'tracing_alumni', title: 'TRACING ALUMNI', subtitle: 'PENELUSURAN ALUMNI', icon: Users, color: 'from-indigo-600 to-purple-600', shadow: 'shadow-indigo-300', roles: ['view', 'entry', 'full'] },
+    { id: 'sabda_bk', title: 'SABDA BK SPANJU', subtitle: 'ADMINISTRASI BK DIGITAL (BARU)', icon: BarChart3, color: 'from-purple-600 to-indigo-700', shadow: 'shadow-purple-200', roles: ['view', 'entry', 'full'] },
     { id: 'disiplinsiswa', title: 'DISIPLIN SISWA', subtitle: 'KASUS RINGAN (GURU)', icon: ClipboardList, color: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-200', roles: ['view', 'entry', 'full'] },
     { id: 'kilas', title: 'KILAS APLIKASI', subtitle: 'REFERENSI DASAR', icon: Book, color: 'from-amber-500 to-amber-600', shadow: 'shadow-amber-200', roles: ['view', 'entry', 'full'] },
     { id: 'program', title: 'Arsip Digital 8 Program Prioritas Spanju', subtitle: 'SMPN 7 PASURUAN', icon: LayoutDashboard, color: 'from-cyan-500 to-cyan-600', shadow: 'shadow-cyan-200', roles: ['view', 'entry', 'full'] },
@@ -611,6 +614,15 @@ export default function App() {
         {activeSection === 'disiplinsiswa' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
             <DisiplinSiswaApp 
+              onBack={() => setActiveSection('menu_aplikasi')} 
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+              user={user}
+            />
+          </div>
+        )}
+        {activeSection === 'sabda_bk' && (
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            <BKPeduliSiswaApp 
               onBack={() => setActiveSection('menu_aplikasi')} 
               onOpenSidebar={() => setIsSidebarOpen(true)}
               user={user}

@@ -187,8 +187,8 @@ export default function BKDashboard() {
       {/* Header & Filter */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Dashboard BK Peduli Siswa</h2>
-          <p className="text-sm text-slate-500">Monitoring penanganan kasus siswa</p>
+          <h2 className="text-2xl font-black text-slate-800">Dashboard SABDA BK SPANJU</h2>
+          <p className="text-sm font-medium text-slate-500">Sistem Administrasi BK Digital & Akuntabel • SMPN 7 Pasuruan</p>
         </div>
         
         <div className="flex flex-wrap items-end gap-3">

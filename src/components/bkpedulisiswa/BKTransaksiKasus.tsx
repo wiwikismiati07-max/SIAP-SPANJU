@@ -25,6 +25,8 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showOtherKasus, setShowOtherKasus] = useState(false);
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [uploadResult, setUploadResult] = useState<{
     show: boolean;
     type: 'success' | 'error' | 'warning';
@@ -289,16 +291,24 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Hapus data transaksi ini? Semua tindak lanjut terkait juga akan terhapus.')) return;
+  const confirmDelete = async (item: any) => {
+    if (!item?.id) return;
+    setIsDeleting(true);
     try {
       if (supabase) {
-        const { error } = await supabase.from('bk_transaksi_kasus').delete().eq('id', id);
+        await supabase.from('bk_tindak_lanjut').delete().eq('transaksi_id', item.id);
+        const { error } = await supabase.from('bk_transaksi_kasus').delete().eq('id', item.id);
         if (error) throw error;
-        fetchTransaksi();
       }
+      setTransaksi(prev => prev.filter(t => t.id !== item.id));
+      setSuccessMsg('Data kasus berhasil dihapus!');
+      setTimeout(() => setSuccessMsg(null), 3500);
+      setDeleteConfirmItem(null);
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      console.error('Delete error:', error);
+      alert('Gagal menghapus: ' + error.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -509,8 +519,8 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
           <ShieldAlert size={24} />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Input Kasus Siswa (BK)</h2>
-          <p className="text-sm text-slate-500">Catat kasus berat dan tindak lanjut konseling</p>
+          <h2 className="text-2xl font-black text-slate-800">Input Kasus & Konseling (SABDA BK)</h2>
+          <p className="text-sm font-medium text-slate-500">Pencatatan kasus, penanganan, dan tindak lanjut konseling siswa • SMPN 7 Pasuruan</p>
         </div>
       </div>
 
@@ -1010,7 +1020,7 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
                         )}
                         {isAdmin && (
                           <button 
-                            onClick={() => handleDelete(t.id)}
+                            onClick={() => setDeleteConfirmItem(t)}
                             className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                             title="Hapus"
                           >
@@ -1026,6 +1036,44 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
           </table>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmItem && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 text-center mb-1">Hapus Data Kasus?</h3>
+            <p className="text-sm text-slate-500 text-center mb-4">
+              Apakah Anda yakin ingin menghapus data kasus ini? Semua tindak lanjut terkait juga akan terhapus.
+            </p>
+            <div className="p-3 bg-slate-50 rounded-xl mb-6 border border-slate-200 text-xs text-slate-700 space-y-1">
+              <div><span className="font-semibold text-slate-500">Siswa:</span> <span className="font-bold text-slate-800">{deleteConfirmItem.siswa?.nama || deleteConfirmItem.nama_siswa || '-'}</span> (Kelas {deleteConfirmItem.kelas || '-'})</div>
+              <div><span className="font-semibold text-slate-500">Kasus:</span> {deleteConfirmItem.kasus?.nama_kasus || deleteConfirmItem.kasus_nama || '-'}</div>
+              <div><span className="font-semibold text-slate-500">Tanggal:</span> {deleteConfirmItem.tanggal}</div>
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmItem(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmDelete(deleteConfirmItem)}
+                disabled={isDeleting}
+                className="px-5 py-2 text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-lg shadow-rose-200 disabled:opacity-50 flex items-center gap-2"
+              >
+                {isDeleting ? 'Menghapus...' : 'Ya, Hapus'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upload Result Modal */}
       {uploadResult.show && (

@@ -51,9 +51,9 @@ const TUTORIAL_VIDEOS: TutorialVideo[] = [
   },
   {
     id: '5',
-    title: 'Tutorial SIM-DiS (Disiplin Siswa) dan BK Peduli Siswa',
-    category: 'SIM-DiS & BK',
-    description: 'Panduan penanganan kedisiplinan, poin pelanggaran, serta bimbingan konseling siswa.',
+    title: 'Tutorial SIM-DiS (Disiplin Siswa) dan SABDA BK SPANJU',
+    category: 'SIM-DiS & SABDA BK',
+    description: 'Panduan penanganan kedisiplinan, poin pelanggaran, serta administrasi bimbingan konseling digital (SABDA BK SPANJU).',
     url: 'https://www.instagram.com/reel/DbE93BVtrzz/?igsh=MTl5bTN6Z2Vvc2FnOQ==',
     platform: 'instagram',
     color: 'from-amber-500 to-orange-600'
