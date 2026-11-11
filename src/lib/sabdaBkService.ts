@@ -585,32 +585,61 @@ export const checkSabdaTablesStatus = async (): Promise<{
 
 // Generic helper to get data with Supabase priority and localStorage fallback
 export const getSabdaData = async <T>(tableName: string, storageKey: string, initialData: T[]): Promise<T[]> => {
+  let supabaseData: T[] | null = null;
   try {
     if (supabase) {
       const { data, error } = await supabase.from(tableName).select('*').order('created_at', { ascending: false });
       if (!error && data) {
-        localStorage.setItem(storageKey, JSON.stringify(data));
-        return data as T[];
-      }
-      if (error) {
-        console.warn(`[SABDA BK] Supabase tabel "${tableName}" belum ada atau tidak dapat diakses (${error.message}). Menggunakan penyimpanan lokal.`);
+        supabaseData = data as T[];
       }
     }
   } catch (e) {
-    console.warn(`[SABDA BK] Notice reading ${tableName} from Supabase, using storage cache:`, e);
+    console.warn(`[SABDA BK] Notice reading ${tableName} from Supabase:`, e);
   }
 
-  const cached = localStorage.getItem(storageKey);
-  if (cached) {
-    try {
-      return JSON.parse(cached);
-    } catch {
-      // ignore
+  let localData: T[] = [];
+  try {
+    const cached = localStorage.getItem(storageKey);
+    if (cached) {
+      localData = JSON.parse(cached);
     }
+  } catch {}
+
+  // Merge Initial data, Local data, and Supabase data uniquely by id
+  const map = new Map<string, T>();
+  
+  // 1. Add initial sample data first
+  initialData.forEach(item => {
+    if (item && (item as any).id) {
+      map.set(String((item as any).id), item);
+    }
+  });
+
+  // 2. Add local data (user saved/edited items take precedence over initial)
+  localData.forEach(item => {
+    if (item && (item as any).id) {
+      map.set(String((item as any).id), item);
+    }
+  });
+
+  // 3. Add Supabase data (cloud data takes highest precedence)
+  if (supabaseData) {
+    supabaseData.forEach(item => {
+      if (item && (item as any).id) {
+        map.set(String((item as any).id), item);
+      }
+    });
   }
 
-  localStorage.setItem(storageKey, JSON.stringify(initialData));
-  return initialData;
+  const merged = Array.from(map.values());
+  merged.sort((a: any, b: any) => {
+    const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return timeB - timeA;
+  });
+
+  localStorage.setItem(storageKey, JSON.stringify(merged));
+  return merged;
 };
 
 // Generic helper to save record with Supabase sync
