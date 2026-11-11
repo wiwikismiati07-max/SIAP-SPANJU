@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { TransaksiWithSiswa } from '../../types/sitelat';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Users, UserX, Clock, PhoneCall, Download, BarChart as BarChartIcon, ChevronDown, ChevronRight, FileText, Trophy, Star } from 'lucide-react';
@@ -14,7 +14,7 @@ export default function Dashboard() {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [selectedKelas, setSelectedKelas] = useState<string>('All');
   const [selectedPeriode, setSelectedPeriode] = useState<string>('2026');
-  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026']);
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [dateRange, setDateRange] = useState({
     start: format(new Date(), 'yyyy-MM-dd'),
     end: format(new Date(), 'yyyy-MM-dd')
@@ -54,19 +54,21 @@ export default function Dashboard() {
       if (supabase) {
         const { data: siswaData } = await supabase.from('master_siswa').select('periode');
         if (siswaData && siswaData.length > 0) {
-          const distinctPeriodes = Array.from(new Set(['2026', ...siswaData.map(s => s.periode || '2026')]))
+          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaData.map(s => s.periode || '2026')]))
             .filter(Boolean)
             .sort((a, b) => b.localeCompare(a));
           setAvailablePeriodes(distinctPeriodes);
+        } else {
+          setAvailablePeriodes(['2026', '2025']);
         }
 
-        // Fetch total students for selectedPeriode
-        let siswaQuery = supabase.from('master_siswa').select('*', { count: 'exact' });
-        if (selectedPeriode !== 'ALL') {
-          siswaQuery = siswaQuery.eq('periode', selectedPeriode);
-        }
-        const { count: siswaCount, data: sData } = await siswaQuery;
-        setTotalSiswa(siswaCount || 0);
+        // Fetch total students for selectedPeriode using fetchAllSiswa (validated & deduplicated)
+        const allValidSiswa = await fetchAllSiswa();
+        const sData = selectedPeriode === 'ALL'
+          ? allValidSiswa
+          : allValidSiswa.filter(s => (s.periode || '2026').toString().trim() === selectedPeriode);
+        
+        setTotalSiswa(sData.length);
 
         // Fetch today's latecomers (unique students)
         const { data: todayData } = await supabase
@@ -108,6 +110,11 @@ export default function Dashboard() {
       } else {
         // Fallback to local storage
         const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
+        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...localSiswa.map((s: any) => s.periode || '2026')]))
+          .filter(Boolean)
+          .sort((a: any, b: any) => b.localeCompare(a));
+        setAvailablePeriodes(distinctPeriodes as string[]);
+
         const filteredLocalSiswa = selectedPeriode === 'ALL'
           ? localSiswa
           : localSiswa.filter((s: any) => (s.periode || '2026') === selectedPeriode);

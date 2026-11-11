@@ -205,8 +205,8 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
     reader.onload = async (evt) => {
       try {
         setLoading(true);
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
+        const arrayBuffer = evt.target?.result;
+        const wb = XLSX.read(arrayBuffer, { type: 'array' });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws);
@@ -221,21 +221,23 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
             const rowKeys = Object.keys(row);
             for (const key of keys) {
               const foundKey = rowKeys.find(rk => normalize(rk) === normalize(key));
-              if (foundKey) return String(row[foundKey]).trim();
+              if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null) return String(row[foundKey]).trim();
             }
             return '';
           };
 
-          let tgl = getValue(['tanggal', 'tanggal (yyyy-mm-dd)']);
+          let tgl = getValue(['tanggal', 'tanggal (yyyy-mm-dd)', 'tanggal(yyyy-mm-dd)']);
           
           // Handle Excel serial date format
           if (tgl && !isNaN(Number(tgl)) && Number(tgl) > 1000) {
             const serial = Number(tgl);
             const date = new Date(Math.round((serial - 25569) * 86400 * 1000));
             tgl = format(date, 'yyyy-MM-dd');
+          } else if (!tgl || isNaN(Date.parse(tgl))) {
+            tgl = format(new Date(), 'yyyy-MM-dd');
           }
 
-          let jam = getValue(['jam', 'jam (hh:mm)']);
+          let jam = getValue(['jam', 'jam (hh:mm)', 'jam(hh:mm)']);
           
           // Handle Excel serial time format
           if (jam && !isNaN(Number(jam)) && Number(jam) < 1) {
@@ -244,17 +246,19 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
             const hours = Math.floor(totalSeconds / 3600);
             const minutes = Math.floor((totalSeconds % 3600) / 60);
             jam = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+          } else if (!jam) {
+            jam = format(new Date(), 'HH:mm');
           }
 
-          const namaSiswa = getValue(['nama siswa', 'siswa']);
+          const namaSiswa = getValue(['nama siswa', 'siswa', 'namasiswa']);
           const kelas = getValue(['kelas']);
-          const jenis = getValue(['jenis prestasi', 'jenis']);
-          const lomba = getValue(['nama lomba', 'lomba']);
+          const jenis = getValue(['jenis prestasi', 'jenis', 'jenisprestasi', 'akademik/non akademik']);
+          const lomba = getValue(['nama lomba', 'lomba', 'namalomba']);
           const juara = getValue(['juara']);
           const tingkat = getValue(['tingkat']);
-          const waliKelas = getValue(['wali kelas']);
-          const guruBk = getValue(['guru bk']);
-          const bukti = getValue(['link bukti', 'bukti']);
+          const waliKelas = getValue(['wali kelas', 'walikelas']);
+          const guruBk = getValue(['guru bk', 'gurubk']);
+          const bukti = getValue(['link bukti', 'bukti', 'linkbukti']);
 
           if (!namaSiswa || !kelas || !lomba) return null;
 
@@ -262,27 +266,24 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
             normalize(s.nama) === normalize(namaSiswa) && 
             normalize(s.kelas) === normalize(kelas)
           );
-          if (!student) return null;
-
-          const teacher = teachers.find(t => normalize(t.nama_guru) === normalize(waliKelas));
 
           return {
-            tanggal: tgl || format(new Date(), 'yyyy-MM-dd'),
-            jam: jam || format(new Date(), 'HH:mm'),
-            siswa_id: student.id,
-            kelas: student.kelas,
-            jenis_prestasi: jenis.includes('Non') ? 'Non Akademik' : 'Akademik',
+            tanggal: tgl,
+            jam: jam,
+            siswa_id: student?.id || null,
+            kelas: kelas.toUpperCase(),
+            jenis_prestasi: jenis.toLowerCase().includes('non') ? 'Non Akademik' : 'Akademik',
             nama_lomba: lomba,
             juara: juara || 'Juara 1',
             tingkat: tingkat || 'Antar Sekolah',
             bukti_url: bukti,
-            wali_kelas_id: teacher?.id || null,
+            wali_kelas_id: teachers.find(t => normalize(t.nama_guru) === normalize(waliKelas))?.id || null,
             guru_bk: guruBk || 'WiwikIsmiati S.pd'
           };
         }).filter(Boolean);
 
         if (mappedData.length === 0) {
-          alert('Tidak ada data valid untuk diupload. Pastikan Nama Siswa dan Kelas sesuai dengan Data Master.');
+          alert('Tidak ada data valid untuk diupload. Pastikan format kolom Excel sesuai dengan template.');
           return;
         }
 
@@ -299,7 +300,7 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
         if (e.target) e.target.value = '';
       }
     };
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file);
   };
 
   return (

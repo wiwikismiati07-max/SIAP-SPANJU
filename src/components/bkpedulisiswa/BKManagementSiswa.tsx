@@ -39,7 +39,7 @@ export default function BKManagementSiswa({ user }: { user?: any }) {
     const local = localStorage.getItem('master_siswa') || localStorage.getItem('sitelat_siswa');
     if (local) {
       try {
-        const parsed = JSON.parse(local).filter((s: any) => s.periode !== '2025');
+        const parsed = JSON.parse(local);
         const formatted = parsed.map((s: any) => ({
           ...s,
           nama: (s.nama || '').toUpperCase().trim(),

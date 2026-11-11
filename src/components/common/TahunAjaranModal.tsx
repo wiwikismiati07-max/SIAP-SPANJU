@@ -43,16 +43,16 @@ export default function TahunAjaranModal({
   const fetchAvailablePeriodes = async () => {
     try {
       if (supabase) {
-        const { data } = await supabase.from('master_siswa').select('periode').neq('periode', '2025');
+        const { data } = await supabase.from('master_siswa').select('periode');
         if (data && data.length > 0) {
-          const distinct = Array.from(new Set(['2026', ...data.map(s => s.periode).filter(p => Boolean(p) && p !== '2025')]))
+          const distinct = Array.from(new Set(['2026', '2025', ...data.map(s => s.periode).filter(Boolean)]))
             .filter(Boolean)
             .sort((a, b) => b.localeCompare(a));
           setPeriodes(distinct as string[]);
         }
       } else {
         const localSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
-        const distinct = Array.from(new Set(['2026', ...localSiswa.map((s: any) => s.periode).filter((p: any) => Boolean(p) && p !== '2025')]))
+        const distinct = Array.from(new Set(['2026', '2025', ...localSiswa.map((s: any) => s.periode).filter(Boolean)]))
           .filter(Boolean)
           .sort((a: any, b: any) => b.localeCompare(a));
         setPeriodes(distinct as string[]);

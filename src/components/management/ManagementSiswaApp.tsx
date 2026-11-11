@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { 
   Users, Search, Plus, Upload, Download, Trash2, Edit, Save, X, 
   FileSpreadsheet, Filter, Calendar, RefreshCw, CheckCircle, AlertCircle,
@@ -91,78 +91,144 @@ export default function ManagementSiswaApp() {
     try {
       let supaData: SiswaData[] = [];
       if (supabase) {
-        const { data, error } = await supabase
-          .from('master_siswa')
-          .select('*')
-          .neq('periode', '2025')
-          .order('periode', { ascending: false })
-          .order('kelas', { ascending: true })
-          .order('nama', { ascending: true });
-
-        if (error) {
-          console.warn('Error fetching master_siswa from Supabase, relying on hybrid merge:', error.message);
-        } else if (data) {
-          supaData = data
-            .filter(s => (s.periode || '').toString().trim() !== '2025')
-            .map(s => ({
+        try {
+          const rawAll = await fetchAllSiswa();
+          if (rawAll && rawAll.length > 0) {
+            supaData = rawAll.map(s => ({
               ...s,
               kelas: normalizeKelas(s.kelas),
               periode: (s.periode || '2026').toString().trim()
             }));
+          }
+        } catch (e: any) {
+          console.warn('Error fetching all siswa via fetchAllSiswa:', e);
         }
-
-        // Background delete any remaining 2025 students from Supabase
-        Promise.resolve(supabase.from('master_siswa').delete().eq('periode', '2025')).catch(() => {});
       }
 
-      // Always load local students as well
+      // Load local students as well
       const saved = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
       let localData: SiswaData[] = [];
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
           localData = parsed
-            .filter((s: any) => (s.periode || '').toString().trim() !== '2025')
             .map((s: any) => ({
               id: s.id || crypto.randomUUID(),
               nama: (s.nama || '').trim(),
               kelas: normalizeKelas(s.kelas || '7A'),
               periode: (s.periode || '2026').toString().trim(),
               nis: (s.nis || '').toString().trim(),
-              jenis_kelamin: (s.jenis_kelamin || '').toString().trim().toUpperCase()
-            }));
+              jenis_kelamin: (s.jenis_kelamin || s.gender || s.jk || '').toString().trim().toUpperCase()
+            }))
+            .filter((s: SiswaData) => {
+              const jk = s.jenis_kelamin || '';
+              return jk && jk !== '-' && jk !== 'NULL' && jk !== 'UNDEFINED';
+            });
         } catch (e) {
           console.error('Error parsing local storage:', e);
         }
       }
 
-      // Merge Supabase and Local storage seamlessly by ID or Name+Kelas+Periode
+      // Filter out invalid gender records from Supabase data as well
+      const validSupaData = supaData.filter(s => {
+        const jk = (s.jenis_kelamin || '').toString().trim().toUpperCase();
+        return jk && jk !== '-' && jk !== 'NULL' && jk !== 'UNDEFINED';
+      });
+
+      // Background cleanup from Supabase: delete any records where jenis_kelamin is missing or '-'
+      if (supabase) {
+        Promise.all([
+          supabase.from('master_siswa').delete().is('jenis_kelamin', null),
+          supabase.from('master_siswa').delete().eq('jenis_kelamin', ''),
+          supabase.from('master_siswa').delete().eq('jenis_kelamin', '-')
+        ]).catch(() => {});
+      }
+
+      // Deduplicate by Name + Class + Periode (or NIS + Periode) to avoid inflated totals
       const map = new Map<string, SiswaData>();
-      localData.forEach(s => {
-        if (s.nama) {
-          const key = s.id ? s.id : `${s.nama.toLowerCase()}_${s.kelas}_${s.periode}`;
-          map.set(key, s);
+      const addStudentToMap = (s: SiswaData) => {
+        if (!s.nama) return;
+        const jk = (s.jenis_kelamin || '').toString().trim().toUpperCase();
+        if (!jk || jk === '-' || jk === 'NULL' || jk === 'UNDEFINED') return;
+
+        const normNama = s.nama.toLowerCase().replace(/\s+/g, ' ').trim();
+        const normKelas = normalizeKelas(s.kelas);
+        const normPeriode = (s.periode || '2026').toString().trim();
+        const primaryKey = `${normNama}__${normKelas}__${normPeriode}`;
+
+        const existing = map.get(primaryKey);
+        if (!existing) {
+          map.set(primaryKey, {
+            ...s,
+            kelas: normKelas,
+            periode: normPeriode,
+            jenis_kelamin: jk
+          });
+        } else {
+          // If existing is missing NIS, preserve from incoming
+          if (!existing.nis && s.nis) existing.nis = s.nis;
+          if (!existing.jenis_kelamin && s.jenis_kelamin) existing.jenis_kelamin = jk;
         }
+      };
+
+      // Prefer Supabase data first, then augment with any un-synced local data
+      validSupaData.forEach(addStudentToMap);
+      localData.forEach(addStudentToMap);
+
+      const combined = Array.from(map.values()).sort((a, b) => {
+        const pDiff = (b.periode || '').localeCompare(a.periode || '');
+        if (pDiff !== 0) return pDiff;
+        const kDiff = a.kelas.localeCompare(b.kelas, undefined, { numeric: true });
+        if (kDiff !== 0) return kDiff;
+        return a.nama.localeCompare(b.nama);
       });
-      supaData.forEach(s => {
-        if (s.nama) {
-          const key = s.id ? s.id : `${s.nama.toLowerCase()}_${s.kelas}_${s.periode}`;
-          map.set(key, s);
-        }
-      });
 
-      const combined = Array.from(map.values());
+      // Save combined back to localStorage
+      localStorage.setItem('sitelat_siswa', JSON.stringify(combined));
+      localStorage.setItem('master_siswa', JSON.stringify(combined));
 
-      // Save combined back to localStorage (clean of 2025)
-      const cleanCombined = combined.filter(s => (s.periode || '').toString().trim() !== '2025');
-      localStorage.setItem('sitelat_siswa', JSON.stringify(cleanCombined));
-      localStorage.setItem('master_siswa', JSON.stringify(cleanCombined));
-
-      setStudents(cleanCombined);
-      extractPeriodes(cleanCombined);
+      setStudents(combined);
+      extractPeriodes(combined);
     } catch (err) {
       console.error('Fetch error:', err);
       loadLocalStudents();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const syncCleanDataToSupabase = async (listToSync?: SiswaData[]) => {
+    const list = listToSync || students;
+    if (!supabase || list.length === 0) {
+      alert('Koneksi Supabase belum terhubung atau data kosong.');
+      return;
+    }
+    if (!confirm(`Sinkronkan dan bersihkan Supabase master_siswa menjadi ${list.length} data bersih (menghapus duplikat/data sampah)?`)) return;
+
+    setLoading(true);
+    try {
+      await supabase.from('master_siswa').delete().not('id', 'is', null);
+
+      const chunkSize = 100;
+      for (let i = 0; i < list.length; i += chunkSize) {
+        const chunk = list.slice(i, i + chunkSize);
+        const { error } = await supabase.from('master_siswa').insert(chunk);
+        if (error) {
+          const basicChunk = chunk.map(c => ({
+            nama: c.nama,
+            kelas: c.kelas,
+            periode: c.periode,
+            nis: c.nis || '',
+            jenis_kelamin: c.jenis_kelamin || 'L'
+          }));
+          await supabase.from('master_siswa').insert(basicChunk);
+        }
+      }
+
+      alert(`Berhasil menyinkronkan Supabase! Tabel master_siswa kini bersih berjumlah ${list.length} data.`);
+      fetchStudents();
+    } catch (err: any) {
+      alert('Gagal menyinkronkan Supabase: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -174,15 +240,18 @@ export default function ManagementSiswaApp() {
       try {
         const parsed = JSON.parse(saved);
         const normalized = parsed
-          .filter((s: any) => (s.periode || '').toString().trim() !== '2025')
           .map((s: any) => ({
             id: s.id || crypto.randomUUID(),
             nama: (s.nama || '').trim(),
             kelas: normalizeKelas(s.kelas || '7A'),
             periode: (s.periode || '2026').toString().trim(),
             nis: (s.nis || '').toString().trim(),
-            jenis_kelamin: (s.jenis_kelamin || '').toString().trim().toUpperCase()
-          }));
+            jenis_kelamin: (s.jenis_kelamin || s.gender || s.jk || '').toString().trim().toUpperCase()
+          }))
+          .filter((s: SiswaData) => {
+            const jk = s.jenis_kelamin || '';
+            return jk && jk !== '-' && jk !== 'NULL' && jk !== 'UNDEFINED';
+          });
         setStudents(normalized);
         extractPeriodes(normalized);
       } catch (e) {
@@ -196,9 +265,10 @@ export default function ManagementSiswaApp() {
   const extractPeriodes = (list: SiswaData[]) => {
     const periodsSet = new Set<string>();
     periodsSet.add('2026');
+    periodsSet.add('2025');
     list.forEach(s => {
       const p = (s.periode || '').toString().trim();
-      if (p && p !== '2025') periodsSet.add(p);
+      if (p) periodsSet.add(p);
     });
     const sorted = Array.from(periodsSet).sort((a, b) => b.localeCompare(a));
     setAvailablePeriodes(sorted);
@@ -210,9 +280,7 @@ export default function ManagementSiswaApp() {
     const sKelas = normalizeKelas(s.kelas);
 
     const matchesPeriode = selectedPeriode === 'ALL' || 
-      sPeriode === selectedPeriode.trim() || 
-      sPeriode.includes(selectedPeriode) || 
-      selectedPeriode.includes(sPeriode);
+      sPeriode === selectedPeriode.trim();
 
     const matchesKelas = selectedKelas === 'ALL' || sKelas === normalizeKelas(selectedKelas);
 
@@ -791,6 +859,14 @@ export default function ManagementSiswaApp() {
             >
               <Trash2 size={16} />
               <span>Bersihkan Data 2025</span>
+            </button>
+
+            <button
+              onClick={() => syncCleanDataToSupabase()}
+              className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all active:scale-95"
+              title="Sinkronkan & Bersihkan Data Supabase dari Duplikat"
+            >
+              <RefreshCw size={14} /> Sinkronkan Supabase
             </button>
 
             <button

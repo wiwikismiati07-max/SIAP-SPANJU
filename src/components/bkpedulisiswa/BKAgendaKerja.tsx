@@ -115,7 +115,7 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
     const local = localStorage.getItem('master_siswa') || localStorage.getItem('sitelat_siswa');
     if (local) {
       try {
-        const parsed = JSON.parse(local).filter((s: any) => s.periode !== '2025');
+        const parsed = JSON.parse(local);
         if (parsed.length > 0) {
           const normalized = parsed.map((s: any) => ({
             id: s.id || `sw-${Math.random()}`,

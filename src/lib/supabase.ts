@@ -28,26 +28,16 @@ let currentClient: SupabaseClient | null = null;
 /**
  * Mengecek apakah data siswa merupakan data periode 2026 murni (bukan 2025 / 2024 / demo).
  */
+/**
+ * Memvalidasi apakah data siswa valid (bukan demo palsu dan memiliki jenis kelamin yang valid).
+ */
 export const isSiswa2026Only = (s: any): boolean => {
   if (!s) return false;
   const idStr = (s.id || s.siswa_id || '').toString().trim();
   if (idStr.startsWith('demo-') || idStr === 'manual-1789089696988') {
     return false;
   }
-  const p = (s.periode || '').toString().trim();
-  if (p === '2025' || p === '2024' || p === '2024/2025' || p === '2025/2026' || p.startsWith('2024') || p.startsWith('2025')) {
-    return false;
-  }
-  const nisStr = (s.nis || '').toString().trim();
-  if (
-    nisStr.startsWith('2024') ||
-    nisStr.startsWith('247') ||
-    nisStr.startsWith('248') ||
-    nisStr.startsWith('249')
-  ) {
-    return false;
-  }
-  return true;
+  return !!(s.nama && s.nama.toString().trim());
 };
 
 const normalizeKelasKey = (kls: string = ''): string => {
@@ -62,79 +52,57 @@ const normalizeKelasKey = (kls: string = ''): string => {
 export const filterLatestStudents = (allStudents: any[]): any[] => {
   if (!allStudents || !Array.isArray(allStudents) || allStudents.length === 0) return [];
 
-  // 1. Hanya ambil siswa periode 2026 (hapus semua data periode 2025 & demo)
-  const only2026 = allStudents.filter(isSiswa2026Only).map(s => ({
-    ...s,
-    kelas: normalizeKelasKey(s.kelas),
-    periode: '2026'
-  }));
+  const validStudents = allStudents.filter(isSiswa2026Only).map(s => {
+    let jk = (s.jenis_kelamin || s.gender || s.jk || '').toString().trim().toUpperCase();
+    if (!jk || jk === '-' || jk === 'NULL' || jk === 'UNDEFINED') {
+      jk = 'L';
+    } else if (jk.startsWith('P')) {
+      jk = 'P';
+    } else {
+      jk = 'L';
+    }
 
-  const sorted = [...only2026].sort((a, b) => {
-    const pA = (a.periode || '').toString().trim();
-    const pB = (b.periode || '').toString().trim();
-    if (pA !== pB) {
-      if (!pA) return 1;
-      if (!pB) return -1;
-      return pB.localeCompare(pA);
-    }
-    if (a.created_at && b.created_at) {
-      const tA = new Date(a.created_at).getTime();
-      const tB = new Date(b.created_at).getTime();
-      if (!isNaN(tA) && !isNaN(tB) && tA !== tB) {
-        return tB - tA;
-      }
-    }
-    return (b.id || '').toString().localeCompare((a.id || '').toString());
+    return {
+      ...s,
+      kelas: normalizeKelasKey(s.kelas),
+      periode: (s.periode || '2026').toString().trim(),
+      jenis_kelamin: jk
+    };
   });
 
   const studentMapByKey = new Map<string, any>();
-  const studentMapByNis = new Map<string, any>();
 
-  sorted.forEach(s => {
+  validStudents.forEach(s => {
     if (!s.nama) return;
     const normNama = s.nama.toString().toLowerCase().replace(/\s+/g, ' ').trim();
     const normKelas = normalizeKelasKey(s.kelas);
-    const nameClassKey = `${normNama}__${normKelas}`;
-    const nisStr = (s.nis || '').toString().trim();
+    const pStr = (s.periode || '').toString().trim();
+    const nameClassKey = `${normNama}__${normKelas}__${pStr}`;
 
-    const existingByKey = studentMapByKey.get(nameClassKey);
-    const existingByNis = nisStr && nisStr !== '-' ? studentMapByNis.get(nisStr) : null;
-
-    if (!existingByKey && !existingByNis) {
+    if (!studentMapByKey.has(nameClassKey)) {
       studentMapByKey.set(nameClassKey, s);
-      if (nisStr && nisStr !== '-') studentMapByNis.set(nisStr, s);
+    } else {
+      const existing = studentMapByKey.get(nameClassKey);
+      if (!existing.nis && s.nis) existing.nis = s.nis;
     }
   });
 
   const uniqueList = Array.from(studentMapByKey.values());
-  return uniqueList.sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
+  return uniqueList.sort((a, b) => {
+    const pDiff = (b.periode || '').localeCompare(a.periode || '');
+    if (pDiff !== 0) return pDiff;
+    const kDiff = a.kelas.localeCompare(b.kelas, undefined, { numeric: true });
+    if (kDiff !== 0) return kDiff;
+    return (a.nama || '').localeCompare(b.nama || '');
+  });
 };
 
 /**
- * Bersihkan localStorage (sitelat_siswa & master_siswa) dari data siswa 2025 dan duplikat
+ * Normalisasi penyimpanan localStorage tanpa menghapus periode 2025
  */
 export const sanitizeLocalSiswaStorage = (): number => {
-  if (typeof window === 'undefined') return 0;
-  let removedCount = 0;
-  ['sitelat_siswa', 'master_siswa'].forEach(key => {
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          const beforeLen = parsed.length;
-          const cleaned = filterLatestStudents(parsed);
-          removedCount += Math.max(0, beforeLen - cleaned.length);
-          localStorage.setItem(key, JSON.stringify(cleaned));
-        }
-      }
-    } catch (_) {}
-  });
-  return removedCount;
+  return 0;
 };
-
-// Jalankan pembersihan otomatis saat modul dimuat
-sanitizeLocalSiswaStorage();
 
 export const initSupabaseClient = (): SupabaseClient | null => {
   const config = getStoredSupabaseConfig();
@@ -146,15 +114,9 @@ export const initSupabaseClient = (): SupabaseClient | null => {
         const headersObj = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
         const isRawMasterSiswa = headersObj.get('x-raw-master-siswa') === 'true';
 
-        // Untuk query HEAD/GET ke master_siswa, pastikan hanya data 2026 yang dihitung/diambil
+        // Untuk query HEAD/GET ke master_siswa, biarkan query filter periode berjalan natural
         if (!isRawMasterSiswa && urlStr.includes('/rest/v1/master_siswa') && (method === 'GET' || method === 'HEAD')) {
-          let modifiedInput = input;
-          if (!urlStr.includes('periode=')) {
-            const sep = urlStr.includes('?') ? '&' : '?';
-            modifiedInput = `${urlStr}${sep}periode=eq.2026`;
-          }
-
-          const response = await fetch(modifiedInput, init);
+          const response = await fetch(input, init);
           if (method === 'GET' && response.ok) {
             try {
               const cloned = response.clone();
@@ -164,9 +126,7 @@ export const initSupabaseClient = (): SupabaseClient | null => {
                 if (data.length > 0 && ('nama' in data[0] || 'kelas' in data[0])) {
                   filtered = filterLatestStudents(data);
                 } else {
-                  filtered = data
-                    .filter(isSiswa2026Only)
-                    .map(item => ('periode' in item ? { ...item, periode: '2026' } : item));
+                  filtered = data.filter(isSiswa2026Only);
                 }
 
                 const newHeaders = new Headers(response.headers);
@@ -390,30 +350,42 @@ export const testSupabaseConnection = async (testUrl?: string, testKey?: string)
 
 export const fetchAllSiswa = async (): Promise<any[]> => {
   const client = getSupabase();
-  if (!client) return [];
   let allSiswa: any[] = [];
-  let page = 0;
-  const pageSize = 1000;
-  let hasMore = true;
+  if (client) {
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
 
-  while (hasMore) {
-    const { data, error } = await client
-      .from('master_siswa')
-      .select('*')
-      .order('nama')
-      .range(page * pageSize, (page + 1) * pageSize - 1);
+    while (hasMore) {
+      const { data, error } = await client
+        .from('master_siswa')
+        .select('*')
+        .order('nama')
+        .range(page * pageSize, (page + 1) * pageSize - 1);
 
-    if (error || !data || data.length === 0) {
-      hasMore = false;
-    } else {
-      allSiswa = [...allSiswa, ...data];
-      if (data.length < pageSize) {
+      if (error || !data || data.length === 0) {
         hasMore = false;
       } else {
-        page++;
+        allSiswa = [...allSiswa, ...data];
+        if (data.length < pageSize) {
+          hasMore = false;
+        } else {
+          page++;
+        }
       }
     }
   }
 
-  return filterLatestStudents(allSiswa);
+  let localSiswa: any[] = [];
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
+      if (saved) {
+        localSiswa = JSON.parse(saved);
+      }
+    } catch {}
+  }
+
+  const combined = [...localSiswa, ...allSiswa];
+  return filterLatestStudents(combined);
 };

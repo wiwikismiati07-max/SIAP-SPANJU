@@ -970,16 +970,16 @@ export const purge2025FromLocalStorage = () => {
   } catch (_) {}
 };
 
-// Run automatically on module evaluation
+// Run automatically on module evaluation - disabled to preserve 2025 records
 if (typeof window !== 'undefined') {
-  purge2025FromLocalStorage();
+  // purge2025FromLocalStorage();
 }
 
 // Fetch available periodes instantly from local storage & Supabase
 export const fetchAvailablePeriodes = async (): Promise<string[]> => {
-  purge2025FromLocalStorage();
   const set = new Set<string>();
   set.add('2026');
+  set.add('2025');
   set.add('2025/2026');
 
   // 1. Instant check from local storage (sitelat_siswa, master_siswa, jurnal data)
@@ -992,7 +992,7 @@ export const fetchAvailablePeriodes = async (): Promise<string[]> => {
           parsed.forEach((s: any) => {
             if (s.periode) {
               const clean = s.periode.toString().trim();
-              if (clean && clean !== '2025') set.add(clean);
+              if (clean) set.add(clean);
             }
           });
         }
@@ -1006,7 +1006,7 @@ export const fetchAvailablePeriodes = async (): Promise<string[]> => {
         jList.forEach((j: any) => {
           if (j.periode) {
             const clean = j.periode.toString().trim();
-            if (clean && clean !== '2025') set.add(clean);
+            if (clean) set.add(clean);
           }
         });
       }
@@ -1019,13 +1019,13 @@ export const fetchAvailablePeriodes = async (): Promise<string[]> => {
       const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) => 
         setTimeout(() => resolve({ data: null, error: new Error('Timeout') }), 3000)
       );
-      const queryPromise = supabase.from('master_siswa').select('periode').neq('periode', '2025').limit(250);
+      const queryPromise = supabase.from('master_siswa').select('periode').limit(250);
       const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
       if (!error && data && Array.isArray(data)) {
         data.forEach((d: any) => {
           if (d.periode) {
             const clean = d.periode.toString().trim();
-            if (clean && clean !== '2025') set.add(clean);
+            if (clean) set.add(clean);
           }
         });
       }

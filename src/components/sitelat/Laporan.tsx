@@ -24,7 +24,7 @@ export default function Laporan({ user }: { user?: any }) {
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedPeriode, setSelectedPeriode] = useState<string>('2026');
-  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026']);
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -71,10 +71,12 @@ export default function Laporan({ user }: { user?: any }) {
         // Fetch distinct periodes
         const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
         if (siswaPeriodeData && siswaPeriodeData.length > 0) {
-          const distinctPeriodes = Array.from(new Set(['2026', ...siswaPeriodeData.map(s => s.periode || '2026')]))
+          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2026')]))
             .filter(Boolean)
             .sort((a, b) => b.localeCompare(a));
           setAvailablePeriodes(distinctPeriodes);
+        } else {
+          setAvailablePeriodes(['2026', '2025']);
         }
 
         let siswaQuery = supabase.from('master_siswa').select('*');
@@ -104,7 +106,13 @@ export default function Laporan({ user }: { user?: any }) {
           setTransaksi(joinedData as TransaksiWithSiswa[]);
         }
       } else {
-        const localSiswa = (JSON.parse(localStorage.getItem('sitelat_siswa') || '[]'))
+        const rawLocalSiswa = JSON.parse(localStorage.getItem('sitelat_siswa') || '[]');
+        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...rawLocalSiswa.map((s: any) => s.periode || '2026')]))
+          .filter(Boolean)
+          .sort((a: any, b: any) => b.localeCompare(a));
+        setAvailablePeriodes(distinctPeriodes as string[]);
+
+        const localSiswa = rawLocalSiswa
           .filter((s: any) => selectedPeriode === 'ALL' || (s.periode || '2026') === selectedPeriode);
         setSiswaList(localSiswa);
         
