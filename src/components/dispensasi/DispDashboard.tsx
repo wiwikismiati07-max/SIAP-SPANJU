@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, FileText, TrendingUp, AlertCircle, ChevronDown } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { TransaksiDispensasi, SiswaSeringDispensasi } from '../../types/dispensasi';
 import { format, subDays } from 'date-fns';
@@ -8,7 +8,7 @@ import { format, subDays } from 'date-fns';
 const COLORS = ['#3b82f6', '#ec4899', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
 
 const DispDashboard: React.FC = () => {
-  const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
+  const [selectedPeriode, setSelectedPeriode] = useState<string>('2026');
   const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [dateRange, setDateRange] = useState({
     start: format(new Date(), 'yyyy-MM-dd'),
@@ -50,50 +50,50 @@ const DispDashboard: React.FC = () => {
   };
 
   const fetchDashboardData = async () => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-    
     try {
       setLoading(true);
       
       // Fetch available periodes
-      const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
-      if (siswaPeriodeData && siswaPeriodeData.length > 0) {
-        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
-          .filter(Boolean)
-          .sort((a, b) => b.localeCompare(a));
-        setAvailablePeriodes(distinctPeriodes);
+      if (supabase) {
+        const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
+        if (siswaPeriodeData && siswaPeriodeData.length > 0) {
+          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2026')]))
+            .filter(Boolean)
+            .sort((a, b) => b.localeCompare(a));
+          setAvailablePeriodes(distinctPeriodes);
+        }
       }
 
-      // 1. Total Siswa for selectedPeriode
-      let siswaQuery = supabase.from('master_siswa').select('*', { count: 'exact', head: true });
-      if (selectedPeriode !== 'ALL') {
-        siswaQuery = siswaQuery.eq('periode', selectedPeriode);
-      }
-      const { count: siswaCount } = await siswaQuery;
+      // 1. Total Siswa for selectedPeriode using fetchAllSiswa
+      const allValidSiswa = await fetchAllSiswa();
+      const sDataForPeriode = selectedPeriode === 'ALL'
+        ? allValidSiswa
+        : allValidSiswa.filter(s => (s.periode || '2026').toString().trim() === selectedPeriode);
+      const totalSiswa = sDataForPeriode.length;
       
       // 2. Total Dispensasi (Filtered by date)
-      const { data: dispData, error: dispError } = await supabase
-        .from('disp_transaksi')
-        .select(`
-          *,
-          siswa:master_siswa(nama, kelas, periode),
-          jenis:disp_master_jenis(nama_jenis)
-        `)
-        .gte('tanggal', dateRange.start)
-        .lte('tanggal', dateRange.end);
-      
-      if (dispError) throw dispError;
+      let dispData: any[] = [];
+      if (supabase) {
+        const { data: fetchedDisp, error: dispError } = await supabase
+          .from('disp_transaksi')
+          .select(`
+            *,
+            siswa:master_siswa(nama, kelas, periode),
+            jenis:disp_master_jenis(nama_jenis)
+          `)
+          .gte('tanggal', dateRange.start)
+          .lte('tanggal', dateRange.end);
+        
+        if (dispError) console.error('Error fetching disp_transaksi:', dispError);
+        dispData = fetchedDisp || [];
+      }
 
       let filteredDispData = dispData || [];
       if (selectedPeriode !== 'ALL') {
-        filteredDispData = filteredDispData.filter(d => (d.siswa?.periode || '2025') === selectedPeriode);
+        filteredDispData = filteredDispData.filter(d => (d.siswa?.periode || '2026') === selectedPeriode);
       }
 
       const totalDisp = filteredDispData.length;
-      const totalSiswa = siswaCount || 0;
       const persentase = totalSiswa > 0 ? (totalDisp / totalSiswa) * 100 : 0;
 
       setStats({

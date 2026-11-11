@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Search, X, Check, Calendar, Clock, Trophy, Medal, MapPin, Link as LinkIcon, User, Users, Upload, Download } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { PrestasiSiswa } from '../../types/prestasi';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -18,8 +18,8 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
   const [students, setStudents] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
-  const [selectedPeriode, setSelectedPeriode] = useState('2025');
-  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2025']);
+  const [selectedPeriode, setSelectedPeriode] = useState('2026');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   
   const [formData, setFormData] = useState({
     tanggal: format(new Date(), 'yyyy-MM-dd'),
@@ -55,9 +55,9 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
 
   const fetchPeriodes = async () => {
     try {
-      const { data: sAll } = await supabase.from('master_siswa').select('periode');
-      if (sAll) {
-        const pList = Array.from(new Set(['2025', ...sAll.map((s: any) => s.periode || '2025')])).sort((a, b) => b.localeCompare(a));
+      const sAll = await fetchAllSiswa();
+      if (sAll && sAll.length > 0) {
+        const pList = Array.from(new Set(['2026', '2025', ...sAll.map((s: any) => s.periode || '2026')])).sort((a, b) => b.localeCompare(a));
         setAvailablePeriodes(pList);
       }
     } catch (e) {
@@ -95,17 +95,13 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
 
   const fetchStudents = async (className: string, periode: string) => {
     try {
-      let query = supabase
-        .from('master_siswa')
-        .select('id, nama, periode')
-        .eq('kelas', className);
-
+      const allValidSiswa = await fetchAllSiswa();
+      let filtered = allValidSiswa.filter((s: any) => s.kelas === className);
       if (periode && periode !== 'ALL') {
-        query = query.eq('periode', periode);
+        filtered = filtered.filter((s: any) => (s.periode || '2026').toString().trim() === periode);
       }
-
-      const { data: studentData } = await query.order('nama');
-      setStudents(studentData || []);
+      filtered.sort((a: any, b: any) => (a.nama || '').localeCompare(b.nama || ''));
+      setStudents(filtered);
     } catch (error) {
       console.error('Error fetching students:', error);
     }

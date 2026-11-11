@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Search, Calendar, Clock, User, FileText, Check, X } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { MasterJenisDispensasi, TransaksiDispensasi } from '../../types/dispensasi';
 import { format } from 'date-fns';
 
@@ -12,8 +12,8 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
   const [siswaList, setSiswaList] = useState<any[]>([]);
   const [recentData, setRecentData] = useState<TransaksiDispensasi[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [periodeFilter, setPeriodeFilter] = useState('2025');
-  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2025']);
+  const [periodeFilter, setPeriodeFilter] = useState('2026');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   
   const [formData, setFormData] = useState({
     tanggal: format(new Date(), 'yyyy-MM-dd'),
@@ -45,11 +45,13 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
 
   const fetchInitialData = async () => {
     try {
-      const { data: jData } = await supabase.from('disp_master_jenis').select('*').order('nama_jenis');
-      setJenisList(jData || []);
-      const { data: sAll } = await supabase.from('master_siswa').select('periode');
-      if (sAll) {
-        const pList = Array.from(new Set(['2025', ...sAll.map((s: any) => s.periode || '2025')])).sort((a,b) => b.localeCompare(a));
+      if (supabase) {
+        const { data: jData } = await supabase.from('disp_master_jenis').select('*').order('nama_jenis');
+        setJenisList(jData || []);
+      }
+      const sAll = await fetchAllSiswa();
+      if (sAll && sAll.length > 0) {
+        const pList = Array.from(new Set(['2026', '2025', ...sAll.map((s: any) => s.periode || '2026')])).sort((a,b) => b.localeCompare(a));
         setAvailablePeriodes(pList);
       }
       fetchRecentData();
@@ -60,17 +62,13 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
 
   const fetchSiswaByKelas = async (kelas: string, periode: string) => {
     try {
-      let query = supabase
-        .from('master_siswa')
-        .select('id, nama, kelas, periode')
-        .eq('kelas', kelas);
-      
+      const allValidSiswa = await fetchAllSiswa();
+      let filtered = allValidSiswa.filter((s: any) => s.kelas === kelas);
       if (periode && periode !== 'ALL') {
-        query = query.eq('periode', periode);
+        filtered = filtered.filter((s: any) => (s.periode || '2026').toString().trim() === periode);
       }
-
-      const { data: sData } = await query.order('nama');
-      setSiswaList(sData || []);
+      filtered.sort((a: any, b: any) => (a.nama || '').localeCompare(b.nama || ''));
+      setSiswaList(filtered);
     } catch (error) {
       console.error('Error fetching siswa:', error);
     }
