@@ -428,7 +428,7 @@ export const fetchAllSiswa = async (): Promise<any[]> => {
       for (let i = countInClass + 1; i <= 35 && added < targetNeeded; i++) {
         const paddedStudent = {
           id: `pad-2026-${cls}-${i}-${Date.now()}`,
-          nama: `Siswa ${cls} #${i}`,
+          nama: `DUMMY ${cls} #${i}`,
           kelas: cls,
           periode: '2026',
           nis: `2026${cls}${String(i).padStart(2, '0')}`,

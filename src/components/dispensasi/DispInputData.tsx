@@ -65,7 +65,7 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
       const allValidSiswa = await fetchAllSiswa();
       let filtered = allValidSiswa.filter((s: any) => s.kelas === kelas);
       
-      const realStudents = filtered.filter((s: any) => !String(s.id || '').startsWith('pad-') && !String(s.nama || '').startsWith('Siswa '));
+      const realStudents = filtered.filter((s: any) => !String(s.id || '').startsWith('pad-') && !String(s.nama || '').startsWith('DUMMY '));
       if (realStudents.length > 0) {
         filtered = realStudents;
       }
