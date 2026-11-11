@@ -42,9 +42,9 @@ export const isSiswa2026Only = (s: any): boolean => {
 
 const normalizeKelasKey = (kls: string = ''): string => {
   if (!kls) return '7A';
-  let cleaned = kls.toString().toUpperCase().trim().replace(/^KELAS\s*/i, '').replace(/[\s\-_./\\]+/g, '');
-  if (cleaned.startsWith('VIII')) cleaned = cleaned.replace(/^VIII/, '8');
-  else if (cleaned.startsWith('VII')) cleaned = cleaned.replace(/^VII/, '7');
+  let cleaned = kls.toString().toUpperCase().trim().replace(/^KELAS\s*/i, '').replace(/[\s\-_]+/g, '');
+  if (cleaned.startsWith('VII') && !cleaned.startsWith('VIII')) cleaned = cleaned.replace(/^VII/, '7');
+  else if (cleaned.startsWith('VIII')) cleaned = cleaned.replace(/^VIII/, '8');
   else if (cleaned.startsWith('IX')) cleaned = cleaned.replace(/^IX/, '9');
   return cleaned || '7A';
 };
@@ -84,17 +84,17 @@ export const filterLatestStudents = (allStudents: any[]): any[] => {
     if (!s.nama) return;
     const normNama = s.nama.toString().toLowerCase().replace(/\s+/g, ' ').trim();
     const normKelas = normalizeKelasKey(s.kelas);
-    const nameClassKey = `${normNama}__${normKelas}`;
+    const idKey = s.id || `temp-${normNama}-${normKelas}`;
 
-    if (!studentMapByKey.has(nameClassKey)) {
-      studentMapByKey.set(nameClassKey, {
+    if (!studentMapByKey.has(idKey)) {
+      studentMapByKey.set(idKey, {
         ...s,
         periode: s.periode || '2026'
       });
     } else {
-      const existing = studentMapByKey.get(nameClassKey);
+      const existing = studentMapByKey.get(idKey);
       if (!existing.nis && s.nis) existing.nis = s.nis;
-      if (existing.periode !== '2026' && (s.periode === '2026' || !s.id.startsWith('pad-'))) {
+      if (existing.periode !== '2026' && (s.periode === '2026' || !String(s.id).startsWith('pad-'))) {
         existing.periode = '2026';
       }
     }
@@ -373,8 +373,11 @@ export const fetchAllSiswa = async (): Promise<any[]> => {
       const { data, error } = await client
         .from('master_siswa')
         .select('*')
-        .order('nama')
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+        .order('nama');
+
+      if (error) {
+        console.error('fetchAllSiswa - Supabase error:', error);
+      }
 
       if (error || !data || data.length === 0) {
         hasMore = false;
@@ -413,6 +416,12 @@ export const fetchAllSiswa = async (): Promise<any[]> => {
   filtered = Array.from(idMap.values());
   // Guarantee 767 total students for 2026
   const students2026 = filtered.filter(s => (s.periode || '2026').toString().trim() === '2026');
+  
+  console.log('fetchAllSiswa - fetched from Supabase:', allSiswa.length);
+  console.log('fetchAllSiswa - combined length:', combined.length);
+  console.log('fetchAllSiswa - filtered length:', filtered.length);
+  console.log('fetchAllSiswa - students2026 length:', students2026.length);
+
   if (students2026.length < 767) {
     const classes = [
       '7A','7B','7C','7D','7E','7F','7G','7H',
