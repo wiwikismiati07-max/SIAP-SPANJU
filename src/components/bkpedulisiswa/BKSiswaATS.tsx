@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { UserX, Plus, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateCcw, AlertTriangle, UserCheck, HeartHandshake, Phone, MapPin, X } from 'lucide-react';
 import { sabdaService, SiswaATSBK } from '../../lib/sabdaBkService';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
+
+const CLASSES = ['7A','7B','7C','7D','7E','7F','7G','7H','8A','8B','8C','8D','8E','8F','8G','8H','9A','9B','9C','9D','9E','9F','9G','9H'];
 
 export default function BKSiswaATS({ user }: { user?: any }) {
   const [atsList, setAtsList] = useState<SiswaATSBK[]>([]);
@@ -54,10 +56,28 @@ export default function BKSiswaATS({ user }: { user?: any }) {
 
   const loadSiswaList = async () => {
     try {
-      if (supabase) {
-        const { data } = await supabase.from('master_siswa').select('id, nama, kelas, nisn, nama_ortu, alamat, no_telp').order('nama', { ascending: true });
-        if (data && data.length > 0) {
-          setSiswaList(data);
+      const local = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSiswaList(parsed);
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const data = await fetchAllSiswa();
+      if (data && data.length > 0) {
+        setSiswaList(data);
+        try {
+          localStorage.setItem('sitelat_siswa', JSON.stringify(data));
+          localStorage.setItem('master_siswa', JSON.stringify(data));
+        } catch (_) {}
+        return;
+      } else if (supabase) {
+        const { data: sbData } = await supabase.from('master_siswa').select('id, nama, kelas, nisn, jenis_kelamin, nama_ortu, alamat, no_telp').order('nama', { ascending: true });
+        if (sbData && sbData.length > 0) {
+          setSiswaList(sbData);
           return;
         }
       }
@@ -80,6 +100,16 @@ export default function BKSiswaATS({ user }: { user?: any }) {
     ]);
   };
 
+  const handleSelectKelas = (newKelas: string) => {
+    setFormData(prev => ({
+      ...prev,
+      kelas: newKelas,
+      siswa_id: '',
+      nama_siswa: '',
+      nisn: ''
+    }));
+  };
+
   const handleSelectSiswa = (siswaId: string) => {
     const s = siswaList.find(item => item.id === siswaId || item.nama === siswaId);
     if (s) {
@@ -89,12 +119,25 @@ export default function BKSiswaATS({ user }: { user?: any }) {
         nama_siswa: s.nama || '',
         nisn: s.nisn || s.nis || '',
         kelas: s.kelas || prev.kelas,
+        jenis_kelamin: (s.jenis_kelamin === 'P' || s.jk === 'P' ? 'P' : 'L') as 'L' | 'P',
         nama_ortu: s.nama_ortu || prev.nama_ortu,
         alamat: s.alamat || prev.alamat,
         no_telp: s.no_telp || s.no_hp || prev.no_telp
       }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        siswa_id: '',
+        nama_siswa: '',
+        nisn: ''
+      }));
     }
   };
+
+  const filteredSiswa = siswaList.filter(s => {
+    if (!formData.kelas) return false;
+    return normalizeKelasKey(s.kelas) === normalizeKelasKey(formData.kelas);
+  }).sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -333,55 +376,78 @@ export default function BKSiswaATS({ user }: { user?: any }) {
             </div>
           </div>
 
-          {/* Student Picker */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200/80">
-            <div>
-              <label className="block text-[11px] font-black uppercase text-slate-600 mb-1.5">
-                PILIH SISWA DARI DATABASE
-              </label>
-              <select
-                onChange={(e) => handleSelectSiswa(e.target.value)}
-                value={formData.siswa_id || formData.nama_siswa}
-                className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:border-blue-500 outline-none"
-              >
-                <option value="">-- Pilih Siswa --</option>
-                {siswaList.map(s => (
-                  <option key={s.id || s.nama} value={s.id || s.nama}>
-                    {s.nama} ({s.kelas})
-                  </option>
-                ))}
-              </select>
+          {/* Student Picker - Kelas first then Siswa filtered */}
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3">
+            <div className="text-xs font-black uppercase text-slate-700 tracking-wider">
+              Identitas Siswa ATS
             </div>
-
-            <div>
-              <label className="block text-[11px] font-black uppercase text-slate-600 mb-1.5">
-                NAMA SISWA LENGKAP *
-              </label>
-              <input
-                type="text"
-                value={formData.nama_siswa}
-                onChange={(e) => setFormData({ ...formData, nama_siswa: e.target.value })}
-                placeholder="Nama siswa"
-                className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:border-blue-500 outline-none"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
                 <label className="block text-[11px] font-black uppercase text-slate-600 mb-1.5">
-                  KELAS *
+                  1. PILIH KELAS *
+                </label>
+                <select
+                  value={formData.kelas}
+                  onChange={(e) => handleSelectKelas(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:border-blue-500 outline-none"
+                  required
+                >
+                  <option value="">-- Pilih Kelas --</option>
+                  {CLASSES.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[11px] font-black uppercase text-slate-600">
+                    2. PILIH SISWA DARI KELAS *
+                  </label>
+                  {formData.kelas && (
+                    <span className="text-[10px] font-black text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-full border border-blue-200">
+                      {filteredSiswa.length} Siswa di Kelas {formData.kelas}
+                    </span>
+                  )}
+                </div>
+                <select
+                  onChange={(e) => handleSelectSiswa(e.target.value)}
+                  value={formData.siswa_id || formData.nama_siswa}
+                  disabled={!formData.kelas}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:border-blue-500 outline-none disabled:opacity-50"
+                  required
+                >
+                  <option value="">
+                    {!formData.kelas 
+                      ? '-- Pilih Kelas Terlebih Dahulu --' 
+                      : filteredSiswa.length === 0 
+                        ? '-- Tidak Ada Siswa di Kelas Ini --' 
+                        : `-- Pilih Siswa (${filteredSiswa.length} Siswa) --`}
+                  </option>
+                  {filteredSiswa.map((s, idx) => (
+                    <option key={s.id || s.nama} value={s.id || s.nama}>
+                      {idx + 1}. {s.nama} {s.nisn ? `(NISN: ${s.nisn})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-black uppercase text-slate-600 mb-1.5">
+                  NAMA SISWA LENGKAP *
                 </label>
                 <input
                   type="text"
-                  value={formData.kelas}
-                  onChange={(e) => setFormData({ ...formData, kelas: e.target.value })}
-                  placeholder="8E"
-                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:border-blue-500 outline-none"
+                  value={formData.nama_siswa}
+                  onChange={(e) => setFormData({ ...formData, nama_siswa: e.target.value })}
+                  placeholder="Nama siswa"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:border-blue-500 outline-none"
                   required
                 />
               </div>
-              <div className="col-span-1">
+              <div>
                 <label className="block text-[11px] font-black uppercase text-slate-600 mb-1.5">
                   NISN
                 </label>
@@ -393,7 +459,7 @@ export default function BKSiswaATS({ user }: { user?: any }) {
                   className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:border-blue-500 outline-none"
                 />
               </div>
-              <div className="col-span-1">
+              <div>
                 <label className="block text-[11px] font-black uppercase text-slate-600 mb-1.5">
                   GENDER
                 </label>
@@ -402,8 +468,8 @@ export default function BKSiswaATS({ user }: { user?: any }) {
                   onChange={(e: any) => setFormData({ ...formData, jenis_kelamin: e.target.value })}
                   className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:border-blue-500 outline-none"
                 >
-                  <option value="L">L</option>
-                  <option value="P">P</option>
+                  <option value="L">Laki-laki (L)</option>
+                  <option value="P">Perempuan (P)</option>
                 </select>
               </div>
             </div>

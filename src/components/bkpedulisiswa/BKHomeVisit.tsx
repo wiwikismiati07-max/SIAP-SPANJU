@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Home, Plus, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateCcw, MapPin, Users, Calendar, Clock, FileText } from 'lucide-react';
 import { sabdaService, HomeVisitBK } from '../../lib/sabdaBkService';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
+
+const CLASSES = [
+  '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
+  '8A', '8B', '8C', '8D', '8E', '8F', '8G', '8H',
+  '9A', '9B', '9C', '9D', '9E', '9F', '9G', '9H'
+];
 
 export default function BKHomeVisit({ user }: { user?: any }) {
   const [visits, setVisits] = useState<HomeVisitBK[]>([]);
@@ -47,9 +53,27 @@ export default function BKHomeVisit({ user }: { user?: any }) {
   };
 
   const loadSiswa = async () => {
+    // 1. Immediately populate from local cache if available
     try {
-      if (supabase) {
-        const { data } = await supabase.from('master_siswa').select('id, nama, kelas, alamat').order('nama', { ascending: true });
+      const saved = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSiswaList(parsed);
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const allSiswa = await fetchAllSiswa();
+      if (allSiswa && allSiswa.length > 0) {
+        setSiswaList(allSiswa);
+        try {
+          localStorage.setItem('sitelat_siswa', JSON.stringify(allSiswa));
+          localStorage.setItem('master_siswa', JSON.stringify(allSiswa));
+        } catch (_) {}
+      } else if (supabase) {
+        const { data } = await supabase.from('master_siswa').select('id, nama, kelas, alamat, nis').order('nama', { ascending: true });
         if (data && data.length > 0) {
           setSiswaList(data);
         }
@@ -66,6 +90,16 @@ export default function BKHomeVisit({ user }: { user?: any }) {
     }, 4000);
   };
 
+  const handleSelectKelas = (newKelas: string) => {
+    setFormData(prev => ({
+      ...prev,
+      kelas: newKelas,
+      siswa_id: '',
+      nama_siswa: '',
+      alamat: ''
+    }));
+  };
+
   const handleSelectSiswa = (siswaId: string) => {
     const s = siswaList.find(x => x.id === siswaId);
     if (s) {
@@ -74,10 +108,21 @@ export default function BKHomeVisit({ user }: { user?: any }) {
         siswa_id: s.id,
         nama_siswa: s.nama,
         kelas: s.kelas || prev.kelas,
-        alamat: s.alamat || prev.alamat
+        alamat: s.alamat || prev.alamat || ''
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        siswa_id: '',
+        nama_siswa: ''
       }));
     }
   };
+
+  const filteredSiswa = siswaList.filter(s => {
+    if (!formData.kelas) return false;
+    return normalizeKelasKey(s.kelas) === normalizeKelasKey(formData.kelas);
+  }).sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,17 +250,49 @@ export default function BKHomeVisit({ user }: { user?: any }) {
               Identitas Siswa yang Dikunjungi
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">Pilih Kelas *</label>
+                <select
+                  value={formData.kelas}
+                  onChange={e => handleSelectKelas(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 text-sm bg-white outline-none focus:border-amber-500 transition-colors"
+                  required
+                >
+                  <option value="">-- Pilih Kelas --</option>
+                  {CLASSES.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="sm:col-span-2">
-                <label className="block text-[11px] font-bold text-slate-500 mb-1">Pilih Siswa</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold text-slate-500">Pilih Siswa *</label>
+                  {formData.kelas && (
+                    <span className="text-[10px] font-extrabold text-amber-700 bg-amber-100/70 px-2.5 py-0.5 rounded-full border border-amber-200">
+                      {filteredSiswa.length} Siswa di Kelas {formData.kelas}
+                    </span>
+                  )}
+                </div>
                 {siswaList.length > 0 ? (
                   <select
                     value={formData.siswa_id}
                     onChange={e => handleSelectSiswa(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 text-sm bg-white"
+                    disabled={!formData.kelas}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 text-sm bg-white outline-none focus:border-amber-500 disabled:opacity-50 transition-colors"
+                    required
                   >
-                    <option value="">-- Pilih Siswa dari Database --</option>
-                    {siswaList.map(s => (
-                      <option key={s.id} value={s.id}>{s.nama} ({s.kelas})</option>
+                    <option value="">
+                      {!formData.kelas 
+                        ? '-- Pilih Kelas Terlebih Dahulu --' 
+                        : filteredSiswa.length === 0 
+                          ? '-- Tidak Ada Siswa di Kelas Ini --' 
+                          : `-- Pilih Siswa (${filteredSiswa.length} Siswa) --`}
+                    </option>
+                    {filteredSiswa.map((s, idx) => (
+                      <option key={s.id || `${s.nama}-${idx}`} value={s.id}>
+                        {idx + 1}. {s.nama} {s.nis ? `(NIS: ${s.nis})` : ''}
+                      </option>
                     ))}
                   </select>
                 ) : (
@@ -228,17 +305,6 @@ export default function BKHomeVisit({ user }: { user?: any }) {
                     required
                   />
                 )}
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 mb-1">Kelas</label>
-                <input 
-                  type="text"
-                  value={formData.kelas}
-                  onChange={e => setFormData({ ...formData, kelas: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 text-sm"
-                  required
-                />
               </div>
 
               <div className="sm:col-span-3">

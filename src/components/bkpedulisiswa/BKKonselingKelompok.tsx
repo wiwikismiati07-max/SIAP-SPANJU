@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateCcw, Sparkles, MapPin, Calendar, Clock } from 'lucide-react';
+import { Users, Plus, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateCcw, Sparkles, MapPin, Calendar, Clock, Check, UserCheck, CheckSquare, Square } from 'lucide-react';
 import { sabdaService, KonselingKelompokBK } from '../../lib/sabdaBkService';
+import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
+
+const CLASSES = [
+  '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
+  '8A', '8B', '8C', '8D', '8E', '8F', '8G', '8H',
+  '9A', '9B', '9C', '9D', '9E', '9F', '9G', '9H'
+];
 
 export default function BKKonselingKelompok({ user }: { user?: any }) {
   const [kelompoks, setKelompoks] = useState<KonselingKelompokBK[]>([]);
+  const [siswaList, setSiswaList] = useState<any[]>([]);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [studentSearch, setStudentSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -29,6 +39,7 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
 
   useEffect(() => {
     loadData();
+    loadSiswa();
   }, []);
 
   const loadData = async () => {
@@ -43,11 +54,85 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
     }
   };
 
+  const loadSiswa = async () => {
+    try {
+      const saved = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) setSiswaList(parsed);
+      }
+    } catch (_) {}
+
+    try {
+      const allSiswa = await fetchAllSiswa();
+      if (allSiswa && allSiswa.length > 0) {
+        setSiswaList(allSiswa);
+        try {
+          localStorage.setItem('sitelat_siswa', JSON.stringify(allSiswa));
+          localStorage.setItem('master_siswa', JSON.stringify(allSiswa));
+        } catch (_) {}
+      } else if (supabase) {
+        const { data } = await supabase.from('master_siswa').select('id, nama, kelas, nis').order('nama', { ascending: true });
+        if (data && data.length > 0) setSiswaList(data);
+      }
+    } catch (e) {
+      console.warn('Notice loading siswa for group counseling:', e);
+    }
+  };
+
   const showNotification = (type: 'success' | 'error', text: string) => {
     setStatusMsg({ type, text });
     setTimeout(() => {
       setStatusMsg(prev => (prev?.text === text ? null : prev));
     }, 4000);
+  };
+
+  const handleSelectKelas = (newKelas: string) => {
+    setFormData(prev => ({
+      ...prev,
+      kelas: newKelas,
+      anggota_siswa: ''
+    }));
+    setSelectedStudentIds([]);
+    setStudentSearch('');
+  };
+
+  const filteredClassSiswa = siswaList.filter(s => {
+    if (!formData.kelas) return false;
+    return normalizeKelasKey(s.kelas) === normalizeKelasKey(formData.kelas);
+  }).sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
+
+  const displayedSiswa = filteredClassSiswa.filter(s => {
+    if (!studentSearch.trim()) return true;
+    return (s.nama || '').toLowerCase().includes(studentSearch.toLowerCase()) ||
+           (s.nis || '').toString().includes(studentSearch);
+  });
+
+  const toggleStudent = (s: any) => {
+    let nextIds: string[];
+    if (selectedStudentIds.includes(s.id)) {
+      nextIds = selectedStudentIds.filter(id => id !== s.id);
+    } else {
+      nextIds = [...selectedStudentIds, s.id];
+    }
+    setSelectedStudentIds(nextIds);
+
+    // Format list of names for anggota_siswa
+    const selectedObjs = siswaList.filter(item => nextIds.includes(item.id));
+    const textFormatted = selectedObjs.map((item, idx) => `${idx + 1}. ${item.nama} (${item.kelas})`).join('\n');
+    setFormData(prev => ({ ...prev, anggota_siswa: textFormatted }));
+  };
+
+  const selectAllFiltered = () => {
+    const allIdsInFilter = filteredClassSiswa.map(s => s.id);
+    setSelectedStudentIds(allIdsInFilter);
+    const textFormatted = filteredClassSiswa.map((item, idx) => `${idx + 1}. ${item.nama} (${item.kelas})`).join('\n');
+    setFormData(prev => ({ ...prev, anggota_siswa: textFormatted }));
+  };
+
+  const clearAllSelected = () => {
+    setSelectedStudentIds([]);
+    setFormData(prev => ({ ...prev, anggota_siswa: '' }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,6 +160,8 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
 
   const resetForm = () => {
     setEditingId(null);
+    setSelectedStudentIds([]);
+    setStudentSearch('');
     setFormData({
       topik: '',
       anggota_siswa: '',
@@ -105,6 +192,10 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
       evaluasi: item.evaluasi,
       guru_bk: item.guru_bk
     });
+    // Try to match student IDs based on names in anggota_siswa
+    const names = (item.anggota_siswa || '').toLowerCase();
+    const matched = siswaList.filter(s => names.includes((s.nama || '').toLowerCase())).map(s => s.id);
+    setSelectedStudentIds(matched);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -170,9 +261,26 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
+                PILIH KELAS ANGGOTA *
+              </label>
+              <select
+                value={formData.kelas}
+                onChange={e => handleSelectKelas(e.target.value)}
+                className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none font-bold text-slate-800 transition-all text-sm bg-white"
+                required
+              >
+                <option value="">-- Pilih Kelas --</option>
+                {CLASSES.map(c => (
+                  <option key={c} value={c}>Kelas {c}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="sm:col-span-2">
               <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
-                TOPIK / TEMA PERMASALAHAN KELOMPOK
+                TOPIK / TEMA PERMASALAHAN KELOMPOK *
               </label>
               <input 
                 type="text"
@@ -183,34 +291,101 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
                 required
               />
             </div>
+          </div>
+
+          {/* Multi-Student Selection Checklist */}
+          <div className="p-4 bg-purple-50/50 rounded-2xl border-2 border-purple-100 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-purple-100">
+              <div className="flex items-center gap-2">
+                <UserCheck size={18} className="text-purple-600" />
+                <span className="text-xs font-black uppercase text-slate-700 tracking-wider">
+                  Centang Siswa Anggota Kelompok
+                </span>
+                {formData.kelas && (
+                  <span className="text-[10px] font-black bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                    {selectedStudentIds.length} dari {filteredClassSiswa.length} Siswa Terpilih
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={selectAllFiltered}
+                  className="px-2.5 py-1 bg-white border border-purple-200 text-purple-700 hover:bg-purple-100 rounded-lg text-xs font-bold transition-all"
+                >
+                  Pilih Semua
+                </button>
+                <button
+                  type="button"
+                  onClick={clearAllSelected}
+                  className="px-2.5 py-1 bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-lg text-xs font-bold transition-all"
+                >
+                  Reset Pilihan
+                </button>
+              </div>
+            </div>
+
+            {/* Quick search filter for student list */}
+            {filteredClassSiswa.length > 6 && (
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder={`Cari nama siswa di kelas ${formData.kelas}...`}
+                  value={studentSearch}
+                  onChange={e => setStudentSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-1.5 bg-white border border-purple-200/80 rounded-xl text-xs font-medium text-slate-700 outline-none focus:border-purple-500"
+                />
+              </div>
+            )}
+
+            {/* Student checkboxes */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-52 overflow-y-auto p-2 bg-white rounded-xl border border-purple-100 custom-scrollbar">
+              {displayedSiswa.length > 0 ? (
+                displayedSiswa.map((s, idx) => {
+                  const isChecked = selectedStudentIds.includes(s.id);
+                  return (
+                    <button
+                      key={s.id || `${s.nama}-${idx}`}
+                      type="button"
+                      onClick={() => toggleStudent(s)}
+                      className={`flex items-center gap-2 p-2 rounded-xl text-left border transition-all text-xs font-bold ${
+                        isChecked
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                          : 'bg-slate-50 hover:bg-purple-50/50 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {isChecked ? (
+                        <CheckSquare size={16} className="text-white shrink-0" />
+                      ) : (
+                        <Square size={16} className="text-slate-400 shrink-0" />
+                      )}
+                      <span className="truncate">
+                        {s.nama} {s.nis ? `(${s.nis})` : ''}
+                      </span>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="col-span-full py-6 text-center text-xs text-slate-400 font-medium">
+                  {!formData.kelas ? 'Pilih kelas terlebih dahulu' : 'Tidak ada siswa yang sesuai'}
+                </div>
+              )}
+            </div>
 
             <div>
-              <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
-                KELAS ANGGOTA
+              <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                Daftar Nama Siswa Kelompok (Tersinkronisasi Otomatis):
               </label>
-              <input 
-                type="text"
-                placeholder="Contoh: 8A, 7B-7C..."
-                value={formData.kelas}
-                onChange={e => setFormData({ ...formData, kelas: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none font-bold text-slate-800 transition-all text-sm"
+              <textarea
+                rows={2}
+                placeholder="Daftar nama siswa akan otomatis tersusun saat siswa dicentang..."
+                value={formData.anggota_siswa}
+                onChange={e => setFormData({ ...formData, anggota_siswa: e.target.value })}
+                className="w-full p-3 bg-white rounded-xl border border-purple-200 text-xs font-medium text-slate-800 outline-none focus:border-purple-500"
                 required
               />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
-              DAFTAR NAMA ANGGOTA SISWA KELOMPOK
-            </label>
-            <textarea
-              rows={2}
-              placeholder="Tuliskan nama-nama siswa anggota kelompok (contoh: 1. Rian (8A), 2. Fajar (8A), 3. Dimas (8A), 4. Reza (8A))..."
-              value={formData.anggota_siswa}
-              onChange={e => setFormData({ ...formData, anggota_siswa: e.target.value })}
-              className="w-full p-4 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none font-medium text-slate-800 transition-all text-sm"
-              required
-            />
           </div>
 
           {/* Schedule & Location */}
