@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, ClipboardList, AlertCircle, CheckCircle2, Search, User, Clock, Pill, X, Upload, Download } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
 import { UksKeluhan, UksObat, UksKunjungan } from '../../types/uks';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -36,44 +36,25 @@ const UksPeriksa: React.FC<{ user?: any }> = ({ user }) => {
     fetchInitialData();
   }, []);
 
-  const fetchAllMasterSiswa = async () => {
-    if (!supabase) return [];
-    let allData: any[] = [];
-    let page = 0;
-    const pageSize = 1000;
-    let keepGoing = true;
-
-    while (keepGoing) {
-      const start = page * pageSize;
-      const end = (page + 1) * pageSize - 1;
-      const { data, error } = await supabase
-        .from('master_siswa')
-        .select('id, nama, kelas, periode')
-        .range(start, end)
-        .order('nama', { ascending: true });
-
-      if (error || !data || data.length === 0) {
-        keepGoing = false;
-      } else {
-        allData = [...allData, ...data];
-        if (data.length < pageSize) {
-          keepGoing = false;
-        } else {
-          page++;
+  const fetchInitialData = async () => {
+    // 1. Immediately populate from local cache if available
+    try {
+      const saved = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSiswa(parsed);
         }
       }
-    }
-    return allData;
-  };
+    } catch (_) {}
 
-  const fetchInitialData = async () => {
     try {
       setLoading(true);
       const [keluhanRes, obatRes, siswaData, kunjunganRes] = await Promise.all([
-        supabase.from('uks_keluhan').select('*').order('nama_keluhan'),
-        supabase.from('uks_obat').select('*').order('nama_obat'),
-        fetchAllMasterSiswa(),
-        supabase.from('uks_kunjungan').select(`
+        supabase ? supabase.from('uks_keluhan').select('*').order('nama_keluhan') : Promise.resolve({ data: [] }),
+        supabase ? supabase.from('uks_obat').select('*').order('nama_obat') : Promise.resolve({ data: [] }),
+        fetchAllSiswa(),
+        supabase ? supabase.from('uks_kunjungan').select(`
           *,
           siswa:master_siswa(nama, kelas),
           keluhan:uks_keluhan(nama_keluhan),
@@ -82,12 +63,18 @@ const UksPeriksa: React.FC<{ user?: any }> = ({ user }) => {
             jumlah,
             obat:uks_obat(nama_obat, satuan)
           )
-        `).order('created_at', { ascending: false }).limit(10)
+        `).order('created_at', { ascending: false }).limit(10) : Promise.resolve({ data: [] })
       ]);
 
       setKeluhan(keluhanRes.data || []);
       setObat(obatRes.data || []);
-      setSiswa(siswaData || []);
+      if (siswaData && siswaData.length > 0) {
+        setSiswa(siswaData);
+        try {
+          localStorage.setItem('sitelat_siswa', JSON.stringify(siswaData));
+          localStorage.setItem('master_siswa', JSON.stringify(siswaData));
+        } catch (_) {}
+      }
       setKunjunganList(kunjunganRes.data || []);
     } catch (error) {
       console.error('Error fetching initial data:', error);
@@ -237,13 +224,22 @@ const UksPeriksa: React.FC<{ user?: any }> = ({ user }) => {
     setIsEditing(null);
   };
 
-  const availablePeriodes = Array.from(new Set(['2025', ...siswa.map(s => s.periode || '2025')])).sort((a, b) => b.localeCompare(a));
+  const availablePeriodes = Array.from(new Set(['2026', '2025', ...siswa.map(s => (s.periode || '2026').toString().trim())]))
+    .filter(Boolean)
+    .sort((a, b) => b.localeCompare(a));
 
   const filteredSiswa = siswa.filter(s => {
+    if (!selectedClass) return false;
     const sPeriode = (s.periode || '2026').toString().trim();
-    const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
-    return s.kelas === selectedClass && matchPeriode;
-  });
+    const matchPeriode = selectedPeriode === 'ALL' 
+      ? true 
+      : (sPeriode === selectedPeriode || sPeriode.includes(selectedPeriode) || selectedPeriode.includes(sPeriode));
+    
+    const sKelasNorm = normalizeKelasKey(s.kelas);
+    const selectedKelasNorm = normalizeKelasKey(selectedClass);
+
+    return sKelasNorm === selectedKelasNorm && matchPeriode;
+  }).sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
 
   const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -468,15 +464,33 @@ const UksPeriksa: React.FC<{ user?: any }> = ({ user }) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Pilih Siswa</label>
+              <div className="flex items-center justify-between mb-2 px-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pilih Siswa *</label>
+                {selectedClass && (
+                  <span className="text-[11px] font-extrabold text-rose-600 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-100">
+                    {filteredSiswa.length} Siswa Terdaftar
+                  </span>
+                )}
+              </div>
               <select
+                required
                 value={selectedSiswaId}
                 onChange={(e) => setSelectedSiswaId(e.target.value)}
                 disabled={!selectedClass}
                 className="w-full px-8 py-5 bg-slate-50 border-2 border-transparent rounded-3xl focus:border-rose-500 focus:bg-white outline-none transition-all duration-300 font-bold text-slate-700 disabled:opacity-50"
               >
-                <option value="">-- Pilih Siswa --</option>
-                {filteredSiswa.map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
+                <option value="">
+                  {!selectedClass 
+                    ? '-- Pilih Kelas Terlebih Dahulu --' 
+                    : filteredSiswa.length === 0 
+                      ? '-- Tidak Ada Siswa di Kelas Ini --' 
+                      : `-- Pilih Siswa (${filteredSiswa.length} Siswa) --`}
+                </option>
+                {filteredSiswa.map((s, idx) => (
+                  <option key={s.id || `${s.nama}-${idx}`} value={s.id}>
+                    {idx + 1}. {s.nama} {s.nis ? `(NIS: ${s.nis})` : ''}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
