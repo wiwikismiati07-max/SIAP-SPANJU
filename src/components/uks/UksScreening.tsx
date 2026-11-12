@@ -15,6 +15,8 @@ const UksScreeningView: React.FC<{ user?: any }> = ({ user }) => {
   
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSiswaId, setSelectedSiswaId] = useState('');
+  const [selectedPeriode, setSelectedPeriode] = useState('2026');
+  const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
   const [formData, setFormData] = useState({
     tanggal: format(new Date(), 'yyyy-MM-dd'),
     evaluasi: 'Sehat' as 'Sehat' | 'Pemantauan' | 'Perlu Rujukan',
@@ -40,7 +42,7 @@ const UksScreeningView: React.FC<{ user?: any }> = ({ user }) => {
       const end = (page + 1) * pageSize - 1;
       const { data, error } = await supabase
         .from('master_siswa')
-        .select('id, nama, kelas')
+        .select('id, nama, kelas, periode')
         .range(start, end)
         .order('nama', { ascending: true });
 
@@ -70,6 +72,11 @@ const UksScreeningView: React.FC<{ user?: any }> = ({ user }) => {
 
       setSiswa(siswaData || []);
       setScreeningList(screeningRes.data || []);
+      
+      if (siswaData && siswaData.length > 0) {
+        const pList = Array.from(new Set(['2026', '2025', ...siswaData.map((s: any) => s.periode || '2026')])).sort((a,b) => b.localeCompare(a));
+        setAvailablePeriodes(pList);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -158,7 +165,11 @@ const UksScreeningView: React.FC<{ user?: any }> = ({ user }) => {
     setIsEditing(null);
   };
 
-  const filteredSiswa = siswa.filter(s => s.kelas === selectedClass);
+  const filteredSiswa = siswa.filter(s => {
+    const sPeriode = (s.periode || '2026').toString().trim();
+    const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
+    return s.kelas === selectedClass && matchPeriode;
+  });
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
@@ -183,6 +194,17 @@ const UksScreeningView: React.FC<{ user?: any }> = ({ user }) => {
                 onChange={(e) => setFormData({ ...formData, tanggal: e.target.value })}
                 className="w-full px-8 py-5 bg-slate-50 border-2 border-transparent rounded-3xl focus:border-emerald-500 focus:bg-white outline-none transition-all duration-300 font-bold text-slate-700"
               />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Pilih Periode</label>
+              <select
+                value={selectedPeriode}
+                onChange={(e) => { setSelectedPeriode(e.target.value); setSelectedSiswaId(''); }}
+                className="w-full px-8 py-5 bg-slate-50 border-2 border-transparent rounded-3xl focus:border-emerald-500 focus:bg-white outline-none transition-all duration-300 font-bold text-slate-700"
+              >
+                <option value="ALL">Semua Periode</option>
+                {availablePeriodes.map(p => <option key={p} value={p}>Periode {p}</option>)}
+              </select>
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Pilih Kelas</label>

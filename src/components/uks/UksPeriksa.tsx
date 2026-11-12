@@ -19,7 +19,7 @@ const UksPeriksa: React.FC<{ user?: any }> = ({ user }) => {
   
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSiswaId, setSelectedSiswaId] = useState('');
-  const [selectedPeriode, setSelectedPeriode] = useState('2025');
+  const [selectedPeriode, setSelectedPeriode] = useState('2026');
   const [formData, setFormData] = useState({
     tanggal: format(new Date(), 'yyyy-MM-dd'),
     jam: format(new Date(), 'HH:mm'),
@@ -240,7 +240,7 @@ const UksPeriksa: React.FC<{ user?: any }> = ({ user }) => {
   const availablePeriodes = Array.from(new Set(['2025', ...siswa.map(s => s.periode || '2025')])).sort((a, b) => b.localeCompare(a));
 
   const filteredSiswa = siswa.filter(s => {
-    const sPeriode = s.periode || '2025';
+    const sPeriode = (s.periode || '2026').toString().trim();
     const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
     return s.kelas === selectedClass && matchPeriode;
   });

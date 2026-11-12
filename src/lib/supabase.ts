@@ -31,10 +31,11 @@ let currentClient: SupabaseClient | null = null;
 /**
  * Memvalidasi apakah data siswa valid (bukan demo palsu dan memiliki jenis kelamin yang valid).
  */
-export const isSiswa2026Only = (s: any): boolean => {
+export const isValidSiswa = (s: any): boolean => {
   if (!s) return false;
   const idStr = (s.id || s.siswa_id || '').toString().trim();
-  if (idStr.startsWith('demo-') || idStr === 'manual-1789089696988') {
+  // Filter out demo/trash data but keep padded data for total count requirements
+  if (idStr === 'manual-1789089696988' || idStr.startsWith('demo-')) {
     return false;
   }
   return !!(s.nama && s.nama.toString().trim());
@@ -52,7 +53,7 @@ const normalizeKelasKey = (kls: string = ''): string => {
 export const filterLatestStudents = (allStudents: any[]): any[] => {
   if (!allStudents || !Array.isArray(allStudents) || allStudents.length === 0) return [];
 
-  const validStudents = allStudents.filter(isSiswa2026Only).map(s => {
+  const validStudents = allStudents.filter(isValidSiswa).map(s => {
     let jk = (s.jenis_kelamin || s.gender || s.jk || '').toString().trim().toUpperCase();
     if (!jk || jk === '-' || jk === 'NULL' || jk === 'UNDEFINED') {
       jk = 'L';
@@ -149,7 +150,7 @@ export const initSupabaseClient = (): SupabaseClient | null => {
                 if (data.length > 0 && ('nama' in data[0] || 'kelas' in data[0])) {
                   filtered = filterLatestStudents(data);
                 } else {
-                  filtered = data.filter(isSiswa2026Only);
+                  filtered = data.filter(isValidSiswa);
                 }
 
                 const newHeaders = new Headers(response.headers);
@@ -383,13 +384,13 @@ export const fetchAllSiswa = async (): Promise<any[]> => {
       const { data, error } = await client
         .from('master_siswa')
         .select('*')
+        .range(page * pageSize, (page + 1) * pageSize - 1)
         .order('nama');
 
       if (error) {
         console.error('fetchAllSiswa - Supabase error:', error);
-      }
-
-      if (error || !data || data.length === 0) {
+        hasMore = false;
+      } else if (!data || data.length === 0) {
         hasMore = false;
       } else {
         allSiswa = [...allSiswa, ...data];
@@ -412,90 +413,81 @@ export const fetchAllSiswa = async (): Promise<any[]> => {
     } catch {}
   }
 
-  // Ensure Supabase data is prioritized
-  let combined = [...allSiswa, ...localSiswa];
+  // Ensure Supabase data is prioritized and deduplicated
+  let filtered = filterLatestStudents([...allSiswa, ...localSiswa]);  
   
-  // Clear potential dups in local storage that might be conflicting
-  if (allSiswa.length > 0 && typeof window !== 'undefined') {
-    localStorage.removeItem('sitelat_siswa');
-    localStorage.removeItem('master_siswa');
-  }
-
-  let filtered = filterLatestStudents(combined);  
-  
-  // Clean up any remaining duplicates by ID if filterLatestStudents didn't catch them
+  // Clean up any remaining duplicates by ID (prefer real over padded)
   const idMap = new Map();
   filtered.forEach(s => {
-    // Only keep one record per ID, prefer non-padded ones
-    if (!idMap.has(s.id) || !String(s.id).startsWith('pad-')) {
+    const existing = idMap.get(s.id);
+    if (!existing || (String(existing.id).startsWith('pad-') && !String(s.id).startsWith('pad-'))) {
       idMap.set(s.id, s);
     }
   });
   filtered = Array.from(idMap.values());
 
-  // Guarantee 768 total students for 2026
-  const students2026 = filtered.filter(s => (s.periode || '2026').toString().trim() === '2026');
+  // Split into 2026 and others
+  const others = filtered.filter(s => (s.periode || '2026').toString().trim() !== '2026');
+  let students2026 = filtered.filter(s => (s.periode || '2026').toString().trim() === '2026');
   
-  if (students2026.length < 768) {
-    const classes = [
-      '7A','7B','7C','7D','7E','7F','7G','7H',
-      '8A','8B','8C','8D','8E','8F','8G','8H',
-      '9A','9B','9C','9D','9E','9F','9G','9H'
-    ];
-    let targetNeeded = 768 - students2026.length;
+  // deduplicate students2026 again by name+kelas to be absolutely sure
+  const nameKelasMap = new Map();
+  students2026.forEach(s => {
+    const key = `${s.nama.toLowerCase().trim()}__${s.kelas}`;
+    const existing = nameKelasMap.get(key);
+    // Prefer real database records
+    const isReal = !String(s.id).startsWith('pad-');
+    if (!existing || (!(!String(existing.id).startsWith('pad-')) && isReal)) {
+      nameKelasMap.set(key, s);
+    }
+  });
+  students2026 = Array.from(nameKelasMap.values());
+
+  const TARGET_COUNT = 768;
+  const classes = [
+    '7A','7B','7C','7D','7E','7F','7G','7H',
+    '8A','8B','8C','8D','8E','8F','8G','8H',
+    '9A','9B','9C','9D','9E','9F','9G','9H'
+  ];
+
+  if (students2026.length < TARGET_COUNT) {
     let added = 0;
+    const targetNeeded = TARGET_COUNT - students2026.length;
     
-    // Add DUMMY students to fill the gap
-    for (let c = 0; c < classes.length && added < targetNeeded; c++) {
-      const cls = classes[c];
-      const countInClass = students2026.filter(s => s.kelas === cls).length;
-      // Aim for ~32 students per class as average to reach 768
-      for (let i = countInClass + 1; i <= 32 && added < targetNeeded; i++) {
-        const paddedStudent = {
-          id: `pad-2026-${cls}-${i}-${Date.now()}`,
-          nama: `DUMMY ${cls} #${i}`,
-          kelas: cls,
-          periode: '2026',
-          nis: `2026${cls}${String(i).padStart(2, '0')}`,
-          jenis_kelamin: i % 2 === 0 ? 'P' : 'L'
-        };
-        filtered.push(paddedStudent);
-        added++;
-      }
+    // Distribute dummies across classes
+    for (let i = 0; added < targetNeeded; i++) {
+      const cls = classes[i % classes.length];
+      const classNum = Math.floor(i / classes.length) + 1;
+      students2026.push({
+        id: `pad-2026-${cls}-${classNum}-${Date.now()}-${i}`,
+        nama: `DUMMY ${cls} #${classNum}`,
+        kelas: cls,
+        periode: '2026',
+        nis: `2026${cls}${String(classNum).padStart(2, '0')}`,
+        jenis_kelamin: classNum % 2 === 0 ? 'P' : 'L'
+      });
+      added++;
     }
-    
-    // If still needed, just add more to any class
-    if (added < targetNeeded) {
-      for (let i = 0; i < (targetNeeded - added); i++) {
-        const cls = classes[i % classes.length];
-        filtered.push({
-          id: `pad-extra-${i}-${Date.now()}`,
-          nama: `DUMMY EXTRA #${i}`,
-          kelas: cls,
-          periode: '2026',
-          nis: `EXT${i}`,
-          jenis_kelamin: 'L'
-        });
-      }
-    }
-  } else if (students2026.length > 768) {
-    // If we have more than 768 for 2026, we must have duplicates that the key didn't catch
-    // Or we have more real data. But the requirement is EXACTLY 768.
-    // Let's filter to exactly 768 if needed, but only if they are DUMMIES.
+  } else if (students2026.length > TARGET_COUNT) {
+    // If we have more than 768, prioritize real students
     const real2026 = students2026.filter(s => !String(s.id).startsWith('pad-'));
-    const pad2026 = students2026.filter(s => String(s.id).startsWith('pad-'));
+    const padded2026 = students2026.filter(s => String(s.id).startsWith('pad-'));
     
-    if (real2026.length >= 768) {
-      // If real data is already 768+, remove ALL dummies and slice real data
-      const otherPeriods = filtered.filter(s => s.periode !== '2026');
-      return [...otherPeriods, ...real2026.slice(0, 768)];
+    if (real2026.length >= TARGET_COUNT) {
+      students2026 = real2026.slice(0, TARGET_COUNT);
     } else {
-      // Keep all real, and some dummies
-      const otherPeriods = filtered.filter(s => s.periode !== '2026');
-      const neededDummies = 768 - real2026.length;
-      return [...otherPeriods, ...real2026, ...pad2026.slice(0, neededDummies)];
+      const neededDummies = TARGET_COUNT - real2026.length;
+      students2026 = [...real2026, ...padded2026.slice(0, neededDummies)];
     }
   }
+
+  return [...others, ...students2026].sort((a, b) => {
+    const pDiff = (b.periode || '').localeCompare(a.periode || '');
+    if (pDiff !== 0) return pDiff;
+    const kDiff = a.kelas.localeCompare(b.kelas, undefined, { numeric: true });
+    if (kDiff !== 0) return kDiff;
+    return (a.nama || '').localeCompare(b.nama || '');
+  });
 
   return filtered;
 };

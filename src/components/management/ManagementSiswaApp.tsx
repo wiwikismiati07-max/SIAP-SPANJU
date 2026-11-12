@@ -189,6 +189,11 @@ export default function ManagementSiswaApp() {
 
       setStudents(combined);
       extractPeriodes(combined);
+
+      // Multi-user notice: if data is different from Supabase, suggest sync
+      if (supabase && supaData.length > 0 && supaData.length !== combined.length) {
+        console.info(`Data mismatch: Supabase has ${supaData.length}, Local has ${combined.length}. Suggesting sync.`);
+      }
     } catch (err) {
       console.error('Fetch error:', err);
       loadLocalStudents();
@@ -203,25 +208,44 @@ export default function ManagementSiswaApp() {
       alert('Koneksi Supabase belum terhubung atau data kosong.');
       return;
     }
-    if (!confirm(`Sinkronkan dan bersihkan Supabase master_siswa menjadi ${list.length} data bersih (menghapus duplikat/data sampah)?`)) return;
+
+    const students2026 = list.filter(s => (s.periode || '2026').toString().trim() === '2026');
+    const msg = students2026.length !== 768 
+      ? `Sinkronkan ${list.length} data ke Supabase? \n\nPERINGATAN: Jumlah siswa Periode 2026 saat ini adalah ${students2026.length}, target ideal adalah 768.`
+      : `Sinkronkan dan bersihkan Supabase master_siswa menjadi ${list.length} data bersih?`;
+
+    if (!confirm(msg)) return;
 
     setLoading(true);
     try {
+      // 1. Wipe current table
       await supabase.from('master_siswa').delete().not('id', 'is', null);
 
-      const chunkSize = 100;
+      // 2. Batch insert clean records
+      const chunkSize = 50; // Smaller chunks for reliability
+      let successCount = 0;
       for (let i = 0; i < list.length; i += chunkSize) {
-        const chunk = list.slice(i, i + chunkSize);
+        const chunk = list.slice(i, i + chunkSize).map(c => ({
+          id: c.id,
+          nama: c.nama,
+          kelas: c.kelas,
+          periode: c.periode,
+          nis: c.nis || '',
+          jenis_kelamin: c.jenis_kelamin || 'L'
+        }));
+        
         const { error } = await supabase.from('master_siswa').insert(chunk);
         if (error) {
-          const basicChunk = chunk.map(c => ({
-            nama: c.nama,
-            kelas: c.kelas,
-            periode: c.periode,
-            nis: c.nis || '',
-            jenis_kelamin: c.jenis_kelamin || 'L'
-          }));
-          await supabase.from('master_siswa').insert(basicChunk);
+          console.error(`Error syncing chunk ${i}:`, error);
+          for (const item of chunk) {
+            try {
+              await supabase.from('master_siswa').insert([item]);
+            } catch (e) {
+              console.error('Individual insert fail:', e);
+            }
+          }
+        } else {
+          successCount += chunk.length;
         }
       }
 
@@ -612,18 +636,37 @@ export default function ManagementSiswaApp() {
         }
       }
 
-      // Update state
-      const combined = isOverwrite ? recordsToInsert : Array.from(new Map([...students, ...recordsToInsert].map(s => [`${s.nama.toLowerCase()}_${s.kelas}_${s.periode}`, s])).values());
+      // Update state and localStorage
+      let combined: SiswaData[] = [];
+      if (isOverwrite) {
+        combined = recordsToInsert;
+      } else {
+        const map = new Map<string, SiswaData>();
+        [...students, ...recordsToInsert].forEach(s => {
+          const key = `${s.nama.toLowerCase().trim()}__${s.kelas}__${s.periode}`;
+          if (!map.has(key) || !s.id.startsWith('pad-')) {
+            map.set(key, s);
+          }
+        });
+        combined = Array.from(map.values());
+      }
       
       setStudents(combined);
       localStorage.setItem('sitelat_siswa', JSON.stringify(combined));
+      localStorage.setItem('master_siswa', JSON.stringify(combined));
       extractPeriodes(combined);
 
-      setSelectedPeriode('ALL');
+      setSelectedPeriode('2026');
       setSelectedKelas('ALL');
       setSearchTerm('');
 
       setUploadSuccessMsg(`Berhasil mengimpor ${recordsToInsert.length} data siswa!`);
+      
+      // Automatic sync to Supabase after import for multi-user consistency
+      if (supabase) {
+        await syncCleanDataToSupabase(combined);
+      }
+
       setTimeout(() => {
         setShowUploadModal(false);
         setUploadFile(null);

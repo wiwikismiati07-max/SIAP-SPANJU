@@ -96,13 +96,11 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
   const fetchStudents = async (className: string, periode: string) => {
     try {
       const allValidSiswa = await fetchAllSiswa();
-      let filtered = allValidSiswa.filter((s: any) => s.kelas === className);
+      const filtered = allValidSiswa.filter((s: any) => 
+        s.kelas === className && 
+        (periode === 'ALL' || (s.periode || '2026').toString().trim() === periode)
+      );
       
-      const realStudents = filtered.filter((s: any) => !String(s.id || '').startsWith('pad-') && !String(s.nama || '').startsWith('DUMMY '));
-      if (realStudents.length > 0) {
-        filtered = realStudents;
-      }
-
       filtered.sort((a: any, b: any) => (a.nama || '').localeCompare(b.nama || ''));
       setStudents(filtered);
     } catch (error) {

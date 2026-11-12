@@ -29,7 +29,7 @@ export default function FormOperatorIzin() {
   const [guruList, setGuruList] = useState<Guru[]>([]);
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedPeriode, setSelectedPeriode] = useState('2025');
+  const [selectedPeriode, setSelectedPeriode] = useState('2026');
   const [selectedKelas, setSelectedKelas] = useState('');
   const [selectedSiswa, setSelectedSiswa] = useState<Siswa | null>(null);
   const [selectedGuru, setSelectedGuru] = useState('');
@@ -527,7 +527,7 @@ export default function FormOperatorIzin() {
   const availablePeriodes = Array.from(new Set(['2025', ...siswaList.map(s => s.periode || '2025')])).sort((a, b) => b.localeCompare(a));
 
   const filteredSiswa = siswaList.filter(s => {
-    const sPeriode = s.periode || '2025';
+    const sPeriode = s.periode || '2026';
     const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
     const matchKelas = selectedKelas ? s.kelas === selectedKelas : true;
     const matchSearch = s.nama.toLowerCase().includes(searchTerm.toLowerCase());

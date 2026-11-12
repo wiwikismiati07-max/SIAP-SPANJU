@@ -63,12 +63,10 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
   const fetchSiswaByKelas = async (kelas: string, periode: string) => {
     try {
       const allValidSiswa = await fetchAllSiswa();
-      let filtered = allValidSiswa.filter((s: any) => s.kelas === kelas);
-      
-      const realStudents = filtered.filter((s: any) => !String(s.id || '').startsWith('pad-') && !String(s.nama || '').startsWith('DUMMY '));
-      if (realStudents.length > 0) {
-        filtered = realStudents;
-      }
+      const filtered = allValidSiswa.filter((s: any) => 
+        s.kelas === kelas && 
+        (periode === 'ALL' || (s.periode || '2026').toString().trim() === periode)
+      );
 
       filtered.sort((a: any, b: any) => (a.nama || '').localeCompare(b.nama || ''));
       setSiswaList(filtered);

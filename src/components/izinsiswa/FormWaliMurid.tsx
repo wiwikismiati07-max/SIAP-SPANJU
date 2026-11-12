@@ -393,11 +393,13 @@ export default function FormWaliMurid() {
   };
 
   const filteredSiswa = siswaList.filter(s => {
+    const sPeriode = (s.periode || '2026').toString().trim();
     const sKelas = (s.kelas || '').toString().trim().toUpperCase();
     const fKelas = (selectedKelas || '').toString().trim().toUpperCase();
+    const matchPeriode = sPeriode === '2026';
     const matchKelas = !selectedKelas || sKelas === fKelas;
     const matchSearch = !searchTerm || (s.nama || '').toLowerCase().includes(searchTerm.toLowerCase());
-    return matchKelas && matchSearch;
+    return matchPeriode && matchKelas && matchSearch;
   });
 
   const isPdf = lampiranPreview && (lampiranPreview.startsWith('data:application/pdf') || lampiranPreview.toLowerCase().endsWith('.pdf'));
