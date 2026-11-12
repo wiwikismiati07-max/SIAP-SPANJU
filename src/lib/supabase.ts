@@ -34,14 +34,15 @@ let currentClient: SupabaseClient | null = null;
 export const isValidSiswa = (s: any): boolean => {
   if (!s) return false;
   const idStr = (s.id || s.siswa_id || '').toString().trim();
+  const nisStr = (s.nis || '').toString().trim();
   // Filter out demo/trash data but keep padded data for total count requirements
-  if (idStr === 'manual-1789089696988' || idStr.startsWith('demo-')) {
+  if (idStr === 'manual-1789089696988' || idStr.startsWith('demo-') || nisStr.startsWith('20247')) {
     return false;
   }
   return !!(s.nama && s.nama.toString().trim());
 };
 
-const normalizeKelasKey = (kls: string = ''): string => {
+export const normalizeKelasKey = (kls: string = ''): string => {
   if (!kls) return '7A';
   let cleaned = kls.toString().toUpperCase().trim().replace(/^KELAS\s*/i, '').replace(/[\s\-_]+/g, '');
   if (cleaned.startsWith('VII') && !cleaned.startsWith('VIII')) cleaned = cleaned.replace(/^VII/, '7');

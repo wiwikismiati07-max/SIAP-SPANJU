@@ -27,7 +27,7 @@ import {
   Menu,
   X
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
@@ -88,25 +88,64 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
   }, [view]);
 
   const fetchSiswa = async () => {
+    // 1. Instantly populate from local cache if available
     try {
-      const { data, error } = await supabase
-        .from('master_siswa')
-        .select('id, nama, kelas, periode')
-        .order('nama');
-      if (error) throw error;
-      setSiswa(data || []);
+      const saved = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSiswa(parsed);
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fetch fresh data from Supabase via fetchAllSiswa
+    try {
+      const data = await fetchAllSiswa();
+      if (data && data.length > 0) {
+        setSiswa(data);
+        try {
+          localStorage.setItem('sitelat_siswa', JSON.stringify(data));
+          localStorage.setItem('master_siswa', JSON.stringify(data));
+        } catch (_) {}
+        return;
+      }
+
+      if (supabase) {
+        const { data: directData } = await supabase
+          .from('master_siswa')
+          .select('id, nama, kelas, periode, nis')
+          .order('nama');
+        if (directData && directData.length > 0) {
+          setSiswa(directData);
+          try {
+            localStorage.setItem('sitelat_siswa', JSON.stringify(directData));
+            localStorage.setItem('master_siswa', JSON.stringify(directData));
+          } catch (_) {}
+          return;
+        }
+      }
     } catch (error) {
-      console.error('Error fetching siswa:', error);
+      console.error('Error fetching siswa in PengaduanWaliApp:', error);
     }
   };
 
-  const availablePeriodes = Array.from(new Set(['2026', ...siswa.map(s => s.periode || '2026')])).sort((a, b) => b.localeCompare(a));
+  const availablePeriodes = Array.from(new Set(['2026', '2025', ...siswa.map(s => (s.periode || '2026').toString().trim())]))
+    .filter(Boolean)
+    .sort((a, b) => b.localeCompare(a));
 
   const filteredSiswa = siswa.filter(s => {
-    const sPeriode = s.periode || '2026';
-    const matchPeriode = selectedPeriode === 'ALL' ? true : sPeriode === selectedPeriode;
-    return s.kelas === selectedClass && matchPeriode;
-  });
+    if (!selectedClass) return false;
+    const sPeriode = (s.periode || '2026').toString().trim();
+    const matchPeriode = selectedPeriode === 'ALL' 
+      ? true 
+      : (sPeriode === selectedPeriode || sPeriode.includes(selectedPeriode) || selectedPeriode.includes(sPeriode));
+    
+    const sKelasNorm = normalizeKelasKey(s.kelas);
+    const selectedKelasNorm = normalizeKelasKey(selectedClass);
+
+    return sKelasNorm === selectedKelasNorm && matchPeriode;
+  }).sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
 
   const fetchPengaduan = async () => {
     try {
@@ -188,12 +227,13 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
 
     try {
       setLoading(true);
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedSiswaId);
       const { error } = await supabase
         .from('pengaduan_wali')
         .insert([{
           ...formData,
           kelas: selectedClass,
-          siswa_id: selectedSiswaId || null,
+          siswa_id: isUUID ? selectedSiswaId : null,
           jenis_pengaduan: formData.jenis_pengaduan === 'Lainnya' ? formData.jenis_pengaduan_manual : formData.jenis_pengaduan
         }]);
 
@@ -310,7 +350,7 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
     }> = {};
 
     pengaduanList.forEach(item => {
-      const studentName = item.siswa?.nama || 'Tanpa Nama Siswa';
+      const studentName = item.siswa?.nama || siswa.find(s => s.id === item.siswa_id)?.nama || 'Tanpa Nama Siswa';
       const studentKelas = item.kelas || '-';
       const studentId = item.siswa_id || 'no-id';
       const key = `${studentName}-${studentKelas}-${studentId}`;
@@ -378,7 +418,7 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
           item.hubungan_siswa,
           item.hp_pelapor,
           item.alamat_pelapor,
-          item.siswa?.nama || '-',
+          item.siswa?.nama || siswa.find(s => s.id === item.siswa_id)?.nama || '-',
           item.kelas || '-',
           item.jenis_pengaduan,
           item.uraian,
@@ -719,7 +759,14 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Pilih Nama Siswa *</label>
+                        <div className="flex items-center justify-between mb-2 px-4">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pilih Nama Siswa *</label>
+                          {selectedClass && (
+                            <span className="text-[11px] font-extrabold text-pink-600 bg-pink-50 px-2.5 py-0.5 rounded-full border border-pink-100">
+                              {filteredSiswa.length} Siswa Terdaftar
+                            </span>
+                          )}
+                        </div>
                         <select
                           required
                           value={selectedSiswaId}
@@ -727,8 +774,18 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
                           disabled={!selectedClass}
                           className="w-full px-8 py-5 bg-slate-50 border-2 border-transparent rounded-3xl focus:border-pink-500 focus:bg-white outline-none transition-all duration-300 font-bold text-slate-700 disabled:opacity-50"
                         >
-                          <option value="">-- Pilih Siswa --</option>
-                          {filteredSiswa.map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
+                          <option value="">
+                            {!selectedClass 
+                              ? '-- Pilih Kelas Terlebih Dahulu --' 
+                              : filteredSiswa.length === 0 
+                                ? '-- Tidak Ada Siswa di Kelas Ini --' 
+                                : `-- Pilih Siswa (${filteredSiswa.length} Siswa) --`}
+                          </option>
+                          {filteredSiswa.map((s, idx) => (
+                            <option key={s.id || `${s.nama}-${idx}`} value={s.id}>
+                              {idx + 1}. {s.nama} {s.nis ? `(NIS: ${s.nis})` : ''}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     </div>
@@ -990,7 +1047,9 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
                           <td className="px-8 py-6 rounded-l-[32px]">
                             <div className="space-y-1">
                               <p className="font-black text-slate-800 text-sm">{item.nama_pelapor}</p>
-                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Wali dari: {item.siswa?.nama} ({item.kelas})</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                Wali dari: {item.siswa?.nama || siswa.find(s => s.id === item.siswa_id)?.nama || 'Siswa'} ({item.kelas})
+                              </p>
                             </div>
                           </td>
                           <td className="px-8 py-6">

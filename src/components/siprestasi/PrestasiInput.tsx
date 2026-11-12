@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Search, X, Check, Calendar, Clock, Trophy, Medal, MapPin, Link as LinkIcon, User, Users, Upload, Download } from 'lucide-react';
-import { supabase, fetchAllSiswa } from '../../lib/supabase';
+import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
 import { PrestasiSiswa } from '../../types/prestasi';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
@@ -96,10 +96,12 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
   const fetchStudents = async (className: string, periode: string) => {
     try {
       const allValidSiswa = await fetchAllSiswa();
-      const filtered = allValidSiswa.filter((s: any) => 
-        s.kelas === className && 
-        (periode === 'ALL' || (s.periode || '2026').toString().trim() === periode)
-      );
+      const filtered = allValidSiswa.filter((s: any) => {
+        const matchKelas = normalizeKelasKey(s.kelas) === normalizeKelasKey(className);
+        const sP = (s.periode || '2026').toString().trim();
+        const matchPeriode = periode === 'ALL' || sP === periode || sP.includes(periode);
+        return matchKelas && matchPeriode;
+      });
       
       filtered.sort((a: any, b: any) => (a.nama || '').localeCompare(b.nama || ''));
       setStudents(filtered);
