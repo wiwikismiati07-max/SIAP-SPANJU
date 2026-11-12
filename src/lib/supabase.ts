@@ -66,22 +66,10 @@ export const filterLatestStudents = (allStudents: any[]): any[] => {
     return {
       ...s,
       kelas: normalizeKelasKey(s.kelas),
-      periode: (s.periode || '2026').toString().trim(), // Default missing to 2026
-      jenis_kelamin: jk
+      periode: (s.periode || '2026').toString().trim(),
+      jenis_kelamin: jk,
+      nis: (s.nis || '').toString().trim()
     };
-  });
-
-  // Sort validStudents: Real database records first, 2026 first, then padded/demo
-  validStudents.sort((a, b) => {
-    const aIsReal = !String(a.id || '').startsWith('pad-') && !String(a.id || '').startsWith('demo-');
-    const bIsReal = !String(b.id || '').startsWith('pad-') && !String(b.id || '').startsWith('demo-');
-    if (aIsReal !== bIsReal) return aIsReal ? -1 : 1;
-    
-    const aIs2026 = a.periode === '2026';
-    const bIs2026 = b.periode === '2026';
-    if (aIs2026 !== bIs2026) return aIs2026 ? -1 : 1;
-    
-    return 0;
   });
 
   const studentMapByKey = new Map<string, any>();
@@ -90,23 +78,30 @@ export const filterLatestStudents = (allStudents: any[]): any[] => {
     if (!s.nama) return;
     const normNama = s.nama.toString().toLowerCase().replace(/\s+/g, ' ').trim();
     const normKelas = normalizeKelasKey(s.kelas);
-    const normPeriode = s.periode; // Already defaulted to 2025 above
+    const normPeriode = s.periode;
+    const normNis = s.nis;
     
-    // Deduplicate by Name + Class + Period
-    const compositeKey = `${normNama}__${normKelas}__${normPeriode}`;
+    // Use NIS as primary key if available to prevent merging students with same names
+    const compositeKey = normNis 
+      ? `NIS_${normNis}__${normPeriode}` 
+      : `NAME_${normNama}__${normKelas}__${normPeriode}`;
 
-    if (!studentMapByKey.has(compositeKey)) {
+    const existing = studentMapByKey.get(compositeKey);
+    if (!existing) {
       studentMapByKey.set(compositeKey, s);
     } else {
-      const existing = studentMapByKey.get(compositeKey);
+      // Prioritize real database records over padded ones
       const existingIsPadded = String(existing.id || '').startsWith('pad-');
       const sIsPadded = String(s.id || '').startsWith('pad-');
       
       if (existingIsPadded && !sIsPadded) {
         studentMapByKey.set(compositeKey, s);
-      } else {
+      } else if (!existingIsPadded && !sIsPadded) {
+        // If both are real, keep the one with more data
         if (!existing.nis && s.nis) existing.nis = s.nis;
-        if (!existing.jenis_kelamin && s.jenis_kelamin) existing.jenis_kelamin = s.jenis_kelamin;
+        if ((!existing.jenis_kelamin || existing.jenis_kelamin === 'L') && s.jenis_kelamin === 'P') {
+           // arbitrary tie-break or keep existing
+        }
       }
     }
   });
@@ -381,23 +376,29 @@ export const fetchAllSiswa = async (): Promise<any[]> => {
     let hasMore = true;
 
     while (hasMore) {
+      // Use x-raw-master-siswa: true to bypass the customFetch interceptor 
+      // which might prematurely stop pagination by returning a filtered/shorter array.
       const { data, error } = await client
         .from('master_siswa')
         .select('*')
         .range(page * pageSize, (page + 1) * pageSize - 1)
-        .order('nama');
+        .order('nama')
+        .setHeader('x-raw-master-siswa', 'true');
 
       if (error) {
-        console.error('fetchAllSiswa - Supabase error:', error);
+        console.error(`fetchAllSiswa - Supabase error (Page ${page}):`, error);
         hasMore = false;
       } else if (!data || data.length === 0) {
         hasMore = false;
       } else {
         allSiswa = [...allSiswa, ...data];
+        console.log(`fetchAllSiswa: Fetched ${data.length} records, total so far: ${allSiswa.length}`);
         if (data.length < pageSize) {
           hasMore = false;
         } else {
           page++;
+          // Safety break to prevent infinite loops if something goes wrong
+          if (page > 10) hasMore = false;
         }
       }
     }

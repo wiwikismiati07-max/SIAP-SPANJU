@@ -71,6 +71,11 @@ export default function ManagementSiswaApp() {
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
   const [uploadSuccessMsg, setUploadSuccessMsg] = useState('');
 
+  // Diagnostic State
+  const [supaCount, setSupaCount] = useState<number | null>(null);
+  const [localCount, setLocalCount] = useState<number>(0);
+  const [activeProject, setActiveProject] = useState<string>('');
+
   useEffect(() => {
     fetchStudents();
   }, []);
@@ -189,10 +194,14 @@ export default function ManagementSiswaApp() {
 
       setStudents(combined);
       extractPeriodes(combined);
+      setLocalCount(combined.length);
 
-      // Multi-user notice: if data is different from Supabase, suggest sync
-      if (supabase && supaData.length > 0 && supaData.length !== combined.length) {
-        console.info(`Data mismatch: Supabase has ${supaData.length}, Local has ${combined.length}. Suggesting sync.`);
+      // Diagnostic info
+      if (supabase) {
+        const { count, error } = await supabase.from('master_siswa').select('*', { count: 'exact', head: true });
+        if (!error) setSupaCount(count);
+        const config = (supabase as any).supabaseUrl;
+        setActiveProject(config || 'Unknown');
       }
     } catch (err) {
       console.error('Fetch error:', err);
@@ -256,6 +265,15 @@ export default function ManagementSiswaApp() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const clearAllLocalCache = () => {
+    if (!confirm('PENTING: Ini akan menghapus semua data siswa yang tersimpan di memori browser ini (local cache) dan mengambil ulang dari Supabase. Gunakan ini jika data di Vercel tidak sama dengan di AI Studio. Lanjutkan?')) return;
+    
+    localStorage.removeItem('sitelat_siswa');
+    localStorage.removeItem('master_siswa');
+    alert('Cache lokal dihapus. Mengambil data segar dari Supabase...');
+    fetchStudents();
   };
 
   const loadLocalStudents = () => {
@@ -785,11 +803,25 @@ export default function ManagementSiswaApp() {
 
         <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="p-3.5 bg-purple-50 text-purple-600 rounded-2xl">
-            <FileSpreadsheet size={28} />
+            <Database size={28} />
           </div>
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pilihan Kelas</p>
-            <p className="text-2xl font-black text-slate-800">24 <span className="text-xs font-medium text-slate-400">Rombel (7A - 9H)</span></p>
+          <div className="flex-1">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Status Cloud (Supabase)</p>
+            <div className="flex items-center justify-between">
+               <p className="text-2xl font-black text-slate-800">
+                 {supaCount !== null ? supaCount : '---'} <span className="text-xs font-medium text-slate-400">Records</span>
+               </p>
+               <button 
+                 onClick={clearAllLocalCache}
+                 className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors"
+                 title="Hapus Cache Lokal & Sync Ulang"
+               >
+                 <Trash2 size={14} />
+               </button>
+            </div>
+            <p className="text-[9px] font-medium text-slate-400 truncate max-w-[150px]" title={activeProject}>
+              {activeProject}
+            </p>
           </div>
         </div>
       </div>
