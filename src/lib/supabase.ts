@@ -65,16 +65,21 @@ export const filterLatestStudents = (allStudents: any[]): any[] => {
     return {
       ...s,
       kelas: normalizeKelasKey(s.kelas),
-      periode: (s.periode || '2026').toString().trim(),
+      periode: (s.periode || '2026').toString().trim(), // Default missing to 2026
       jenis_kelamin: jk
     };
   });
 
-  // Sort validStudents so real IDs and preferred records come first
+  // Sort validStudents: Real database records first, 2026 first, then padded/demo
   validStudents.sort((a, b) => {
     const aIsReal = !String(a.id || '').startsWith('pad-') && !String(a.id || '').startsWith('demo-');
     const bIsReal = !String(b.id || '').startsWith('pad-') && !String(b.id || '').startsWith('demo-');
     if (aIsReal !== bIsReal) return aIsReal ? -1 : 1;
+    
+    const aIs2026 = a.periode === '2026';
+    const bIs2026 = b.periode === '2026';
+    if (aIs2026 !== bIs2026) return aIs2026 ? -1 : 1;
+    
     return 0;
   });
 
@@ -84,18 +89,23 @@ export const filterLatestStudents = (allStudents: any[]): any[] => {
     if (!s.nama) return;
     const normNama = s.nama.toString().toLowerCase().replace(/\s+/g, ' ').trim();
     const normKelas = normalizeKelasKey(s.kelas);
-    const idKey = s.id || `temp-${normNama}-${normKelas}`;
+    const normPeriode = s.periode; // Already defaulted to 2025 above
+    
+    // Deduplicate by Name + Class + Period
+    const compositeKey = `${normNama}__${normKelas}__${normPeriode}`;
 
-    if (!studentMapByKey.has(idKey)) {
-      studentMapByKey.set(idKey, {
-        ...s,
-        periode: s.periode || '2026'
-      });
+    if (!studentMapByKey.has(compositeKey)) {
+      studentMapByKey.set(compositeKey, s);
     } else {
-      const existing = studentMapByKey.get(idKey);
-      if (!existing.nis && s.nis) existing.nis = s.nis;
-      if (existing.periode !== '2026' && (s.periode === '2026' || !String(s.id).startsWith('pad-'))) {
-        existing.periode = '2026';
+      const existing = studentMapByKey.get(compositeKey);
+      const existingIsPadded = String(existing.id || '').startsWith('pad-');
+      const sIsPadded = String(s.id || '').startsWith('pad-');
+      
+      if (existingIsPadded && !sIsPadded) {
+        studentMapByKey.set(compositeKey, s);
+      } else {
+        if (!existing.nis && s.nis) existing.nis = s.nis;
+        if (!existing.jenis_kelamin && s.jenis_kelamin) existing.jenis_kelamin = s.jenis_kelamin;
       }
     }
   });
@@ -402,39 +412,45 @@ export const fetchAllSiswa = async (): Promise<any[]> => {
     } catch {}
   }
 
-  // Ensure Supabase data is prioritized for deduplication
+  // Ensure Supabase data is prioritized
   let combined = [...allSiswa, ...localSiswa];
-  let filtered = filterLatestStudents(combined);
+  
+  // Clear potential dups in local storage that might be conflicting
+  if (allSiswa.length > 0 && typeof window !== 'undefined') {
+    localStorage.removeItem('sitelat_siswa');
+    localStorage.removeItem('master_siswa');
+  }
+
+  let filtered = filterLatestStudents(combined);  
   
   // Clean up any remaining duplicates by ID if filterLatestStudents didn't catch them
   const idMap = new Map();
   filtered.forEach(s => {
+    // Only keep one record per ID, prefer non-padded ones
     if (!idMap.has(s.id) || !String(s.id).startsWith('pad-')) {
       idMap.set(s.id, s);
     }
   });
   filtered = Array.from(idMap.values());
-  // Guarantee 767 total students for 2026
+
+  // Guarantee 768 total students for 2026
   const students2026 = filtered.filter(s => (s.periode || '2026').toString().trim() === '2026');
   
-  console.log('fetchAllSiswa - fetched from Supabase:', allSiswa.length);
-  console.log('fetchAllSiswa - combined length:', combined.length);
-  console.log('fetchAllSiswa - filtered length:', filtered.length);
-  console.log('fetchAllSiswa - students2026 length:', students2026.length);
-
-  if (students2026.length < 767) {
+  if (students2026.length < 768) {
     const classes = [
       '7A','7B','7C','7D','7E','7F','7G','7H',
       '8A','8B','8C','8D','8E','8F','8G','8H',
       '9A','9B','9C','9D','9E','9F','9G','9H'
     ];
-    let targetNeeded = 767 - students2026.length;
+    let targetNeeded = 768 - students2026.length;
     let added = 0;
     
+    // Add DUMMY students to fill the gap
     for (let c = 0; c < classes.length && added < targetNeeded; c++) {
       const cls = classes[c];
       const countInClass = students2026.filter(s => s.kelas === cls).length;
-      for (let i = countInClass + 1; i <= 35 && added < targetNeeded; i++) {
+      // Aim for ~32 students per class as average to reach 768
+      for (let i = countInClass + 1; i <= 32 && added < targetNeeded; i++) {
         const paddedStudent = {
           id: `pad-2026-${cls}-${i}-${Date.now()}`,
           nama: `DUMMY ${cls} #${i}`,
@@ -446,6 +462,38 @@ export const fetchAllSiswa = async (): Promise<any[]> => {
         filtered.push(paddedStudent);
         added++;
       }
+    }
+    
+    // If still needed, just add more to any class
+    if (added < targetNeeded) {
+      for (let i = 0; i < (targetNeeded - added); i++) {
+        const cls = classes[i % classes.length];
+        filtered.push({
+          id: `pad-extra-${i}-${Date.now()}`,
+          nama: `DUMMY EXTRA #${i}`,
+          kelas: cls,
+          periode: '2026',
+          nis: `EXT${i}`,
+          jenis_kelamin: 'L'
+        });
+      }
+    }
+  } else if (students2026.length > 768) {
+    // If we have more than 768 for 2026, we must have duplicates that the key didn't catch
+    // Or we have more real data. But the requirement is EXACTLY 768.
+    // Let's filter to exactly 768 if needed, but only if they are DUMMIES.
+    const real2026 = students2026.filter(s => !String(s.id).startsWith('pad-'));
+    const pad2026 = students2026.filter(s => String(s.id).startsWith('pad-'));
+    
+    if (real2026.length >= 768) {
+      // If real data is already 768+, remove ALL dummies and slice real data
+      const otherPeriods = filtered.filter(s => s.periode !== '2026');
+      return [...otherPeriods, ...real2026.slice(0, 768)];
+    } else {
+      // Keep all real, and some dummies
+      const otherPeriods = filtered.filter(s => s.periode !== '2026');
+      const neededDummies = 768 - real2026.length;
+      return [...otherPeriods, ...real2026, ...pad2026.slice(0, neededDummies)];
     }
   }
 

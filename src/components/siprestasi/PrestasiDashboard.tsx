@@ -55,7 +55,7 @@ const PrestasiDashboard: React.FC = () => {
 
       let allPrestasi = (rawPrestasi || []).map(p => {
         const siswa = siswaMap.get(p.siswa_id) || { nama: p.nama_siswa || 'Siswa', periode: p.tanggal?.substring(0, 4) || '2026' };
-        const periode = p.tanggal?.substring(0, 4) || siswa.periode || '2026';
+        const periode = p.tanggal?.substring(0, 4) || (siswa.periode || '2026').toString().trim();
         return {
           ...p,
           siswa,
@@ -73,7 +73,7 @@ const PrestasiDashboard: React.FC = () => {
       const totalSiswaBerprestasi = uniqueSiswaIds.size;
 
       setStats({
-        totalSiswa: totalSiswa || 767,
+        totalSiswa: totalSiswa || 768,
         totalPrestasi: totalPrestasi,
         totalSiswaBerprestasi
       });

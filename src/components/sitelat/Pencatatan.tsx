@@ -125,7 +125,7 @@ export default function Pencatatan() {
     setAlasanLainnya('');
   };
 
-  const filteredSiswaList = siswaList.filter(s => (s.periode || '2025') === selectedPeriode && s.kelas === selectedKelas);
+  const filteredSiswaList = siswaList.filter(s => (s.periode || '2026') === selectedPeriode && s.kelas === selectedKelas);
 
   return (
     <div className="max-w-4xl mx-auto bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden min-h-[600px] flex flex-col relative">

@@ -91,10 +91,10 @@ export default function Dashboard() {
         if (transData && sData) {
           let joinedData = transData.map(t => ({
             ...t,
-            siswa: sData.find(s => s.id === t.siswa_id) || { id: t.siswa_id, nama: 'Unknown', kelas: '-', periode: '2025' }
+            siswa: sData.find(s => s.id === t.siswa_id) || { id: t.siswa_id, nama: 'Unknown', kelas: '-', periode: '2026' }
           }));
           if (selectedPeriode !== 'ALL') {
-            joinedData = joinedData.filter(t => (t.siswa?.periode || '2025') === selectedPeriode);
+            joinedData = joinedData.filter(t => (t.siswa?.periode || '2026') === selectedPeriode);
           }
           setTransaksi(joinedData as TransaksiWithSiswa[]);
 
@@ -134,7 +134,7 @@ export default function Dashboard() {
         })).sort((a: any, b: any) => new Date(`${b.tanggal}T${b.jam}`).getTime() - new Date(`${a.tanggal}T${a.jam}`).getTime());
         
         if (selectedPeriode !== 'ALL') {
-          filteredTrans = filteredTrans.filter((t: any) => (t.siswa?.periode || '2025') === selectedPeriode);
+          filteredTrans = filteredTrans.filter((t: any) => (t.siswa?.periode || '2026') === selectedPeriode);
         }
 
         setTransaksi(filteredTrans);

@@ -562,6 +562,9 @@ export default function ManagementSiswaApp() {
     reader.readAsBinaryString(file);
   };
 
+  const [isOverwrite, setIsOverwrite] = useState(false); // Add overwrite state
+
+  // In handleImportExcel, add overwrite logic
   const handleImportExcel = async () => {
     if (uploadPreview.length === 0) {
       alert('Tidak ada data siswa untuk diimport!');
@@ -582,75 +585,54 @@ export default function ManagementSiswaApp() {
       }));
 
       if (supabase) {
-        // Batch upsert to Supabase in chunks of 50 with robust schema fallbacks
-        const chunkSize = 50;
+        if (isOverwrite) {
+          // Full Overwrite: Delete all
+          await supabase.from('master_siswa').delete().not('id', 'is', null);
+        }
+
+        // Batch insert/upsert
+        const chunkSize = 100;
         for (let i = 0; i < recordsToInsert.length; i += chunkSize) {
           const chunk = recordsToInsert.slice(i, i + chunkSize);
           
-          // 1. Try full payload
-          const { error: fullError } = await supabase.from('master_siswa').upsert(chunk, { onConflict: 'id' });
-          
-          if (fullError) {
-            console.warn('Batch insert error (full payload):', fullError.message || fullError);
-            
-            // 2. Fallback: try basic payload (id, nama, kelas, periode) if nis/jenis_kelamin columns are missing
-            const basicChunk = chunk.map(c => ({
-              id: c.id,
-              nama: c.nama,
-              kelas: c.kelas,
-              periode: c.periode
-            }));
-            
-            const { error: basicError } = await supabase.from('master_siswa').upsert(basicChunk, { onConflict: 'id' });
-            
-            if (basicError) {
-              console.warn('Batch insert error (basic payload):', basicError.message || basicError);
-              
-              // 3. Fallback: try insert without ID (auto-gen ID)
-              const noIdChunk = chunk.map(c => ({
+          if (isOverwrite) {
+            await supabase.from('master_siswa').insert(chunk);
+          } else {
+            const { error: fullError } = await supabase.from('master_siswa').upsert(chunk, { onConflict: 'id' });
+            if (fullError) {
+              const basicChunk = chunk.map(c => ({
+                id: c.id,
                 nama: c.nama,
                 kelas: c.kelas,
                 periode: c.periode
               }));
-              const { error: noIdError } = await supabase.from('master_siswa').insert(noIdChunk);
-              if (noIdError) {
-                console.warn('Batch insert error (no-id payload):', noIdError.message || noIdError);
-              }
+              await supabase.from('master_siswa').upsert(basicChunk, { onConflict: 'id' });
             }
           }
         }
       }
 
-      // Merge into local list without duplicates
-      const map = new Map<string, SiswaData>();
-      students.forEach(s => {
-        const key = `${s.nama.toLowerCase()}_${s.kelas}_${s.periode}`;
-        map.set(key, s);
-      });
-      recordsToInsert.forEach(s => {
-        const key = `${s.nama.toLowerCase()}_${s.kelas}_${s.periode}`;
-        map.set(key, s);
-      });
-
-      const combined = Array.from(map.values());
+      // Update state
+      const combined = isOverwrite ? recordsToInsert : Array.from(new Map([...students, ...recordsToInsert].map(s => [`${s.nama.toLowerCase()}_${s.kelas}_${s.periode}`, s])).values());
+      
       setStudents(combined);
       localStorage.setItem('sitelat_siswa', JSON.stringify(combined));
       extractPeriodes(combined);
 
-      // Auto reset filters so newly uploaded students immediately show up
       setSelectedPeriode('ALL');
       setSelectedKelas('ALL');
       setSearchTerm('');
 
-      setUploadSuccessMsg(`Berhasil mengimpor ${recordsToInsert.length} data siswa! Total data siswa tersimpan: ${combined.length}`);
+      setUploadSuccessMsg(`Berhasil mengimpor ${recordsToInsert.length} data siswa!`);
       setTimeout(() => {
         setShowUploadModal(false);
         setUploadFile(null);
         setUploadPreview([]);
         setUploadSuccessMsg('');
+        setIsOverwrite(false);
       }, 2000);
     } catch (err: any) {
-      alert('Gagal menyimpan data ke database: ' + err.message);
+      alert('Gagal menyimpan data: ' + err.message);
     } finally {
       setIsProcessingUpload(false);
     }
@@ -659,9 +641,9 @@ export default function ManagementSiswaApp() {
   // Download Excel Template
   const handleDownloadTemplate = () => {
     const sampleData = [
-      { 'Nama Siswa': 'Ahmad Fauzi', 'Kelas': '7A', 'Periode': '2025', 'NIS': '2025001', 'Jenis Kelamin': 'L' },
-      { 'Nama Siswa': 'Siti Aminah', 'Kelas': '7B', 'Periode': '2025', 'NIS': '2025002', 'Jenis Kelamin': 'P' },
-      { 'Nama Siswa': 'Budi Santoso', 'Kelas': '8A', 'Periode': '2026', 'NIS': '2026001', 'Jenis Kelamin': 'L' }
+      { 'Nama Siswa': 'Ahmad Fauzi', 'Kelas': '7A', 'Periode': '2026', 'NIS': '2026001', 'Jenis Kelamin': 'L' },
+      { 'Nama Siswa': 'Siti Aminah', 'Kelas': '7B', 'Periode': '2026', 'NIS': '2026002', 'Jenis Kelamin': 'P' },
+      { 'Nama Siswa': 'Budi Santoso', 'Kelas': '8A', 'Periode': '2026', 'NIS': '2026003', 'Jenis Kelamin': 'L' }
     ];
 
     const ws = XLSX.utils.json_to_sheet(sampleData);
@@ -693,7 +675,7 @@ export default function ManagementSiswaApp() {
       'NO': idx + 1,
       'NAMA SISWA': s.nama,
       'KELAS': s.kelas,
-      'PERIODE': s.periode || '2025',
+      'PERIODE': s.periode || '2026',
       'NIS': s.nis || '-',
       'JENIS KELAMIN': s.jenis_kelamin || '-'
     }));
@@ -950,7 +932,7 @@ export default function ManagementSiswaApp() {
                     </td>
                     <td className="px-6 py-3.5">
                       <span className="inline-block px-2.5 py-1 bg-indigo-50 text-indigo-700 font-extrabold rounded-md text-[11px] border border-indigo-100">
-                        Periode {s.periode || '2025'}
+                        Periode {s.periode || '2026'}
                       </span>
                     </td>
                     <td className="px-6 py-3.5 text-slate-500 font-mono">{s.nis || '-'}</td>
@@ -1029,8 +1011,8 @@ export default function ManagementSiswaApp() {
                   <label className="block font-bold text-slate-700 mb-1">Periode / Tahun *</label>
                   <input
                     type="text"
-                    placeholder="Contoh: 2025"
-                    value={formData.periode || '2025'}
+                    placeholder="Contoh: 2026"
+                    value={formData.periode || '2026'}
                     onChange={(e) => setFormData({ ...formData, periode: e.target.value })}
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
@@ -1274,6 +1256,19 @@ export default function ManagementSiswaApp() {
                 />
               </div>
             </div>
+            
+            <div className="flex items-center gap-2 mb-6">
+              <input 
+                type="checkbox" 
+                id="overwrite" 
+                checked={isOverwrite} 
+                onChange={(e) => setIsOverwrite(e.target.checked)}
+                className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+              />
+              <label htmlFor="overwrite" className="text-xs font-bold text-slate-700">
+                Timpa Semua Data (Hapus data lama dan ganti dengan file baru)
+              </label>
+            </div>
 
             {/* Upload Messages */}
             {uploadSuccessMsg && (
@@ -1385,13 +1380,13 @@ CREATE TABLE IF NOT EXISTS public.master_siswa (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nama TEXT NOT NULL,
     kelas TEXT NOT NULL,
-    periode TEXT DEFAULT '2025',
+    periode TEXT DEFAULT '2026',
     nis TEXT,
     jenis_kelamin TEXT DEFAULT 'L',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-ALTER TABLE public.master_siswa ADD COLUMN IF NOT EXISTS periode TEXT DEFAULT '2025';
+ALTER TABLE public.master_siswa ADD COLUMN IF NOT EXISTS periode TEXT DEFAULT '2026';
 ALTER TABLE public.master_siswa ADD COLUMN IF NOT EXISTS nis TEXT;
 ALTER TABLE public.master_siswa ADD COLUMN IF NOT EXISTS jenis_kelamin TEXT DEFAULT 'L';
 ALTER TABLE public.master_siswa ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();

@@ -71,7 +71,7 @@ export default function DashboardIzin() {
       if (supabase) {
         const { data: siswaData } = await supabase.from('master_siswa').select('periode');
         if (siswaData && siswaData.length > 0) {
-          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaData.map(s => s.periode || '2025')]))
+          const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaData.map(s => s.periode || '2026')]))
             .filter(Boolean)
             .sort((a, b) => b.localeCompare(a));
           setAvailablePeriodes(distinctPeriodes);
@@ -108,7 +108,7 @@ export default function DashboardIzin() {
 
       // Filter by selectedPeriode if not ALL
       if (selectedPeriode !== 'ALL') {
-        allData = allData.filter(d => (d.siswa?.periode || '2025') === selectedPeriode);
+        allData = allData.filter(d => (d.siswa?.periode || '2026') === selectedPeriode);
       }
 
       setData(allData);
