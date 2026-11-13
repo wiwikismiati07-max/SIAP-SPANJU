@@ -1014,12 +1014,13 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
                     <th className="border border-slate-300 p-2 w-32">Sasaran</th>
                     <th className="border border-slate-300 p-2">Uraian Kegiatan</th>
                     <th className="border border-slate-300 p-2 w-28">Hasil / Evaluasi</th>
+                    <th className="border border-slate-300 p-2 w-24">Dokumentasi</th>
                   </tr>
                 </thead>
                 <tbody>
                   {agendas.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="border border-slate-300 p-4 text-center text-slate-400 italic">Belum ada agenda kerja.</td>
+                      <td colSpan={6} className="border border-slate-300 p-4 text-center text-slate-400 italic">Belum ada agenda kerja.</td>
                     </tr>
                   ) : (
                     agendas.map((item, idx) => {
@@ -1034,6 +1035,17 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
                           <td className="border border-slate-300 p-2 font-bold text-blue-900">{item.sasaran}</td>
                           <td className="border border-slate-300 p-2 leading-relaxed">{item.uraian_kegiatan}</td>
                           <td className="border border-slate-300 p-2">{item.hasil || 'Terlaksana'}</td>
+                          <td className="border border-slate-300 p-2 text-center align-middle">
+                            {item.foto_url ? (
+                              <img
+                                src={item.foto_url}
+                                alt={`Dokumentasi ${idx + 1}`}
+                                className="w-16 h-16 object-cover rounded border border-slate-200 mx-auto block"
+                              />
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </td>
                         </tr>
                       );
                     })

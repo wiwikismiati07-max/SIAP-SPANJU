@@ -574,6 +574,19 @@ export default function BKHomeVisit({ user }: { user?: any }) {
                 <p className="p-3 bg-slate-50 rounded-xl border border-slate-100 leading-relaxed">{printItem.hasil}</p>
               </div>
 
+              {printItem.foto_url && (
+                <div>
+                  <h4 className="font-black text-slate-800 uppercase mb-1">C. Dokumentasi Kunjungan</h4>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex justify-center">
+                    <img
+                      src={printItem.foto_url}
+                      alt="Dokumentasi Home Visit"
+                      className="max-h-48 w-auto object-contain rounded-lg border border-slate-200"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 pt-8 text-center text-xs">
                 <div>
                   <p>Orang Tua / Wali Murid,</p>

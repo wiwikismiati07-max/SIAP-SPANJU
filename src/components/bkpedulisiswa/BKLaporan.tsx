@@ -579,14 +579,15 @@ export default function BKLaporan({ user }: { user?: any } = {}) {
                     <th className="border border-slate-300 p-2">Nama Siswa & Kelas</th>
                     <th className="border border-slate-300 p-2">Kasus / Kategori</th>
                     <th className="border border-slate-300 p-2">{reportType === 'kasus' ? 'Penanganan & Konsekuensi' : 'Tindak Lanjut'}</th>
-                    <th className="border border-slate-300 p-2 w-28">Guru BK</th>
+                    <th className="border border-slate-300 p-2 w-24">Guru BK</th>
                     <th className="border border-slate-300 p-2 w-20">Status</th>
+                    <th className="border border-slate-300 p-2 w-24">Dokumentasi</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredData.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="border border-slate-300 p-4 text-center text-slate-400 italic">
+                      <td colSpan={8} className="border border-slate-300 p-4 text-center text-slate-400 italic">
                         Tidak ada data laporan pada filter ini.
                       </td>
                     </tr>
@@ -614,6 +615,22 @@ export default function BKLaporan({ user }: { user?: any } = {}) {
                         </td>
                         <td className="border border-slate-300 p-2 text-center">{d.guru_bk || '-'}</td>
                         <td className="border border-slate-300 p-2 text-center font-bold">{d.status}</td>
+                        <td className="border border-slate-300 p-2 text-center align-middle">
+                          {d.bukti_fisik && d.bukti_fisik.length > 0 ? (
+                            <div className="flex flex-wrap gap-1 justify-center">
+                              {d.bukti_fisik.map((url, i) => (
+                                <img
+                                  key={i}
+                                  src={url}
+                                  alt={`Dokumentasi ${i + 1}`}
+                                  className="w-12 h-12 object-cover rounded border border-slate-200"
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </td>
                       </tr>
                     ))
                   )}
