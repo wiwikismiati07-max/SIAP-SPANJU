@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Plus, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateCcw, User, Clock, MapPin, FileText, ChevronDown } from 'lucide-react';
-import { sabdaService, UndanganOrtuBK } from '../../lib/sabdaBkService';
+import { sabdaService, UndanganOrtuBK, GURU_BK_OPTIONS, getDefaultGuruBK } from '../../lib/sabdaBkService';
 import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { formatKelasDisplay } from './BKAgendaKerja';
+import BKKopSurat from './BKKopSurat';
 
 export default function BKUndanganOrtu({ user }: { user?: any }) {
   const [undangans, setUndangans] = useState<UndanganOrtuBK[]>([]);
@@ -26,7 +27,7 @@ export default function BKUndanganOrtu({ user }: { user?: any }) {
     tanggal_hadir: defaultDate,
     jam_hadir: '08:30 WIB',
     tempat: 'Ruang BK SMPN 7 Pasuruan',
-    menemui: user?.nama_lengkap || 'Wiwik Ismiati, S.Pd (Guru BK)',
+    menemui: `${getDefaultGuruBK(user)} (Guru BK)`,
     perihal: 'Konsultasi dan Pembinaan Perkembangan Siswa',
     status: 'Menunggu' as const,
     hasil_pertemuan: ''
@@ -118,7 +119,7 @@ export default function BKUndanganOrtu({ user }: { user?: any }) {
       tanggal_hadir: defaultDate,
       jam_hadir: '08:30 WIB',
       tempat: 'Ruang BK SMPN 7 Pasuruan',
-      menemui: user?.nama_lengkap || 'Wiwik Ismiati, S.Pd (Guru BK)',
+      menemui: `${getDefaultGuruBK(user)} (Guru BK)`,
       perihal: 'Konsultasi dan Pembinaan Perkembangan Siswa',
       status: 'Menunggu',
       hasil_pertemuan: ''
@@ -350,13 +351,19 @@ export default function BKUndanganOrtu({ user }: { user?: any }) {
               <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
                 MENEMUI (GURU BK / PIHAK SEKOLAH)
               </label>
-              <input 
-                type="text"
+              <select 
                 value={formData.menemui}
                 onChange={e => setFormData({ ...formData, menemui: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none font-bold text-slate-800 transition-all text-sm"
+                className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none font-bold text-slate-800 transition-all text-sm bg-white"
                 required
-              />
+              >
+                {GURU_BK_OPTIONS.map((nama, idx) => (
+                  <option key={nama} value={`${nama} (Guru BK)`}>{idx + 1}. {nama} (Guru BK)</option>
+                ))}
+                {!GURU_BK_OPTIONS.some(n => formData.menemui === `${n} (Guru BK)`) && formData.menemui && !formData.menemui.toLowerCase().includes('administrator') && (
+                  <option value={formData.menemui}>{formData.menemui}</option>
+                )}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
@@ -515,17 +522,10 @@ export default function BKUndanganOrtu({ user }: { user?: any }) {
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
             {/* Kop Surat */}
-            <div className="text-center border-b-4 border-double border-slate-800 pb-4 mb-6">
-              <div className="flex items-center justify-center gap-4 mb-2">
-                <img src="https://iili.io/KDFk4fI.png" alt="Logo SMPN 7" className="w-16 h-16 object-contain" />
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">PEMERINTAH KOTA PASURUAN • DINAS PENDIDIKAN DAN KEBUDAYAAN</h4>
-                  <h2 className="text-lg font-black uppercase text-slate-900">UPT SMP NEGERI 7 PASURUAN</h2>
-                  <p className="text-[10px] text-slate-600 font-medium">Jl. Ki Hajar Dewantara No. 27, Pasuruan, Jawa Timur • Telp: (0343) 424355</p>
-                  <p className="text-[9px] font-bold text-blue-800 uppercase tracking-widest">Layanan Bimbingan dan Konseling (SABDA BK SPANJU)</p>
-                </div>
-              </div>
-            </div>
+            <BKKopSurat
+              subtitle="LAYANAN BIMBINGAN DAN KONSELING (SABDA BK SPANJU)"
+              subtitleClassName="text-blue-800"
+            />
 
             <div className="space-y-4 text-sm text-slate-800">
               <div className="flex justify-between text-xs">

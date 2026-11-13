@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import BKKopSurat from './BKKopSurat';
 import { 
   Calendar, 
   Save, 
@@ -16,7 +17,7 @@ import {
   UserCheck,
   Eye
 } from 'lucide-react';
-import { sabdaService, AgendaKerjaBK } from '../../lib/sabdaBkService';
+import { sabdaService, AgendaKerjaBK, GURU_BK_OPTIONS, getDefaultGuruBK } from '../../lib/sabdaBkService';
 import { supabase, fetchAllSiswa } from '../../lib/supabase';
 
 const NAMA_HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -71,7 +72,7 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
     uraian_kegiatan: '',
     foto_url: '',
     hasil: 'Terlaksana',
-    guru_bk: user?.nama_lengkap || 'Wiwik Ismiati, S.Pd',
+    guru_bk: getDefaultGuruBK(user),
     siswa_id: ''
   });
 
@@ -252,13 +253,17 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
       uraian_kegiatan: '',
       foto_url: '',
       hasil: 'Terlaksana',
-      guru_bk: user?.nama_lengkap || 'Wiwik Ismiati, S.Pd',
+      guru_bk: getDefaultGuruBK(user),
       siswa_id: ''
     });
   };
 
   const handleEdit = (item: AgendaKerjaBK) => {
     setEditingId(item.id);
+    const normalizedGuru =
+      !item.guru_bk || item.guru_bk.toLowerCase().includes('administrator')
+        ? getDefaultGuruBK(user)
+        : item.guru_bk;
     setFormData({
       tanggal: item.tanggal,
       waktu: item.waktu || '07.15-07.55 WIB',
@@ -267,7 +272,7 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
       uraian_kegiatan: item.uraian_kegiatan,
       foto_url: item.foto_url || '',
       hasil: item.hasil || 'Terlaksana',
-      guru_bk: item.guru_bk || 'Wiwik Ismiati, S.Pd',
+      guru_bk: normalizedGuru,
       siswa_id: item.siswa_id || ''
     });
 
@@ -654,12 +659,18 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
             <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
               GURU BIMBINGAN KONSELING
             </label>
-            <input 
-              type="text"
+            <select
               value={formData.guru_bk}
               onChange={e => setFormData({ ...formData, guru_bk: e.target.value })}
-              className="w-full sm:w-80 px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none font-bold text-slate-800 transition-all text-sm bg-slate-50"
-            />
+              className="w-full sm:w-80 px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none font-bold text-slate-800 transition-all text-sm bg-white"
+            >
+              {GURU_BK_OPTIONS.map((nama, idx) => (
+                <option key={nama} value={nama}>{idx + 1}. {nama}</option>
+              ))}
+              {!GURU_BK_OPTIONS.includes(formData.guru_bk as any) && formData.guru_bk && !formData.guru_bk.toLowerCase().includes('administrator') && (
+                <option value={formData.guru_bk}>{formData.guru_bk}</option>
+              )}
+            </select>
           </div>
 
           {/* Action Buttons */}
@@ -977,17 +988,10 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-4xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
             {/* Kop Surat */}
-            <div className="text-center border-b-4 border-double border-slate-800 pb-4 mb-6">
-              <div className="flex items-center justify-center gap-4 mb-2">
-                <img src="https://iili.io/KDFk4fI.png" alt="Logo SMPN 7" className="w-16 h-16 object-contain" />
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">PEMERINTAH KOTA PASURUAN • DINAS PENDIDIKAN DAN KEBUDAYAAN</h4>
-                  <h2 className="text-lg font-black uppercase text-slate-900">UPT SMP NEGERI 7 PASURUAN</h2>
-                  <p className="text-[10px] text-slate-600 font-medium">Jl. Ki Hajar Dewantara No. 27, Pasuruan, Jawa Timur • Telp: (0343) 424355</p>
-                  <p className="text-[9px] font-bold text-blue-800 uppercase tracking-widest">LAPORAN AGENDA KERJA HARIAN BIMBINGAN DAN KONSELING (BK)</p>
-                </div>
-              </div>
-            </div>
+            <BKKopSurat
+              subtitle="LAPORAN AGENDA KERJA HARIAN BIMBINGAN DAN KONSELING (BK)"
+              subtitleClassName="text-blue-800"
+            />
 
             <div className="space-y-4 text-xs text-slate-800">
               <div className="flex justify-between items-center mb-4">

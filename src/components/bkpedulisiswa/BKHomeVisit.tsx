@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Home, Plus, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateCcw, MapPin, Users, Calendar, Clock, FileText } from 'lucide-react';
-import { sabdaService, HomeVisitBK } from '../../lib/sabdaBkService';
+import { sabdaService, HomeVisitBK, GURU_BK_OPTIONS, getDefaultGuruBK } from '../../lib/sabdaBkService';
 import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
+import BKKopSurat from './BKKopSurat';
 
 const CLASSES = [
   '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
@@ -28,7 +29,7 @@ export default function BKHomeVisit({ user }: { user?: any }) {
     alamat: '',
     tanggal: defaultDate,
     waktu: '13:30 WIB',
-    petugas: user?.nama_lengkap ? `${user.nama_lengkap} & Wali Kelas` : 'Wiwik Ismiati, S.Pd & Wali Kelas',
+    petugas: `${getDefaultGuruBK(user)} & Wali Kelas`,
     anggota_keluarga: 'Ibu Kandung',
     tujuan: 'Konfirmasi dan pendampingan ketidakhadiran serta pembinaan belajar siswa di rumah',
     hasil: 'Orang tua menyambut baik dan berkomitmen mendampingi jam belajar putra/putri di rumah.',
@@ -156,7 +157,7 @@ export default function BKHomeVisit({ user }: { user?: any }) {
       alamat: '',
       tanggal: defaultDate,
       waktu: '13:30 WIB',
-      petugas: user?.nama_lengkap ? `${user.nama_lengkap} & Wali Kelas` : 'Wiwik Ismiati, S.Pd & Wali Kelas',
+      petugas: `${getDefaultGuruBK(user)} & Wali Kelas`,
       anggota_keluarga: 'Ibu Kandung',
       tujuan: 'Konfirmasi dan pendampingan ketidakhadiran serta pembinaan belajar siswa di rumah',
       hasil: 'Orang tua menyambut baik dan berkomitmen mendampingi jam belajar putra/putri di rumah.',
@@ -367,13 +368,22 @@ export default function BKHomeVisit({ user }: { user?: any }) {
             <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
               PETUGAS PELAKSANA KUNJUNGAN
             </label>
-            <input 
-              type="text"
+            <select 
               value={formData.petugas}
               onChange={e => setFormData({ ...formData, petugas: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-amber-500 focus:ring-4 focus:ring-amber-100 outline-none font-bold text-slate-800 transition-all text-sm"
+              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-amber-500 focus:ring-4 focus:ring-amber-100 outline-none font-bold text-slate-800 transition-all text-sm bg-white"
               required
-            />
+            >
+              {GURU_BK_OPTIONS.map((nama, idx) => (
+                <option key={`${nama}-wk`} value={`${nama} & Wali Kelas`}>{idx + 1}. {nama} & Wali Kelas</option>
+              ))}
+              {GURU_BK_OPTIONS.map((nama) => (
+                <option key={nama} value={nama}>{nama}</option>
+              ))}
+              {!GURU_BK_OPTIONS.some(n => formData.petugas === n || formData.petugas === `${n} & Wali Kelas`) && formData.petugas && !formData.petugas.toLowerCase().includes('administrator') && (
+                <option value={formData.petugas}>{formData.petugas}</option>
+              )}
+            </select>
           </div>
 
           <div>
@@ -525,17 +535,10 @@ export default function BKHomeVisit({ user }: { user?: any }) {
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
             {/* Kop Surat */}
-            <div className="text-center border-b-4 border-double border-slate-800 pb-4 mb-6">
-              <div className="flex items-center justify-center gap-4 mb-2">
-                <img src="https://iili.io/KDFk4fI.png" alt="Logo SMPN 7" className="w-16 h-16 object-contain" />
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">PEMERINTAH KOTA PASURUAN • DINAS PENDIDIKAN DAN KEBUDAYAAN</h4>
-                  <h2 className="text-lg font-black uppercase text-slate-900">UPT SMP NEGERI 7 PASURUAN</h2>
-                  <p className="text-[10px] text-slate-600 font-medium">Jl. Ki Hajar Dewantara No. 27, Pasuruan, Jawa Timur • Telp: (0343) 424355</p>
-                  <p className="text-[9px] font-bold text-amber-700 uppercase tracking-widest">LAPORAN PELAKSANAAN HOME VISIT / KUNJUNGAN RUMAH</p>
-                </div>
-              </div>
-            </div>
+            <BKKopSurat
+              subtitle="LAPORAN PELAKSANAAN HOME VISIT / KUNJUNGAN RUMAH"
+              subtitleClassName="text-amber-700"
+            />
 
             <div className="space-y-4 text-xs text-slate-800">
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">

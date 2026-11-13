@@ -1,13 +1,14 @@
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { FileText, Download, Search, Filter, Calendar, CheckCircle2, Clock, ChevronDown } from 'lucide-react';
+import { FileText, Download, Search, Filter, Calendar, CheckCircle2, Clock, ChevronDown, Printer, X } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { TransaksiKasus } from '../../types/bkpedulisiswa';
 import TahunAjaranModal from '../common/TahunAjaranModal';
+import BKKopSurat from './BKKopSurat';
 
 export default function BKLaporan({ user }: { user?: any } = {}) {
   const [loading, setLoading] = useState(true);
@@ -23,6 +24,7 @@ export default function BKLaporan({ user }: { user?: any } = {}) {
     kelas: '',
     status: ''
   });
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   const KELAS_OPTIONS = [
     '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
@@ -289,6 +291,13 @@ export default function BKLaporan({ user }: { user?: any } = {}) {
             </button>
           </div>
           <button 
+            onClick={() => setIsPrintModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-200 hover:bg-slate-800 transition-colors"
+          >
+            <Printer size={18} />
+            Cetak Laporan
+          </button>
+          <button 
             onClick={handleDownloadExcel}
             className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-pink-100 hover:bg-pink-700 transition-colors"
           >
@@ -537,6 +546,116 @@ export default function BKLaporan({ user }: { user?: any } = {}) {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Printable Report Modal with Official Kop Surat */}
+      {isPrintModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
+            <BKKopSurat
+              subtitle={reportType === 'kasus' ? 'LAPORAN REKAPITULASI KASUS SISWA' : 'LAPORAN TINDAK LANJUT PENANGANAN KASUS'}
+              subtitleClassName="text-slate-900"
+            />
+
+            <div className="space-y-4 text-xs text-slate-800">
+              <div className="flex flex-wrap justify-between items-center gap-2 mb-3 text-xs">
+                <div>
+                  <p><span className="font-bold">Periode Tahun Ajaran:</span> {selectedPeriode === 'ALL' ? 'Semua Periode' : selectedPeriode}</p>
+                  <p><span className="font-bold">Kelas:</span> {filter.kelas || 'Semua Kelas'} • <span className="font-bold">Status:</span> {filter.status || 'Semua Status'}</p>
+                </div>
+                <div className="text-right">
+                  <p><span className="font-bold">Rentang Tanggal:</span> {filter.startDate} s.d. {filter.endDate}</p>
+                  <p><span className="font-bold">Total Data:</span> {filteredData.length} Catatan</p>
+                </div>
+              </div>
+
+              <table className="w-full border-collapse border border-slate-300 text-xs text-slate-800">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-700 font-bold text-center">
+                    <th className="border border-slate-300 p-2 w-10">No</th>
+                    <th className="border border-slate-300 p-2 w-24">Tanggal</th>
+                    <th className="border border-slate-300 p-2">Nama Siswa & Kelas</th>
+                    <th className="border border-slate-300 p-2">Kasus / Kategori</th>
+                    <th className="border border-slate-300 p-2">{reportType === 'kasus' ? 'Penanganan & Konsekuensi' : 'Tindak Lanjut'}</th>
+                    <th className="border border-slate-300 p-2 w-28">Guru BK</th>
+                    <th className="border border-slate-300 p-2 w-20">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredData.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="border border-slate-300 p-4 text-center text-slate-400 italic">
+                        Tidak ada data laporan pada filter ini.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredData.map((d, idx) => (
+                      <tr key={d.id}>
+                        <td className="border border-slate-300 p-2 text-center font-bold">{idx + 1}</td>
+                        <td className="border border-slate-300 p-2 text-center whitespace-nowrap">{d.tanggal}</td>
+                        <td className="border border-slate-300 p-2">
+                          <div className="font-bold">{d.siswa?.nama || '-'}</div>
+                          <div className="text-[10px] text-slate-600">Kelas {d.kelas || d.siswa?.kelas || '-'}</div>
+                        </td>
+                        <td className="border border-slate-300 p-2">{d.kasus?.nama_kasus || d.kasus_kategori || '-'}</td>
+                        <td className="border border-slate-300 p-2">
+                          {reportType === 'kasus' ? (
+                            <>
+                              <div>{d.penanganan || '-'}</div>
+                              {d.konsekuensi && <div className="text-[10px] text-slate-600">Konsekuensi: {d.konsekuensi}</div>}
+                            </>
+                          ) : (
+                            d.tindak_lanjuts && d.tindak_lanjuts.length > 0
+                              ? d.tindak_lanjuts.map((tl, i) => <div key={i}>• {tl.tanggal}: {tl.tindak_lanjut}</div>)
+                              : '-'
+                          )}
+                        </td>
+                        <td className="border border-slate-300 p-2 text-center">{d.guru_bk || '-'}</td>
+                        <td className="border border-slate-300 p-2 text-center font-bold">{d.status}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+
+              <div className="grid grid-cols-2 pt-8 text-center text-xs">
+                <div>
+                  <p>Mengetahui,</p>
+                  <p>Kepala UPT SMPN 7 Pasuruan</p>
+                  <div className="h-16" />
+                  <p className="font-black underline uppercase">NUR FADILAH, S.Pd</p>
+                  <p className="text-[10px] text-slate-500">NIP. 19860410 201001 2 030</p>
+                </div>
+                <div>
+                  <p>Pasuruan, {format(new Date(), 'd MMMM yyyy', { locale: idLocale })}</p>
+                  <p>Guru Bimbingan dan Konseling</p>
+                  <div className="h-16" />
+                  <p className="font-black underline uppercase">WIWIK ISMIATI, S.Pd</p>
+                  <p className="text-[10px] text-slate-500">NIP. 19831116 200904 2 003</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-8 pt-4 border-t border-slate-100 print:hidden">
+              <button
+                type="button"
+                onClick={() => setIsPrintModalOpen(false)}
+                className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100"
+              >
+                <X size={15} />
+                <span>Tutup</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black hover:bg-slate-800 shadow-md"
+              >
+                <Printer size={16} />
+                <span>Cetak / Simpan PDF</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

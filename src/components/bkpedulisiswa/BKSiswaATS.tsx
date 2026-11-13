@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { UserX, Plus, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateCcw, AlertTriangle, UserCheck, HeartHandshake, Phone, MapPin, X } from 'lucide-react';
-import { sabdaService, SiswaATSBK } from '../../lib/sabdaBkService';
+import { sabdaService, SiswaATSBK, GURU_BK_OPTIONS, getDefaultGuruBK } from '../../lib/sabdaBkService';
 import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
+import BKKopSurat from './BKKopSurat';
 
 const CLASSES = ['7A','7B','7C','7D','7E','7F','7G','7H','8A','8B','8C','8D','8E','8F','8G','8H','9A','9B','9C','9D','9E','9F','9G','9H'];
 
@@ -34,7 +35,7 @@ export default function BKSiswaATS({ user }: { user?: any }) {
     upaya_penanganan: 'Kunjungan rumah (Home Visit), advokasi bantuan perlengkapan sekolah & koordinasi wali kelas.',
     status_penanganan: 'Pendampingan' as const,
     catatan_hasil: 'Orang tua menyepakati siswa dijadwalkan kembali bersekolah mulai pekan depan.',
-    petugas_pendamping: user?.nama_lengkap || 'Wiwik Ismiati, S.Pd & Tim Satgas ATS'
+    petugas_pendamping: `${getDefaultGuruBK(user)} & Tim Satgas ATS`
   });
 
   useEffect(() => {
@@ -195,7 +196,7 @@ export default function BKSiswaATS({ user }: { user?: any }) {
       upaya_penanganan: 'Kunjungan rumah (Home Visit), advokasi bantuan perlengkapan sekolah & koordinasi wali kelas.',
       status_penanganan: 'Pendampingan',
       catatan_hasil: 'Orang tua menyepakati siswa dijadwalkan kembali bersekolah mulai pekan depan.',
-      petugas_pendamping: user?.nama_lengkap || 'Wiwik Ismiati, S.Pd & Tim Satgas ATS'
+      petugas_pendamping: `${getDefaultGuruBK(user)} & Tim Satgas ATS`
     });
   };
 
@@ -217,7 +218,7 @@ export default function BKSiswaATS({ user }: { user?: any }) {
       upaya_penanganan: item.upaya_penanganan,
       status_penanganan: item.status_penanganan,
       catatan_hasil: item.catatan_hasil,
-      petugas_pendamping: item.petugas_pendamping
+      petugas_pendamping: item.petugas_pendamping && !item.petugas_pendamping.toLowerCase().includes('administrator') ? item.petugas_pendamping : `${getDefaultGuruBK(user)} & Tim Satgas ATS`
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -568,12 +569,23 @@ export default function BKSiswaATS({ user }: { user?: any }) {
               <label className="block text-[11px] font-black uppercase text-slate-600 mb-1.5">
                 GURU BK / TIM SATGAS ATS *
               </label>
-              <input
-                type="text"
+              <select
                 value={formData.petugas_pendamping}
                 onChange={(e) => setFormData({ ...formData, petugas_pendamping: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:border-blue-500 outline-none"
-              />
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:border-blue-500 outline-none"
+              >
+                {GURU_BK_OPTIONS.map((nama, idx) => (
+                  <React.Fragment key={nama}>
+                    <option value={`${nama} & Tim Satgas ATS`}>{idx + 1}. {nama} & Tim Satgas ATS</option>
+                    <option value={nama}>{idx + 1}. {nama}</option>
+                  </React.Fragment>
+                ))}
+                {formData.petugas_pendamping &&
+                  !GURU_BK_OPTIONS.some(n => formData.petugas_pendamping === n || formData.petugas_pendamping === `${n} & Tim Satgas ATS`) &&
+                  !formData.petugas_pendamping.toLowerCase().includes('administrator') && (
+                    <option value={formData.petugas_pendamping}>{formData.petugas_pendamping}</option>
+                )}
+              </select>
             </div>
           </div>
 
@@ -767,7 +779,7 @@ export default function BKSiswaATS({ user }: { user?: any }) {
       {/* Printable Modal Official Berkas ATS */}
       {printItem && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-8 shadow-2xl border border-slate-200 relative my-8 text-slate-900">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-8 shadow-2xl border border-slate-200 relative my-8 text-slate-900 print:m-0 print:p-0 print:shadow-none print:border-none">
             {/* Action Bar */}
             <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-200 print:hidden">
               <span className="font-bold text-sm text-slate-700">Preview Berkas Penanganan Siswa ATS</span>
@@ -788,21 +800,7 @@ export default function BKSiswaATS({ user }: { user?: any }) {
             </div>
 
             {/* Official Letterhead */}
-            <div className="text-center pb-4 border-b-2 border-black">
-              <div className="flex items-center justify-center gap-4">
-                <img src="https://iili.io/KDFk4fI.png" alt="Logo" className="w-16 h-16 object-contain shrink-0" referrerPolicy="no-referrer" />
-                <div>
-                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">PEMERINTAH KOTA PASURUAN</h3>
-                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">DINAS PENDIDIKAN DAN KEBUDAYAAN</h3>
-                  <h2 className="font-black text-lg sm:text-xl uppercase tracking-tight text-slate-900 leading-tight">
-                    UPT SMP NEGERI 7 PASURUAN
-                  </h2>
-                  <p className="text-[10px] text-slate-600">
-                    Jl. Ki Hajar Dewantara No. 27 Pasuruan, Jawa Timur • Telp: (0343) 424356 • NPSN: 20535451
-                  </p>
-                </div>
-              </div>
-            </div>
+            <BKKopSurat />
 
             {/* Document Title */}
             <div className="text-center my-6">

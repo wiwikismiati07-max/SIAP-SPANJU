@@ -48,7 +48,7 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
     konsekuensi: 'Surat pernyataan Siswa',
     catatan: '',
     wali_kelas: '',
-    guru_bk: 'Wiwik Ismiati S.pd',
+    guru_bk: 'WIWIK ISMIATI, S.Pd',
     status: 'Proses'
   };
 
@@ -76,7 +76,7 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
     'Konseling Individu', 'Konseling Kelompok', 'Panggilan Orang Tua', 
     'Mediasi', 'Home visit', 'Skorsing', 'Lain-lain'
   ];
-  const GURU_BK_OPTIONS = ['Wiwik Ismiati S.pd', 'Eki Febriani S.pd'];
+  const GURU_BK_OPTIONS = ['WIWIK ISMIATI, S.Pd', 'EKI FEBRIANI, S.Pd'];
 
   useEffect(() => {
     fetchInitialData();
@@ -326,7 +326,7 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
         'Konsekuensi': 'Surat pernyataan Siswa',
         'Catatan': 'Sudah diberikan pembinaan',
         'Wali Kelas': 'Nama Wali Kelas',
-        'Guru BK': 'Wiwik Ismiati S.pd',
+        'Guru BK': 'WIWIK ISMIATI, S.Pd',
         'Status': 'Selesai'
       }
     ]);
@@ -397,7 +397,7 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
                 konsekuensi: row['Konsekuensi'] || '',
                 catatan: row['Catatan'] || '',
                 wali_kelas: row['Wali Kelas'] || '',
-                guru_bk: row['Guru BK'] || 'Wiwik Ismiati S.pd',
+                guru_bk: row['Guru BK'] || 'WIWIK ISMIATI, S.Pd',
                 status: row['Status'] || 'Selesai'
               });
             }
@@ -463,7 +463,7 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
       konsekuensi: t.konsekuensi || 'Surat pernyataan Siswa',
       catatan: t.catatan || '',
       wali_kelas: t.wali_kelas || '',
-      guru_bk: t.guru_bk || 'Wiwik Ismiati S.pd',
+      guru_bk: t.guru_bk?.toLowerCase().includes('eki') ? 'EKI FEBRIANI, S.Pd' : (!t.guru_bk || t.guru_bk.toLowerCase().includes('administrator') || t.guru_bk.toLowerCase().includes('wiwik') ? 'WIWIK ISMIATI, S.Pd' : t.guru_bk),
       status: t.status || 'Proses'
     });
     setShowOtherKasus(isOtherKasus);
@@ -859,11 +859,14 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Guru BK / Penindak</label>
               <select 
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-pink-500 outline-none font-bold text-slate-800"
                 value={formData.guru_bk}
                 onChange={e => setFormData({...formData, guru_bk: e.target.value})}
               >
-                {GURU_BK_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                {GURU_BK_OPTIONS.map((o, idx) => <option key={o} value={o}>{idx + 1}. {o}</option>)}
+                {!GURU_BK_OPTIONS.includes(formData.guru_bk) && formData.guru_bk && !formData.guru_bk.toLowerCase().includes('administrator') && (
+                  <option value={formData.guru_bk}>{formData.guru_bk}</option>
+                )}
               </select>
             </div>
             <div>

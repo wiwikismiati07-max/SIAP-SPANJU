@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateCcw, Sparkles, MapPin, Calendar, Clock, Check, UserCheck, CheckSquare, Square } from 'lucide-react';
-import { sabdaService, KonselingKelompokBK } from '../../lib/sabdaBkService';
+import { sabdaService, KonselingKelompokBK, GURU_BK_OPTIONS, getDefaultGuruBK } from '../../lib/sabdaBkService';
 import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
+import BKKopSurat from './BKKopSurat';
 
 const CLASSES = [
   '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
@@ -34,7 +35,7 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
     dinamika_kelompok: '',
     kesepakatan: '',
     evaluasi: 'Anggota kelompok aktif memberikan masukan dan saling berkomitmen rukun.',
-    guru_bk: user?.nama_lengkap || 'Wiwik Ismiati, S.Pd'
+    guru_bk: getDefaultGuruBK(user)
   });
 
   useEffect(() => {
@@ -173,7 +174,7 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
       dinamika_kelompok: '',
       kesepakatan: '',
       evaluasi: 'Anggota kelompok aktif memberikan masukan dan saling berkomitmen rukun.',
-      guru_bk: user?.nama_lengkap || 'Wiwik Ismiati, S.Pd'
+      guru_bk: getDefaultGuruBK(user)
     });
   };
 
@@ -190,7 +191,7 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
       dinamika_kelompok: item.dinamika_kelompok,
       kesepakatan: item.kesepakatan,
       evaluasi: item.evaluasi,
-      guru_bk: item.guru_bk
+      guru_bk: item.guru_bk && !item.guru_bk.toLowerCase().includes('administrator') ? item.guru_bk : getDefaultGuruBK(user)
     });
     // Try to match student IDs based on names in anggota_siswa
     const names = (item.anggota_siswa || '').toLowerCase();
@@ -472,7 +473,7 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
             </div>
             <div>
               <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
-                EVALUASI HASIL & GURU PEMBIMBING
+                EVALUASI HASIL
               </label>
               <textarea
                 rows={2}
@@ -483,6 +484,24 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
                 required
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
+              GURU BK PEMBIMBING *
+            </label>
+            <select
+              value={formData.guru_bk}
+              onChange={e => setFormData({ ...formData, guru_bk: e.target.value })}
+              className="w-full sm:w-80 px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none font-bold text-slate-800 transition-all text-sm bg-white"
+            >
+              {GURU_BK_OPTIONS.map((nama, idx) => (
+                <option key={nama} value={nama}>{idx + 1}. {nama}</option>
+              ))}
+              {!GURU_BK_OPTIONS.includes(formData.guru_bk as any) && formData.guru_bk && !formData.guru_bk.toLowerCase().includes('administrator') && (
+                <option value={formData.guru_bk}>{formData.guru_bk}</option>
+              )}
+            </select>
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
@@ -602,17 +621,10 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
             {/* Kop Surat */}
-            <div className="text-center border-b-4 border-double border-slate-800 pb-4 mb-6">
-              <div className="flex items-center justify-center gap-4 mb-2">
-                <img src="https://iili.io/KDFk4fI.png" alt="Logo SMPN 7" className="w-16 h-16 object-contain" />
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">PEMERINTAH KOTA PASURUAN • DINAS PENDIDIKAN DAN KEBUDAYAAN</h4>
-                  <h2 className="text-lg font-black uppercase text-slate-900">UPT SMP NEGERI 7 PASURUAN</h2>
-                  <p className="text-[10px] text-slate-600 font-medium">Jl. Ki Hajar Dewantara No. 27, Pasuruan, Jawa Timur • Telp: (0343) 424355</p>
-                  <p className="text-[9px] font-bold text-purple-700 uppercase tracking-widest">LEMBAR LAPORAN LAYANAN KONSELING KELOMPOK (FORM F)</p>
-                </div>
-              </div>
-            </div>
+            <BKKopSurat
+              subtitle="LEMBAR LAPORAN LAYANAN KONSELING KELOMPOK (FORM F)"
+              subtitleClassName="text-purple-700"
+            />
 
             <div className="space-y-4 text-xs text-slate-800">
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">

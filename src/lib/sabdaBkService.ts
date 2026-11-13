@@ -1,5 +1,16 @@
 import { supabase } from './supabase';
 
+export const GURU_BK_OPTIONS = [
+  'WIWIK ISMIATI, S.Pd',
+  'EKI FEBRIANI, S.Pd'
+] as const;
+
+export const getDefaultGuruBK = (user?: any): string => {
+  const name = (user?.nama_lengkap || '').toString().trim().toUpperCase();
+  if (name.includes('EKI')) return GURU_BK_OPTIONS[1];
+  return GURU_BK_OPTIONS[0];
+};
+
 export interface AgendaKerjaBK {
   id: string;
   tanggal: string;

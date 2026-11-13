@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { User, Plus, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateCcw, Sparkles, BookOpen, Clock, Calendar } from 'lucide-react';
-import { sabdaService, KonselingIndividualBK } from '../../lib/sabdaBkService';
+import { sabdaService, KonselingIndividualBK, GURU_BK_OPTIONS, getDefaultGuruBK } from '../../lib/sabdaBkService';
 import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
+import BKKopSurat from './BKKopSurat';
 
 const CLASSES = [
   '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
@@ -32,7 +33,7 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
     pendekatan_teknik: 'Cognitive Behavioral Therapy / Restrukturisasi Kognitif',
     proses_konseling: '',
     rencana_tindak_lanjut: '',
-    guru_bk: user?.nama_lengkap || 'Wiwik Ismiati, S.Pd',
+    guru_bk: getDefaultGuruBK(user),
     status: 'Proses' as const
   });
 
@@ -157,7 +158,7 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
       pendekatan_teknik: 'Cognitive Behavioral Therapy / Restrukturisasi Kognitif',
       proses_konseling: '',
       rencana_tindak_lanjut: '',
-      guru_bk: user?.nama_lengkap || 'Wiwik Ismiati, S.Pd',
+      guru_bk: getDefaultGuruBK(user),
       status: 'Proses'
     });
   };
@@ -422,12 +423,18 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
               <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-1">
                 GURU BK PEMBIMBING
               </label>
-              <input 
-                type="text"
+              <select 
                 value={formData.guru_bk}
                 onChange={e => setFormData({ ...formData, guru_bk: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 text-sm bg-slate-50"
-              />
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 text-sm bg-white"
+              >
+                {GURU_BK_OPTIONS.map((nama, idx) => (
+                  <option key={nama} value={nama}>{idx + 1}. {nama}</option>
+                ))}
+                {!GURU_BK_OPTIONS.includes(formData.guru_bk as any) && formData.guru_bk && !formData.guru_bk.toLowerCase().includes('administrator') && (
+                  <option value={formData.guru_bk}>{formData.guru_bk}</option>
+                )}
+              </select>
             </div>
           </div>
 
@@ -558,17 +565,10 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
             {/* Kop Surat */}
-            <div className="text-center border-b-4 border-double border-slate-800 pb-4 mb-6">
-              <div className="flex items-center justify-center gap-4 mb-2">
-                <img src="https://iili.io/KDFk4fI.png" alt="Logo SMPN 7" className="w-16 h-16 object-contain" />
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">PEMERINTAH KOTA PASURUAN • DINAS PENDIDIKAN DAN KEBUDAYAAN</h4>
-                  <h2 className="text-lg font-black uppercase text-slate-900">UPT SMP NEGERI 7 PASURUAN</h2>
-                  <p className="text-[10px] text-slate-600 font-medium">Jl. Ki Hajar Dewantara No. 27, Pasuruan, Jawa Timur • Telp: (0343) 424355</p>
-                  <p className="text-[9px] font-bold text-sky-700 uppercase tracking-widest">LEMBAR REKAM LAYANAN KONSELING INDIVIDUAL (FORM E)</p>
-                </div>
-              </div>
-            </div>
+            <BKKopSurat
+              subtitle="LEMBAR REKAM LAYANAN KONSELING INDIVIDUAL (FORM E)"
+              subtitleClassName="text-sky-700"
+            />
 
             <div className="space-y-4 text-xs text-slate-800">
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
