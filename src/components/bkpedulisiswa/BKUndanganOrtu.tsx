@@ -3,7 +3,7 @@ import { Mail, Plus, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateC
 import { sabdaService, UndanganOrtuBK, GURU_BK_OPTIONS, getDefaultGuruBK } from '../../lib/sabdaBkService';
 import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { formatKelasDisplay } from './BKAgendaKerja';
-import BKKopSurat from './BKKopSurat';
+import BKKopSurat, { printBKReport } from './BKKopSurat';
 
 export default function BKUndanganOrtu({ user }: { user?: any }) {
   const [undangans, setUndangans] = useState<UndanganOrtuBK[]>([]);
@@ -520,7 +520,7 @@ export default function BKUndanganOrtu({ user }: { user?: any }) {
       {/* Official Printable Letter Modal */}
       {printItem && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
+          <div id="bk-print-area" className="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
             {/* Kop Surat */}
             <BKKopSurat
               subtitle="LAYANAN BIMBINGAN DAN KONSELING (SABDA BK SPANJU)"
@@ -603,7 +603,7 @@ export default function BKUndanganOrtu({ user }: { user?: any }) {
               </button>
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={() => printBKReport('bk-print-area', `Surat Undangan Orang Tua - ${printItem.nama_siswa}`)}
                 className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-black hover:bg-indigo-700 shadow-md shadow-indigo-200"
               >
                 <Printer size={16} />

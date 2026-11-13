@@ -298,7 +298,7 @@ export default function BKPeduliSiswaApp({ onBack, onOpenSidebar, user }: { onBa
 
 
   return (
-    <div className="flex flex-col h-full bg-slate-100 overflow-hidden font-sans">
+    <div className="flex flex-col h-full bg-slate-100 overflow-hidden font-sans print:h-auto print:overflow-visible print:bg-white">
       {/* Top Header Bar matching screenshot */}
       <header className="bg-[#0f172a] text-white border-b border-slate-800 shrink-0 z-20 shadow-md">
         <div className="px-4 py-3 sm:px-6 flex items-center justify-between">
@@ -377,7 +377,7 @@ export default function BKPeduliSiswaApp({ onBack, onOpenSidebar, user }: { onBa
       </header>
 
       {/* Main Workspace: Left Sidebar + Content View */}
-      <div className="flex flex-1 overflow-hidden relative">
+      <div className="flex flex-1 overflow-hidden relative print:overflow-visible print:block">
         {/* Left Sidebar Overlay on Mobile */}
         {isMobileSidebarOpen && (
           <div 
@@ -517,7 +517,7 @@ export default function BKPeduliSiswaApp({ onBack, onOpenSidebar, user }: { onBa
         </aside>
 
         {/* Right Content Area */}
-        <main className="flex-1 overflow-y-auto bg-slate-50 p-3 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto bg-slate-50 p-3 sm:p-6 lg:p-8 print:overflow-visible print:p-0 print:bg-white">
           <div className="max-w-7xl mx-auto">
             {activeTab === 'form_a' && <BKAgendaKerja user={user} />}
             {activeTab === 'form_b' && <BKUndanganOrtu user={user} />}

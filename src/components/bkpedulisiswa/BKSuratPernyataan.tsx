@@ -3,7 +3,7 @@ import { FileText, Plus, Save, Trash2, Edit2, Search, Printer, CheckCircle2, Rot
 import { sabdaService, SuratPernyataanBK, GURU_BK_OPTIONS, getDefaultGuruBK } from '../../lib/sabdaBkService';
 import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
 import { formatKelasDisplay } from './BKAgendaKerja';
-import BKKopSurat from './BKKopSurat';
+import BKKopSurat, { printBKReport } from './BKKopSurat';
 
 const CLASSES = ['7A','7B','7C','7D','7E','7F','7G','7H','8A','8B','8C','8D','8E','8F','8G','8H','9A','9B','9C','9D','9E','9F','9G','9H'];
 
@@ -718,13 +718,13 @@ export default function BKSuratPernyataan({ user }: { user?: any }) {
       {/* Printable Modal Official Surat Pernyataan */}
       {printItem && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-8 shadow-2xl border border-slate-200 relative my-8 text-slate-900 print:m-0 print:p-0 print:shadow-none print:border-none">
+          <div id="bk-print-area" className="bg-white rounded-2xl max-w-3xl w-full p-8 shadow-2xl border border-slate-200 relative my-8 text-slate-900 print:m-0 print:p-0 print:shadow-none print:border-none">
             {/* Action Bar */}
             <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-200 print:hidden">
               <span className="font-bold text-sm text-slate-700">Preview Cetak Surat Pernyataan Resmi</span>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => printBKReport('bk-print-area', `Surat Pernyataan - ${printItem.nama_siswa}`)}
                   className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md shadow-blue-200"
                 >
                   <Printer size={15} /> Cetak Dokumen

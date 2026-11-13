@@ -621,7 +621,7 @@ export default function App() {
           </div>
         )}
         {activeSection === 'sabda_bk' && (
-          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50 print:static print:overflow-visible print:h-auto print:rounded-none print:shadow-none print:border-none print:bg-white">
             <BKPeduliSiswaApp 
               onBack={() => setActiveSection('menu_aplikasi')} 
               onOpenSidebar={() => setIsSidebarOpen(true)}

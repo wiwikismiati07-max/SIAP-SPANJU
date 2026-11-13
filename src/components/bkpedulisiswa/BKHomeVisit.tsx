@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Home, Plus, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateCcw, MapPin, Users, Calendar, Clock, FileText } from 'lucide-react';
 import { sabdaService, HomeVisitBK, GURU_BK_OPTIONS, getDefaultGuruBK } from '../../lib/sabdaBkService';
 import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
-import BKKopSurat from './BKKopSurat';
+import BKKopSurat, { printBKReport } from './BKKopSurat';
 
 const CLASSES = [
   '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
@@ -533,7 +533,7 @@ export default function BKHomeVisit({ user }: { user?: any }) {
       {/* Print Modal for Home Visit */}
       {printItem && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
+          <div id="bk-print-area" className="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
             {/* Kop Surat */}
             <BKKopSurat
               subtitle="LAPORAN PELAKSANAAN HOME VISIT / KUNJUNGAN RUMAH"
@@ -599,7 +599,7 @@ export default function BKHomeVisit({ user }: { user?: any }) {
               </button>
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={() => printBKReport('bk-print-area', `Berita Acara Home Visit - ${printItem.nama_siswa}`)}
                 className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-amber-600 text-white text-xs font-black hover:bg-amber-700 shadow-md shadow-amber-200"
               >
                 <Printer size={16} />

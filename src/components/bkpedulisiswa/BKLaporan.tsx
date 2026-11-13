@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { TransaksiKasus } from '../../types/bkpedulisiswa';
 import TahunAjaranModal from '../common/TahunAjaranModal';
-import BKKopSurat from './BKKopSurat';
+import BKKopSurat, { printBKReport } from './BKKopSurat';
 
 export default function BKLaporan({ user }: { user?: any } = {}) {
   const [loading, setLoading] = useState(true);
@@ -553,7 +553,7 @@ export default function BKLaporan({ user }: { user?: any } = {}) {
       {/* Printable Report Modal with Official Kop Surat */}
       {isPrintModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-4xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
+          <div id="bk-print-area" className="bg-white rounded-3xl max-w-4xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
             <BKKopSurat
               subtitle={reportType === 'kasus' ? 'LAPORAN REKAPITULASI KASUS SISWA' : 'LAPORAN TINDAK LANJUT PENANGANAN KASUS'}
               subtitleClassName="text-slate-900"
@@ -649,7 +649,7 @@ export default function BKLaporan({ user }: { user?: any } = {}) {
               </button>
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={() => printBKReport('bk-print-area', 'Laporan Rekapitulasi BK Peduli Siswa - UPT SMPN 7 Pasuruan')}
                 className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black hover:bg-slate-800 shadow-md"
               >
                 <Printer size={16} />

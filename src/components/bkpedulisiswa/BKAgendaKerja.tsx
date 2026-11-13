@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import BKKopSurat from './BKKopSurat';
+import BKKopSurat, { printBKReport } from './BKKopSurat';
 import { 
   Calendar, 
   Save, 
@@ -986,7 +986,7 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
       {/* Print Preview Modal */}
       {isPrintModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-4xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
+          <div id="bk-print-area" className="bg-white rounded-3xl max-w-4xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
             {/* Kop Surat */}
             <BKKopSurat
               subtitle="LAPORAN AGENDA KERJA HARIAN BIMBINGAN DAN KONSELING (BK)"
@@ -1070,7 +1070,7 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
               </button>
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={() => printBKReport('bk-print-area', 'Agenda Kerja Harian BK - UPT SMPN 7 Pasuruan')}
                 className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs shadow-md shadow-blue-200"
               >
                 <Printer size={16} />
