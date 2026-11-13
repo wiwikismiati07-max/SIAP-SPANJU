@@ -154,7 +154,7 @@ const INITIAL_AGENDA: AgendaKerjaBK[] = [
     uraian_kegiatan: 'Pelaksanaan orientasi pemahaman diri dan penyesuaian lingkungan belajar SMPN 7 Pasuruan.',
     hasil: 'Siswa aktif bertanya mengenai tata tertib dan manajemen waktu belajar.',
     guru_bk: 'Wiwik Ismiati, S.Pd',
-    created_at: new Date().toISOString()
+    created_at: '2026-11-11T08:00:00.000Z'
   },
   {
     id: 'ag-2',
@@ -163,7 +163,7 @@ const INITIAL_AGENDA: AgendaKerjaBK[] = [
     uraian_kegiatan: 'Bimbingan klasikal tentang pencegahan perundungan (Anti-Bullying) dan penguatan karakter Ramah Anak.',
     hasil: 'Terbentuk deklarasi kelas bebas bullying dan saling menghormati.',
     guru_bk: 'Wiwik Ismiati, S.Pd',
-    created_at: new Date().toISOString()
+    created_at: '2026-11-10T08:00:00.000Z'
   },
   {
     id: 'ag-3',
@@ -172,7 +172,7 @@ const INITIAL_AGENDA: AgendaKerjaBK[] = [
     uraian_kegiatan: 'Layanan informasi karir dan persiapan studi lanjut ke jenjang SMA/SMK.',
     hasil: 'Siswa mulai memetakan minat jurusan dan bakat vokasi.',
     guru_bk: 'Wiwik Ismiati, S.Pd',
-    created_at: new Date().toISOString()
+    created_at: '2026-11-09T08:00:00.000Z'
   }
 ];
 
@@ -190,7 +190,7 @@ const INITIAL_UNDANGAN: UndanganOrtuBK[] = [
     perihal: 'Konsultasi Perkembangan Belajar & Kedisiplinan Siswa',
     status: 'Menunggu',
     hasil_pertemuan: '',
-    created_at: new Date().toISOString()
+    created_at: '2026-11-11T07:30:00.000Z'
   }
 ];
 
@@ -206,7 +206,7 @@ const INITIAL_HOME_VISIT: HomeVisitBK[] = [
     anggota_keluarga: 'Ibu Kandung (Ibu Siti Rahma)',
     tujuan: 'Konfirmasi ketidakhadiran siswa selama 3 hari berturut-turut tanpa keterangan.',
     hasil: 'Siswa mengalami demam tinggi dan orang tua belum sempat mengirimkan surat izin. Disepakati siswa istirahat hingga pulih.',
-    created_at: new Date().toISOString()
+    created_at: '2026-11-08T14:00:00.000Z'
   }
 ];
 
@@ -224,7 +224,7 @@ const INITIAL_INDIVIDUAL: KonselingIndividualBK[] = [
     rencana_tindak_lanjut: 'Latihan manajemen stres belajar dan evaluasi berkala minggu depan.',
     guru_bk: 'Wiwik Ismiati, S.Pd',
     status: 'Proses',
-    created_at: new Date().toISOString()
+    created_at: '2026-11-10T09:15:00.000Z'
   }
 ];
 
@@ -242,7 +242,7 @@ const INITIAL_KELOMPOK: KonselingKelompokBK[] = [
     kesepakatan: 'Menjaga kerukunan kelas dan saling mendukung dalam belajar kelompok.',
     evaluasi: 'Hubungan pertemanan kembali harmonis.',
     guru_bk: 'Wiwik Ismiati, S.Pd',
-    created_at: new Date().toISOString()
+    created_at: '2026-11-07T10:30:00.000Z'
   }
 ];
 
@@ -265,7 +265,7 @@ const INITIAL_PERNYATAAN: SuratPernyataanBK[] = [
     wali_kelas: 'Dewi Mahindrawati, S.Pd.',
     kepala_sekolah: 'Drs. Edy Suprayitno, M.M.',
     status: 'Aktif',
-    created_at: new Date().toISOString()
+    created_at: '2026-11-10T08:30:00.000Z'
   }
 ];
 
@@ -288,7 +288,7 @@ const INITIAL_KONFERENSI: KonferensiKasusBK[] = [
     pimpinan_sidang: 'Drs. Edy Suprayitno, M.M.',
     notulis: 'Wiwik Ismiati, S.Pd',
     status: 'Dalam Pemantauan',
-    created_at: new Date().toISOString()
+    created_at: '2026-11-09T10:00:00.000Z'
   }
 ];
 
@@ -310,7 +310,7 @@ const INITIAL_ATS: SiswaATSBK[] = [
     status_penanganan: 'Pendampingan',
     catatan_hasil: 'Orang tua menyepakati siswa dapat kembali masuk sekolah setelah jadwal bantu orang tua disesuaikan ke sore hari.',
     petugas_pendamping: 'Wiwik Ismiati, S.Pd & Tim Satgas ATS',
-    created_at: new Date().toISOString()
+    created_at: '2026-11-05T08:00:00.000Z'
   }
 ];
 
@@ -324,6 +324,7 @@ export const SABDA_BK_SQL_SCHEMA = `-- =========================================
 CREATE TABLE IF NOT EXISTS public.bk_agenda_kerja (
     id TEXT PRIMARY KEY,
     tanggal DATE NOT NULL,
+    waktu TEXT,
     sasaran TEXT NOT NULL,
     uraian_kegiatan TEXT NOT NULL,
     hasil TEXT DEFAULT 'Terlaksana',
@@ -583,66 +584,273 @@ export const checkSabdaTablesStatus = async (): Promise<{
   return { tables: results, allExist, checkedCount: tableNames.length };
 };
 
-// Generic helper to get data with Supabase priority and localStorage fallback
-export const getSabdaData = async <T>(tableName: string, storageKey: string, initialData: T[]): Promise<T[]> => {
-  let supabaseData: T[] | null = null;
+const SABDA_SYNC_BUCKET = 'bukti_fisik';
+const SABDA_SYNC_PREFIX = 'sabda_bk_sync';
+
+interface CloudSnapshot<T> {
+  records: T[];
+  deletedIds: string[];
+  updatedAt?: string;
+}
+
+const getDeletedStorageKey = (storageKey: string) => `${storageKey}_deleted`;
+
+const readLocalDeletedIds = (storageKey: string): string[] => {
   try {
-    if (supabase) {
-      const { data, error } = await supabase.from(tableName).select('*').order('created_at', { ascending: false });
-      if (!error && data) {
-        supabaseData = data as T[];
-      }
+    const raw = localStorage.getItem(getDeletedStorageKey(storageKey));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeLocalDeletedIds = (storageKey: string, ids: string[]) => {
+  try {
+    localStorage.setItem(getDeletedStorageKey(storageKey), JSON.stringify(Array.from(new Set(ids.map(String)))));
+  } catch {}
+};
+
+const emitSabdaUpdated = (tableName: string) => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sabda-bk-updated', { detail: { tableName } }));
+  }
+};
+
+const sortRecordsDesc = <T>(list: T[]): T[] => {
+  return [...list].sort((a: any, b: any) => {
+    const dateA = (a.tanggal || a.tanggal_hadir || a.tanggal_identifikasi || '').toString();
+    const dateB = (b.tanggal || b.tanggal_hadir || b.tanggal_identifikasi || '').toString();
+    if (dateA && dateB && dateA !== dateB) {
+      return dateB.localeCompare(dateA);
+    }
+    const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return timeB - timeA;
+  });
+};
+
+const readCloudSnapshot = async <T>(tableName: string): Promise<CloudSnapshot<T> | null> => {
+  if (!supabase) return null;
+  try {
+    const path = `${SABDA_SYNC_PREFIX}/${tableName}.json`;
+    const { data: pubData } = supabase.storage.from(SABDA_SYNC_BUCKET).getPublicUrl(path);
+    if (!pubData?.publicUrl) return null;
+
+    const resp = await fetch(`${pubData.publicUrl}?t=${Date.now()}`, { cache: 'no-store' });
+    if (!resp.ok) return null;
+
+    const json = await resp.json();
+    if (json && Array.isArray(json.records)) {
+      return {
+        records: json.records as T[],
+        deletedIds: Array.isArray(json.deletedIds) ? json.deletedIds.map(String) : [],
+        updatedAt: json.updatedAt
+      };
     }
   } catch (e) {
-    console.warn(`[SABDA BK] Notice reading ${tableName} from Supabase:`, e);
+    console.warn(`[SABDA BK] Notice reading cloud snapshot for ${tableName}:`, e);
+  }
+  return null;
+};
+
+const writeCloudSnapshot = async <T>(tableName: string, records: T[], deletedIds: string[]): Promise<boolean> => {
+  if (!supabase) return false;
+  try {
+    const path = `${SABDA_SYNC_PREFIX}/${tableName}.json`;
+    const payload: CloudSnapshot<T> = {
+      records,
+      deletedIds: Array.from(new Set(deletedIds.map(String))),
+      updatedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    const { error } = await supabase.storage.from(SABDA_SYNC_BUCKET).upload(path, blob, {
+      upsert: true,
+      contentType: 'application/json',
+      cacheControl: '0'
+    });
+    if (!error) return true;
+    console.warn(`[SABDA BK] Notice writing cloud snapshot for ${tableName}:`, error.message);
+  } catch (e) {
+    console.warn(`[SABDA BK] Exception writing cloud snapshot for ${tableName}:`, e);
+  }
+  return false;
+};
+
+const upsertSqlRecord = async <T extends Record<string, any>>(tableName: string, record: T): Promise<boolean> => {
+  if (!supabase) return false;
+  let payload: Record<string, any> = { ...record };
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const { error } = await supabase.from(tableName).upsert([payload]);
+      if (!error) return true;
+
+      // If a column doesn't exist yet in Supabase SQL schema (PGRST204), strip it and retry
+      const msg = error.message || '';
+      const colMatch = msg.match(/Could not find the '([^']+)' column/i);
+      if (colMatch && colMatch[1] && colMatch[1] in payload) {
+        const missingCol = colMatch[1];
+        const nextPayload = { ...payload };
+        delete nextPayload[missingCol];
+        payload = nextPayload;
+        continue;
+      }
+
+      return false;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+};
+
+const isRecordDifferent = (a: any, b: any): boolean => {
+  if (!a || !b) return true;
+  const norm = (obj: any) => {
+    const copy: Record<string, any> = {};
+    Object.keys(obj).sort().forEach(k => {
+      if (k !== 'created_at' && obj[k] !== undefined && obj[k] !== null && obj[k] !== '') {
+        copy[k] = obj[k];
+      }
+    });
+    return JSON.stringify(copy);
+  };
+  return norm(a) !== norm(b);
+};
+
+// Generic helper to get data with Supabase SQL + Cloud Storage Sync + localStorage merge
+export const getSabdaData = async <T>(tableName: string, storageKey: string, initialData: T[]): Promise<T[]> => {
+  let sqlData: T[] | null = null;
+  let cloudSnapshot: CloudSnapshot<T> | null = null;
+
+  try {
+    const [sqlResult, snapshotResult] = await Promise.all([
+      (async () => {
+        if (!supabase) return null;
+        try {
+          const { data, error } = await supabase.from(tableName).select('*').order('created_at', { ascending: false });
+          if (!error && data) return data as T[];
+        } catch (e) {
+          console.warn(`[SABDA BK] Notice reading ${tableName} from Supabase:`, e);
+        }
+        return null;
+      })(),
+      readCloudSnapshot<T>(tableName)
+    ]);
+    sqlData = sqlResult;
+    cloudSnapshot = snapshotResult;
+  } catch (e) {
+    console.warn(`[SABDA BK] Error fetching cloud data for ${tableName}:`, e);
   }
 
   let localData: T[] = [];
   try {
     const cached = localStorage.getItem(storageKey);
     if (cached) {
-      localData = JSON.parse(cached);
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed)) localData = parsed;
     }
   } catch {}
 
-  // Merge Initial data, Local data, and Supabase data uniquely by id
-  const map = new Map<string, T>();
-  
-  // 1. Add initial sample data first
+  const localDeletedIds = readLocalDeletedIds(storageKey);
+  const cloudDeletedIds = cloudSnapshot?.deletedIds || [];
+  const allDeletedSet = new Set<string>([...cloudDeletedIds, ...localDeletedIds]);
+
+  const initialMap = new Map<string, T>();
   initialData.forEach(item => {
+    if (item && (item as any).id) initialMap.set(String((item as any).id), item);
+  });
+
+  const cloudMap = new Map<string, T>();
+  (cloudSnapshot?.records || []).forEach(item => {
     if (item && (item as any).id) {
-      map.set(String((item as any).id), item);
+      const id = String((item as any).id);
+      if (!allDeletedSet.has(id)) cloudMap.set(id, item);
+    }
+  });
+  (sqlData || []).forEach(item => {
+    if (item && (item as any).id) {
+      const id = String((item as any).id);
+      if (!allDeletedSet.has(id)) cloudMap.set(id, item);
     }
   });
 
-  // 2. Add local data (user saved/edited items take precedence over initial)
-  localData.forEach(item => {
-    if (item && (item as any).id) {
-      map.set(String((item as any).id), item);
+  const mergedMap = new Map<string, T>();
+
+  // 1. Base initial sample items (unless deleted)
+  initialData.forEach(item => {
+    const id = String((item as any)?.id || '');
+    if (id && !allDeletedSet.has(id)) {
+      mergedMap.set(id, item);
     }
   });
 
-  // 3. Add Supabase data (cloud data takes highest precedence)
-  if (supabaseData) {
-    supabaseData.forEach(item => {
-      if (item && (item as any).id) {
-        map.set(String((item as any).id), item);
-      }
-    });
+  // 2. Cloud snapshot + SQL records
+  cloudMap.forEach((item, id) => {
+    if (!allDeletedSet.has(id)) {
+      mergedMap.set(id, item);
+    }
+  });
+
+  // 3. Merge unsynced local records (e.g., created in AI Studio before cloud sync) and push to cloud
+  let needsCloudPush = false;
+  const unsyncedLocalRecords: T[] = [];
+
+  if (localDeletedIds.some(id => !cloudDeletedIds.includes(id))) {
+    needsCloudPush = true;
   }
 
-  const merged = Array.from(map.values());
-  merged.sort((a: any, b: any) => {
-    const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-    const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-    return timeB - timeA;
+  localData.forEach(localItem => {
+    const id = String((localItem as any)?.id || '');
+    if (!id || allDeletedSet.has(id)) return;
+
+    const cloudItem = cloudMap.get(id);
+    const initialItem = initialMap.get(id);
+
+    if (!cloudItem) {
+      const isUntouchedSample = initialItem && !isRecordDifferent(localItem, initialItem);
+      if (!isUntouchedSample) {
+        mergedMap.set(id, localItem);
+        unsyncedLocalRecords.push(localItem);
+        needsCloudPush = true;
+      }
+    } else {
+      const localTime = (localItem as any).created_at ? new Date((localItem as any).created_at).getTime() : 0;
+      const cloudTime = (cloudItem as any).created_at ? new Date((cloudItem as any).created_at).getTime() : 0;
+      if (localTime > cloudTime && isRecordDifferent(localItem, cloudItem)) {
+        mergedMap.set(id, localItem);
+        unsyncedLocalRecords.push(localItem);
+        needsCloudPush = true;
+      }
+    }
   });
 
-  localStorage.setItem(storageKey, JSON.stringify(merged));
+  const merged = sortRecordsDesc(Array.from(mergedMap.values()));
+
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(merged));
+    writeLocalDeletedIds(storageKey, Array.from(allDeletedSet));
+  } catch {}
+
+  // Push any unsynced local records or deletions to Cloud automatically
+  if (needsCloudPush && supabase) {
+    const snapshotRecords = merged.filter(item => {
+      const id = String((item as any)?.id || '');
+      const initialItem = initialMap.get(id);
+      return !initialItem || isRecordDifferent(item, initialItem);
+    });
+    writeCloudSnapshot(tableName, snapshotRecords, Array.from(allDeletedSet)).catch(() => {});
+
+    if (sqlData !== null && unsyncedLocalRecords.length > 0) {
+      Promise.all(unsyncedLocalRecords.map(rec => upsertSqlRecord(tableName, rec as any))).catch(() => {});
+    }
+  }
+
   return merged;
 };
 
-// Generic helper to save record with Supabase sync
+// Generic helper to save record with Supabase SQL + Cloud Storage sync
 export const saveSabdaRecord = async <T extends { id: string }>(
   tableName: string,
   storageKey: string,
@@ -652,9 +860,13 @@ export const saveSabdaRecord = async <T extends { id: string }>(
   try {
     const raw = localStorage.getItem(storageKey);
     existing = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(existing)) existing = [];
   } catch {
     existing = [];
   }
+
+  const deletedIds = readLocalDeletedIds(storageKey).filter(id => id !== String(record.id));
+  writeLocalDeletedIds(storageKey, deletedIds);
 
   const index = existing.findIndex(item => String(item.id) === String(record.id));
   let updatedList: T[] = [];
@@ -664,31 +876,57 @@ export const saveSabdaRecord = async <T extends { id: string }>(
   } else {
     updatedList = [record, ...existing];
   }
+  updatedList = sortRecordsDesc(updatedList);
   localStorage.setItem(storageKey, JSON.stringify(updatedList));
 
-  let isSavedToSupabase = false;
+  let sqlOk = false;
+  let storageOk = false;
   let supabaseError = null;
 
-  // Sync to Supabase
+  // 1. Sync to Supabase SQL table (if it exists)
   try {
-    if (supabase) {
-      const { error } = await supabase.from(tableName).upsert([record]);
-      if (!error) {
-        isSavedToSupabase = true;
-      } else {
-        supabaseError = error;
-        console.warn(`[SABDA BK] Upsert pada tabel "${tableName}" Supabase: ${error.message} (Data tetap aman tersimpan di cache lokal).`);
-      }
-    }
+    sqlOk = await upsertSqlRecord(tableName, record as any);
   } catch (e: any) {
     supabaseError = e;
-    console.warn(`[SABDA BK] Exception saat upsert ke Supabase (${tableName}):`, e);
   }
 
-  // Attach status metadata safely to array
-  (updatedList as any).isSavedToSupabase = isSavedToSupabase;
-  (updatedList as any).supabaseError = supabaseError;
+  // 2. Sync to Supabase Storage Cloud Snapshot (always works across AI Studio & Vercel)
+  try {
+    const currentCloud = await readCloudSnapshot<T>(tableName);
+    const cloudMap = new Map<string, T>();
+    (currentCloud?.records || []).forEach(item => {
+      if (item && (item as any).id) cloudMap.set(String((item as any).id), item);
+    });
+    // Include any non-sample local records too so nothing is lost
+    updatedList.forEach(item => {
+      if (item && (item as any).id) cloudMap.set(String((item as any).id), item);
+    });
+    cloudMap.set(String(record.id), record);
 
+    const mergedDeleted = Array.from(new Set([...(currentCloud?.deletedIds || []), ...deletedIds])).filter(
+      id => id !== String(record.id)
+    );
+    const snapshotRecords = sortRecordsDesc(Array.from(cloudMap.values()).filter(item => !mergedDeleted.includes(String((item as any).id))));
+
+    storageOk = await writeCloudSnapshot(tableName, snapshotRecords, mergedDeleted);
+    if (storageOk) {
+      // Keep local list synchronized with cloud merge as well
+      const localMap = new Map<string, T>();
+      updatedList.forEach(item => localMap.set(String(item.id), item));
+      snapshotRecords.forEach(item => localMap.set(String(item.id), item));
+      updatedList = sortRecordsDesc(Array.from(localMap.values()).filter(item => !mergedDeleted.includes(String(item.id))));
+      localStorage.setItem(storageKey, JSON.stringify(updatedList));
+      writeLocalDeletedIds(storageKey, mergedDeleted);
+    }
+  } catch (e: any) {
+    supabaseError = supabaseError || e;
+  }
+
+  const isSavedToSupabase = sqlOk || storageOk;
+  (updatedList as any).isSavedToSupabase = isSavedToSupabase;
+  (updatedList as any).supabaseError = isSavedToSupabase ? null : supabaseError;
+
+  emitSabdaUpdated(tableName);
   return updatedList;
 };
 
@@ -702,12 +940,16 @@ export const deleteSabdaRecord = async <T extends { id: string }>(
   try {
     const raw = localStorage.getItem(storageKey);
     existing = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(existing)) existing = [];
   } catch {
     existing = [];
   }
 
   const updatedList = existing.filter(item => String(item.id) !== String(id));
   localStorage.setItem(storageKey, JSON.stringify(updatedList));
+
+  const updatedDeletedIds = Array.from(new Set([...readLocalDeletedIds(storageKey), String(id)]));
+  writeLocalDeletedIds(storageKey, updatedDeletedIds);
 
   try {
     if (supabase) {
@@ -717,6 +959,18 @@ export const deleteSabdaRecord = async <T extends { id: string }>(
     console.warn(`[SABDA BK] Supabase delete for ${tableName} skipped:`, e);
   }
 
+  try {
+    const currentCloud = await readCloudSnapshot<T>(tableName);
+    const mergedDeleted = Array.from(new Set([...(currentCloud?.deletedIds || []), ...updatedDeletedIds]));
+    const updatedCloudRecords = (currentCloud?.records || updatedList).filter(
+      item => !mergedDeleted.includes(String((item as any).id))
+    );
+    await writeCloudSnapshot(tableName, updatedCloudRecords, mergedDeleted);
+  } catch (e) {
+    console.warn(`[SABDA BK] Cloud snapshot delete for ${tableName} skipped:`, e);
+  }
+
+  emitSabdaUpdated(tableName);
   return updatedList;
 };
 

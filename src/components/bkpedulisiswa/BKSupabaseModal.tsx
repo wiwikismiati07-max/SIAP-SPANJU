@@ -108,6 +108,17 @@ export default function BKSupabaseModal({ isOpen, onClose }: Props) {
             </button>
           </div>
 
+          {/* Automatic Cloud Storage Sync Notice */}
+          <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-2.5 text-xs text-emerald-900">
+            <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <div className="font-extrabold">Sinkronisasi Cloud Otomatis Aktif (AI Studio & Vercel)</div>
+              <p className="text-[11px] text-emerald-800 mt-0.5 leading-relaxed">
+                Seluruh data Form A–I otomatis disinkronkan ke Cloud Storage Supabase (<code className="font-mono bg-emerald-100 px-1 rounded">bukti_fisik/sabda_bk_sync</code>), sehingga data di tampilan AI Studio dan Vercel tetap sama meskipun tabel SQL di bawah belum dibuat.
+              </p>
+            </div>
+          </div>
+
           {/* Table Status List */}
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -115,9 +126,9 @@ export default function BKSupabaseModal({ isOpen, onClose }: Props) {
                 Status 9 Tabel Layanan BK di Supabase:
               </h4>
               <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
-                allExist ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                allExist ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
               }`}>
-                {allExist ? 'Semua Tabel Siap' : 'Perlu Eksekusi SQL'}
+                {allExist ? 'Semua Tabel SQL Siap' : 'Sync Cloud Aktif (SQL Opsional)'}
               </span>
             </div>
 

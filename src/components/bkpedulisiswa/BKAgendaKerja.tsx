@@ -65,6 +65,7 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
 
   const [formData, setFormData] = useState({
     tanggal: defaultDate,
+    waktu: '07.15-07.55 WIB',
     sasaran: 'Siswa Kelas 7-A',
     sasaranCustom: 'Siswa Kelas 7-A',
     uraian_kegiatan: '',

@@ -37,7 +37,7 @@ import BKLaporan from './BKLaporan';
 import BKMasterKasus from './BKMasterKasus';
 import BKSupabaseModal from './BKSupabaseModal';
 import { sabdaService } from '../../lib/sabdaBkService';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa } from '../../lib/supabase';
 
 type TabKey = 
   | 'form_a' 
@@ -123,14 +123,15 @@ export default function BKPeduliSiswaApp({ onBack, onOpenSidebar, user }: { onBa
           }
         }
 
-        let siswaCount = 8;
+        let siswaCount = 768;
         try {
-          const { count } = await supabase.from('master_siswa').select('*', { count: 'exact', head: true }).neq('periode', '2025');
-          if (typeof count === 'number' && count > 0) {
-            siswaCount = count;
+          const allSiswa = await fetchAllSiswa();
+          if (allSiswa && allSiswa.length > 0) {
+            const count2026 = allSiswa.filter((s: any) => (s.periode || '2026').toString().trim() === '2026').length;
+            siswaCount = count2026 || allSiswa.length;
           }
         } catch {
-          const localS = localStorage.getItem('master_siswa');
+          const localS = localStorage.getItem('sitelat_siswa') || localStorage.getItem('master_siswa');
           if (localS) {
             siswaCount = JSON.parse(localS).length;
           }
@@ -154,6 +155,13 @@ export default function BKPeduliSiswaApp({ onBack, onOpenSidebar, user }: { onBa
     }
 
     fetchCounts();
+    const handleSabdaUpdated = () => {
+      fetchCounts();
+    };
+    window.addEventListener('sabda-bk-updated', handleSabdaUpdated);
+    return () => {
+      window.removeEventListener('sabda-bk-updated', handleSabdaUpdated);
+    };
   }, [activeTab]);
 
   const allMenuItems: MenuItem[] = [
