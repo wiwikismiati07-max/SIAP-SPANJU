@@ -4,7 +4,7 @@ import {
   PlusSquare, MinusSquare, ChevronDown, RefreshCw, AlertCircle, CheckCircle2,
   Sparkles
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -110,9 +110,9 @@ const KeagamaanDashboard: React.FC = () => {
           return { offline: true };
         }
 
-        // 1. Fetch Students, Programs, and Absensi in parallel
-        const [siswaRes, programRes, absensiRes] = await Promise.allSettled([
-          supabase.from('master_siswa').select('id, nama, kelas, periode'),
+        // 1. Fetch Students (paginated), Programs, and Absensi in parallel
+        const [allSiswaRaw, programRes, absensiRes] = await Promise.all([
+          fetchAllSiswa(),
           supabase.from('agama_program').select('id, nama_kegiatan'),
           supabase.from('agama_absensi')
             .select('id, siswa_id, tanggal, jam, kegiatan_id, alasan')
@@ -120,9 +120,9 @@ const KeagamaanDashboard: React.FC = () => {
             .lte('tanggal', endDate)
         ]);
 
-        const allSiswa: any[] = siswaRes.status === 'fulfilled' && siswaRes.value.data ? siswaRes.value.data : [];
-        const allPrograms: any[] = programRes.status === 'fulfilled' && programRes.value.data ? programRes.value.data : [];
-        const allAbsensi: any[] = absensiRes.status === 'fulfilled' && absensiRes.value.data ? absensiRes.value.data : [];
+        const allSiswa: any[] = (allSiswaRaw || []).filter((s: any) => !String(s.id || '').startsWith('pad-'));
+        const allPrograms: any[] = programRes.data ? programRes.data : [];
+        const allAbsensi: any[] = absensiRes.data ? absensiRes.data : [];
 
         // Build lookup maps for fast in-memory joins (immune to PostgREST relationship issues)
         const siswaMap = new Map<string, any>();

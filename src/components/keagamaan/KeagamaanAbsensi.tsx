@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, User, Users, Activity, Save, X, Edit2, Trash2, Search, Upload, Download, Check, Plus, UserCheck, AlertCircle, UserPlus } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, filterLatestStudents, normalizeKelasKey } from '../../lib/supabase';
 import { AgamaAbsensi, AgamaProgram } from '../../types/keagamaan';
 import { fetchGuruList, addMasterGuru, deduplicateGuruList, isExcludedGuru } from '../../lib/jurnalService';
 import { format } from 'date-fns';
@@ -89,7 +89,8 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
         .from('master_siswa')
         .select('*')
         .range(start, end)
-        .order('nama', { ascending: true });
+        .order('nama', { ascending: true })
+        .setHeader('x-raw-master-siswa', 'true');
 
       if (error || !data || data.length === 0) {
         keepGoing = false;
@@ -99,10 +100,14 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
           keepGoing = false;
         } else {
           page++;
+          if (page > 20) keepGoing = false;
         }
       }
     }
-    return allData;
+
+    return filterLatestStudents(allData).filter(
+      (s: any) => !String(s.id || '').startsWith('pad-')
+    );
   };
 
   const fetchInitialData = async () => {
@@ -174,12 +179,13 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
     }
 
     const loadClassStudents = async () => {
-      // 1. Filter students from master_siswa
+      // 1. Filter students from master_siswa (normalized class & periode)
+      const targetKelas = normalizeKelasKey(formData.kelas);
       const matched = students.filter(s => {
-        const sPeriode = s.periode || '2026';
+        const sPeriode = String(s.periode || '2026').replace(/^Periode\s*/i, '').trim() || '2026';
         const matchPeriode = filterPeriode === 'ALL' ? true : sPeriode === filterPeriode;
-        return s.kelas === formData.kelas && matchPeriode;
-      }).sort((a, b) => a.nama.localeCompare(b.nama));
+        return normalizeKelasKey(s.kelas || '') === targetKelas && matchPeriode;
+      }).sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
 
       // 2. Check existing records in agama_absensi for this class on this date & program
       let existingAbsensiMap: Record<string, any> = {};

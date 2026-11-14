@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import { Calendar, Search, Download, FileText, Filter, ChevronRight, ChevronDown } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { AgamaAbsensi } from '../../types/keagamaan';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import ExcelJS from 'exceljs';
@@ -76,16 +76,16 @@ const KeagamaanLaporan: React.FC = () => {
     try {
       setLoading(true);
 
-      // Fetch distinct periodes & students & programs & teachers in parallel
-      const [siswaRes, progRes, guruRes] = await Promise.allSettled([
-        supabase.from('master_siswa').select('id, nama, kelas, periode'),
+      // Fetch distinct periodes & students (paginated) & programs & teachers in parallel
+      const [allSiswaRaw, progRes, guruRes] = await Promise.all([
+        fetchAllSiswa(),
         supabase.from('agama_program').select('id, nama_kegiatan'),
         supabase.from('master_guru').select('id, nama_guru')
       ]);
 
-      const allSiswa: any[] = siswaRes.status === 'fulfilled' && siswaRes.value.data ? siswaRes.value.data : [];
-      const allPrograms: any[] = progRes.status === 'fulfilled' && progRes.value.data ? progRes.value.data : [];
-      const allGuru: any[] = guruRes.status === 'fulfilled' && guruRes.value.data ? guruRes.value.data : [];
+      const allSiswa: any[] = (allSiswaRaw || []).filter((s: any) => !String(s.id || '').startsWith('pad-'));
+      const allPrograms: any[] = progRes.data ? progRes.data : [];
+      const allGuru: any[] = guruRes.data ? guruRes.data : [];
 
       if (allSiswa.length > 0) {
         const distinctPeriodes = Array.from(new Set(['2026', '2025', ...allSiswa.map(s => s.periode || '2026')]))
