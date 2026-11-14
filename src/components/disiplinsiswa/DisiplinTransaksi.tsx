@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase, filterLatestStudents, normalizeKelasKey } from '../../lib/supabase';
 import { Siswa } from '../../types/izinsiswa';
-import { Save, Search, User, Users, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, Check, CheckSquare, CheckCircle2, Trash2, Edit2, X, ClipboardList, Plus, Paperclip, FileText as FileIcon, Upload, Download, RotateCw, ListFilter } from 'lucide-react';
+import { Save, Search, User, Users, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, Check, CheckSquare, CheckCircle2, Trash2, Edit2, X, ClipboardList, Plus, Paperclip, FileText as FileIcon, Upload, Download, ListFilter } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { deduplicateGuruList, isExcludedGuru, hasValidNip } from '../../lib/jurnalService';
 
@@ -9,7 +9,6 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
   const isAdmin = user?.role === 'full';
   const canEdit = user?.role === 'entry' || user?.role === 'full';
   const [loading, setLoading] = useState(false);
-  const [isRefreshingSiswa, setIsRefreshingSiswa] = useState(false);
   const [siswa, setSiswa] = useState<Siswa[]>([]);
   const [pelanggaran, setPelanggaran] = useState<any[]>([]);
   const [guru, setGuru] = useState<any[]>([]);
@@ -18,10 +17,8 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
     startDate: '',
     endDate: ''
   });
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedSiswas, setSelectedSiswas] = useState<Siswa[]>([]);
   const [selectedPeriode, setSelectedPeriode] = useState('2026');
-  const [selectedKelas, setSelectedKelas] = useState('ALL');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -112,7 +109,6 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
   };
 
   const fetchInitialData = async () => {
-    setIsRefreshingSiswa(true);
     try {
       if (supabase) {
         const [sData, pRes, gRes] = await Promise.all([
@@ -128,8 +124,6 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
       }
     } catch (error) {
       console.error('Error fetching initial data:', error);
-    } finally {
-      setIsRefreshingSiswa(false);
     }
   };
 
@@ -425,29 +419,6 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
     ])
   ).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
 
-  const filteredSiswa = siswa.filter(s => {
-    const searchLower = searchTerm.trim().toLowerCase();
-    
-    const sP = norm(s.periode);
-    const selP = norm(selectedPeriode);
-    const matchPeriode = selP === 'all' || !s.periode || sP.includes(selP) || selP.includes(sP);
-
-    const sK = normalizeKelasKey(s.kelas || '');
-    const selK = selectedKelas === 'ALL' ? 'ALL' : normalizeKelasKey(selectedKelas);
-    const matchKelas = selK === 'ALL' || sK === selK;
-
-    if (searchLower) {
-      const matchSearch =
-        norm(s.nama).includes(searchLower) ||
-        norm(s.kelas).includes(searchLower) ||
-        norm(s.nis).includes(searchLower);
-
-      return matchPeriode && matchKelas && matchSearch;
-    }
-
-    return matchPeriode && matchKelas;
-  }).sort((a, b) => norm(a.nama).localeCompare(norm(b.nama)));
-
   // Modal picker filtered list (respects selectedPeriode, pickerClassFilter, pickerSearch)
   const filteredModalStudents = useMemo(() => {
     const q = pickerSearch.trim().toLowerCase();
@@ -521,17 +492,6 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
     setIsPickerOpen(false);
   };
 
-  const toggleDirectStudent = (student: Siswa) => {
-    setSelectedSiswas(prev => {
-      const exists = prev.some(item => String(item.id) === String(student.id));
-      const next = exists
-        ? prev.filter(item => String(item.id) !== String(student.id))
-        : [...prev, student];
-      setFormData(f => ({ ...f, siswa_id: next[0]?.id || '' }));
-      return next;
-    });
-  };
-
   const removeSelectedStudent = (sid: string) => {
     setSelectedSiswas(prev => {
       const next = prev.filter(item => String(item.id) !== sid);
@@ -603,9 +563,8 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Form Input */}
-        <div className="lg:col-span-2 space-y-6">
+      {/* Form Input & Riwayat */}
+      <div className="space-y-6">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-6 border-b border-slate-100 bg-slate-50/50">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
@@ -933,112 +892,6 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
               </table>
             </div>
           </div>
-        </div>
-
-        {/* Sidebar: Cari Siswa */}
-        <div className="space-y-4">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[600px]">
-            <div className="p-4 border-b border-slate-100 bg-slate-50/50 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                  <Search size={18} className="text-slate-400" />
-                  Cari Siswa
-                </h3>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => fetchInitialData()}
-                    disabled={isRefreshingSiswa}
-                    title="Refresh Data Siswa dari Database"
-                    className="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-200/60 rounded-md transition-colors disabled:opacity-50 flex items-center gap-1 text-[11px] font-medium"
-                  >
-                    <RotateCw size={14} className={isRefreshingSiswa ? 'animate-spin text-blue-600' : ''} />
-                    {isRefreshingSiswa && <span>Memuat...</span>}
-                  </button>
-                  <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {filteredSiswa.length} Siswa
-                  </span>
-                </div>
-              </div>
-
-              {/* Filter Periode & Kelas */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Periode</label>
-                  <select
-                    value={selectedPeriode}
-                    onChange={(e) => {
-                      setSelectedPeriode(e.target.value);
-                      setSelectedKelas('ALL');
-                    }}
-                    className="w-full bg-white text-xs font-bold py-1.5 px-2 rounded-lg border border-slate-200 text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="ALL">Semua Periode</option>
-                    {availablePeriodes.map(p => (
-                      <option key={p} value={p}>Periode {p}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Pilihan Kelas</label>
-                  <select
-                    value={selectedKelas}
-                    onChange={(e) => setSelectedKelas(e.target.value)}
-                    className="w-full bg-white text-xs font-bold py-1.5 px-2 rounded-lg border border-slate-200 text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="ALL">Semua Kelas</option>
-                    {availableKelas.map(k => (
-                      <option key={k} value={k}>Kelas {k}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="relative">
-                <input 
-                  type="text" 
-                  placeholder="Ketik nama atau kelas..." 
-                  className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                />
-                <Search size={16} className="absolute left-3.5 top-2.5 text-slate-400" />
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2">
-              {filteredSiswa.map(s => {
-                const isSelected = selectedSiswas.some(item => String(item.id) === String(s.id));
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => toggleDirectStudent(s)}
-                    className={`w-full text-left p-3 rounded-xl mb-1 transition-colors flex items-center gap-3 ${
-                      isSelected ? 'bg-emerald-50 border border-emerald-300' : 'hover:bg-slate-50 border border-transparent'
-                    }`}
-                  >
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                      isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {isSelected ? <Check size={16} strokeWidth={3} /> : s.nama.substring(0, 2).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={`font-bold truncate text-sm ${isSelected ? 'text-emerald-900' : 'text-slate-800'}`}>
-                        {s.nama}
-                      </p>
-                      <p className="text-xs text-slate-500">Kelas {normalizeKelasKey(s.kelas || '')}</p>
-                    </div>
-                  </button>
-                );
-              })}
-              {filteredSiswa.length === 0 && (
-                <div className="p-8 text-center text-slate-400 italic">
-                  Siswa tidak ditemukan
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Multi-Student & Multi-Class Picker Modal */}
