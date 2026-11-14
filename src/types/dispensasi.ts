@@ -15,6 +15,7 @@ export interface TransaksiDispensasi {
   alasan?: string;
   tindak_lanjut?: string;
   bukti_url?: string;
+  foto_kegiatan?: string;
   created_at?: string;
   // Joined data
   siswa?: {

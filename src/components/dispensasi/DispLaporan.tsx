@@ -1,6 +1,6 @@
 import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 import React, { useState, useEffect } from 'react';
-import { Search, Calendar, Download, Filter, User, FileText, Clock, ChevronDown } from 'lucide-react';
+import { Search, Calendar, Download, Filter, User, FileText, Clock, ChevronDown, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { TransaksiDispensasi } from '../../types/dispensasi';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
@@ -9,11 +9,21 @@ import { saveAs } from 'file-saver';
 import { id as idLocale } from 'date-fns/locale';
 import TahunAjaranModal from '../common/TahunAjaranModal';
 
+const getLocalFotoMap = (): Record<string, string> => {
+  try {
+    const raw = localStorage.getItem('disp_foto_kegiatan_map');
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
 const DispLaporan: React.FC = () => {
   const [data, setData] = useState<TransaksiDispensasi[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedPeriode, setSelectedPeriode] = useState<string>('2025');
   const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
+  const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     startDate: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
     endDate: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
@@ -93,12 +103,18 @@ const DispLaporan: React.FC = () => {
       const { data: rData, error } = await query;
       if (error) throw error;
 
-      let filtered = (rData || []).filter(d => {
-        if (selectedPeriode !== 'ALL') {
-          return (d.siswa?.periode || '2025') === selectedPeriode;
-        }
-        return true;
-      });
+      const localFotos = getLocalFotoMap();
+      let filtered = (rData || [])
+        .map((d: any) => ({
+          ...d,
+          foto_kegiatan: d.foto_kegiatan || d.bukti_url || localFotos[d.id] || ''
+        }))
+        .filter(d => {
+          if (selectedPeriode !== 'ALL') {
+            return (d.siswa?.periode || '2025') === selectedPeriode;
+          }
+          return true;
+        });
 
       if (filters.siswaName) {
         filtered = filtered.filter(d => 
@@ -125,16 +141,20 @@ const DispLaporan: React.FC = () => {
       const worksheet = workbook.addWorksheet('Laporan Dispensasi');
 
       // --- HEADER SECTION ---
-      await addExcelHeaderAndLogos(worksheet, workbook, 'Laporan Dispensasi Siswa', 8);
+      await addExcelHeaderAndLogos(worksheet, workbook, 'Laporan Dispensasi Siswa', 9);
 
       // --- TABLE SECTION ---
       const headerRow = worksheet.getRow(10);
-      const headers = ['NO', 'TANGGAL', 'JAM', 'NAMA SISWA', 'KELAS', 'JENIS DISPENSASI', 'ALASAN', 'TINDAK LANJUT'];
+      const headers = ['NO', 'TANGGAL', 'JAM', 'NAMA SISWA', 'KELAS', 'JENIS DISPENSASI', 'ALASAN', 'TINDAK LANJUT', 'FOTO KEGIATAN'];
       headerRow.values = headers;
 
       // Data Rows
       data.forEach((item, index) => {
         const row = worksheet.getRow(11 + index);
+        const foto = item.foto_kegiatan || item.bukti_url || '';
+        const fotoDisplay = foto
+          ? (foto.startsWith('data:') ? 'Tersimpan (Foto)' : foto)
+          : '-';
         const values = [
           index + 1,
           format(new Date(item.tanggal), 'dd/MM/yyyy'),
@@ -143,7 +163,8 @@ const DispLaporan: React.FC = () => {
           item.kelas,
           item.jenis?.nama_jenis || '-',
           item.alasan || '-',
-          item.tindak_lanjut || '-'
+          item.tindak_lanjut || '-',
+          fotoDisplay
         ];
 
         values.forEach((v, i) => {
@@ -153,7 +174,7 @@ const DispLaporan: React.FC = () => {
         });
       });
 
-      applyColorfulTableStyle(worksheet, 10, data.length, 8);
+      applyColorfulTableStyle(worksheet, 10, data.length, 9);
 
       // Column Widths
       worksheet.getColumn(1).width = 5;
@@ -164,6 +185,7 @@ const DispLaporan: React.FC = () => {
       worksheet.getColumn(6).width = 30;
       worksheet.getColumn(7).width = 40;
       worksheet.getColumn(8).width = 40;
+      worksheet.getColumn(9).width = 25;
 
       // --- FOOTER SECTION ---
       const lastDataRow = 11 + data.length;
@@ -330,53 +352,98 @@ const DispLaporan: React.FC = () => {
                 <th className="px-6 py-4">Jenis</th>
                 <th className="px-6 py-4">Alasan</th>
                 <th className="px-6 py-4">Tindak Lanjut</th>
+                <th className="px-6 py-4">Foto Kegiatan</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <div className="flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div></div>
                   </td>
                 </tr>
-              ) : data.map((item) => (
-                <tr key={item.id} className="group hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2 text-xs font-bold text-slate-700">
-                      <Calendar size={12} className="text-pink-500" />
-                      <span>{format(new Date(item.tanggal), 'dd/MM/yyyy')}</span>
-                    </div>
-                    <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-1">
-                      <Clock size={10} className="text-blue-500" />
-                      <span>{item.jam}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-bold text-slate-700">{item.siswa?.nama}</div>
-                    <div className="text-[10px] uppercase font-black text-blue-500">{item.kelas}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-2 py-1 bg-pink-50 text-pink-600 rounded-md text-[10px] font-bold uppercase">
-                      {item.jenis?.nama_jenis}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 max-w-xs">
-                    <p className="text-xs text-slate-600 line-clamp-2">{item.alasan || '-'}</p>
-                  </td>
-                  <td className="px-6 py-4 max-w-xs">
-                    <p className="text-xs text-slate-500 line-clamp-2">{item.tindak_lanjut || '-'}</p>
-                  </td>
-                </tr>
-              ))}
+              ) : data.map((item) => {
+                const fotoSrc = item.foto_kegiatan || item.bukti_url;
+                return (
+                  <tr key={item.id} className="group hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center space-x-2 text-xs font-bold text-slate-700">
+                        <Calendar size={12} className="text-pink-500" />
+                        <span>{format(new Date(item.tanggal), 'dd/MM/yyyy')}</span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-1">
+                        <Clock size={10} className="text-blue-500" />
+                        <span>{item.jam}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-bold text-slate-700">{item.siswa?.nama}</div>
+                      <div className="text-[10px] uppercase font-black text-blue-500">{item.kelas}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="px-2 py-1 bg-pink-50 text-pink-600 rounded-md text-[10px] font-bold uppercase">
+                        {item.jenis?.nama_jenis}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 max-w-xs">
+                      <p className="text-xs text-slate-600 line-clamp-2">{item.alasan || '-'}</p>
+                    </td>
+                    <td className="px-6 py-4 max-w-xs">
+                      <p className="text-xs text-slate-500 line-clamp-2">{item.tindak_lanjut || '-'}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      {fotoSrc ? (
+                        <button
+                          type="button"
+                          onClick={() => setViewPhotoUrl(fotoSrc)}
+                          className="w-12 h-10 rounded-xl overflow-hidden border border-slate-200 shadow-xs hover:ring-2 hover:ring-pink-400 transition-all"
+                          title="Klik untuk memperbesar foto"
+                        >
+                          <img src={fotoSrc} alt="Foto Kegiatan" className="w-full h-full object-cover" />
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-300">-</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
               {!loading && data.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-sm italic">Data tidak ditemukan untuk filter ini</td>
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-sm italic">Data tidak ditemukan untuk filter ini</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Full Photo Lightbox Modal */}
+      {viewPhotoUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setViewPhotoUrl(null)}
+        >
+          <div
+            className="relative max-w-3xl w-full bg-white rounded-3xl p-3 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setViewPhotoUrl(null)}
+              className="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-lg hover:bg-rose-700 transition-colors"
+              title="Tutup"
+            >
+              <X size={18} />
+            </button>
+            <img
+              src={viewPhotoUrl}
+              alt="Foto Kegiatan Dispensasi"
+              className="w-full max-h-[80vh] object-contain rounded-2xl bg-slate-50"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
