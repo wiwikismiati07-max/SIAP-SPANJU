@@ -115,6 +115,7 @@ import HotlineSection from './components/HotlineSection';
 import ManagementSiswaApp from './components/management/ManagementSiswaApp';
 import TutorialSection from './components/TutorialSection';
 import InstallPWA from './components/pwa/InstallPWA';
+import SraPrimeAnalysis from './components/common/SraPrimeAnalysis';
 
 // --- Components ---
 
@@ -123,7 +124,7 @@ export default function App() {
   const [userLinks, setUserLinks] = useState<AppLink[]>([]);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'menu_aplikasi' | 'app' | 'sitelat' | 'izinsiswa' | 'disiplinsiswa' | 'sabda_bk' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | 'jurnal_pembelajaran' | 'survey' | 'hotline' | 'kelulusan' | 'setup_kelulusan' | 'tracing_alumni' | 'tutorial_aplikasi' | 'management_siswa' | 'management_login' | null>(null);
+  const [activeSection, setActiveSection] = useState<'kilas' | 'program' | 'spip' | 'korelasi_program' | 'korelasi_sra' | 'analisis_keberhasilan' | 'menu_aplikasi' | 'app' | 'sitelat' | 'izinsiswa' | 'disiplinsiswa' | 'sabda_bk' | 'dispensasi' | 'prestasi' | 'keagamaan' | 'uks' | 'pengaduan' | 'sipena' | 'jurnal_pembelajaran' | 'survey' | 'hotline' | 'kelulusan' | 'setup_kelulusan' | 'tracing_alumni' | 'tutorial_aplikasi' | 'management_siswa' | 'management_login' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -284,6 +285,7 @@ export default function App() {
     { id: 'spip', title: '15 INDIKATOR SPIP', subtitle: 'ANTI KORUPSI', icon: Shield, color: 'from-violet-500 to-violet-600', shadow: 'shadow-violet-200', roles: ['view', 'entry', 'full'] },
     { id: 'korelasi_program', title: 'KORELASI PROGRAM', subtitle: 'SPIP & SIAP SPANJU', icon: ClipboardList, color: 'from-orange-500 to-orange-600', shadow: 'shadow-orange-200', roles: ['view', 'entry', 'full'] },
     { id: 'korelasi_sra', title: 'KORELASI SRA', subtitle: 'SEKOLAH RAMAH ANAK', icon: Activity, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', roles: ['view', 'entry', 'full'] },
+    { id: 'analisis_keberhasilan', title: 'ANALISIS KEBERHASILAN', subtitle: 'SRA & KARAKTER PRIME', icon: Award, color: 'from-indigo-600 to-violet-700', shadow: 'shadow-indigo-200', roles: ['view', 'entry', 'full'] },
   ];
 
   // Filter menu yang dapat diakses: akun Tamu / Wali Murid tidak diizinkan mengakses Jurnal Pembelajaran
@@ -955,6 +957,30 @@ export default function App() {
             </motion.div>
           )}
 
+          {activeSection === 'analisis_keberhasilan' && (
+            <motion.div
+              key="analisis_keberhasilan"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="flex-1 min-h-0 flex flex-col bg-slate-50/80 backdrop-blur-3xl rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto shadow-2xl border border-white/50 p-4 md:p-10"
+            >
+              <div className="max-w-6xl mx-auto w-full space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('menu_aplikasi')}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
+                  >
+                    <ChevronLeft size={16} />
+                    <span>Kembali ke Menu Aplikasi</span>
+                  </button>
+                </div>
+                <SraPrimeAnalysis onNavigate={(appId) => setActiveSection(appId as any)} />
+              </div>
+            </motion.div>
+          )}
+
           {activeSection === 'menu_aplikasi' && (
             <motion.div
               key="menu_aplikasi"
@@ -998,7 +1024,7 @@ export default function App() {
 
                 {/* Grid of Apps */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                  {visibleSidebarItems.filter(item => !['kilas', 'program', 'spip', 'korelasi_program', 'korelasi_sra', 'survey', 'menu_aplikasi'].includes(item.id)).map(app => (
+                  {visibleSidebarItems.filter(item => !['kilas', 'program', 'spip', 'korelasi_program', 'korelasi_sra', 'analisis_keberhasilan', 'survey', 'menu_aplikasi'].includes(item.id)).map(app => (
                     <button
                       key={app.id}
                       onClick={() => {
