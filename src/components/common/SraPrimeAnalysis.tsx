@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   ShieldCheck,
   RefreshCw,
@@ -37,9 +37,11 @@ interface ModuleMetric {
   barColor: string;
 }
 
+type AnalysisScope = 'all_periode' | 'this_month' | 'today';
+
 interface CachedAnalysis {
   periode: string;
-  scope: 'all_periode' | 'this_month';
+  scope: AnalysisScope;
   modules: Omit<ModuleMetric, 'icon'>[];
   totalSiswa: number;
   updatedAt: string;
@@ -115,7 +117,7 @@ const ICON_BY_MODULE: Record<string, React.ElementType> = {
 export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) {
   const [selectedPeriode, setSelectedPeriode] = useState<string>('2026');
   const [availablePeriodes, setAvailablePeriodes] = useState<string[]>(['2026', '2025']);
-  const [scope, setScope] = useState<'all_periode' | 'this_month'>('all_periode');
+  const [scope, setScope] = useState<AnalysisScope>('all_periode');
   const [modules, setModules] = useState<ModuleMetric[]>([]);
   const [totalSiswa, setTotalSiswa] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
@@ -123,6 +125,8 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
   const [lastUpdated, setLastUpdated] = useState<string>('');
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const hasLoadedOnceRef = useRef<boolean>(false);
+  const isFetchingRef = useRef<boolean>(false);
 
   useEffect(() => {
     try {
@@ -138,6 +142,7 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
           );
           setTotalSiswa(parsed.totalSiswa || 0);
           setLastUpdated(parsed.updatedAt || '');
+          hasLoadedOnceRef.current = true;
           setLoading(false);
         }
       }
@@ -147,16 +152,20 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
   }, [selectedPeriode, scope]);
 
   const fetchAnalysis = useCallback(
-    async (isManual = false) => {
+    async (isManual = false, isSilent = false) => {
+      if (isFetchingRef.current && isSilent) return;
+      isFetchingRef.current = true;
+
       if (isManual) setRefreshing(true);
-      else setLoading((prev) => (modules.length === 0 ? true : prev));
-      setErrorMsg(null);
+      else if (!isSilent && !hasLoadedOnceRef.current) setLoading(true);
+      if (!isSilent) setErrorMsg(null);
 
       const client = getSupabase();
       if (!client) {
-        setErrorMsg('Koneksi Supabase belum tersedia.');
+        if (!isSilent) setErrorMsg('Koneksi Supabase belum tersedia.');
         setLoading(false);
         setRefreshing(false);
+        isFetchingRef.current = false;
         return;
       }
 
@@ -204,14 +213,17 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
 
         const loadLogic = async () => {
           const now = new Date();
+          const todayStr = format(now, 'yyyy-MM-dd');
           const monthStart = format(startOfMonth(now), 'yyyy-MM-dd');
           const monthEnd = format(endOfMonth(now), 'yyyy-MM-dd');
           const dateRange =
-            scope === 'this_month'
-              ? { start: monthStart, end: monthEnd }
-              : selectedPeriode !== 'ALL'
-                ? { start: `${selectedPeriode}-01-01`, end: `${selectedPeriode}-12-31` }
-                : undefined;
+            scope === 'today'
+              ? { start: todayStr, end: todayStr }
+              : scope === 'this_month'
+                ? { start: monthStart, end: monthEnd }
+                : selectedPeriode !== 'ALL'
+                  ? { start: `${selectedPeriode}-01-01`, end: `${selectedPeriode}-12-31` }
+                  : undefined;
 
           const [
             allSiswaRaw,
@@ -295,12 +307,14 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
 
           // 1. Survey Kepuasan Layanan
           const filteredSurveys =
-            scope === 'this_month'
-              ? surveyRows.filter((r) => {
-                  const d = String(r.created_at || '').slice(0, 10);
-                  return d >= monthStart && d <= monthEnd;
-                })
-              : surveyRows;
+            scope === 'today'
+              ? surveyRows.filter((r) => String(r.created_at || '').slice(0, 10) === todayStr)
+              : scope === 'this_month'
+                ? surveyRows.filter((r) => {
+                    const d = String(r.created_at || '').slice(0, 10);
+                    return d >= monthStart && d <= monthEnd;
+                  })
+                : surveyRows;
           const totalResponden = filteredSurveys.length;
           let surveyScoreSum = 0;
           filteredSurveys.forEach((r) => {
@@ -452,14 +466,18 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
             }
           ];
 
-          const timestamp = format(new Date(), 'dd MMM yyyy HH:mm', { locale: idLocale });
+          const timestamp = format(new Date(), 'dd MMM yyyy HH:mm:ss', { locale: idLocale });
           return { computedModules, distinctPeriodes, siswaCount, timestamp };
         };
 
         const result = await Promise.race([loadLogic(), timeoutPromise]);
         if ('isTimeout' in result) {
-          setErrorMsg('Sinkronisasi data memerlukan waktu lebih lama. Menampilkan data tersimpan jika ada.');
+          if (!isSilent) {
+            setErrorMsg('Sinkronisasi data memerlukan waktu lebih lama. Menampilkan data tersimpan jika ada.');
+          }
         } else {
+          hasLoadedOnceRef.current = true;
+          setErrorMsg(null);
           setModules(result.computedModules);
           setAvailablePeriodes(result.distinctPeriodes);
           setTotalSiswa(result.siswaCount);
@@ -480,69 +498,166 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
         }
       } catch (err: any) {
         console.error('Error computing SRA x PRIME analysis:', err);
-        setErrorMsg('Sebagian data belum dapat dimuat dari server.');
+        if (!isSilent) setErrorMsg('Sebagian data belum dapat dimuat dari server.');
       } finally {
         setLoading(false);
         setRefreshing(false);
+        isFetchingRef.current = false;
       }
     },
     [selectedPeriode, scope]
   );
 
   useEffect(() => {
-    fetchAnalysis(false);
+    fetchAnalysis(false, false);
   }, [fetchAnalysis]);
 
-  const moduleSum = modules.reduce((acc, m) => acc + m.percentage, 0);
-  const hasAnyData = modules.some((m) => m.hasData);
-  const compositePercentage = modules.length > 0 ? moduleSum / modules.length : 0;
-  const predicate = getPredicate(compositePercentage, hasAnyData);
+  // Automatic real-time recalculation when any of the 6 core service tables change
+  useEffect(() => {
+    const client = getSupabase();
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const getModPct = (id: string) => modules.find((m) => m.id === id)?.percentage ?? 0;
+    const triggerSilentSync = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        fetchAnalysis(false, true);
+      }, 350);
+    };
 
-  // Karakter Sekolah PRIME dimensions mapped to live module percentages
-  const primePillars = [
-    {
-      code: 'P',
-      title: 'Prefentif',
-      modulesLabel: 'Si-Telat · Izin Siswa · Disiplin Siswa',
-      score: modules.length > 0 ? (getModPct('sitelat') + getModPct('izinsiswa') + getModPct('disiplinsiswa')) / 3 : 0,
-      description:
-        'Deteksi dini dan pencegahan keterlambatan, ketidakhadiran tanpa kejelasan, serta pelanggaran ringan sebelum berkembang lebih jauh.'
-    },
-    {
-      code: 'R',
-      title: 'Religius',
-      modulesLabel: 'Keagamaan (SIM-AGAMA)',
-      score: modules.length > 0 ? getModPct('keagamaan') : 0,
-      description:
-        'Pembiasaan ibadah harian, penguatan akhlak mulia, dan pemantauan partisipasi kegiatan keagamaan secara konsisten dan humanis.'
-    },
-    {
-      code: 'M',
-      title: 'Mentalitas',
-      modulesLabel: 'Disiplin Siswa · Survey Kepuasan Layanan',
-      score: modules.length > 0 ? (getModPct('disiplinsiswa') + getModPct('survey')) / 2 : 0,
-      description:
-        'Pembinaan karakter positif, ketangguhan mental dalam menaati tata tertib, dan keterbukaan suara warga sekolah tanpa rasa takut.'
-    },
-    {
-      code: 'E',
-      title: 'Empan Papan / Sadar Diri',
-      modulesLabel: 'UKS / Kesehatan · Izin Siswa · Survey Kepuasan',
-      score: modules.length > 0 ? (getModPct('uks') + getModPct('izinsiswa') + getModPct('survey')) / 3 : 0,
-      description:
-        'Kesadaran diri menjaga kesehatan fisik, ketertiban menempatkan hak dan kewajiban (perizinan), serta kepedulian terhadap lingkungan belajar aman.'
+    const watchedTables = [
+      'survey_responses',
+      'transaksi_terlambat',
+      'izin_siswa',
+      'agama_absensi',
+      'uks_kunjungan',
+      'transaksi_pelanggaran',
+      'master_siswa'
+    ];
+
+    let channel: any = null;
+    if (client) {
+      try {
+        let ch = client.channel(`sra-prime-realtime-${selectedPeriode}-${scope}`);
+        watchedTables.forEach((table) => {
+          ch = ch.on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table },
+            triggerSilentSync
+          );
+        });
+        channel = ch.subscribe();
+      } catch {
+        // Ignore if Realtime is unavailable in current project
+      }
     }
-  ];
 
-  // Dynamic conclusion derived from real live figures
-  const sortedByScore = [...modules].sort((a, b) => b.percentage - a.percentage);
-  const strongestModule = sortedByScore[0];
-  const weakestModule = sortedByScore[sortedByScore.length - 1];
-  const sortedPrime = [...primePillars].sort((a, b) => b.score - a.score);
-  const strongestPrime = sortedPrime[0];
-  const modulesNeedAttention = modules.filter((m) => m.percentage < 75);
+    const pollInterval = setInterval(() => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        fetchAnalysis(false, true);
+      }
+    }, 10000);
+
+    const handleVisibilityOrFocus = () => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        fetchAnalysis(false, true);
+      }
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key && e.key !== CACHE_KEY) {
+        triggerSilentSync();
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      clearInterval(pollInterval);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('storage', handleStorageChange);
+      if (client && channel) {
+        try {
+          client.removeChannel(channel);
+        } catch {
+          // ignore cleanup errors
+        }
+      }
+    };
+  }, [fetchAnalysis, selectedPeriode, scope]);
+
+  // All benchmark figures derive automatically & reactively from the 6 service modules
+  const {
+    moduleSum,
+    hasAnyData,
+    compositePercentage,
+    predicate,
+    primePillars,
+    strongestModule,
+    weakestModule,
+    strongestPrime,
+    modulesNeedAttention
+  } = useMemo(() => {
+    const sum = modules.reduce((acc, m) => acc + m.percentage, 0);
+    const anyData = modules.some((m) => m.hasData);
+    const composite = modules.length > 0 ? sum / modules.length : 0;
+    const pred = getPredicate(composite, anyData);
+
+    const getPct = (id: string) => modules.find((m) => m.id === id)?.percentage ?? 0;
+
+    const pillars = [
+      {
+        code: 'P',
+        title: 'Prefentif',
+        modulesLabel: 'Si-Telat · Izin Siswa · Disiplin Siswa',
+        score: modules.length > 0 ? (getPct('sitelat') + getPct('izinsiswa') + getPct('disiplinsiswa')) / 3 : 0,
+        description:
+          'Deteksi dini dan pencegahan keterlambatan, ketidakhadiran tanpa kejelasan, serta pelanggaran ringan sebelum berkembang lebih jauh.'
+      },
+      {
+        code: 'R',
+        title: 'Religius',
+        modulesLabel: 'Keagamaan (SIM-AGAMA)',
+        score: modules.length > 0 ? getPct('keagamaan') : 0,
+        description:
+          'Pembiasaan ibadah harian, penguatan akhlak mulia, dan pemantauan partisipasi kegiatan keagamaan secara konsisten dan humanis.'
+      },
+      {
+        code: 'M',
+        title: 'Mentalitas',
+        modulesLabel: 'Disiplin Siswa · Survey Kepuasan Layanan',
+        score: modules.length > 0 ? (getPct('disiplinsiswa') + getPct('survey')) / 2 : 0,
+        description:
+          'Pembinaan karakter positif, ketangguhan mental dalam menaati tata tertib, dan keterbukaan suara warga sekolah tanpa rasa takut.'
+      },
+      {
+        code: 'E',
+        title: 'Empan Papan / Sadar Diri',
+        modulesLabel: 'UKS / Kesehatan · Izin Siswa · Survey Kepuasan',
+        score: modules.length > 0 ? (getPct('uks') + getPct('izinsiswa') + getPct('survey')) / 3 : 0,
+        description:
+          'Kesadaran diri menjaga kesehatan fisik, ketertiban menempatkan hak dan kewajiban (perizinan), serta kepedulian terhadap lingkungan belajar aman.'
+      }
+    ];
+
+    const sortedMods = [...modules].sort((a, b) => b.percentage - a.percentage);
+    const sortedP = [...pillars].sort((a, b) => b.score - a.score);
+
+    return {
+      moduleSum: sum,
+      hasAnyData: anyData,
+      compositePercentage: composite,
+      predicate: pred,
+      primePillars: pillars,
+      strongestModule: sortedMods[0],
+      weakestModule: sortedMods[sortedMods.length - 1],
+      strongestPrime: sortedP[0],
+      modulesNeedAttention: modules.filter((m) => m.percentage < 75)
+    };
+  }, [modules]);
 
   return (
     <section
@@ -565,7 +680,7 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
             <span className="font-bold text-slate-800">
               PRIME (Prefentif, Religius, Mentalitas, dan Empan Papan / Sadar Diri)
             </span>{' '}
-            dari 6 layanan utama.
+            yang dihitung otomatis dari 6 layanan utama.
           </p>
         </div>
 
@@ -593,6 +708,17 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
               }`}
             >
               Bulan Ini
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope('today')}
+              className={`px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
+                scope === 'today'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Hari Ini
             </button>
           </div>
 
@@ -672,20 +798,26 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
           </div>
 
           {/* Transparent Formula Box */}
-          <div className="text-xs text-slate-600 bg-white border border-slate-200 rounded-xl px-4 py-3 space-y-1">
+          <div className="text-xs text-slate-600 bg-white border border-slate-200 rounded-xl px-4 py-3 space-y-1.5">
             <p className="font-bold text-slate-800">
-              Rumus Tolak Ukur Analisis:
+              Rumus Tolak Ukur Analisis (Otomatis dari 6 Layanan Utama):
             </p>
             <p className="font-mono text-[11px] md:text-xs text-slate-700 leading-relaxed tabular-nums">
               ((% Survey + % Si-Telat + % Izin Siswa + % Keagamaan + % UKS/Kesehatan + % Disiplin Siswa) ÷ 600) × 100%
             </p>
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-slate-500">
+            {modules.length === 6 && (
+              <p className="font-mono text-[11px] text-slate-900 bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-1.5 tabular-nums">
+                ({modules.map((m) => `${m.percentage.toFixed(1)}%`).join(' + ')}) ÷ 600 × 100% ={' '}
+                <span className="font-black">{compositePercentage.toFixed(1)}%</span>
+              </p>
+            )}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5 text-[11px] text-slate-500">
               <span>
                 Ambang batas: ≥90% Sangat Berhasil · 75–89.9% Berhasil · 60–74.9% Cukup · &lt;60% Pembinaan
               </span>
               <span className="tabular-nums">
                 {totalSiswa > 0 ? `${totalSiswa.toLocaleString('id-ID')} siswa terdata` : ''}
-                {lastUpdated ? ` · Diperbarui ${lastUpdated}` : ''}
+                {lastUpdated ? ` · Sinkron otomatis ${lastUpdated}` : ''}
               </span>
             </div>
           </div>

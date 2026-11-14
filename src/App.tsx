@@ -285,7 +285,7 @@ export default function App() {
     { id: 'spip', title: '15 INDIKATOR SPIP', subtitle: 'ANTI KORUPSI', icon: Shield, color: 'from-violet-500 to-violet-600', shadow: 'shadow-violet-200', roles: ['view', 'entry', 'full'] },
     { id: 'korelasi_program', title: 'KORELASI PROGRAM', subtitle: 'SPIP & SIAP SPANJU', icon: ClipboardList, color: 'from-orange-500 to-orange-600', shadow: 'shadow-orange-200', roles: ['view', 'entry', 'full'] },
     { id: 'korelasi_sra', title: 'KORELASI SRA', subtitle: 'SEKOLAH RAMAH ANAK', icon: Activity, color: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-200', roles: ['view', 'entry', 'full'] },
-    { id: 'analisis_keberhasilan', title: 'ANALISIS KEBERHASILAN', subtitle: 'SRA & KARAKTER PRIME', icon: Award, color: 'from-indigo-600 to-violet-700', shadow: 'shadow-indigo-200', roles: ['view', 'entry', 'full'] },
+    { id: 'analisis_keberhasilan', title: 'ANALISIS KEBERHASILAN', subtitle: 'SIAP SPANJU · SRA × PRIME', icon: Award, color: 'from-indigo-600 to-violet-700', shadow: 'shadow-indigo-200', roles: ['view', 'entry', 'full'] },
   ];
 
   // Filter menu yang dapat diakses: akun Tamu / Wali Murid tidak diizinkan mengakses Jurnal Pembelajaran
@@ -1024,6 +1024,21 @@ export default function App() {
 
                 {/* Grid of Apps */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                  <button
+                    onClick={() => setActiveSection('analisis_keberhasilan')}
+                    className="bg-white p-4 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-indigo-100 shadow-md hover:shadow-xl hover:-translate-y-2 transition-all duration-300 flex flex-col items-center text-center group"
+                    title="Analisis Keberhasilan Penggunaan SIAP SPANJU (SRA terintegrasi dengan Karakter PRIME)"
+                  >
+                    <div className="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-[1.5rem] bg-gradient-to-br from-indigo-600 to-violet-700 flex items-center justify-center text-white shadow-lg mb-3 md:mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
+                      <Award size={isMobile ? 20 : 32} />
+                    </div>
+                    <h4 className="text-xs md:text-lg font-black text-slate-800 uppercase tracking-tight mb-1 md:mb-2 line-clamp-1">ANALISIS KEBERHASILAN</h4>
+                    <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-6 hidden sm:block">SIAP SPANJU · SRA × KARAKTER PRIME</p>
+                    <div className="px-3 md:px-6 py-1.5 md:py-2.5 bg-slate-50 text-slate-600 rounded-lg md:rounded-xl text-[8px] md:text-xs font-bold flex items-center gap-2 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors border border-slate-100">
+                      <ExternalLink size={isMobile ? 10 : 14} /> <span className="hidden sm:inline">Buka Aplikasi</span><span className="sm:hidden">BUKA</span>
+                    </div>
+                  </button>
+
                   {visibleSidebarItems.filter(item => !['kilas', 'program', 'spip', 'korelasi_program', 'korelasi_sra', 'analisis_keberhasilan', 'survey', 'menu_aplikasi'].includes(item.id)).map(app => (
                     <button
                       key={app.id}
