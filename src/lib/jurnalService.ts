@@ -614,7 +614,15 @@ export const deduplicateGuruList = (
       map.set(baseKey, { ...g, nama_guru: trimmed, nip: (g.nip || '').trim() });
     } else {
       const existing = map.get(baseKey)!;
-      if (trimmed.length > existing.nama_guru.length) {
+      const existingHasUuid = isValidUUID(existing.id);
+      const currentHasUuid = isValidUUID(g.id);
+      if (currentHasUuid && !existingHasUuid) {
+        map.set(baseKey, {
+          ...g,
+          nama_guru: trimmed.length >= existing.nama_guru.length ? trimmed : existing.nama_guru,
+          nip: (g.nip || existing.nip || '').trim()
+        });
+      } else if (currentHasUuid === existingHasUuid && trimmed.length > existing.nama_guru.length) {
         map.set(baseKey, { ...g, nama_guru: trimmed, nip: (g.nip || existing.nip || '').trim() });
       }
     }
@@ -792,7 +800,7 @@ export const fetchGuruList = async (): Promise<{ id: string; nama_guru: string; 
         })).filter(g => g.nama_guru && !isExcludedGuru(g.nama_guru));
 
         if (fromDb.length > 0) {
-          const merged = deduplicateGuruList([...DEFAULT_GURU_LIST, ...localTeachers, ...fromDb]);
+          const merged = deduplicateGuruList([...fromDb, ...localTeachers, ...DEFAULT_GURU_LIST]);
           localStorage.setItem('master_guru', JSON.stringify(merged));
           return merged;
         }

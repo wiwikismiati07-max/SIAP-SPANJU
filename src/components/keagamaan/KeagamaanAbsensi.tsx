@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, User, Users, Activity, Save, X, Edit2, Trash2, Search, Upload, Download, Check, Plus, UserCheck, AlertCircle, UserPlus } from 'lucide-react';
+import { Calendar, Clock, User, Users, Activity, Save, X, Trash2, Search, Check, Plus, UserCheck, AlertCircle, UserPlus, Printer, FileSpreadsheet } from 'lucide-react';
 import { supabase, filterLatestStudents, normalizeKelasKey } from '../../lib/supabase';
-import { AgamaAbsensi, AgamaProgram } from '../../types/keagamaan';
-import { fetchGuruList, addMasterGuru, deduplicateGuruList, isExcludedGuru } from '../../lib/jurnalService';
-import { format } from 'date-fns';
-import * as XLSX from 'xlsx';
+import { AgamaProgram } from '../../types/keagamaan';
+import { fetchGuruList, addMasterGuru, deduplicateGuruList, isExcludedGuru, isValidUUID } from '../../lib/jurnalService';
+import { format, parseISO } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excelUtils';
 
 interface SiswaKeagamaanItem {
   siswa_id: string;
@@ -21,22 +23,13 @@ interface SiswaKeagamaanItem {
   keterangan_izin?: string;
 }
 
-const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
-  const canDelete = user?.role === 'full';
-  const canEdit = user?.role === 'entry' || user?.role === 'full';
-  const [absensiList, setAbsensiList] = useState<AgamaAbsensi[]>([]);
+const KeagamaanAbsensi: React.FC<{ user?: any }> = () => {
   const [programs, setPrograms] = useState<AgamaProgram[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [siswaList, setSiswaList] = useState<SiswaKeagamaanItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingStudentName, setEditingStudentName] = useState<string>('');
-  const [searchTerm, setSearchTerm] = useState('');
   const [searchSiswa, setSearchSiswa] = useState('');
-  const [filterKelas, setFilterKelas] = useState('');
-  const [filterKeterangan, setFilterKeterangan] = useState('');
   const [filterPeriode, setFilterPeriode] = useState('2026');
 
   // State Input Tambah Guru Baru
@@ -44,6 +37,13 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
   const [newGuruNama, setNewGuruNama] = useState('');
   const [newGuruNip, setNewGuruNip] = useState('');
   const [isSavingNewGuru, setIsSavingNewGuru] = useState(false);
+
+  // Mode Dokumen: berubah otomatis menjadi Laporan setelah data terisi & tersimpan
+  const [isSavedReport, setIsSavedReport] = useState<boolean>(false);
+  const [hasUnsavedEdits, setHasUnsavedEdits] = useState<boolean>(false);
+  const [lastSavedTime, setLastSavedTime] = useState<string>('');
+  const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const isReportMode = isSavedReport && !hasUnsavedEdits;
 
   const [formData, setFormData] = useState({
     siswa_id: '',
@@ -55,24 +55,42 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
     kelas: '7A'
   });
 
+  // Rentang tanggal untuk Cetak / Simpan Excel (default mengikuti tanggal formulir)
+  const [exportStartDate, setExportStartDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [exportEndDate, setExportEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [hasCustomExportRange, setHasCustomExportRange] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!hasCustomExportRange && formData.tanggal) {
+      setExportStartDate(formData.tanggal);
+      setExportEndDate(formData.tanggal);
+    }
+  }, [formData.tanggal, hasCustomExportRange]);
+
+  const handleChangeExportStart = (val: string) => {
+    setHasCustomExportRange(true);
+    setExportStartDate(val);
+    if (val && exportEndDate && val > exportEndDate) {
+      setExportEndDate(val);
+    }
+  };
+
+  const handleChangeExportEnd = (val: string) => {
+    setHasCustomExportRange(true);
+    setExportEndDate(val);
+    if (val && exportStartDate && val < exportStartDate) {
+      setExportStartDate(val);
+    }
+  };
+
   const classes = [
     '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
     '8A', '8B', '8C', '8D', '8E', '8F', '8G', '8H',
     '9A', '9B', '9C', '9D', '9E', '9F', '9G', '9H'
   ];
 
-  const reasons = [
-    { id: 'Hadir', label: 'Hadir', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
-    { id: 'Izin', label: 'Izin', color: 'bg-blue-50 text-blue-600 border-blue-200' },
-    { id: 'Sakit', label: 'Sakit', color: 'bg-amber-50 text-amber-600 border-amber-200' },
-    { id: 'Alpa', label: 'Alpa', color: 'bg-slate-50 text-slate-600 border-slate-200' },
-    { id: 'Haid', label: 'Haid', color: 'bg-rose-50 text-rose-600 border-rose-200' },
-    { id: 'Pulang sebelum waktunya', label: 'Pulang sebelum waktunya', color: 'bg-purple-50 text-purple-600 border-purple-200' }
-  ];
-
   useEffect(() => {
     fetchInitialData();
-    fetchAbsensi();
   }, []);
 
   const fetchAllMasterSiswa = async () => {
@@ -134,39 +152,6 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
     }
   };
 
-  const fetchAbsensi = async () => {
-    try {
-      setLoading(true);
-      if (!supabase) return;
-      
-      const { data, error } = await supabase
-        .from('agama_absensi')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
-      
-      if (error) throw error;
-      
-      const mapped = (data || []).map(item => {
-        const student = students.find(s => String(s.id) === String(item.siswa_id));
-        const program = programs.find(p => String(p.id) === String(item.kegiatan_id));
-        const teacher = teachers.find(t => String(t.id) === String(item.wali_kelas_id));
-        return {
-          ...item,
-          siswa: student || item.siswa || { nama: 'Unknown', kelas: '-' },
-          kegiatan: program || item.kegiatan || { nama_kegiatan: 'Kegiatan' },
-          wali_kelas: teacher || item.wali_kelas || { nama_guru: '-' }
-        };
-      });
-
-      setAbsensiList(mapped);
-    } catch (error) {
-      console.error('Error fetching absensi:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const availablePeriodes = Array.from(
     new Set(['2026', '2025', ...students.map(s => s.periode || '2026')])
   ).sort((a, b) => b.localeCompare(a));
@@ -201,7 +186,7 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
 
           if (existingData) {
             existingData.forEach((item: any) => {
-              existingAbsensiMap[item.siswa_id] = item;
+              existingAbsensiMap[String(item.siswa_id)] = item;
             });
           }
         } catch (e) {
@@ -222,7 +207,7 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
               const start = iz.tanggal_mulai;
               const end = iz.tanggal_selesai || iz.tanggal_mulai;
               if (start <= formData.tanggal && end >= formData.tanggal) {
-                activeIzinByStudent[iz.siswa_id] = iz;
+                activeIzinByStudent[String(iz.siswa_id)] = iz;
               }
             });
           }
@@ -230,8 +215,8 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
       }
 
       const list: SiswaKeagamaanItem[] = matched.map((s, idx) => {
-        const existingRecord = existingAbsensiMap[s.id];
-        const existingIzin = activeIzinByStudent[s.id];
+        const existingRecord = existingAbsensiMap[String(s.id)];
+        const existingIzin = activeIzinByStudent[String(s.id)];
 
         let defaultAbsensi: any = 'Hadir';
         let sudahIzin = false;
@@ -263,6 +248,10 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
       });
 
       setSiswaList(list);
+      const hasExistingSaved = Object.keys(existingAbsensiMap).length > 0;
+      setIsSavedReport(hasExistingSaved);
+      setHasUnsavedEdits(false);
+      setSaveFeedback(null);
     };
 
     loadClassStudents();
@@ -271,6 +260,7 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
   // Set all students to Hadir
   const handleSetAllHadir = () => {
     setSiswaList(prev => prev.map(s => ({ ...s, absensi: 'Hadir' })));
+    setHasUnsavedEdits(true);
   };
 
   // Update specific student field
@@ -280,6 +270,7 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
       copy[index] = { ...copy[index], [field]: value };
       return copy;
     });
+    setHasUnsavedEdits(true);
   };
 
   // Add manual student
@@ -300,12 +291,14 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
     };
 
     setSiswaList(prev => [...prev, newStudent]);
+    setHasUnsavedEdits(true);
   };
 
   // Remove student from list
   const handleRemoveStudent = (index: number) => {
     if (confirm('Hapus siswa ini dari daftar absensi kegiatan ini?')) {
       setSiswaList(prev => prev.filter((_, i) => i !== index));
+      setHasUnsavedEdits(true);
     }
   };
 
@@ -322,324 +315,1102 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
     (s.nis && s.nis.includes(searchSiswa))
   );
 
+  const resolveTeacherUuid = async (selectedId: string): Promise<string> => {
+    if (isValidUUID(selectedId)) return selectedId;
+
+    const selectedTeacher = teachers.find(t => String(t.id) === String(selectedId));
+    const targetName = (selectedTeacher?.nama_guru || '').trim();
+    const norm = (str: string) =>
+      str
+        .toLowerCase()
+        .replace(/^(hj\.|h\.|drs\.|dra\.)\s*/i, '')
+        .replace(/,?\s*(s\.pd\.i|s\.pd|m\.pd|m\.m|s\.ag|s\.kom|s\.si)\.?/gi, '')
+        .replace(/[^a-z0-9]/g, '');
+
+    if (supabase) {
+      const { data: dbGurus } = await supabase.from('master_guru').select('id, nama_guru');
+      if (Array.isArray(dbGurus) && dbGurus.length > 0) {
+        const matched =
+          dbGurus.find(g => norm(g.nama_guru || '') === norm(targetName)) ||
+          dbGurus.find(g =>
+            (g.nama_guru || '').toLowerCase().includes(targetName.split(',')[0].trim().toLowerCase())
+          ) ||
+          dbGurus[0];
+        if (matched && isValidUUID(matched.id)) {
+          setFormData(prev => ({ ...prev, wali_kelas_id: matched.id }));
+          return matched.id;
+        }
+      }
+
+      if (targetName) {
+        const newUuid = crypto.randomUUID();
+        const { error: insErr } = await supabase
+          .from('master_guru')
+          .insert([{ id: newUuid, nama_guru: targetName }]);
+        if (!insErr) {
+          setFormData(prev => ({ ...prev, wali_kelas_id: newUuid }));
+          return newUuid;
+        }
+      }
+    }
+
+    return selectedId;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaveFeedback(null);
+
     if (!formData.kegiatan_id || !formData.wali_kelas_id) {
-      alert('Mohon pilih Nama Kegiatan dan Wali Kelas terlebih dahulu');
+      setSaveFeedback({
+        type: 'error',
+        message: 'Mohon pilih Nama Kegiatan dan Wali Kelas / Guru Pengampu terlebih dahulu.'
+      });
       return;
     }
 
     if (siswaList.length === 0) {
-      alert('Daftar siswa untuk kelas ini kosong. Silakan pilih kelas lain atau klik Tambah Siswa.');
+      setSaveFeedback({
+        type: 'error',
+        message: 'Daftar siswa untuk kelas ini kosong. Silakan pilih kelas lain atau klik Tambah Siswa.'
+      });
       return;
     }
 
     try {
       setSubmitting(true);
 
-      const studentIds = siswaList.map(s => s.siswa_id);
+      const resolvedGuruId = await resolveTeacherUuid(formData.wali_kelas_id);
+      const validSiswaRows = siswaList.filter(s => isValidUUID(String(s.siswa_id)));
+      const studentIds = validSiswaRows.map(s => String(s.siswa_id));
+
       let existingRecords: any[] = [];
-      if (supabase) {
-        const { data: exData } = await supabase
+      if (supabase && studentIds.length > 0) {
+        const { data: exData, error: exErr } = await supabase
           .from('agama_absensi')
           .select('id, siswa_id, tanggal, kegiatan_id')
           .in('siswa_id', studentIds)
           .eq('tanggal', formData.tanggal)
           .eq('kegiatan_id', formData.kegiatan_id);
+        if (exErr) throw exErr;
         if (exData) existingRecords = exData;
       }
 
-      const toUpsert = siswaList.map(s => {
-        const existing = existingRecords.find(ex => ex.siswa_id === s.siswa_id);
-        const payload: any = {
+      const toUpdate: any[] = [];
+      const toInsert: any[] = [];
+
+      validSiswaRows.forEach(s => {
+        const existing = existingRecords.find(ex => String(ex.siswa_id) === String(s.siswa_id));
+        const basePayload = {
           siswa_id: s.siswa_id,
           tanggal: formData.tanggal,
           jam: formData.jam,
           kegiatan_id: formData.kegiatan_id,
-          wali_kelas_id: formData.wali_kelas_id,
+          wali_kelas_id: resolvedGuruId,
           alasan: s.absensi
         };
-        if (existing) {
-          payload.id = existing.id;
+        if (existing?.id) {
+          toUpdate.push({ id: existing.id, ...basePayload });
+        } else {
+          toInsert.push(basePayload);
         }
-        return payload;
       });
 
-      if (supabase) {
-        const { error } = await supabase
-          .from('agama_absensi')
-          .upsert(toUpsert);
-        if (error) throw error;
-      }
-
-      alert(`Berhasil menyimpan presensi kegiatan keagamaan untuk ${toUpsert.length} siswa kelas ${formData.kelas}`);
-      setEditingId(null);
-      setEditingStudentName('');
-      fetchAbsensi();
+      const nowStr = format(new Date(), 'HH:mm:ss');
+      setIsSavedReport(true);
+      setHasUnsavedEdits(false);
+      setLastSavedTime(nowStr);
+      setSaveFeedback({
+        type: 'success',
+        message: `Presensi kelas ${formData.kelas} (${validSiswaRows.length} siswa) berhasil disimpan pukul ${nowStr}. Cetak / Simpan Excel kini otomatis menjadi Laporan Presensi Kegiatan Keagamaan.`
+      });
     } catch (error: any) {
       console.error('Error saving absensi:', error);
-      alert(`Gagal menyimpan absensi: ${error.message || 'Pastikan tabel agama_absensi sudah dibuat di Supabase'}`);
+      setSaveFeedback({
+        type: 'error',
+        message: `Gagal menyimpan presensi ke database: ${error?.message || 'Periksa koneksi Supabase.'}`
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleEdit = (abs: AgamaAbsensi) => {
-    setEditingId(abs.id);
-    setEditingStudentName(abs.siswa?.nama || 'Siswa');
-    setFormData(prev => ({
-      ...prev,
-      siswa_id: abs.siswa_id,
-      tanggal: abs.tanggal,
-      jam: abs.jam,
-      kegiatan_id: abs.kegiatan_id,
-      wali_kelas_id: abs.wali_kelas_id,
-      alasan: abs.alasan,
-      kelas: abs.siswa?.kelas || prev.kelas
-    }));
-    setSearchSiswa(abs.siswa?.nama || '');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const escapeHtml = (val: string) =>
+    String(val || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  const getSelectedMeta = () => {
+    const selectedProgram = programs.find(p => String(p.id) === String(formData.kegiatan_id));
+    const selectedTeacher = teachers.find(t => String(t.id) === String(formData.wali_kelas_id));
+    let formattedDate = formData.tanggal;
+    try {
+      formattedDate = format(parseISO(formData.tanggal), 'EEEE, d MMMM yyyy', { locale: idLocale });
+    } catch {
+      formattedDate = formData.tanggal;
+    }
+    return {
+      kegiatanName: selectedProgram?.nama_kegiatan || '........................................',
+      guruName: selectedTeacher?.nama_guru || '........................................',
+      formattedDate,
+      periodeLabel: filterPeriode === 'ALL' ? 'Semua Periode' : `Periode ${filterPeriode}`,
+      kelasLabel: formData.kelas || '-'
+    };
   };
 
-  const handleSingleUpdate = async () => {
-    if (!editingId) return;
-    try {
-      setSubmitting(true);
-      if (!supabase) return;
-      const { error } = await supabase
-        .from('agama_absensi')
-        .update({
-          tanggal: formData.tanggal,
-          jam: formData.jam,
-          kegiatan_id: formData.kegiatan_id,
-          wali_kelas_id: formData.wali_kelas_id,
-          alasan: formData.alasan
-        })
-        .eq('id', editingId);
+  const getExportDateRange = () => {
+    const rawStart = exportStartDate || formData.tanggal;
+    const rawEnd = exportEndDate || rawStart;
+    const start = rawStart <= rawEnd ? rawStart : rawEnd;
+    const end = rawStart <= rawEnd ? rawEnd : rawStart;
+    const isRangeExport = start !== end || start !== formData.tanggal;
+    return { start, end, isRangeExport };
+  };
 
-      if (error) throw error;
-      alert(`Berhasil memperbarui data presensi untuk ${editingStudentName}`);
-      setEditingId(null);
-      setEditingStudentName('');
-      fetchAbsensi();
-    } catch (err: any) {
-      alert(`Gagal memperbarui data: ${err.message}`);
-    } finally {
-      setSubmitting(false);
+  const formatTanggalIndo = (dateStr: string, withDay = false) => {
+    try {
+      return format(parseISO(dateStr), withDay ? 'EEEE, d MMMM yyyy' : 'd MMMM yyyy', { locale: idLocale });
+    } catch {
+      return dateStr;
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Hapus data absensi ini?')) return;
-    try {
-      const { error } = await supabase
-        .from('agama_absensi')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
-      fetchAbsensi();
-    } catch (error) {
-      console.error('Error deleting absensi:', error);
-      alert('Gagal menghapus absensi');
+  const fetchRangeAttendanceForClass = async (startDate: string, endDate: string) => {
+    const targetKelas = normalizeKelasKey(formData.kelas || '');
+    const rosterStudents: Array<{ siswa_id: string; nis: string; nama: string; kelas: string }> =
+      siswaList.length > 0
+        ? siswaList.map(s => ({
+            siswa_id: String(s.siswa_id),
+            nis: s.nis || '-',
+            nama: s.nama,
+            kelas: s.kelas || formData.kelas
+          }))
+        : students
+            .filter(s => {
+              const sPeriode = String(s.periode || '2026').replace(/^Periode\s*/i, '').trim() || '2026';
+              const matchPeriode = filterPeriode === 'ALL' ? true : sPeriode === filterPeriode;
+              return normalizeKelasKey(s.kelas || '') === targetKelas && matchPeriode;
+            })
+            .sort((a, b) => (a.nama || '').localeCompare(b.nama || ''))
+            .map((s, idx) => ({
+              siswa_id: String(s.id),
+              nis: s.nis || `24${(formData.kelas || '').replace(/[^0-9]/g, '')}${String(idx + 1).padStart(3, '0')}`,
+              nama: s.nama,
+              kelas: s.kelas || formData.kelas
+            }));
+
+    const rosterIds = rosterStudents.map(r => r.siswa_id);
+    const allRecords: any[] = [];
+
+    if (supabase && rosterIds.length > 0) {
+      let page = 0;
+      const pageSize = 1000;
+      let keepGoing = true;
+
+      while (keepGoing) {
+        let query = supabase
+          .from('agama_absensi')
+          .select('*')
+          .in('siswa_id', rosterIds)
+          .gte('tanggal', startDate)
+          .lte('tanggal', endDate)
+          .order('tanggal', { ascending: true })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (formData.kegiatan_id) {
+          query = query.eq('kegiatan_id', formData.kegiatan_id);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          keepGoing = false;
+        } else {
+          allRecords.push(...data);
+          if (data.length < pageSize || page >= 20) {
+            keepGoing = false;
+          } else {
+            page++;
+          }
+        }
+      }
     }
+
+    const statsByStudent = new Map<
+      string,
+      {
+        hadir: number;
+        sakit: number;
+        izin: number;
+        alpa: number;
+        haid: number;
+        pulang: number;
+        total: number;
+      }
+    >();
+
+    rosterStudents.forEach(s => {
+      statsByStudent.set(s.siswa_id, {
+        hadir: 0,
+        sakit: 0,
+        izin: 0,
+        alpa: 0,
+        haid: 0,
+        pulang: 0,
+        total: 0
+      });
+    });
+
+    allRecords.forEach(rec => {
+      const bucket = statsByStudent.get(String(rec.siswa_id));
+      if (!bucket) return;
+      bucket.total += 1;
+      if (rec.alasan === 'Hadir') bucket.hadir += 1;
+      else if (rec.alasan === 'Sakit') bucket.sakit += 1;
+      else if (rec.alasan === 'Izin') bucket.izin += 1;
+      else if (rec.alasan === 'Alpa') bucket.alpa += 1;
+      else if (rec.alasan === 'Haid') bucket.haid += 1;
+      else if (rec.alasan === 'Pulang sebelum waktunya') bucket.pulang += 1;
+    });
+
+    const recapRows = rosterStudents.map(s => {
+      const st = statsByStudent.get(s.siswa_id) || {
+        hadir: 0,
+        sakit: 0,
+        izin: 0,
+        alpa: 0,
+        haid: 0,
+        pulang: 0,
+        total: 0
+      };
+      const persen = st.total > 0 ? ((st.hadir / st.total) * 100).toFixed(1) : '0.0';
+      return {
+        ...s,
+        ...st,
+        persen
+      };
+    });
+
+    const totals = recapRows.reduce(
+      (acc, r) => ({
+        hadir: acc.hadir + r.hadir,
+        sakit: acc.sakit + r.sakit,
+        izin: acc.izin + r.izin,
+        alpa: acc.alpa + r.alpa,
+        haid: acc.haid + r.haid,
+        pulang: acc.pulang + r.pulang,
+        total: acc.total + r.total
+      }),
+      { hadir: 0, sakit: 0, izin: 0, alpa: 0, haid: 0, pulang: 0, total: 0 }
+    );
+
+    const detailRows = allRecords
+      .map(rec => {
+        const student = rosterStudents.find(r => r.siswa_id === String(rec.siswa_id));
+        const program = programs.find(p => String(p.id) === String(rec.kegiatan_id));
+        return {
+          tanggal: rec.tanggal || '-',
+          jam: rec.jam || '-',
+          nis: student?.nis || '-',
+          nama: student?.nama || 'Unknown',
+          kegiatan: program?.nama_kegiatan || 'Kegiatan Keagamaan',
+          alasan: rec.alasan || '-'
+        };
+      })
+      .sort((a, b) =>
+        `${a.tanggal}-${a.jam}-${a.nama}`.localeCompare(`${b.tanggal}-${b.jam}-${b.nama}`)
+      );
+
+    return { recapRows, totals, detailRows };
   };
 
-  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handlePrintForm = async () => {
+    if (siswaList.length === 0) {
+      alert('Daftar siswa kosong. Silakan pilih kelas atau tambahkan siswa terlebih dahulu.');
+      return;
+    }
 
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
+    const { start, end, isRangeExport } = getExportDateRange();
+    const { kegiatanName, guruName, formattedDate, periodeLabel, kelasLabel } = getSelectedMeta();
+
+    let docHeading = isReportMode
+      ? 'Laporan Presensi Kegiatan Keagamaan Siswa'
+      : 'Formulir Presensi Kegiatan Keagamaan Siswa';
+    let docTabTitle = isReportMode
+      ? `Laporan Presensi Kegiatan Keagamaan - Kelas ${escapeHtml(kelasLabel)}`
+      : `Formulir Presensi Kegiatan Keagamaan - Kelas ${escapeHtml(kelasLabel)}`;
+    let metaRowsHtml = '';
+    let summaryCounts = {
+      hadir: countHadir,
+      sakit: countSakit,
+      izin: countIzin,
+      alpa: countAlpa,
+      haid: countHaid,
+      persen: siswaList.length > 0 ? ((countHadir / siswaList.length) * 100).toFixed(1) : '0.0'
+    };
+    let tableHeadHtml = `
+      <tr>
+        <th style="width:28px;">No</th>
+        <th style="width:58px;">NIS</th>
+        <th>Nama Siswa</th>
+        <th style="width:74px;">Status</th>
+        <th style="width:130px;">Catatan Siswa</th>
+        <th style="width:130px;">Tindakan Guru</th>
+        <th style="width:62px;">${isReportMode ? 'Keterangan' : 'Paraf'}</th>
+      </tr>
+    `;
+    let rowsHtml = '';
+
+    if (isRangeExport) {
       try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
-        
-        const failedRows: string[] = [];
-        const mappedData = data.map((row: any, index: number) => {
-          const getValue = (keys: string[]) => {
-            const rowKeys = Object.keys(row);
-            for (const key of keys) {
-              const foundKey = rowKeys.find(rk => rk.toLowerCase().trim() === key.toLowerCase().trim());
-              if (foundKey) return String(row[foundKey]).trim();
-            }
-            return '';
-          };
-
-          const normalize = (str: string) => str.toLowerCase().replace(/\s+/g, ' ').trim();
-
-          const namaSiswa = getValue(['nama', 'nama siswa', 'siswa']);
-          const kelasSiswa = getValue(['kelas']);
-          const namaKegiatan = getValue(['kegiatan', 'nama kegiatan']);
-          const namaGuru = getValue(['wali kelas', 'guru', 'wali']);
-          const tanggal = getValue(['tanggal']);
-          const jam = getValue(['jam']);
-          let alasan = getValue(['alasan', 'keterangan']) || 'Hadir';
-
-          if (!namaSiswa && !kelasSiswa) return null; // Skip empty rows
-
-          // Handle common variations/typos
-          if (alasan.toLowerCase() === 'alpha') alasan = 'Alpa';
-
-          const student = students.find(s => 
-            normalize(s.nama) === normalize(namaSiswa) && 
-            normalize(String(s.kelas)) === normalize(String(kelasSiswa))
-          );
-          const program = programs.find(p => normalize(p.nama_kegiatan) === normalize(namaKegiatan));
-          const teacher = teachers.find(t => normalize(t.nama_guru) === normalize(namaGuru));
-
-          if (!student || !program || !teacher) {
-            const missing = [];
-            if (!student) missing.push(`Siswa "${namaSiswa}" Kelas "${kelasSiswa}"`);
-            if (!program) missing.push(`Kegiatan "${namaKegiatan}"`);
-            if (!teacher) missing.push(`Wali Kelas "${namaGuru}"`);
-            
-            failedRows.push(`Baris ${index + 2}: ${missing.join(', ')} tidak ditemukan di data master.`);
-            return null;
-          }
-
-          let formattedDate = format(new Date(), 'yyyy-MM-dd');
-          if (tanggal) {
-            try {
-              const d = new Date(tanggal);
-              if (!isNaN(d.getTime())) {
-                formattedDate = format(d, 'yyyy-MM-dd');
-              } else if (typeof tanggal === 'number') {
-                const excelDate = new Date((tanggal - 25569) * 86400 * 1000);
-                formattedDate = format(excelDate, 'yyyy-MM-dd');
-              }
-            } catch (e) {}
-          }
-
-          return {
-            siswa_id: student.id,
-            kegiatan_id: program.id,
-            wali_kelas_id: teacher.id,
-            tanggal: formattedDate,
-            jam: jam || format(new Date(), 'HH.mm'),
-            alasan: reasons.find(r => normalize(r.label) === normalize(alasan))?.id || 
-                    reasons.find(r => normalize(r.id) === normalize(alasan))?.id || 
-                    'Hadir'
-          };
-        }).filter(Boolean);
-
-        if (mappedData.length === 0) {
-          let errorMsg = 'Tidak ada data valid untuk diupload.\n\nBeberapa masalah yang ditemukan:\n';
-          errorMsg += failedRows.slice(0, 5).join('\n');
-          if (failedRows.length > 5) errorMsg += `\n...dan ${failedRows.length - 5} baris lainnya.`;
-          errorMsg += '\n\nPastikan penulisan Nama, Kelas, Kegiatan, dan Wali Kelas sama persis dengan yang ada di Data Master.';
-          alert(errorMsg);
-          return;
-        }
-
-        if (failedRows.length > 0) {
-          const proceed = confirm(`${mappedData.length} data valid ditemukan, tetapi ${failedRows.length} baris bermasalah.\n\nContoh masalah:\n${failedRows.slice(0, 3).join('\n')}\n\nLanjutkan upload data yang valid saja?`);
-          if (!proceed) return;
-        }
-
-        // Implement "Tindih" (Overwrite) logic
-        // We'll process in chunks to avoid payload limits and handle upsert manually if needed
-        // But Supabase upsert with onConflict is best if we have a unique constraint.
-        // Since we might not have one, we'll do it by checking existing records.
-        
         setSubmitting(true);
-        let successCount = 0;
-        let errorCount = 0;
+        const { recapRows, totals } = await fetchRangeAttendanceForClass(start, end);
+        const rangeLabel =
+          start === end
+            ? formatTanggalIndo(start, true)
+            : `${formatTanggalIndo(start)} s.d. ${formatTanggalIndo(end)}`;
 
-        // Fetch existing records for the students and dates to check for duplicates
-        const studentIds = [...new Set(mappedData.map(d => d.siswa_id))];
-        const dates = [...new Set(mappedData.map(d => d.tanggal))];
+        docHeading = `Laporan Presensi Kegiatan Keagamaan Siswa (${start === end ? 'Harian' : 'Rekap Rentang Tanggal'})`;
+        docTabTitle = `Laporan Presensi Keagamaan - Kelas ${escapeHtml(kelasLabel)} (${escapeHtml(start)} s.d. ${escapeHtml(end)})`;
 
-        const { data: existingRecords } = await supabase
-          .from('agama_absensi')
-          .select('id, siswa_id, tanggal, kegiatan_id')
-          .in('siswa_id', studentIds)
-          .in('tanggal', dates);
+        summaryCounts = {
+          hadir: totals.hadir,
+          sakit: totals.sakit,
+          izin: totals.izin,
+          alpa: totals.alpa,
+          haid: totals.haid,
+          persen: totals.total > 0 ? ((totals.hadir / totals.total) * 100).toFixed(1) : '0.0'
+        };
 
-        const toUpsert = mappedData.map(newItem => {
-          const existing = existingRecords?.find(ex => 
-            ex.siswa_id === newItem.siswa_id && 
-            ex.tanggal === newItem.tanggal && 
-            ex.kegiatan_id === newItem.kegiatan_id
-          );
-          if (existing) {
-            return { ...newItem, id: existing.id }; // Include ID to trigger update
-          }
-          return newItem;
-        });
+        metaRowsHtml = `
+          <tr>
+            <td style="width:18%;font-weight:700;">Nama Kegiatan</td>
+            <td style="width:34%;">: ${escapeHtml(formData.kegiatan_id ? kegiatanName : 'Semua Kegiatan Keagamaan')}</td>
+            <td style="width:18%;font-weight:700;">Kelas / Periode</td>
+            <td style="width:30%;">: ${escapeHtml(kelasLabel)} (${escapeHtml(periodeLabel)})</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700;">Periode Cetak</td>
+            <td>: ${escapeHtml(rangeLabel)}</td>
+            <td style="font-weight:700;">Total Presensi</td>
+            <td>: ${totals.total} Catatan (${recapRows.length} Siswa)</td>
+          </tr>
+          <tr>
+            <td style="font-weight:700;">Wali Kelas / Guru</td>
+            <td>: ${escapeHtml(guruName)}</td>
+            <td style="font-weight:700;">Jenis Dokumen</td>
+            <td>: Laporan Rekap Rentang Tanggal</td>
+          </tr>
+        `;
 
-        // Perform upsert
-        const { error: upsertError } = await supabase
-          .from('agama_absensi')
-          .upsert(toUpsert);
+        tableHeadHtml = `
+          <tr>
+            <th style="width:28px;">No</th>
+            <th style="width:58px;">NIS</th>
+            <th>Nama Siswa</th>
+            <th style="width:36px;">H</th>
+            <th style="width:36px;">S</th>
+            <th style="width:36px;">I</th>
+            <th style="width:36px;">A</th>
+            <th style="width:42px;">Haid</th>
+            <th style="width:44px;">Total</th>
+            <th style="width:52px;">% Hadir</th>
+          </tr>
+        `;
 
-        if (upsertError) throw upsertError;
-
-        alert(`Berhasil memproses ${toUpsert.length} data (Termasuk update data yang sudah ada).`);
-        fetchAbsensi();
-      } catch (error: any) {
-        console.error('Upload error:', error);
-        alert('Error processing upload: ' + error.message);
+        rowsHtml =
+          recapRows
+            .map(
+              (r, idx) => `
+              <tr>
+                <td style="text-align:center;">${idx + 1}</td>
+                <td style="text-align:center;">${escapeHtml(r.nis)}</td>
+                <td style="font-weight:600;">${escapeHtml(r.nama)}</td>
+                <td style="text-align:center;font-weight:700;">${r.hadir}</td>
+                <td style="text-align:center;">${r.sakit}</td>
+                <td style="text-align:center;">${r.izin}</td>
+                <td style="text-align:center;">${r.alpa}</td>
+                <td style="text-align:center;">${r.haid}</td>
+                <td style="text-align:center;font-weight:700;">${r.total}</td>
+                <td style="text-align:center;font-weight:700;">${r.persen}%</td>
+              </tr>
+            `
+            )
+            .join('') +
+          `
+            <tr style="background:#f1f5f9;font-weight:800;">
+              <td colspan="3" style="text-align:right;">TOTAL KESELURUHAN</td>
+              <td style="text-align:center;">${totals.hadir}</td>
+              <td style="text-align:center;">${totals.sakit}</td>
+              <td style="text-align:center;">${totals.izin}</td>
+              <td style="text-align:center;">${totals.alpa}</td>
+              <td style="text-align:center;">${totals.haid}</td>
+              <td style="text-align:center;">${totals.total}</td>
+              <td style="text-align:center;">${summaryCounts.persen}%</td>
+            </tr>
+          `;
+      } catch (err: any) {
+        console.error('Error preparing range print:', err);
+        alert('Gagal memuat data presensi untuk rentang tanggal tersebut.');
+        setSubmitting(false);
+        return;
       } finally {
         setSubmitting(false);
       }
-    };
-    reader.readAsBinaryString(file);
+    } else {
+      metaRowsHtml = `
+        <tr>
+          <td style="width:16%;font-weight:700;">Nama Kegiatan</td>
+          <td style="width:36%;">: ${escapeHtml(kegiatanName)}</td>
+          <td style="width:16%;font-weight:700;">Kelas / Periode</td>
+          <td style="width:32%;">: ${escapeHtml(kelasLabel)} (${escapeHtml(periodeLabel)})</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">Hari / Tanggal</td>
+          <td>: ${escapeHtml(formattedDate)}</td>
+          <td style="font-weight:700;">Jam Pelaksanaan</td>
+          <td>: ${escapeHtml(formData.jam || '-')} WIB</td>
+        </tr>
+        <tr>
+          <td style="font-weight:700;">Wali Kelas / Guru</td>
+          <td>: ${escapeHtml(guruName)}</td>
+          <td style="font-weight:700;">Status Dokumen</td>
+          <td>: ${
+            isReportMode
+              ? `Laporan Tersimpan${lastSavedTime ? ` (${escapeHtml(lastSavedTime)})` : ''}`
+              : 'Formulir / Draf Presensi'
+          }</td>
+        </tr>
+      `;
+
+      rowsHtml = siswaList
+        .map(
+          (s, idx) => `
+          <tr>
+            <td style="text-align:center;">${idx + 1}</td>
+            <td style="text-align:center;">${escapeHtml(s.nis || '-')}</td>
+            <td style="font-weight:600;">${escapeHtml(s.nama)}</td>
+            <td style="text-align:center;font-weight:700;">${escapeHtml(s.absensi || 'Hadir')}</td>
+            <td>${escapeHtml(s.catatan_siswa || '-')}</td>
+            <td>${escapeHtml(s.tindakan || '-')}</td>
+            ${
+              isReportMode
+                ? `<td style="text-align:center;">${s.absensi === 'Hadir' ? 'Mengikuti' : 'Tercatat'}</td>`
+                : '<td></td>'
+            }
+          </tr>
+        `
+        )
+        .join('');
+    }
+
+    const htmlDoc = `<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <title>${docTabTitle}</title>
+    <style>
+      @page {
+        size: A4 portrait;
+        margin: 12mm;
+      }
+      *, *::before, *::after {
+        box-sizing: border-box;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      body {
+        font-family: "Times New Roman", Times, serif;
+        color: #0f172a;
+        background: #ffffff;
+        margin: 0;
+        padding: 0;
+        font-size: 11px;
+        line-height: 1.4;
+      }
+      .kop {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 3px double #0f172a;
+        padding-bottom: 8px;
+        margin-bottom: 12px;
+      }
+      .kop img {
+        width: 56px;
+        height: 64px;
+        object-fit: contain;
+      }
+      .kop-text {
+        flex: 1;
+        text-align: center;
+        padding: 0 10px;
+      }
+      .kop-text h1 { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; }
+      .kop-text h2 { margin: 2px 0; font-size: 15px; font-weight: 800; }
+      .kop-text p { margin: 1px 0; font-size: 10px; }
+      .doc-title {
+        text-align: center;
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin: 10px 0 10px;
+        text-decoration: underline;
+      }
+      .meta-grid {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 10px;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 10.5px;
+      }
+      .meta-grid td {
+        padding: 3px 6px;
+        vertical-align: top;
+      }
+      .summary-bar {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 6px;
+        margin-bottom: 10px;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      .summary-item {
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        padding: 4px 6px;
+        text-align: center;
+        background: #f8fafc;
+      }
+      .summary-item .lbl { font-size: 9px; color: #475569; font-weight: 700; text-transform: uppercase; }
+      .summary-item .val { font-size: 12px; font-weight: 800; color: #0f172a; }
+      table.data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 10px;
+      }
+      table.data-table th, table.data-table td {
+        border: 1px solid #334155;
+        padding: 4px 6px;
+        vertical-align: middle;
+      }
+      table.data-table th {
+        background: #e2e8f0;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 9.5px;
+        text-align: center;
+      }
+      table.data-table tr {
+        page-break-inside: avoid;
+      }
+      .signatures {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 22px;
+        page-break-inside: avoid;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 10.5px;
+      }
+      .sig-box {
+        width: 44%;
+        text-align: center;
+      }
+      .sig-space {
+        height: 54px;
+      }
+      .sig-name {
+        font-weight: 700;
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="kop">
+      <img src="https://i.ibb.co/677QPVHY/logo.png" alt="Logo Pemkot Pasuruan" />
+      <div class="kop-text">
+        <h1>PEMERINTAH KOTA PASURUAN</h1>
+        <h2>SMP NEGERI 7 PASURUAN</h2>
+        <p>Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139</p>
+        <p>Telepon (0343) 426845 · Pos-el smp7pas@yahoo.co.id · Laman www.smpn7pasuruan.sch.id</p>
+      </div>
+      <img src="https://iili.io/KDFk4fI.png" alt="Logo SMPN 7 Pasuruan" />
+    </div>
+
+    <div class="doc-title">${docHeading}</div>
+
+    <table class="meta-grid">
+      ${metaRowsHtml}
+    </table>
+
+    <div class="summary-bar">
+      <div class="summary-item"><div class="lbl">Hadir (H)</div><div class="val">${summaryCounts.hadir}</div></div>
+      <div class="summary-item"><div class="lbl">Sakit (S)</div><div class="val">${summaryCounts.sakit}</div></div>
+      <div class="summary-item"><div class="lbl">Izin (I)</div><div class="val">${summaryCounts.izin}</div></div>
+      <div class="summary-item"><div class="lbl">Alpa (A)</div><div class="val">${summaryCounts.alpa}</div></div>
+      <div class="summary-item"><div class="lbl">Haid</div><div class="val">${summaryCounts.haid}</div></div>
+      <div class="summary-item"><div class="lbl">% Hadir</div><div class="val">${summaryCounts.persen}%</div></div>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        ${tableHeadHtml}
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+
+    <div class="signatures">
+      <div class="sig-box">
+        <div>Mengetahui,</div>
+        <div>Kepala SMP Negeri 7 Pasuruan</div>
+        <div class="sig-space"></div>
+        <div class="sig-name">NUR FADILAH, S.Pd</div>
+        <div>NIP. 19860410 201001 2 030</div>
+      </div>
+      <div class="sig-box">
+        <div>Pasuruan, ${escapeHtml(format(new Date(), 'd MMMM yyyy', { locale: idLocale }))}</div>
+        <div>Wali Kelas / Guru Pengampu</div>
+        <div class="sig-space"></div>
+        <div class="sig-name">${escapeHtml(guruName)}</div>
+        <div>NIP. ............................</div>
+      </div>
+    </div>
+  </body>
+</html>`;
+
+    const existing = document.getElementById('keagamaan-print-frame');
+    if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'keagamaan-print-frame';
+    iframe.style.position = 'fixed';
+    iframe.style.left = '-10000px';
+    iframe.style.top = '0';
+    iframe.style.width = '794px';
+    iframe.style.height = '1123px';
+    iframe.style.border = '0';
+    iframe.style.pointerEvents = 'none';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    doc.open();
+    doc.write(htmlDoc);
+    doc.close();
+
+    const imgs = Array.from(doc.querySelectorAll('img')) as HTMLImageElement[];
+    const imgPromises = imgs.map(
+      img =>
+        new Promise<void>(resolve => {
+          if (img.complete && img.naturalWidth > 0) return resolve();
+          img.addEventListener('load', () => resolve(), { once: true });
+          img.addEventListener('error', () => resolve(), { once: true });
+        })
+    );
+
+    Promise.race([Promise.all(imgPromises), new Promise<void>(r => setTimeout(r, 2000))]).then(() => {
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch {
+          window.print();
+        } finally {
+          setTimeout(() => {
+            if (document.body.contains(iframe)) document.body.removeChild(iframe);
+          }, 60000);
+        }
+      }, 150);
+    });
   };
 
-  const filteredAbsensi = absensiList.filter(abs => {
-    const matchesSearch = abs.siswa?.nama.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesKelas = filterKelas ? abs.siswa?.kelas === filterKelas : true;
-    const matchesKeterangan = filterKeterangan ? abs.alasan === filterKeterangan : true;
-    return matchesSearch && matchesKelas && matchesKeterangan;
-  });
+  const handleSaveFormExcel = async () => {
+    if (siswaList.length === 0) {
+      alert('Daftar siswa kosong. Silakan pilih kelas atau tambahkan siswa terlebih dahulu.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const { start, end, isRangeExport } = getExportDateRange();
+      const { kegiatanName, guruName, periodeLabel, kelasLabel } = getSelectedMeta();
+
+      const workbook = new ExcelJS.Workbook();
+
+      if (isRangeExport) {
+        const { recapRows, totals, detailRows } = await fetchRangeAttendanceForClass(start, end);
+        const rangeLabel = start === end ? start : `${start} s.d. ${end}`;
+        const overallPersen = totals.total > 0 ? ((totals.hadir / totals.total) * 100).toFixed(1) : '0.0';
+
+        const worksheet = workbook.addWorksheet(`Rekap Kelas ${kelasLabel}`);
+        worksheet.columns = [
+          { width: 6 },  // No
+          { width: 12 }, // NIS
+          { width: 32 }, // Nama Siswa
+          { width: 10 }, // Hadir
+          { width: 10 }, // Sakit
+          { width: 10 }, // Izin
+          { width: 10 }, // Alpa
+          { width: 10 }, // Haid
+          { width: 10 }, // Total
+          { width: 12 }  // % Hadir
+        ];
+
+        await addExcelHeaderAndLogos(
+          worksheet,
+          workbook,
+          `Laporan Presensi Kegiatan Keagamaan - Kelas ${kelasLabel}`,
+          10
+        );
+
+        worksheet.getCell('A9').value =
+          `Kegiatan: ${formData.kegiatan_id ? kegiatanName : 'Semua Kegiatan'} | Tanggal: ${rangeLabel} | ${periodeLabel} | Wali Kelas/Guru: ${guruName}`;
+        worksheet.mergeCells('A9:J9');
+        worksheet.getCell('A9').font = { bold: true, size: 10 };
+        worksheet.getCell('A9').alignment = { horizontal: 'center' };
+
+        const headerRow = worksheet.getRow(10);
+        headerRow.values = ['NO', 'NIS', 'NAMA SISWA', 'HADIR', 'SAKIT', 'IZIN', 'ALPA', 'HAID', 'TOTAL', '% HADIR'];
+
+        recapRows.forEach((r, idx) => {
+          const row = worksheet.getRow(11 + idx);
+          const vals = [idx + 1, r.nis, r.nama, r.hadir, r.sakit, r.izin, r.alpa, r.haid, r.total, `${r.persen}%`];
+          vals.forEach((v, cIdx) => {
+            const cell = row.getCell(cIdx + 1);
+            cell.value = v;
+            cell.alignment = { horizontal: cIdx === 2 ? 'left' : 'center', vertical: 'middle' };
+          });
+        });
+
+        applyColorfulTableStyle(worksheet, 10, recapRows.length, 10);
+
+        const totalRowIdx = 11 + recapRows.length;
+        const totalRow = worksheet.getRow(totalRowIdx);
+        totalRow.values = [
+          '',
+          '',
+          'TOTAL KESELURUHAN',
+          totals.hadir,
+          totals.sakit,
+          totals.izin,
+          totals.alpa,
+          totals.haid,
+          totals.total,
+          `${overallPersen}%`
+        ];
+        for (let c = 1; c <= 10; c++) {
+          const cell = totalRow.getCell(c);
+          cell.font = { bold: true, size: 10 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+          cell.alignment = { horizontal: c <= 3 ? 'right' : 'center', vertical: 'middle' };
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+          };
+        }
+
+        const sigStart = totalRowIdx + 2;
+        worksheet.mergeCells(sigStart, 1, sigStart, 4);
+        worksheet.getCell(sigStart, 1).value = 'Mengetahui, Kepala Sekolah';
+        worksheet.getCell(sigStart, 1).alignment = { horizontal: 'center' };
+
+        worksheet.mergeCells(sigStart + 4, 1, sigStart + 4, 4);
+        worksheet.getCell(sigStart + 4, 1).value = 'NUR FADILAH, S.Pd';
+        worksheet.getCell(sigStart + 4, 1).font = { bold: true, underline: true };
+        worksheet.getCell(sigStart + 4, 1).alignment = { horizontal: 'center' };
+
+        worksheet.mergeCells(sigStart, 6, sigStart, 10);
+        worksheet.getCell(sigStart, 6).value = `Pasuruan, ${format(new Date(), 'd MMMM yyyy', { locale: idLocale })}`;
+        worksheet.getCell(sigStart, 6).alignment = { horizontal: 'center' };
+
+        worksheet.mergeCells(sigStart + 1, 6, sigStart + 1, 10);
+        worksheet.getCell(sigStart + 1, 6).value = 'Wali Kelas / Guru Pengampu';
+        worksheet.getCell(sigStart + 1, 6).alignment = { horizontal: 'center' };
+
+        worksheet.mergeCells(sigStart + 4, 6, sigStart + 4, 10);
+        worksheet.getCell(sigStart + 4, 6).value = guruName;
+        worksheet.getCell(sigStart + 4, 6).font = { bold: true, underline: true };
+        worksheet.getCell(sigStart + 4, 6).alignment = { horizontal: 'center' };
+
+        // Sheet 2: Rincian Harian
+        const detailSheet = workbook.addWorksheet('Rincian Harian');
+        detailSheet.columns = [
+          { width: 6 },
+          { width: 14 },
+          { width: 10 },
+          { width: 12 },
+          { width: 32 },
+          { width: 26 },
+          { width: 16 }
+        ];
+        await addExcelHeaderAndLogos(
+          detailSheet,
+          workbook,
+          `Rincian Harian Presensi Keagamaan - Kelas ${kelasLabel}`,
+          7
+        );
+        detailSheet.getCell('A9').value = `Periode: ${rangeLabel} | ${periodeLabel} | Total Catatan: ${detailRows.length}`;
+        detailSheet.mergeCells('A9:G9');
+        detailSheet.getCell('A9').font = { bold: true, size: 10 };
+        detailSheet.getCell('A9').alignment = { horizontal: 'center' };
+
+        detailSheet.getRow(10).values = ['NO', 'TANGGAL', 'JAM', 'NIS', 'NAMA SISWA', 'KEGIATAN', 'STATUS'];
+        detailRows.forEach((d, idx) => {
+          const r = detailSheet.getRow(11 + idx);
+          const vals = [idx + 1, d.tanggal, d.jam, d.nis, d.nama, d.kegiatan, d.alasan];
+          vals.forEach((v, cIdx) => {
+            const cell = r.getCell(cIdx + 1);
+            cell.value = v;
+            cell.alignment = { horizontal: cIdx === 4 || cIdx === 5 ? 'left' : 'center', vertical: 'middle' };
+          });
+        });
+        applyColorfulTableStyle(detailSheet, 10, detailRows.length, 7);
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const fileRange = start === end ? start : `${start}_sd_${end}`;
+        saveAs(blob, `Laporan_Presensi_Keagamaan_${kelasLabel}_${fileRange}.xlsx`);
+        return;
+      }
+
+      const sheetTitle = isReportMode ? `Laporan ${kelasLabel}` : `Formulir ${kelasLabel}`;
+      const docExcelTitle = isReportMode
+        ? `Laporan Presensi Kegiatan Keagamaan - Kelas ${kelasLabel}`
+        : `Formulir Presensi Kegiatan Keagamaan - Kelas ${kelasLabel}`;
+      const worksheet = workbook.addWorksheet(sheetTitle);
+
+      worksheet.columns = [
+        { width: 6 },  // No
+        { width: 12 }, // NIS
+        { width: 32 }, // Nama Siswa
+        { width: 14 }, // Status
+        { width: 26 }, // Catatan Siswa
+        { width: 26 }  // Tindakan Guru
+      ];
+
+      await addExcelHeaderAndLogos(
+        worksheet,
+        workbook,
+        docExcelTitle,
+        6
+      );
+
+      worksheet.getCell('A9').value = `Kegiatan: ${kegiatanName} | Tanggal: ${formData.tanggal} (${formData.jam}) | ${periodeLabel} | Wali Kelas/Guru: ${guruName}`;
+      worksheet.mergeCells('A9:F9');
+      worksheet.getCell('A9').font = { bold: true, size: 10 };
+      worksheet.getCell('A9').alignment = { horizontal: 'center' };
+
+      const headerRow = worksheet.getRow(10);
+      headerRow.values = ['NO', 'NIS', 'NAMA SISWA', 'STATUS', 'CATATAN SISWA', 'TINDAKAN GURU'];
+
+      siswaList.forEach((s, idx) => {
+        const r = worksheet.getRow(11 + idx);
+        const vals = [
+          idx + 1,
+          s.nis || '-',
+          s.nama,
+          s.absensi || 'Hadir',
+          s.catatan_siswa || '-',
+          s.tindakan || '-'
+        ];
+        vals.forEach((v, cIdx) => {
+          const cell = r.getCell(cIdx + 1);
+          cell.value = v;
+          cell.alignment = { horizontal: cIdx === 0 || cIdx === 1 || cIdx === 3 ? 'center' : 'left', vertical: 'middle' };
+        });
+      });
+
+      applyColorfulTableStyle(worksheet, 10, siswaList.length, 6);
+
+      const summaryRowIdx = 11 + siswaList.length + 1;
+      worksheet.mergeCells(`A${summaryRowIdx}:F${summaryRowIdx}`);
+      worksheet.getCell(`A${summaryRowIdx}`).value =
+        `Rekap: Hadir (${countHadir}) | Sakit (${countSakit}) | Izin (${countIzin}) | Alpa (${countAlpa}) | Haid (${countHaid}) | Total (${siswaList.length})`;
+      worksheet.getCell(`A${summaryRowIdx}`).font = { bold: true, size: 10 };
+
+      const sigStart = summaryRowIdx + 2;
+      worksheet.mergeCells(sigStart, 1, sigStart, 3);
+      worksheet.getCell(sigStart, 1).value = 'Mengetahui, Kepala Sekolah';
+      worksheet.getCell(sigStart, 1).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(sigStart + 4, 1, sigStart + 4, 3);
+      worksheet.getCell(sigStart + 4, 1).value = 'NUR FADILAH, S.Pd';
+      worksheet.getCell(sigStart + 4, 1).font = { bold: true, underline: true };
+      worksheet.getCell(sigStart + 4, 1).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(sigStart, 4, sigStart, 6);
+      worksheet.getCell(sigStart, 4).value = `Pasuruan, ${format(new Date(), 'd MMMM yyyy', { locale: idLocale })}`;
+      worksheet.getCell(sigStart, 4).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(sigStart + 1, 4, sigStart + 1, 6);
+      worksheet.getCell(sigStart + 1, 4).value = 'Wali Kelas / Guru Pengampu';
+      worksheet.getCell(sigStart + 1, 4).alignment = { horizontal: 'center' };
+
+      worksheet.mergeCells(sigStart + 4, 4, sigStart + 4, 6);
+      worksheet.getCell(sigStart + 4, 4).value = guruName;
+      worksheet.getCell(sigStart + 4, 4).font = { bold: true, underline: true };
+      worksheet.getCell(sigStart + 4, 4).alignment = { horizontal: 'center' };
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const filePrefix = isReportMode ? 'Laporan_Presensi_Keagamaan' : 'Formulir_Presensi_Keagamaan';
+      saveAs(blob, `${filePrefix}_${kelasLabel}_${formData.tanggal}.xlsx`);
+    } catch (err: any) {
+      console.error('Error saving excel form:', err);
+      alert('Gagal menyimpan file Excel.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
       {/* Form Section */}
       <div className="bg-gradient-to-br from-emerald-600 to-teal-800 rounded-2xl sm:rounded-3xl md:rounded-[40px] p-1 sm:p-2 shadow-xl shadow-emerald-900/10">
-        <div className="p-4 sm:p-6 md:p-10 text-white">
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-black mb-1 sm:mb-2">Formulir Presensi Kegiatan Keagamaan</h2>
-          <p className="text-emerald-100/80 text-xs sm:text-sm font-medium tracking-wide">
-            Kelola presensi, absensi, dan nilai kegiatan keagamaan siswa secara terpadu per kelas
-          </p>
-        </div>
-        
-        <div className="bg-white m-1 sm:m-2 rounded-xl sm:rounded-2xl md:rounded-[32px] p-3.5 sm:p-6 md:p-8">
-          {editingId && (
-            <div className="mb-4 sm:mb-6 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-amber-50 border border-amber-200 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="text-amber-600 shrink-0" size={18} />
-                <span className="text-xs sm:text-sm font-bold text-amber-800">
-                  Mode Edit Riwayat: Mengubah presensi untuk <strong>{editingStudentName}</strong>
-                </span>
+        <div className="p-4 sm:p-6 md:p-10 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-black mb-1 sm:mb-2">
+              Form Isian Presensi Kegiatan Keagamaan
+            </h2>
+            <p className="text-emerald-100/80 text-xs sm:text-sm font-medium tracking-wide">
+              {isReportMode
+                ? `Data presensi kelas ${formData.kelas} telah tersimpan — siap dicetak atau diunduh sebagai Laporan Presensi Kegiatan Keagamaan`
+                : 'Kelola presensi, absensi, dan nilai kegiatan keagamaan siswa secara terpadu per kelas'}
+            </p>
+          </div>
+          <div className="flex flex-col items-stretch sm:items-end gap-2.5 shrink-0 print:hidden">
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+              <button
+                type="button"
+                onClick={handlePrintForm}
+                disabled={submitting}
+                className="px-4 py-2.5 bg-white/15 hover:bg-white/25 text-white border border-white/25 rounded-xl text-xs font-bold flex items-center gap-2 transition-all backdrop-blur-xs disabled:opacity-50 cursor-pointer"
+                title={
+                  isReportMode || getExportDateRange().isRangeExport
+                    ? 'Cetak Laporan atau Simpan sebagai PDF'
+                    : 'Cetak Formulir atau Simpan sebagai PDF'
+                }
+              >
+                <Printer size={16} />{' '}
+                {isReportMode || getExportDateRange().isRangeExport ? 'Cetak Laporan / PDF' : 'Cetak / PDF'}
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveFormExcel}
+                disabled={submitting}
+                className="px-4 py-2.5 bg-white text-emerald-800 hover:bg-emerald-50 rounded-xl text-xs font-black flex items-center gap-2 transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+                title={
+                  isReportMode || getExportDateRange().isRangeExport
+                    ? 'Simpan Laporan sebagai File Excel'
+                    : 'Simpan sebagai File Excel'
+                }
+              >
+                <FileSpreadsheet size={16} />{' '}
+                {isReportMode || getExportDateRange().isRangeExport ? 'Simpan Laporan Excel' : 'Simpan Excel'}
+              </button>
+            </div>
+            <div className="bg-white/15 border border-white/25 rounded-2xl px-3 py-2 backdrop-blur-xs flex flex-wrap items-end gap-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-extrabold text-white/95 uppercase tracking-wider px-0.5">
+                  Mulai Tanggal
+                </label>
+                <input
+                  type="date"
+                  value={exportStartDate}
+                  onChange={e => handleChangeExportStart(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-xl bg-white text-slate-800 text-xs font-bold border border-white/50 outline-none focus:ring-2 focus:ring-emerald-300 shadow-xs"
+                />
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleSingleUpdate}
-                  disabled={submitting}
-                  className="px-3.5 py-1.5 sm:px-4 sm:py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
-                >
-                  Perbarui Baris Ini Saja
-                </button>
+              <span className="text-white/90 text-xs font-bold pb-2 px-0.5">s.d.</span>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-extrabold text-white/95 uppercase tracking-wider px-0.5">
+                  Akhir Tanggal
+                </label>
+                <input
+                  type="date"
+                  value={exportEndDate}
+                  onChange={e => handleChangeExportEnd(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-xl bg-white text-slate-800 text-xs font-bold border border-white/50 outline-none focus:ring-2 focus:ring-emerald-300 shadow-xs"
+                />
+              </div>
+              {hasCustomExportRange && (
                 <button
                   type="button"
                   onClick={() => {
-                    setEditingId(null);
-                    setEditingStudentName('');
-                    setSearchSiswa('');
+                    setHasCustomExportRange(false);
+                    setExportStartDate(formData.tanggal);
+                    setExportEndDate(formData.tanggal);
                   }}
-                  className="px-3 py-1.5 bg-white text-slate-600 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all flex items-center gap-1"
+                  className="px-2.5 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold transition-colors cursor-pointer mb-0.5"
+                  title="Samakan dengan tanggal kegiatan di formulir"
                 >
-                  <X size={14} /> Batal
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white m-1 sm:m-2 rounded-xl sm:rounded-2xl md:rounded-[32px] p-3.5 sm:p-6 md:p-8">
+          {saveFeedback?.type === 'error' && (
+            <div className="mb-4 sm:mb-6 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <AlertCircle className="text-rose-600 shrink-0" size={18} />
+                <span className="text-xs sm:text-sm font-bold text-rose-900">{saveFeedback.message}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSaveFeedback(null)}
+                className="p-1 text-rose-400 hover:text-rose-700 cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+          {isReportMode && (
+            <div className="mb-4 sm:mb-6 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-emerald-50 border border-emerald-200 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <Check className="text-emerald-600 shrink-0" size={18} />
+                <span className="text-xs sm:text-sm font-bold text-emerald-900">
+                  {saveFeedback?.type === 'success'
+                    ? saveFeedback.message
+                    : `Presensi kelas ${formData.kelas} tersimpan. Cetak / Simpan Excel otomatis menghasilkan Laporan Presensi Kegiatan Keagamaan.`}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePrintForm}
+                  disabled={submitting}
+                  className="px-3.5 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  <Printer size={14} /> Cetak Laporan
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveFormExcel}
+                  disabled={submitting}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <FileSpreadsheet size={14} /> Simpan Laporan Excel
                 </button>
               </div>
             </div>
           )}
-
           <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 md:gap-6">
               {/* Tanggal Kegiatan */}
@@ -971,200 +1742,42 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = ({ user }) => {
               </div>
             </div>
 
-            <div className="flex justify-end gap-4 pt-6">
-              {editingId && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingId(null);
-                    setEditingStudentName('');
-                  }}
-                  className="px-8 py-4 rounded-2xl border-2 border-slate-100 text-slate-600 font-bold hover:bg-slate-50 transition-all flex items-center gap-2"
-                >
-                  <X size={20} /> Batal
-                </button>
-              )}
+            <div className="flex flex-wrap justify-end gap-3 pt-6">
+              <button
+                type="button"
+                onClick={handlePrintForm}
+                disabled={submitting}
+                className="px-6 py-4 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 font-bold hover:bg-slate-50 transition-all flex items-center gap-2 text-sm disabled:opacity-50 cursor-pointer"
+              >
+                <Printer size={18} />{' '}
+                {isReportMode || getExportDateRange().isRangeExport ? 'Cetak Laporan' : 'Cetak Formulir'}
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveFormExcel}
+                disabled={submitting}
+                className="px-6 py-4 rounded-2xl border-2 border-emerald-200 bg-emerald-50 text-emerald-800 font-bold hover:bg-emerald-100 transition-all flex items-center gap-2 text-sm disabled:opacity-50 cursor-pointer"
+              >
+                <FileSpreadsheet size={18} />{' '}
+                {isReportMode || getExportDateRange().isRangeExport ? 'Simpan Laporan Excel' : 'Simpan Formulir Excel'}
+              </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-10 py-4 rounded-2xl bg-emerald-600 text-white font-black hover:bg-emerald-700 shadow-xl shadow-emerald-200 transition-all flex items-center gap-2 disabled:opacity-50 text-sm"
+                className="px-8 py-4 rounded-2xl bg-emerald-600 text-white font-black hover:bg-emerald-700 shadow-xl shadow-emerald-200 transition-all flex items-center gap-2 disabled:opacity-50 text-sm cursor-pointer"
               >
                 {submitting ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 ) : (
                   <Save size={20} />
                 )}
-                {editingId ? 'Simpan Seluruh Kelas' : `Simpan Presensi Kelas (${siswaList.length} Siswa)`}
+                {`Simpan Presensi Kelas (${siswaList.length} Siswa)`}
               </button>
             </div>
           </form>
         </div>
       </div>
 
-      {/* List Section */}
-      <div className="bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-8 border-b border-slate-50 flex items-center justify-between">
-          <div>
-            <h3 className="text-xl font-black text-slate-800">Riwayat Absensi Terbaru</h3>
-            <p className="text-sm text-slate-400">Menampilkan 50 data terakhir</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                const workbook = new ExcelJS.Workbook();
-                const worksheet = workbook.addWorksheet('Template Absensi');
-                worksheet.columns = [
-                  { header: 'Nama Siswa', key: 'nama', width: 30 },
-                  { header: 'Kelas', key: 'kelas', width: 10 },
-                  { header: 'Kegiatan', key: 'kegiatan', width: 25 },
-                  { header: 'Wali Kelas', key: 'wali_kelas', width: 30 },
-                  { header: 'Tanggal', key: 'tanggal', width: 15 },
-                  { header: 'Jam', key: 'jam', width: 10 },
-                  { header: 'Alasan', key: 'alasan', width: 15 }
-                ];
-                
-                // Add example row
-                worksheet.addRow({
-                  nama: 'Contoh Nama Siswa',
-                  kelas: '7A',
-                  kegiatan: 'Pondok Ramadhan',
-                  wali_kelas: 'Nama Guru Wali Kelas',
-                  tanggal: '2026-04-11',
-                  jam: '07.30',
-                  alasan: 'Hadir'
-                });
-
-                workbook.xlsx.writeBuffer().then(buffer => {
-                  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'Template_Upload_Keagamaan.xlsx';
-                  a.click();
-                  window.URL.revokeObjectURL(url);
-                });
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-100 transition-all"
-            >
-              <Download size={16} />
-              <span>Template</span>
-            </button>
-            <label className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-bold cursor-pointer hover:bg-emerald-100 transition-all">
-              <Upload size={16} />
-              <span>Upload Data</span>
-              <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleExcelUpload} />
-            </label>
-            <div className="flex items-center gap-2">
-              <select
-                value={filterKelas}
-                onChange={(e) => setFilterKelas(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-slate-100 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 bg-white font-bold text-slate-600"
-              >
-                <option value="">Semua Kelas</option>
-                {classes.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <select
-                value={filterKeterangan}
-                onChange={(e) => setFilterKeterangan(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-slate-100 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 bg-white font-bold text-slate-600"
-              >
-                <option value="">Semua Keterangan</option>
-                {reasons.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
-              </select>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                <input 
-                  type="text" 
-                  placeholder="Cari nama..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 rounded-xl border border-slate-100 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50">
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Siswa</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Kegiatan</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Waktu</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Keterangan</th>
-                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-8 py-12 text-center text-slate-400 italic">Memuat data...</td>
-                </tr>
-              ) : filteredAbsensi.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-8 py-12 text-center text-slate-400 italic">Data tidak ditemukan.</td>
-                </tr>
-              ) : (
-                filteredAbsensi.map(abs => (
-                  <tr key={abs.id} className="hover:bg-slate-50/50 transition-all group">
-                    <td className="px-8 py-5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 font-bold">
-                          {abs.siswa?.nama.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-700">{abs.siswa?.nama}</p>
-                          <p className="text-xs text-slate-400">Kelas {abs.siswa?.kelas}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-8 py-5">
-                      <span className="px-3 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase">
-                        {abs.kegiatan?.nama_kegiatan}
-                      </span>
-                    </td>
-                    <td className="px-8 py-5">
-                      <p className="text-sm font-bold text-slate-600">{format(new Date(abs.tanggal), 'dd MMM yyyy')}</p>
-                      <p className="text-xs text-slate-400">{abs.jam}</p>
-                    </td>
-                    <td className="px-8 py-5">
-                      <span className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase ${
-                        abs.alasan === 'Hadir' ? 'bg-emerald-50 text-emerald-600' :
-                        abs.alasan === 'Haid' ? 'bg-rose-50 text-rose-600' :
-                        abs.alasan === 'Alpa' ? 'bg-slate-100 text-slate-600' :
-                        'bg-amber-50 text-amber-600'
-                      }`}>
-                        {abs.alasan}
-                      </span>
-                    </td>
-                    <td className="px-8 py-5 text-right">
-                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                        {canEdit && (
-                          <button
-                            onClick={() => handleEdit(abs)}
-                            className="p-2 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                        )}
-                        {canDelete && (
-                          <button
-                            onClick={() => handleDelete(abs.id)}
-                            className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
       {/* Modal Input Tambah Guru Baru */}
       {showAddGuruModal && (

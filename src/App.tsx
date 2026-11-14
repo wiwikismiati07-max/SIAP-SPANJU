@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -91,31 +91,39 @@ const IMAGE_SPIP_3 = "https://i.ibb.co/DDqRQwCr/3.png";
 const IMAGE_KORELASI_SPIP = "https://i.ibb.co/nM7xrHj6/korelasi-8-program-dg-15-indikator-pip-anti-korupsi.png";
 const IMAGE_KORELASI_SRA = "https://i.ibb.co/svM8w1FY/korelasi-integrasi-siap-spanju-dg-sekolah-ramah-anak.jpg";
 
-import SiTelatApp from './components/sitelat/SiTelatApp';
-import IzinSiswaApp from './components/izinsiswa/IzinSiswaApp';
-import DispensasiApp from './components/dispensasi/DispensasiApp';
-import PrestasiApp from './components/siprestasi/PrestasiApp';
-import KeagamaanApp from './components/keagamaan/KeagamaanApp';
-import UksApp from './components/uks/UksApp';
-import PengaduanWaliApp from './components/pengaduan/PengaduanWaliApp';
-import SipenaApp from './components/sipena/SipenaApp';
-import SurveyApp from './components/survey/SurveyApp';
-import DisiplinSiswaApp from './components/disiplinsiswa/DisiplinSiswaApp';
-import BKPeduliSiswaApp from './components/bkpedulisiswa/BKPeduliSiswaApp';
-import JurnalPembelajaranApp from './components/jurnalpembelajaran/JurnalPembelajaranApp';
-import KelulusanApp from './components/kelulusan/KelulusanApp';
-import KelulusanAdmin from './components/kelulusan/KelulusanAdmin';
-import KelulusanSetup from './components/kelulusan/KelulusanSetup';
-import AlumniTracingApp from './components/alumni/AlumniTracingApp';
-import AlumniTracingAdmin from './components/alumni/AlumniTracingAdmin';
+const SiTelatApp = lazy(() => import('./components/sitelat/SiTelatApp'));
+const IzinSiswaApp = lazy(() => import('./components/izinsiswa/IzinSiswaApp'));
+const DispensasiApp = lazy(() => import('./components/dispensasi/DispensasiApp'));
+const PrestasiApp = lazy(() => import('./components/siprestasi/PrestasiApp'));
+const KeagamaanApp = lazy(() => import('./components/keagamaan/KeagamaanApp'));
+const UksApp = lazy(() => import('./components/uks/UksApp'));
+const PengaduanWaliApp = lazy(() => import('./components/pengaduan/PengaduanWaliApp'));
+const SipenaApp = lazy(() => import('./components/sipena/SipenaApp'));
+const SurveyApp = lazy(() => import('./components/survey/SurveyApp'));
+const DisiplinSiswaApp = lazy(() => import('./components/disiplinsiswa/DisiplinSiswaApp'));
+const BKPeduliSiswaApp = lazy(() => import('./components/bkpedulisiswa/BKPeduliSiswaApp'));
+const JurnalPembelajaranApp = lazy(() => import('./components/jurnalpembelajaran/JurnalPembelajaranApp'));
+const KelulusanApp = lazy(() => import('./components/kelulusan/KelulusanApp'));
+const KelulusanAdmin = lazy(() => import('./components/kelulusan/KelulusanAdmin'));
+const KelulusanSetup = lazy(() => import('./components/kelulusan/KelulusanSetup'));
+const AlumniTracingApp = lazy(() => import('./components/alumni/AlumniTracingApp'));
+const AlumniTracingAdmin = lazy(() => import('./components/alumni/AlumniTracingAdmin'));
 import GlobalLogin from './components/GlobalLogin';
 import InfografisLanding from './components/infografis/InfografisLanding';
-import ManagementLogin from './components/ManagementLogin';
-import HotlineSection from './components/HotlineSection';
-import ManagementSiswaApp from './components/management/ManagementSiswaApp';
-import TutorialSection from './components/TutorialSection';
+const ManagementLogin = lazy(() => import('./components/ManagementLogin'));
+const HotlineSection = lazy(() => import('./components/HotlineSection'));
+const ManagementSiswaApp = lazy(() => import('./components/management/ManagementSiswaApp'));
+const TutorialSection = lazy(() => import('./components/TutorialSection'));
 import InstallPWA from './components/pwa/InstallPWA';
-import SraPrimeAnalysis from './components/common/SraPrimeAnalysis';
+const SraPrimeAnalysis = lazy(() => import('./components/common/SraPrimeAnalysis'));
+
+const ModuleLoaderFallback = () => (
+  <div className="flex-1 h-full min-h-[320px] flex flex-col items-center justify-center p-8 text-center bg-white/80">
+    <div className="w-11 h-11 border-4 border-pink-100 border-t-pink-500 rounded-full animate-spin mb-3" />
+    <p className="text-sm font-black text-slate-700 tracking-tight">Memuat Layanan SIAP SPANJU...</p>
+    <p className="text-[11px] text-slate-400 font-medium mt-1">Menyiapkan modul dan sinkronisasi data</p>
+  </div>
+);
 
 // --- Components ---
 
@@ -297,10 +305,18 @@ export default function App() {
 
   if (!isLoggedIn) {
     if (showKelulusanPublic) {
-      return <KelulusanApp onBack={() => setShowKelulusanPublic(false)} />;
+      return (
+        <Suspense fallback={<ModuleLoaderFallback />}>
+          <KelulusanApp onBack={() => setShowKelulusanPublic(false)} />
+        </Suspense>
+      );
     }
     if (showTracingPublic) {
-      return <AlumniTracingApp onBack={() => setShowTracingPublic(false)} />;
+      return (
+        <Suspense fallback={<ModuleLoaderFallback />}>
+          <AlumniTracingApp onBack={() => setShowTracingPublic(false)} />
+        </Suspense>
+      );
     }
     if (showInfografisLanding) {
       return (
@@ -585,6 +601,7 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 min-h-0 min-w-0 flex flex-col relative p-1.5 md:p-3 md:pl-0">
+        <Suspense fallback={<ModuleLoaderFallback />}>
         {activeSection === 'management_login' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
             <ManagementLogin />
@@ -759,6 +776,7 @@ export default function App() {
             />
           </div>
         )}
+        </Suspense>
 
         <AnimatePresence mode="wait">
           {activeSection === 'kilas' && (
@@ -976,7 +994,9 @@ export default function App() {
                     <span>Kembali ke Menu Aplikasi</span>
                   </button>
                 </div>
-                <SraPrimeAnalysis onNavigate={(appId) => setActiveSection(appId as any)} />
+                <Suspense fallback={<ModuleLoaderFallback />}>
+                  <SraPrimeAnalysis onNavigate={(appId) => setActiveSection(appId as any)} />
+                </Suspense>
               </div>
             </motion.div>
           )}
