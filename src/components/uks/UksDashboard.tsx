@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Calendar, Activity, AlertCircle, HeartPulse, Pill, TrendingUp, ShoppingCart, FileText, PlusSquare, MinusSquare, ChevronDown } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { Users, Calendar, Activity, AlertCircle, HeartPulse, Pill, TrendingUp, ShoppingCart, FileText, PlusSquare, MinusSquare, ChevronDown, Award } from 'lucide-react';
+import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -15,7 +15,9 @@ const UksDashboard: React.FC = () => {
     totalKunjungan: 0,
     totalSiswaBerobat: 0,
     totalScreening: 0,
-    totalObat: 0
+    totalObat: 0,
+    totalSiswa: 0,
+    kunjunganPulihDiUks: 0
   });
   const [visitTrend, setVisitTrend] = useState<any[]>([]);
   const [lowStockObat, setLowStockObat] = useState<any[]>([]);
@@ -54,14 +56,19 @@ const UksDashboard: React.FC = () => {
     try {
       setLoading(true);
 
-      // Fetch distinct periodes
-      const { data: siswaPeriodeData } = await supabase.from('master_siswa').select('periode');
-      if (siswaPeriodeData && siswaPeriodeData.length > 0) {
-        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...siswaPeriodeData.map(s => s.periode || '2025')]))
+      // Fetch distinct periodes & total siswa for selectedPeriode
+      const allValidSiswaRaw = await fetchAllSiswa();
+      const allValidSiswa = (allValidSiswaRaw || []).filter((s: any) => !String(s.id || '').startsWith('pad-'));
+      if (allValidSiswa.length > 0) {
+        const distinctPeriodes = Array.from(new Set(['2026', '2025', ...allValidSiswa.map((s: any) => s.periode || '2025')]))
           .filter(Boolean)
           .sort((a, b) => b.localeCompare(a));
         setAvailablePeriodes(distinctPeriodes);
       }
+      const siswaInPeriode = selectedPeriode === 'ALL'
+        ? allValidSiswa
+        : allValidSiswa.filter((s: any) => (s.periode || '2025').toString().trim() === selectedPeriode);
+      const totalSiswaCount = siswaInPeriode.length;
       
       // 1. Fetch all kunjungan data for the period
       const { data: patientsData, error: patientsError } = await supabase
@@ -85,6 +92,7 @@ const UksDashboard: React.FC = () => {
       }
       const kunjunganCount = safePatientsData.length;
       const totalSiswaBerobat = new Set(safePatientsData.map(s => s.siswa_id)).size;
+      const kunjunganPulihDiUks = safePatientsData.filter((p: any) => p.penanganan !== 'Pulang').length;
       
       const { count: screeningCount, error: screeningError } = await supabase
         .from('uks_screening')
@@ -158,7 +166,9 @@ const UksDashboard: React.FC = () => {
         totalKunjungan: kunjunganCount || 0,
         totalSiswaBerobat: totalSiswaBerobat,
         totalScreening: screeningCount || 0,
-        totalObat: obatCount || 0
+        totalObat: obatCount || 0,
+        totalSiswa: totalSiswaCount,
+        kunjunganPulihDiUks
       });
       setVisitTrend(formattedClassData);
       setLowStockObat(lowStock || []);
@@ -273,6 +283,21 @@ const UksDashboard: React.FC = () => {
     );
   }
 
+  const siswaSehatCount = Math.max(0, stats.totalSiswa - stats.totalSiswaBerobat);
+  const persentaseKeberhasilan = stats.totalSiswa > 0 ? (siswaSehatCount / stats.totalSiswa) * 100 : 0;
+  const persentaseBerobat = stats.totalSiswa > 0 ? Math.min(100, (stats.totalSiswaBerobat / stats.totalSiswa) * 100) : 0;
+  const persentasePulihDiUks = stats.totalKunjungan > 0 ? (stats.kunjunganPulihDiUks / stats.totalKunjungan) * 100 : 0;
+  const kategoriKeberhasilan =
+    stats.totalSiswa === 0
+      ? { label: 'Belum Ada Data', textClass: 'text-slate-400', barClass: 'bg-slate-300' }
+      : persentaseKeberhasilan >= 95
+        ? { label: 'Sangat Berhasil', textClass: 'text-emerald-600', barClass: 'bg-emerald-500' }
+        : persentaseKeberhasilan >= 85
+          ? { label: 'Berhasil', textClass: 'text-teal-600', barClass: 'bg-teal-500' }
+          : persentaseKeberhasilan >= 70
+            ? { label: 'Cukup', textClass: 'text-amber-600', barClass: 'bg-amber-500' }
+            : { label: 'Perlu Perhatian', textClass: 'text-rose-600', barClass: 'bg-rose-500' };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-12">
       {/* Header Info */}
@@ -333,59 +358,92 @@ const UksDashboard: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Total Kunjungan */}
-        <div className="bg-rose-50/50 border border-rose-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-rose-50/50 border border-rose-100 p-5 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
           <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-rose-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
           <div className="relative flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-rose-600 shadow-sm group-hover:scale-110 transition-transform">
-              <Activity size={24} />
+            <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-rose-600 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+              <Activity size={22} />
             </div>
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Kunjungan</p>
-              <p className="text-3xl font-black text-slate-800">{stats.totalKunjungan}</p>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Kunjungan</p>
+              <p className="text-2xl xl:text-3xl font-black text-slate-800">{stats.totalKunjungan}</p>
+              {stats.totalKunjungan > 0 && (
+                <p className="text-[10px] font-bold text-rose-600 mt-0.5">
+                  {persentasePulihDiUks.toFixed(1)}% tertangani di UKS
+                </p>
+              )}
             </div>
           </div>
         </div>
 
         {/* Siswa Berobat */}
-        <div className="bg-blue-50/50 border border-blue-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-blue-50/50 border border-blue-100 p-5 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
           <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
           <div className="relative flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm group-hover:scale-110 transition-transform">
-              <Users size={24} />
+            <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+              <Users size={22} />
             </div>
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Siswa Berobat</p>
-              <p className="text-3xl font-black text-slate-800">{stats.totalSiswaBerobat}</p>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Siswa Berobat</p>
+              <p className="text-2xl xl:text-3xl font-black text-slate-800">{stats.totalSiswaBerobat}</p>
+              {stats.totalSiswa > 0 && (
+                <p className="text-[10px] font-bold text-blue-600 mt-0.5">
+                  {persentaseBerobat.toFixed(1)}% dari {stats.totalSiswa} siswa
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Persentase Keberhasilan */}
+        <div className="bg-teal-50/60 border border-teal-100 p-5 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-teal-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-teal-600 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+              <Award size={22} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Keberhasilan</p>
+              <p className="text-2xl xl:text-3xl font-black text-slate-800">{persentaseKeberhasilan.toFixed(1)}%</p>
+              <div className="w-full h-1.5 bg-white/80 rounded-full overflow-hidden mt-1.5">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${kategoriKeberhasilan.barClass}`}
+                  style={{ width: `${Math.min(100, Math.max(0, persentaseKeberhasilan))}%` }}
+                />
+              </div>
+              <p className={`text-[10px] font-extrabold uppercase mt-1 ${kategoriKeberhasilan.textClass}`}>
+                {kategoriKeberhasilan.label}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Total Screening */}
-        <div className="bg-emerald-50/50 border border-emerald-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-emerald-50/50 border border-emerald-100 p-5 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
           <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
           <div className="relative flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm group-hover:scale-110 transition-transform">
-              <HeartPulse size={24} />
+            <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+              <HeartPulse size={22} />
             </div>
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Screening</p>
-              <p className="text-3xl font-black text-slate-800">{stats.totalScreening}</p>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Screening</p>
+              <p className="text-2xl xl:text-3xl font-black text-slate-800">{stats.totalScreening}</p>
             </div>
           </div>
         </div>
 
         {/* Total Jenis Obat */}
-        <div className="bg-amber-50/50 border border-amber-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-amber-50/50 border border-amber-100 p-5 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all sm:col-span-2 lg:col-span-1">
           <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
           <div className="relative flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-amber-600 shadow-sm group-hover:scale-110 transition-transform">
-              <Pill size={24} />
+            <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-amber-600 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+              <Pill size={22} />
             </div>
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Jenis Obat</p>
-              <p className="text-3xl font-black text-slate-800">{stats.totalObat}</p>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Jenis Obat</p>
+              <p className="text-2xl xl:text-3xl font-black text-slate-800">{stats.totalObat}</p>
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { IzinWithSiswa } from '../../types/izinsiswa';
-import { Users, UserCheck, AlertTriangle, Clock, BarChart3, TrendingUp, FileText, ChevronDown, ChevronRight, Download } from 'lucide-react';
+import { Users, UserCheck, AlertTriangle, Clock, BarChart3, TrendingUp, FileText, ChevronDown, ChevronRight, Download, Award } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, parseISO, subMonths } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
@@ -250,6 +250,19 @@ export default function DashboardIzin() {
   const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
   const nihilClasses = KELAS_OPTIONS.filter(kelas => !groupedPeriodAbsentees[kelas]);
 
+  const persentaseKeberhasilan = stats.totalSiswa > 0 ? (stats.siswaMasuk / stats.totalSiswa) * 100 : 0;
+  const persentaseIzinDisetujui = stats.totalSiswa > 0 ? Math.min(100, (stats.disetujui / stats.totalSiswa) * 100) : 0;
+  const kategoriKeberhasilan =
+    stats.totalSiswa === 0
+      ? { label: 'Belum Ada Data', textClass: 'text-slate-400', barClass: 'bg-slate-300' }
+      : persentaseKeberhasilan >= 95
+        ? { label: 'Sangat Berhasil', textClass: 'text-emerald-600', barClass: 'bg-emerald-500' }
+        : persentaseKeberhasilan >= 85
+          ? { label: 'Berhasil', textClass: 'text-teal-600', barClass: 'bg-teal-500' }
+          : persentaseKeberhasilan >= 70
+            ? { label: 'Cukup', textClass: 'text-amber-600', barClass: 'bg-amber-500' }
+            : { label: 'Perlu Perhatian', textClass: 'text-rose-600', barClass: 'bg-rose-500' };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
@@ -323,52 +336,75 @@ export default function DashboardIzin() {
         </div>
       )}
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Total Siswa - Violet Soft */}
-        <div className="bg-violet-50 p-6 rounded-[2rem] shadow-sm border border-violet-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+        <div className="bg-violet-50 p-5 rounded-[2rem] shadow-sm border border-violet-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-violet-200/30 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-          <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-violet-600 shadow-sm z-10 border border-violet-100">
-            <Users size={28} />
+          <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-violet-600 shadow-sm z-10 border border-violet-100 shrink-0">
+            <Users size={24} />
           </div>
-          <div className="z-10">
+          <div className="z-10 min-w-0">
             <p className="text-[10px] font-black text-violet-400 uppercase tracking-[0.15em] mb-1">Total Siswa</p>
-            <p className="text-3xl font-black text-violet-900 leading-none">{stats.totalSiswa}</p>
+            <p className="text-2xl xl:text-3xl font-black text-violet-900 leading-none">{stats.totalSiswa}</p>
           </div>
         </div>
 
-        {/* Siswa Pernah Masuk - Blue Soft */}
-        <div className="bg-blue-50 p-6 rounded-[2rem] shadow-sm border border-blue-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+        {/* Siswa Hadir - Blue Soft */}
+        <div className="bg-blue-50 p-5 rounded-[2rem] shadow-sm border border-blue-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-200/30 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-          <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-blue-600 shadow-sm z-10 border border-blue-100">
-            <UserCheck size={28} />
+          <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-blue-600 shadow-sm z-10 border border-blue-100 shrink-0">
+            <UserCheck size={24} />
           </div>
-          <div className="z-10">
+          <div className="z-10 min-w-0">
             <p className="text-[10px] font-black text-blue-400 uppercase tracking-[0.15em] mb-1">Siswa Hadir</p>
-            <p className="text-3xl font-black text-blue-900 leading-none">{stats.siswaMasuk}</p>
+            <p className="text-2xl xl:text-3xl font-black text-blue-900 leading-none">{stats.siswaMasuk}</p>
+            <p className="text-[10px] font-bold text-blue-600 mt-1">{persentaseKeberhasilan.toFixed(1)}% hadir</p>
+          </div>
+        </div>
+
+        {/* Persentase Keberhasilan - Teal Soft */}
+        <div className="bg-teal-50 p-5 rounded-[2rem] shadow-sm border border-teal-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-teal-200/30 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
+          <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-teal-600 shadow-sm z-10 border border-teal-100 shrink-0">
+            <Award size={24} />
+          </div>
+          <div className="z-10 flex-1 min-w-0">
+            <p className="text-[10px] font-black text-teal-500 uppercase tracking-[0.15em] mb-1">Keberhasilan</p>
+            <p className="text-2xl xl:text-3xl font-black text-teal-900 leading-none">{persentaseKeberhasilan.toFixed(1)}%</p>
+            <div className="w-full h-1.5 bg-white/80 rounded-full overflow-hidden mt-2">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${kategoriKeberhasilan.barClass}`}
+                style={{ width: `${Math.min(100, Math.max(0, persentaseKeberhasilan))}%` }}
+              />
+            </div>
+            <p className={`text-[10px] font-extrabold uppercase mt-1 ${kategoriKeberhasilan.textClass}`}>
+              {kategoriKeberhasilan.label}
+            </p>
           </div>
         </div>
 
         {/* Izin Disetujui - Emerald Soft */}
-        <div className="bg-emerald-50 p-6 rounded-[2rem] shadow-sm border border-emerald-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+        <div className="bg-emerald-50 p-5 rounded-[2rem] shadow-sm border border-emerald-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-200/30 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-          <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-emerald-600 shadow-sm z-10 border border-emerald-100">
-            <TrendingUp size={28} />
+          <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-emerald-600 shadow-sm z-10 border border-emerald-100 shrink-0">
+            <TrendingUp size={24} />
           </div>
-          <div className="z-10">
+          <div className="z-10 min-w-0">
             <p className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.15em] mb-1">Izin Disetujui</p>
-            <p className="text-3xl font-black text-emerald-900 leading-none">{stats.disetujui}</p>
+            <p className="text-2xl xl:text-3xl font-black text-emerald-900 leading-none">{stats.disetujui}</p>
+            <p className="text-[10px] font-bold text-emerald-600 mt-1">{persentaseIzinDisetujui.toFixed(1)}% dari siswa</p>
           </div>
         </div>
 
         {/* Menunggu - Amber Soft */}
-        <div className="bg-amber-50 p-6 rounded-[2rem] shadow-sm border border-amber-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+        <div className="bg-amber-50 p-5 rounded-[2rem] shadow-sm border border-amber-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-all duration-300 sm:col-span-2 lg:col-span-1">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-amber-200/30 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-          <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-amber-600 shadow-sm z-10 border border-amber-100">
-            <Clock size={28} />
+          <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-amber-600 shadow-sm z-10 border border-amber-100 shrink-0">
+            <Clock size={24} />
           </div>
-          <div className="z-10">
+          <div className="z-10 min-w-0">
             <p className="text-[10px] font-black text-amber-400 uppercase tracking-[0.15em] mb-1">Menunggu</p>
-            <p className="text-3xl font-black text-amber-900 leading-none">{stats.menunggu}</p>
+            <p className="text-2xl xl:text-3xl font-black text-amber-900 leading-none">{stats.menunggu}</p>
           </div>
         </div>
       </div>

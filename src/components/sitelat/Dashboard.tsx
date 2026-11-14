@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { TransaksiWithSiswa } from '../../types/sitelat';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Users, UserX, Clock, PhoneCall, Download, BarChart as BarChartIcon, ChevronDown, ChevronRight, FileText, Trophy, Star } from 'lucide-react';
+import { Users, UserX, Clock, PhoneCall, Download, BarChart as BarChartIcon, ChevronDown, ChevronRight, FileText, Trophy, Star, TrendingUp } from 'lucide-react';
 import { format, subDays, parseISO, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 
 export default function Dashboard() {
@@ -183,6 +183,19 @@ export default function Dashboard() {
     .sort((a, b) => b.count - a.count);
 
   const uniqueTerlambatCount = new Set(transaksi.map(t => t.siswa_id)).size;
+  const tepatWaktuCount = Math.max(0, totalSiswa - uniqueTerlambatCount);
+  const persentaseKeberhasilan = totalSiswa > 0 ? (tepatWaktuCount / totalSiswa) * 100 : 0;
+  const persentaseTerlambat = totalSiswa > 0 ? Math.min(100, (uniqueTerlambatCount / totalSiswa) * 100) : 0;
+  const kategoriKeberhasilan =
+    totalSiswa === 0
+      ? { label: 'Belum Ada Data', textClass: 'text-slate-400', barClass: 'bg-slate-300' }
+      : persentaseKeberhasilan >= 95
+        ? { label: 'Sangat Berhasil', textClass: 'text-emerald-600', barClass: 'bg-emerald-500' }
+        : persentaseKeberhasilan >= 85
+          ? { label: 'Berhasil', textClass: 'text-teal-600', barClass: 'bg-teal-500' }
+          : persentaseKeberhasilan >= 70
+            ? { label: 'Cukup', textClass: 'text-amber-600', barClass: 'bg-amber-500' }
+            : { label: 'Perlu Pembinaan', textClass: 'text-rose-600', barClass: 'bg-rose-500' };
 
   // Calculate late students per class for the bar chart
   const classLateCounts = transaksi.reduce((acc, t) => {
@@ -288,59 +301,86 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Total Siswa */}
-        <div className="bg-violet-50/50 border border-violet-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-violet-50/50 border border-violet-100 p-5 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
           <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-violet-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
           <div className="relative flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-violet-600 shadow-sm group-hover:scale-110 transition-transform">
-              <Users size={24} />
+            <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-violet-600 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+              <Users size={22} />
             </div>
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Siswa</p>
-              <p className="text-3xl font-black text-slate-800">{totalSiswa}</p>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Siswa</p>
+              <p className="text-2xl xl:text-3xl font-black text-slate-800">{totalSiswa}</p>
             </div>
           </div>
         </div>
 
         {/* Terlambat */}
-        <div className="bg-rose-50/50 border border-rose-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-rose-50/50 border border-rose-100 p-5 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
           <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-rose-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
           <div className="relative flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-rose-600 shadow-sm group-hover:scale-110 transition-transform">
-              <UserX size={24} />
+            <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-rose-600 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+              <UserX size={22} />
             </div>
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Terlambat</p>
-              <p className="text-3xl font-black text-slate-800">{uniqueTerlambatCount}</p>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Terlambat</p>
+              <p className="text-2xl xl:text-3xl font-black text-slate-800">{uniqueTerlambatCount}</p>
+              <p className="text-[10px] font-bold text-rose-500 mt-0.5">{persentaseTerlambat.toFixed(1)}% siswa</p>
             </div>
           </div>
         </div>
 
         {/* Tepat Waktu */}
-        <div className="bg-emerald-50/50 border border-emerald-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-emerald-50/50 border border-emerald-100 p-5 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
           <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
           <div className="relative flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm group-hover:scale-110 transition-transform">
-              <Clock size={24} />
+            <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+              <Clock size={22} />
             </div>
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tepat Waktu</p>
-              <p className="text-3xl font-black text-slate-800">{totalSiswa - uniqueTerlambatCount}</p>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tepat Waktu</p>
+              <p className="text-2xl xl:text-3xl font-black text-slate-800">{tepatWaktuCount}</p>
+              <p className="text-[10px] font-bold text-emerald-600 mt-0.5">{persentaseKeberhasilan.toFixed(1)}% siswa</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Persentase Keberhasilan */}
+        <div className="bg-teal-50/60 border border-teal-100 p-5 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-teal-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-teal-600 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+              <TrendingUp size={22} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Keberhasilan</p>
+              <div className="flex items-baseline gap-1.5">
+                <p className="text-2xl xl:text-3xl font-black text-slate-800">{persentaseKeberhasilan.toFixed(1)}%</p>
+              </div>
+              <div className="w-full h-1.5 bg-white/80 rounded-full overflow-hidden mt-1.5">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${kategoriKeberhasilan.barClass}`}
+                  style={{ width: `${Math.min(100, Math.max(0, persentaseKeberhasilan))}%` }}
+                />
+              </div>
+              <p className={`text-[10px] font-extrabold uppercase mt-1 ${kategoriKeberhasilan.textClass}`}>
+                {kategoriKeberhasilan.label}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Panggilan Ortu */}
-        <div className="bg-amber-50/50 border border-amber-100 p-6 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-amber-50/50 border border-amber-100 p-5 rounded-3xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all sm:col-span-2 lg:col-span-1">
           <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-100/50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
           <div className="relative flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-amber-600 shadow-sm group-hover:scale-110 transition-transform">
-              <PhoneCall size={24} />
+            <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-amber-600 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+              <PhoneCall size={22} />
             </div>
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Panggilan Ortu</p>
-              <p className="text-3xl font-black text-slate-800">{frequentLatecomers.length}</p>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Panggilan Ortu</p>
+              <p className="text-2xl xl:text-3xl font-black text-slate-800">{frequentLatecomers.length}</p>
             </div>
           </div>
         </div>

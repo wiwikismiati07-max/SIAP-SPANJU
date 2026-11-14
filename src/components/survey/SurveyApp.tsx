@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import { 
   ClipboardList, LayoutDashboard, Send, User, MessageSquare, CheckCircle2, AlertCircle, ChevronLeft,
-  Star, Users, Activity, MoreVertical, Menu, X, Download, Trash2, Edit, Save, ListFilter
+  Star, Users, Activity, MoreVertical, Menu, X, Download, Trash2, Edit, Save, ListFilter, TrendingUp
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -352,10 +352,15 @@ export default function SurveyApp({ onBack, onOpenSidebar, user }: SurveyAppProp
         <div className="bg-white p-4 rounded-2xl shadow-xl border border-slate-100 max-w-xs">
           <p className="font-black text-slate-800 mb-2">{label}</p>
           <p className="text-xs font-medium text-slate-600 mb-3 leading-relaxed">{data.fullText}</p>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: payload[0].fill }} />
-            <p className="font-bold text-slate-800">
-              Rata-rata: <span className="text-indigo-600">{data.RataRata}</span> / 5.0
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: payload[0].fill }} />
+              <p className="font-bold text-slate-800 text-sm">
+                Rata-rata: <span className="text-indigo-600">{data.RataRata}</span> / 5.0
+              </p>
+            </div>
+            <p className="font-bold text-slate-700 text-xs pl-5">
+              Keberhasilan: <span className="text-emerald-600">{data.Persentase}%</span>
             </p>
           </div>
         </div>
@@ -366,14 +371,36 @@ export default function SurveyApp({ onBack, onOpenSidebar, user }: SurveyAppProp
 
   const averageScores = QUESTIONS.map((q, index) => {
     const key = `q${index + 1}`;
-    const sum = responses.reduce((acc, curr) => acc + (curr[key] || 0), 0);
-    const avg = totalResponden > 0 ? (sum / totalResponden).toFixed(1) : 0;
+    const sum = responses.reduce((acc, curr) => acc + (Number(curr[key]) || 0), 0);
+    const rawAvg = totalResponden > 0 ? sum / totalResponden : 0;
+    const avg = rawAvg.toFixed(1);
+    const pct = totalResponden > 0 ? ((rawAvg / 5) * 100).toFixed(1) : '0.0';
     return {
       name: `Q${index + 1}`,
       fullText: q,
-      RataRata: parseFloat(avg as string)
+      RataRata: parseFloat(avg),
+      Persentase: parseFloat(pct)
     };
   });
+
+  const totalScoreAll = responses.reduce((acc, curr) => {
+    let rowSum = 0;
+    for (let i = 1; i <= QUESTIONS.length; i++) {
+      rowSum += Number(curr[`q${i}`]) || 0;
+    }
+    return acc + rowSum;
+  }, 0);
+  const maxTotalScore = totalResponden * QUESTIONS.length * 5;
+  const overallAverage = totalResponden > 0 ? totalScoreAll / (totalResponden * QUESTIONS.length) : 0;
+  const persentaseKeberhasilan = maxTotalScore > 0 ? (totalScoreAll / maxTotalScore) * 100 : 0;
+
+  const kategoriKeberhasilan = (() => {
+    if (totalResponden === 0) return { label: 'Belum Ada Data', textClass: 'text-slate-400', barClass: 'bg-slate-300' };
+    if (persentaseKeberhasilan >= 80) return { label: 'Sangat Berhasil', textClass: 'text-emerald-600', barClass: 'bg-emerald-500' };
+    if (persentaseKeberhasilan >= 65) return { label: 'Berhasil', textClass: 'text-blue-600', barClass: 'bg-blue-500' };
+    if (persentaseKeberhasilan >= 50) return { label: 'Cukup', textClass: 'text-amber-600', barClass: 'bg-amber-500' };
+    return { label: 'Perlu Peningkatan', textClass: 'text-rose-600', barClass: 'bg-rose-500' };
+  })();
 
   const kritikList = responses.filter(r => r.kritik_saran && r.kritik_saran.trim() !== '');
 
@@ -533,7 +560,7 @@ export default function SurveyApp({ onBack, onOpenSidebar, user }: SurveyAppProp
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
-        <div className="max-w-5xl mx-auto">
+        <div className={`${activeTab === 'form' ? 'max-w-5xl' : 'max-w-6xl'} mx-auto`}>
           
           <AnimatePresence mode="wait">
             {activeTab === 'form' && (
@@ -699,42 +726,62 @@ export default function SurveyApp({ onBack, onOpenSidebar, user }: SurveyAppProp
                 ) : (
                   <>
                     {/* Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-100 flex items-center gap-6 relative overflow-hidden group">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                      <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-100 flex items-center gap-5 relative overflow-hidden group">
                         <div className="absolute right-0 top-0 w-32 h-32 bg-blue-50 rounded-full blur-3xl -mr-10 -mt-10 transition-all group-hover:bg-blue-100" />
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-200 shrink-0 relative z-10">
-                          <Users size={32} />
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-200 shrink-0 relative z-10">
+                          <Users size={28} />
                         </div>
-                        <div className="relative z-10">
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Responden</p>
-                          <p className="text-4xl font-black text-slate-800">{totalResponden}</p>
+                        <div className="relative z-10 min-w-0">
+                          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Responden</p>
+                          <p className="text-3xl font-black text-slate-800">{totalResponden}</p>
                         </div>
                       </div>
 
-                      <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-100 flex items-center gap-6 relative overflow-hidden group">
+                      <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-100 flex items-center gap-5 relative overflow-hidden group">
                         <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl -mr-10 -mt-10 transition-all group-hover:bg-emerald-100" />
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-200 shrink-0 relative z-10">
-                          <Star size={32} />
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-200 shrink-0 relative z-10">
+                          <Star size={28} />
                         </div>
-                        <div className="relative z-10">
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Rata-rata Kepuasan</p>
-                          <p className="text-4xl font-black text-slate-800">
-                            {averageScores.length > 0 
-                              ? (averageScores.reduce((acc, curr) => acc + curr.RataRata, 0) / averageScores.length).toFixed(1) 
-                              : '0.0'}
-                            <span className="text-lg text-slate-400 ml-1">/ 5.0</span>
+                        <div className="relative z-10 min-w-0">
+                          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">Rata-rata Kepuasan</p>
+                          <p className="text-3xl font-black text-slate-800">
+                            {overallAverage.toFixed(1)}
+                            <span className="text-base text-slate-400 ml-1">/ 5.0</span>
                           </p>
                         </div>
                       </div>
 
-                      <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-100 flex items-center gap-6 relative overflow-hidden group">
-                        <div className="absolute right-0 top-0 w-32 h-32 bg-purple-50 rounded-full blur-3xl -mr-10 -mt-10 transition-all group-hover:bg-purple-100" />
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-purple-200 shrink-0 relative z-10">
-                          <MessageSquare size={32} />
+                      <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-100 flex items-center gap-5 relative overflow-hidden group">
+                        <div className="absolute right-0 top-0 w-32 h-32 bg-amber-50 rounded-full blur-3xl -mr-10 -mt-10 transition-all group-hover:bg-amber-100" />
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-lg shadow-amber-200 shrink-0 relative z-10">
+                          <TrendingUp size={28} />
                         </div>
-                        <div className="relative z-10">
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Masukan</p>
-                          <p className="text-4xl font-black text-slate-800">{kritikList.length}</p>
+                        <div className="relative z-10 flex-1 min-w-0">
+                          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">Persentase Keberhasilan</p>
+                          <div className="flex items-baseline gap-2">
+                            <p className="text-3xl font-black text-slate-800">{persentaseKeberhasilan.toFixed(1)}%</p>
+                            <span className={`text-[10px] font-black uppercase tracking-wider ${kategoriKeberhasilan.textClass}`}>
+                              {kategoriKeberhasilan.label}
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${kategoriKeberhasilan.barClass}`}
+                              style={{ width: `${Math.min(100, Math.max(0, persentaseKeberhasilan))}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-100 flex items-center gap-5 relative overflow-hidden group">
+                        <div className="absolute right-0 top-0 w-32 h-32 bg-purple-50 rounded-full blur-3xl -mr-10 -mt-10 transition-all group-hover:bg-purple-100" />
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-purple-200 shrink-0 relative z-10">
+                          <MessageSquare size={28} />
+                        </div>
+                        <div className="relative z-10 min-w-0">
+                          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Masukan</p>
+                          <p className="text-3xl font-black text-slate-800">{kritikList.length}</p>
                         </div>
                       </div>
                     </div>
@@ -791,6 +838,43 @@ export default function SurveyApp({ onBack, onOpenSidebar, user }: SurveyAppProp
                             </PieChart>
                           </ResponsiveContainer>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Persentase Keberhasilan per Indikator */}
+                    <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-100">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
+                        <h3 className="text-lg font-black text-slate-800 uppercase flex items-center gap-2">
+                          <TrendingUp size={20} className="text-emerald-500" />
+                          Persentase Keberhasilan per Indikator
+                        </h3>
+                        <span className="text-xs font-bold text-slate-500">
+                          Skor Keseluruhan: <span className="text-emerald-600 font-black">{persentaseKeberhasilan.toFixed(1)}%</span> ({overallAverage.toFixed(2)} / 5.00)
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {averageScores.map((item, idx) => (
+                          <div key={item.name} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+                            <div className="flex items-start justify-between gap-3">
+                              <p className="text-xs font-bold text-slate-700 leading-snug">
+                                <span className="text-indigo-600 mr-1.5">{item.name}.</span>
+                                {item.fullText}
+                              </p>
+                              <span className="text-xs font-black text-emerald-600 shrink-0">
+                                {item.Persentase.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="w-full h-2 bg-slate-200/70 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all duration-500"
+                                style={{
+                                  width: `${Math.min(100, Math.max(0, item.Persentase))}%`,
+                                  backgroundColor: BAR_COLORS[idx % BAR_COLORS.length]
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Users, Calendar, Activity, HeartPulse, Phone, Clock, FileText, 
   PlusSquare, MinusSquare, ChevronDown, RefreshCw, AlertCircle, CheckCircle2,
-  Sparkles
+  Sparkles, Award
 } from 'lucide-react';
 import { supabase, fetchAllSiswa } from '../../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
@@ -14,6 +14,8 @@ interface DashboardStats {
   totalKetidakhadiran: number;
   perluPanggilan: number;
   screeningHaid: number;
+  totalHadir?: number;
+  totalAbsensiTercatat?: number;
 }
 
 const KeagamaanDashboard: React.FC = () => {
@@ -23,7 +25,9 @@ const KeagamaanDashboard: React.FC = () => {
     totalSiswa: 0,
     totalKetidakhadiran: 0,
     perluPanggilan: 0,
-    screeningHaid: 0
+    screeningHaid: 0,
+    totalHadir: 0,
+    totalAbsensiTercatat: 0
   });
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
@@ -155,6 +159,8 @@ const KeagamaanDashboard: React.FC = () => {
         // Calculate Stats
         const nonHadirList = filteredAbsensi.filter(a => a.alasan && a.alasan !== 'Hadir');
         const totalKetidakhadiran = nonHadirList.length;
+        const totalAbsensiTercatat = filteredAbsensi.length;
+        const totalHadir = Math.max(0, totalAbsensiTercatat - totalKetidakhadiran);
 
         // Perlu Panggilan (> 3x tidak hadir dalam periode)
         const studentAbsenceCounts: Record<string, number> = {};
@@ -278,7 +284,9 @@ const KeagamaanDashboard: React.FC = () => {
           totalSiswa: totalSiswaCount,
           totalKetidakhadiran,
           perluPanggilan,
-          screeningHaid: screeningCount
+          screeningHaid: screeningCount,
+          totalHadir,
+          totalAbsensiTercatat
         };
 
         return {
@@ -372,6 +380,21 @@ const KeagamaanDashboard: React.FC = () => {
   const participationPercentage = totalParticipation > 0 
     ? Math.round(((participationData[0]?.value || 0) / totalParticipation) * 100) 
     : 100;
+
+  const totalTercatat = stats.totalAbsensiTercatat ?? 0;
+  const totalHadirRange = stats.totalHadir ?? Math.max(0, totalTercatat - stats.totalKetidakhadiran);
+  const persentaseKeberhasilan = totalTercatat > 0 ? (totalHadirRange / totalTercatat) * 100 : 0;
+  const persentaseKetidakhadiran = totalTercatat > 0 ? (stats.totalKetidakhadiran / totalTercatat) * 100 : 0;
+  const kategoriKeberhasilan =
+    totalTercatat === 0
+      ? { label: 'Belum Ada Data', textClass: 'text-slate-400', barClass: 'bg-slate-300' }
+      : persentaseKeberhasilan >= 90
+        ? { label: 'Sangat Berhasil', textClass: 'text-emerald-600', barClass: 'bg-emerald-500' }
+        : persentaseKeberhasilan >= 80
+          ? { label: 'Berhasil', textClass: 'text-teal-600', barClass: 'bg-teal-500' }
+          : persentaseKeberhasilan >= 65
+            ? { label: 'Cukup', textClass: 'text-amber-600', barClass: 'bg-amber-500' }
+            : { label: 'Perlu Pembinaan', textClass: 'text-rose-600', barClass: 'bg-rose-500' };
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-12">
@@ -474,59 +497,87 @@ const KeagamaanDashboard: React.FC = () => {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Total Siswa Terdata */}
-        <div className="bg-emerald-50/60 border border-emerald-100 p-6 rounded-3xl shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-emerald-50/60 border border-emerald-100 p-5 rounded-3xl shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
           <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-200/40 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
           <div className="relative flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-xs group-hover:scale-110 transition-transform shrink-0">
-              <Users size={24} />
+            <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-xs group-hover:scale-110 transition-transform shrink-0">
+              <Users size={22} />
             </div>
-            <div>
-              <p className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Total Siswa Terdata</p>
-              <p className="text-2xl sm:text-3xl font-black text-slate-800">{stats.totalSiswa}</p>
+            <div className="min-w-0">
+              <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Siswa Terdata</p>
+              <p className="text-2xl xl:text-3xl font-black text-slate-800">{stats.totalSiswa}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Persentase Keberhasilan */}
+        <div className="bg-teal-50/70 border border-teal-100 p-5 rounded-3xl shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-teal-200/40 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+          <div className="relative flex items-center gap-4">
+            <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-teal-600 shadow-xs group-hover:scale-110 transition-transform shrink-0">
+              <Award size={22} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">Keberhasilan</p>
+              <p className="text-2xl xl:text-3xl font-black text-slate-800">{persentaseKeberhasilan.toFixed(1)}%</p>
+              <div className="w-full h-1.5 bg-white/90 rounded-full overflow-hidden mt-1.5">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${kategoriKeberhasilan.barClass}`}
+                  style={{ width: `${Math.min(100, Math.max(0, persentaseKeberhasilan))}%` }}
+                />
+              </div>
+              <p className={`text-[10px] font-extrabold uppercase mt-1 ${kategoriKeberhasilan.textClass}`}>
+                {kategoriKeberhasilan.label}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Total Ketidakhadiran */}
-        <div className="bg-blue-50/60 border border-blue-100 p-6 rounded-3xl shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-blue-50/60 border border-blue-100 p-5 rounded-3xl shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
           <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-200/40 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
           <div className="relative flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-xs group-hover:scale-110 transition-transform shrink-0">
-              <Calendar size={24} />
+            <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-xs group-hover:scale-110 transition-transform shrink-0">
+              <Calendar size={22} />
             </div>
-            <div>
-              <p className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Total Ketidakhadiran</p>
-              <p className="text-2xl sm:text-3xl font-black text-slate-800">{stats.totalKetidakhadiran}</p>
+            <div className="min-w-0">
+              <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Ketidakhadiran</p>
+              <p className="text-2xl xl:text-3xl font-black text-slate-800">{stats.totalKetidakhadiran}</p>
+              {totalTercatat > 0 && (
+                <p className="text-[10px] font-bold text-blue-600 mt-0.5">
+                  {persentaseKetidakhadiran.toFixed(1)}% dari {totalTercatat} catatan
+                </p>
+              )}
             </div>
           </div>
         </div>
 
         {/* Perlu Panggilan Ortu */}
-        <div className="bg-amber-50/60 border border-amber-100 p-6 rounded-3xl shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-amber-50/60 border border-amber-100 p-5 rounded-3xl shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
           <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-200/40 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
           <div className="relative flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-amber-600 shadow-xs group-hover:scale-110 transition-transform shrink-0">
-              <Phone size={24} />
+            <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-amber-600 shadow-xs group-hover:scale-110 transition-transform shrink-0">
+              <Phone size={22} />
             </div>
-            <div>
-              <p className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Perlu Panggilan Ortu</p>
-              <p className="text-2xl sm:text-3xl font-black text-slate-800">{stats.perluPanggilan}</p>
+            <div className="min-w-0">
+              <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">Perlu Panggilan Ortu</p>
+              <p className="text-2xl xl:text-3xl font-black text-slate-800">{stats.perluPanggilan}</p>
             </div>
           </div>
         </div>
 
         {/* Screening Kesehatan */}
-        <div className="bg-rose-50/60 border border-rose-100 p-6 rounded-3xl shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-rose-50/60 border border-rose-100 p-5 rounded-3xl shadow-xs relative overflow-hidden group hover:shadow-md transition-all sm:col-span-2 lg:col-span-1">
           <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-rose-200/40 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
           <div className="relative flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-rose-600 shadow-xs group-hover:scale-110 transition-transform shrink-0">
-              <HeartPulse size={24} />
+            <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-rose-600 shadow-xs group-hover:scale-110 transition-transform shrink-0">
+              <HeartPulse size={22} />
             </div>
-            <div>
-              <p className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Screening Kesehatan</p>
-              <p className="text-2xl sm:text-3xl font-black text-slate-800">{stats.screeningHaid}</p>
+            <div className="min-w-0">
+              <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">Screening Kesehatan</p>
+              <p className="text-2xl xl:text-3xl font-black text-slate-800">{stats.screeningHaid}</p>
             </div>
           </div>
         </div>

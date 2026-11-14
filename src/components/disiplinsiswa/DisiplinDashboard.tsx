@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { getSupabase, normalizeKelasKey } from '../../lib/supabase';
 import { 
   AlertCircle, BarChart3, UserX, CheckCircle2, 
-  Clock, Trophy, RefreshCw, Database, ShieldAlert
+  Clock, Trophy, RefreshCw, Database, ShieldAlert, Award
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import { SupabaseConfigModal } from '../common/SupabaseConfigModal';
@@ -30,7 +30,9 @@ export default function DisiplinDashboard() {
     kasusBaru: 0,
     kasusProses: 0,
     kasusSelesai: 0,
-    persentase: 0
+    persentase: 0,
+    totalSiswa: 0,
+    siswaMelanggar: 0
   });
   const [classData, setClassData] = useState<any[]>([]);
   const [categoryData, setCategoryData] = useState<any[]>([]);
@@ -179,12 +181,20 @@ export default function DisiplinDashboard() {
           return st === 'selesai' || st === 'terselesaikan';
         }).length;
 
+        const siswaInPeriode = allSiswa.filter(
+          s => !String(s.id || '').startsWith('pad-') && (selectedPeriode === 'ALL' || normalizePeriode(s.periode) === selectedPeriode)
+        );
+        const totalSiswaCount = siswaInPeriode.length;
+        const siswaMelanggarCount = new Set(safeKasus.map(k => String(k.siswa_id))).size;
+
         const newStats = {
           totalKasus,
           kasusBaru,
           kasusProses,
           kasusSelesai,
-          persentase: totalKasus > 0 ? Math.round((kasusSelesai / totalKasus) * 100) : 0
+          persentase: totalKasus > 0 ? Math.round((kasusSelesai / totalKasus) * 100) : 0,
+          totalSiswa: totalSiswaCount,
+          siswaMelanggar: siswaMelanggarCount
         };
 
         // Perfect Classes Today
@@ -286,6 +296,26 @@ export default function DisiplinDashboard() {
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 
+  const totalSiswaCount = stats.totalSiswa ?? 0;
+  const siswaMelanggarCount = stats.siswaMelanggar ?? 0;
+  const siswaTertibCount = Math.max(0, totalSiswaCount - siswaMelanggarCount);
+  const persentaseTertib = totalSiswaCount > 0 ? (siswaTertibCount / totalSiswaCount) * 100 : 0;
+  const persentasePenyelesaian = stats.totalKasus > 0 ? (stats.kasusSelesai / stats.totalKasus) * 100 : 0;
+  const persentaseProses = stats.totalKasus > 0 ? (stats.kasusProses / stats.totalKasus) * 100 : 0;
+  const persentaseKeberhasilan = stats.totalKasus > 0 ? persentasePenyelesaian : (totalSiswaCount > 0 ? persentaseTertib : 0);
+
+  const kategoriKeberhasilan = (() => {
+    if (stats.totalKasus === 0) {
+      return totalSiswaCount > 0
+        ? { label: 'Nihil Kasus', textClass: 'text-emerald-600', barClass: 'bg-emerald-500' }
+        : { label: 'Belum Ada Data', textClass: 'text-slate-400', barClass: 'bg-slate-300' };
+    }
+    if (persentasePenyelesaian >= 85) return { label: 'Sangat Berhasil', textClass: 'text-emerald-600', barClass: 'bg-emerald-500' };
+    if (persentasePenyelesaian >= 70) return { label: 'Berhasil', textClass: 'text-teal-600', barClass: 'bg-teal-500' };
+    if (persentasePenyelesaian >= 50) return { label: 'Cukup', textClass: 'text-amber-600', barClass: 'bg-amber-500' };
+    return { label: 'Perlu Tindak Lanjut', textClass: 'text-rose-600', barClass: 'bg-rose-500' };
+  })();
+
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-12">
       {/* Supabase Connection Setup Modal */}
@@ -379,9 +409,9 @@ export default function DisiplinDashboard() {
         </div>
       )}
 
-      {/* 4 Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-6">
-        <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-100 shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
+      {/* 5 Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-5">
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">Total Kasus</span>
             <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
@@ -392,7 +422,7 @@ export default function DisiplinDashboard() {
           <p className="text-[10px] text-slate-400 mt-1 font-medium">Semua catatan pelanggaran</p>
         </div>
 
-        <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-100 shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">Kasus Hari Ini</span>
             <div className="w-10 h-10 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
@@ -403,7 +433,7 @@ export default function DisiplinDashboard() {
           <p className="text-[10px] text-amber-600 mt-1 font-bold">Tercatat hari ini</p>
         </div>
 
-        <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-100 shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">Dalam Proses</span>
             <div className="w-10 h-10 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-600 group-hover:scale-110 transition-transform">
@@ -411,10 +441,12 @@ export default function DisiplinDashboard() {
             </div>
           </div>
           <p className="text-2xl sm:text-3xl font-black text-slate-800">{stats.kasusProses}</p>
-          <p className="text-[10px] text-rose-600 mt-1 font-bold">Perlu tindak lanjut guru</p>
+          <p className="text-[10px] text-rose-600 mt-1 font-bold">
+            {stats.totalKasus > 0 ? `${persentaseProses.toFixed(1)}% perlu tindak lanjut` : 'Perlu tindak lanjut guru'}
+          </p>
         </div>
 
-        <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-100 shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs relative overflow-hidden group hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">Terselesaikan</span>
             <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
@@ -422,7 +454,33 @@ export default function DisiplinDashboard() {
             </div>
           </div>
           <p className="text-2xl sm:text-3xl font-black text-slate-800">{stats.kasusSelesai}</p>
-          <p className="text-[10px] text-emerald-600 mt-1 font-bold">{stats.persentase}% penyelesaian</p>
+          <p className="text-[10px] text-emerald-600 mt-1 font-bold">{persentasePenyelesaian.toFixed(1)}% penyelesaian</p>
+        </div>
+
+        <div className="bg-teal-50/70 p-5 rounded-3xl border border-teal-100 shadow-xs relative overflow-hidden group hover:shadow-md transition-all sm:col-span-2 lg:col-span-1">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] sm:text-xs font-bold text-teal-700 uppercase tracking-wider">Keberhasilan</span>
+            <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-teal-600 shadow-xs group-hover:scale-110 transition-transform">
+              <Award size={20} />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <p className="text-2xl sm:text-3xl font-black text-slate-800">{persentaseKeberhasilan.toFixed(1)}%</p>
+            <span className={`text-[10px] font-extrabold uppercase ${kategoriKeberhasilan.textClass}`}>
+              {kategoriKeberhasilan.label}
+            </span>
+          </div>
+          <div className="w-full h-1.5 bg-white/90 rounded-full overflow-hidden mt-2">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${kategoriKeberhasilan.barClass}`}
+              style={{ width: `${Math.min(100, Math.max(0, persentaseKeberhasilan))}%` }}
+            />
+          </div>
+          {totalSiswaCount > 0 && (
+            <p className="text-[10px] text-slate-500 mt-1.5 font-semibold">
+              {persentaseTertib.toFixed(1)}% siswa tertib ({siswaTertibCount}/{totalSiswaCount})
+            </p>
+          )}
         </div>
       </div>
 
