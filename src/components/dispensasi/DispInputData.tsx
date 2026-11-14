@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Edit2, Trash2, Search, Calendar, Clock, User, FileText, Check, X, Camera, Upload, Eye, Image as ImageIcon } from 'lucide-react';
-import { supabase, fetchAllSiswa } from '../../lib/supabase';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Plus, Edit2, Trash2, Search, Calendar, Clock, Users, FileText, Check, CheckSquare, X, Camera, Upload, Eye, Image as ImageIcon } from 'lucide-react';
+import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
 import { MasterJenisDispensasi, TransaksiDispensasi } from '../../types/dispensasi';
 import { format } from 'date-fns';
 
@@ -85,7 +85,8 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
   const [loading, setLoading] = useState(false);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [jenisList, setJenisList] = useState<MasterJenisDispensasi[]>([]);
-  const [siswaList, setSiswaList] = useState<any[]>([]);
+  const [allSiswa, setAllSiswa] = useState<any[]>([]);
+  const [selectedStudents, setSelectedStudents] = useState<any[]>([]);
   const [recentData, setRecentData] = useState<TransaksiDispensasi[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [periodeFilter, setPeriodeFilter] = useState('2026');
@@ -94,11 +95,15 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
   const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Multi-student picker modal state
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
+  const [pickerClassFilter, setPickerClassFilter] = useState('Semua');
+  const [tempSelectedMap, setTempSelectedMap] = useState<Map<string, any>>(new Map());
+
   const [formData, setFormData] = useState({
     tanggal: format(new Date(), 'yyyy-MM-dd'),
     jam: format(new Date(), 'HH:mm'),
-    kelas: '',
-    siswa_id: '',
     jenis_id: '',
     alasan: '',
     tindak_lanjut: '',
@@ -115,14 +120,6 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
     fetchInitialData();
   }, []);
 
-  useEffect(() => {
-    if (formData.kelas) {
-      fetchSiswaByKelas(formData.kelas, periodeFilter);
-    } else {
-      setSiswaList([]);
-    }
-  }, [formData.kelas, periodeFilter]);
-
   const fetchInitialData = async () => {
     try {
       if (supabase) {
@@ -131,7 +128,16 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
       }
       const sAll = await fetchAllSiswa();
       if (sAll && sAll.length > 0) {
-        const pList = Array.from(new Set(['2026', '2025', ...sAll.map((s: any) => s.periode || '2026')])).sort((a,b) => b.localeCompare(a));
+        const normalized = sAll
+          .filter((s: any) => !String(s.id || '').startsWith('pad-'))
+          .map((s: any) => ({
+            ...s,
+            kelas: normalizeKelasKey(s.kelas || ''),
+            periode: (s.periode || '2026').toString().trim()
+          }));
+        setAllSiswa(normalized.length > 0 ? normalized : sAll);
+
+        const pList = Array.from(new Set(['2026', '2025', ...sAll.map((s: any) => s.periode || '2026')])).sort((a, b) => b.localeCompare(a));
         setAvailablePeriodes(pList);
       }
       fetchRecentData();
@@ -140,19 +146,76 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
     }
   };
 
-  const fetchSiswaByKelas = async (kelas: string, periode: string) => {
-    try {
-      const allValidSiswa = await fetchAllSiswa();
-      const filtered = allValidSiswa.filter((s: any) => 
-        s.kelas === kelas && 
-        (periode === 'ALL' || (s.periode || '2026').toString().trim() === periode)
-      );
+  // Students available for the selected periode
+  const periodeStudents = useMemo(() => {
+    return allSiswa
+      .filter((s: any) => periodeFilter === 'ALL' || (s.periode || '2026').toString().trim() === periodeFilter)
+      .sort((a: any, b: any) => {
+        const kDiff = (a.kelas || '').localeCompare(b.kelas || '', undefined, { numeric: true });
+        if (kDiff !== 0) return kDiff;
+        return (a.nama || '').localeCompare(b.nama || '');
+      });
+  }, [allSiswa, periodeFilter]);
 
-      filtered.sort((a: any, b: any) => (a.nama || '').localeCompare(b.nama || ''));
-      setSiswaList(filtered);
-    } catch (error) {
-      console.error('Error fetching siswa:', error);
-    }
+  // Filtered students inside modal
+  const filteredModalStudents = useMemo(() => {
+    const q = pickerSearch.trim().toLowerCase();
+    return periodeStudents.filter((s: any) => {
+      const matchClass = pickerClassFilter === 'Semua' || normalizeKelasKey(s.kelas || '') === pickerClassFilter;
+      if (!matchClass) return false;
+      if (!q) return true;
+      const nama = String(s.nama || '').toLowerCase();
+      const nis = String(s.nisn || s.nis || '').toLowerCase();
+      const kls = String(s.kelas || '').toLowerCase();
+      return nama.includes(q) || nis.includes(q) || kls.includes(q);
+    });
+  }, [periodeStudents, pickerClassFilter, pickerSearch]);
+
+  const allFilteredSelected = filteredModalStudents.length > 0 && filteredModalStudents.every(s => tempSelectedMap.has(String(s.id)));
+
+  const openPickerModal = () => {
+    const nextMap = new Map<string, any>();
+    selectedStudents.forEach(s => {
+      nextMap.set(String(s.id), s);
+    });
+    setTempSelectedMap(nextMap);
+    setPickerSearch('');
+    setPickerClassFilter('Semua');
+    setIsPickerOpen(true);
+  };
+
+  const toggleTempStudent = (student: any) => {
+    const sid = String(student.id);
+    setTempSelectedMap(prev => {
+      const next = new Map(prev);
+      if (next.has(sid)) {
+        next.delete(sid);
+      } else {
+        next.set(sid, student);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAllFiltered = () => {
+    setTempSelectedMap(prev => {
+      const next = new Map(prev);
+      if (allFilteredSelected) {
+        filteredModalStudents.forEach(s => next.delete(String(s.id)));
+      } else {
+        filteredModalStudents.forEach(s => next.set(String(s.id), s));
+      }
+      return next;
+    });
+  };
+
+  const applySelectedStudents = () => {
+    setSelectedStudents(Array.from(tempSelectedMap.values()));
+    setIsPickerOpen(false);
+  };
+
+  const removeSelectedStudent = (sid: string) => {
+    setSelectedStudents(prev => prev.filter(s => String(s.id) !== sid));
   };
 
   const fetchRecentData = async () => {
@@ -229,7 +292,34 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
     return null;
   };
 
-  const persistDispensasiRecord = async (basePayload: any, photoValue: string) => {
+  const insertDispensasiBatch = async (rows: any[], photoValue: string): Promise<string[]> => {
+    if (!supabase) throw new Error('Koneksi Supabase belum tersedia.');
+    if (rows.length === 0) return [];
+
+    const isColumnError = (err: any) => {
+      const msg = String(err?.message || err?.details || '').toLowerCase();
+      return err?.code === 'PGRST204' || err?.code === '42703' || msg.includes('column') || msg.includes('schema cache');
+    };
+
+    const runInsert = async (payloadRows: any[]) => {
+      return await supabase.from('disp_transaksi').insert(payloadRows).select('id');
+    };
+
+    let res = await runInsert(photoValue ? rows.map(r => ({ ...r, bukti_url: photoValue })) : rows);
+
+    if (res.error && photoValue && isColumnError(res.error)) {
+      res = await runInsert(rows.map(r => ({ ...r, foto_kegiatan: photoValue })));
+    }
+
+    if (res.error && photoValue && isColumnError(res.error)) {
+      res = await runInsert(rows);
+    }
+
+    if (res.error) throw res.error;
+    return (res.data || []).map((d: any) => String(d.id));
+  };
+
+  const updateSingleDispensasi = async (id: string, basePayload: any, photoValue: string) => {
     if (!supabase) throw new Error('Koneksi Supabase belum tersedia.');
 
     const isColumnError = (err: any) => {
@@ -237,34 +327,25 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
       return err?.code === 'PGRST204' || err?.code === '42703' || msg.includes('column') || msg.includes('schema cache');
     };
 
-    const runMutation = async (payload: any) => {
-      if (editingId) {
-        return await supabase.from('disp_transaksi').update(payload).eq('id', editingId).select('id').single();
-      }
-      return await supabase.from('disp_transaksi').insert([payload]).select('id').single();
+    const runUpdate = async (payload: any) => {
+      return await supabase.from('disp_transaksi').update(payload).eq('id', id).select('id').single();
     };
 
-    // 1. Try with bukti_url (declared in TransaksiDispensasi)
-    let res = await runMutation(photoValue ? { ...basePayload, bukti_url: photoValue } : basePayload);
-
-    // 2. Fallback to foto_kegiatan column if bukti_url column does not exist
+    let res = await runUpdate(photoValue ? { ...basePayload, bukti_url: photoValue } : basePayload);
     if (res.error && photoValue && isColumnError(res.error)) {
-      res = await runMutation({ ...basePayload, foto_kegiatan: photoValue });
+      res = await runUpdate({ ...basePayload, foto_kegiatan: photoValue });
     }
-
-    // 3. Fallback to base payload without photo column if DB table lacks both columns
     if (res.error && photoValue && isColumnError(res.error)) {
-      res = await runMutation(basePayload);
+      res = await runUpdate(basePayload);
     }
-
     if (res.error) throw res.error;
-    return res.data?.id || editingId;
+    return res.data?.id || id;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.siswa_id || !formData.jenis_id) {
-      alert('Pilih siswa dan jenis dispensasi!');
+    if (selectedStudents.length === 0 || !formData.jenis_id) {
+      alert('Pilih minimal 1 siswa dan jenis dispensasi!');
       return;
     }
 
@@ -278,33 +359,49 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
         }
       }
 
-      const basePayload = {
+      const buildRow = (s: any) => ({
         tanggal: formData.tanggal,
         jam: formData.jam,
-        kelas: formData.kelas,
-        siswa_id: formData.siswa_id,
+        kelas: normalizeKelasKey(s.kelas || ''),
+        siswa_id: s.id,
         jenis_id: formData.jenis_id,
         alasan: formData.alasan,
         tindak_lanjut: formData.tindak_lanjut
-      };
+      });
 
-      const savedId = await persistDispensasiRecord(basePayload, finalPhotoUrl);
-      if (savedId) {
-        saveLocalFoto(String(savedId), finalPhotoUrl);
+      const savedIds: string[] = [];
+      if (editingId) {
+        const firstId = await updateSingleDispensasi(editingId, buildRow(selectedStudents[0]), finalPhotoUrl);
+        if (firstId) savedIds.push(String(firstId));
+
+        if (selectedStudents.length > 1) {
+          const extraIds = await insertDispensasiBatch(selectedStudents.slice(1).map(buildRow), finalPhotoUrl);
+          savedIds.push(...extraIds);
+        }
+      } else {
+        const insertedIds = await insertDispensasiBatch(selectedStudents.map(buildRow), finalPhotoUrl);
+        savedIds.push(...insertedIds);
       }
 
-      alert(editingId ? 'Data berhasil diperbarui' : 'Data berhasil disimpan');
+      savedIds.forEach(id => {
+        saveLocalFoto(id, finalPhotoUrl);
+      });
+
+      alert(
+        editingId
+          ? 'Data berhasil diperbarui'
+          : `Berhasil menyimpan ${selectedStudents.length} data dispensasi siswa`
+      );
 
       setFormData({
         tanggal: format(new Date(), 'yyyy-MM-dd'),
         jam: format(new Date(), 'HH:mm'),
-        kelas: '',
-        siswa_id: '',
         jenis_id: '',
         alasan: '',
         tindak_lanjut: '',
         foto_kegiatan: ''
       });
+      setSelectedStudents([]);
       setPhotoFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       setEditingId(null);
@@ -321,11 +418,17 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
     setEditingId(item.id);
     setPhotoFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    const matchedStudent = allSiswa.find(s => String(s.id) === String(item.siswa_id));
+    setSelectedStudents([
+      matchedStudent || {
+        id: item.siswa_id,
+        nama: item.siswa?.nama || 'Siswa',
+        kelas: item.kelas || item.siswa?.kelas || '-'
+      }
+    ]);
     setFormData({
       tanggal: item.tanggal,
       jam: item.jam,
-      kelas: item.kelas,
-      siswa_id: item.siswa_id,
       jenis_id: item.jenis_id,
       alasan: item.alasan || '',
       tindak_lanjut: item.tindak_lanjut || '',
@@ -352,19 +455,18 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Input Transaksi Dispensasi</h2>
-          <p className="text-sm text-slate-500">Catat dispensasi siswa dengan lengkap dan akurat</p>
+          <p className="text-sm text-slate-500">Catat dispensasi siswa (bisa pilih banyak kelas & siswa sekaligus)</p>
         </div>
         {editingId && (
           <button 
             onClick={() => {
               setEditingId(null);
+              setSelectedStudents([]);
               setPhotoFile(null);
               if (fileInputRef.current) fileInputRef.current.value = '';
               setFormData({
                 tanggal: format(new Date(), 'yyyy-MM-dd'),
                 jam: format(new Date(), 'HH:mm'),
-                kelas: '',
-                siswa_id: '',
                 jenis_id: '',
                 alasan: '',
                 tindak_lanjut: '',
@@ -424,44 +526,11 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
               value={periodeFilter}
               onChange={(e) => {
                 setPeriodeFilter(e.target.value);
-                setFormData({ ...formData, siswa_id: '' });
+                setSelectedStudents([]);
               }}
             >
               <option value="ALL">Semua Periode</option>
               {availablePeriodes.map(p => <option key={p} value={p}>Periode {p}</option>)}
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center space-x-2">
-              <Search size={14} className="text-pink-500" />
-              <span>Pilih Kelas</span>
-            </label>
-            <select 
-              required
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
-              value={formData.kelas}
-              onChange={(e) => setFormData({ ...formData, kelas: e.target.value, siswa_id: '' })}
-            >
-              <option value="">Pilih Kelas...</option>
-              {classes.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center space-x-2">
-              <User size={14} className="text-blue-500" />
-              <span>Pilih Siswa</span>
-            </label>
-            <select 
-              required
-              disabled={!formData.kelas}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:opacity-50"
-              value={formData.siswa_id}
-              onChange={(e) => setFormData({ ...formData, siswa_id: e.target.value })}
-            >
-              <option value="">{formData.kelas ? 'Pilih Siswa...' : 'Pilih Kelas Terlebih Dahulu'}</option>
-              {siswaList.map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
             </select>
           </div>
 
@@ -481,7 +550,72 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
             </select>
           </div>
 
-          <div className="space-y-2">
+          {/* Multi-Select Kelas & Siswa Section */}
+          <div className="md:col-span-2 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center space-x-2">
+                <Users size={14} className="text-emerald-600" />
+                <span>Pilih Kelas & Nama Siswa (Multi Siswa)</span>
+              </label>
+              <div className="flex items-center gap-2">
+                {selectedStudents.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStudents([])}
+                    className="px-3 py-1.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors"
+                  >
+                    Kosongkan ({selectedStudents.length})
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={openPickerModal}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all active:scale-95"
+                >
+                  <Users size={14} />
+                  <span>{selectedStudents.length > 0 ? `Ubah / Tambah Siswa (${selectedStudents.length} Dipilih)` : 'Pilih Kelas & Siswa'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div
+              onClick={openPickerModal}
+              className="w-full min-h-[64px] p-4 bg-slate-50 hover:bg-slate-100/70 border border-slate-200 rounded-2xl transition-colors cursor-pointer"
+            >
+              {selectedStudents.length === 0 ? (
+                <div className="flex items-center justify-between text-slate-400 text-sm">
+                  <span>Klik untuk memilih satu atau banyak siswa lintas kelas...</span>
+                  <span className="px-3 py-1 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold">
+                    Multi Pilih
+                  </span>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                  {selectedStudents.map((s) => (
+                    <span
+                      key={s.id}
+                      className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-xl bg-white border border-emerald-200 shadow-xs text-xs font-bold text-slate-800"
+                    >
+                      <span className="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-black">
+                        {s.kelas}
+                      </span>
+                      <span className="uppercase">{s.nama}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeSelectedStudent(String(s.id))}
+                        className="p-0.5 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors"
+                        title="Hapus siswa"
+                      >
+                        <X size={13} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="md:col-span-2 space-y-2">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center space-x-2">
               <FileText size={14} className="text-blue-500" />
               <span>Alasan / Keterangan</span>
@@ -701,6 +835,149 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
           </table>
         </div>
       </div>
+
+      {/* Multi-Student & Multi-Class Picker Modal */}
+      {isPickerOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setIsPickerOpen(false)}
+        >
+          <div
+            className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Search & Pilih Semua */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 space-y-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative flex-1">
+                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Cari nama siswa, NISN, atau kelas..."
+                    value={pickerSearch}
+                    onChange={(e) => setPickerSearch(e.target.value)}
+                    className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleSelectAllFiltered}
+                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-sm font-bold border transition-all shrink-0 ${
+                    allFilteredSelected
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                  }`}
+                >
+                  <CheckSquare size={16} />
+                  <span>{allFilteredSelected ? 'Batal Pilih Semua' : 'Pilih Semua'}</span>
+                </button>
+              </div>
+
+              {/* Horizontal Class Filter Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-2">
+                {['Semua', ...classes].map((cls) => {
+                  const isActive = pickerClassFilter === cls;
+                  return (
+                    <button
+                      key={cls}
+                      type="button"
+                      onClick={() => setPickerClassFilter(cls)}
+                      className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${
+                        isActive
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {cls}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Selected Count Status Strip */}
+            <div className="px-5 py-2.5 bg-emerald-50/60 border-b border-emerald-100 flex flex-wrap items-center gap-2 text-xs">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+              <span className="font-bold text-emerald-800">{tempSelectedMap.size} Siswa Terpilih</span>
+              <span className="text-slate-500">(Klik nama siswa untuk menambah / mengurangi)</span>
+            </div>
+
+            {/* Student Cards List */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-2.5 bg-slate-50/40">
+              {filteredModalStudents.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 text-sm italic">
+                  Tidak ada siswa yang sesuai dengan filter.
+                </div>
+              ) : (
+                filteredModalStudents.map((s) => {
+                  const isChecked = tempSelectedMap.has(String(s.id));
+                  const nisDisplay = s.nisn || s.nis || '-';
+                  const jkDisplay = s.jenis_kelamin || '-';
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => toggleTempStudent(s)}
+                      className={`w-full text-left p-4 rounded-2xl border transition-all flex items-center gap-4 ${
+                        isChecked
+                          ? 'bg-emerald-50/70 border-emerald-400 shadow-xs'
+                          : 'bg-white border-slate-200 hover:border-emerald-300 hover:bg-slate-50/70'
+                      }`}
+                    >
+                      <div
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                          isChecked
+                            ? 'bg-emerald-600 border-emerald-600 text-white'
+                            : 'bg-slate-50 border-slate-300'
+                        }`}
+                      >
+                        {isChecked && <Check size={14} strokeWidth={3} />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-extrabold text-slate-800 text-sm uppercase truncate">
+                          {s.nama}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100/80 text-emerald-800 text-[11px] font-bold">
+                            Kelas {s.kelas}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            NISN: {nisDisplay} • JK: {jkDisplay}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-5 bg-white border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p className="text-xs text-slate-600">
+                Total <span className="font-bold text-slate-900">{tempSelectedMap.size} anggota</span> siap dimasukkan ke Dispensasi.
+              </p>
+              <div className="flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsPickerOpen(false)}
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={applySelectedStudents}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all active:scale-95"
+                >
+                  <Check size={15} />
+                  <span>Gunakan {tempSelectedMap.size} Siswa Terpilih</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Full Photo Lightbox Modal */}
       {viewPhotoUrl && (
