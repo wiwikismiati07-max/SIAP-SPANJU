@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Home, Plus, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateCcw, MapPin, Users, Calendar, Clock, FileText } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Home, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateCcw, ChevronDown, Check, X, Users, Image as ImageIcon, Upload, Eye } from 'lucide-react';
 import { sabdaService, HomeVisitBK, GURU_BK_OPTIONS, getDefaultGuruBK } from '../../lib/sabdaBkService';
 import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
 import BKKopSurat, { printBKReport } from './BKKopSurat';
@@ -10,6 +10,43 @@ const CLASSES = [
   '9A', '9B', '9C', '9D', '9E', '9F', '9G', '9H'
 ];
 
+const ANGGOTA_KELUARGA_OPTIONS = [
+  'Ibu Kandung',
+  'Ayah Kandung',
+  'Wali'
+] as const;
+
+type AnggotaKeluargaRelation = (typeof ANGGOTA_KELUARGA_OPTIONS)[number];
+
+const parseAnggotaKeluarga = (raw?: string): { relation: AnggotaKeluargaRelation; name: string } => {
+  const val = String(raw || '').trim();
+  if (!val) return { relation: 'Ibu Kandung', name: '' };
+
+  const parenMatch = val.match(/^(Ibu Kandung|Ayah Kandung|Wali)\s*\((.+)\)$/i);
+  if (parenMatch) {
+    const matchedRel = ANGGOTA_KELUARGA_OPTIONS.find(
+      opt => opt.toLowerCase() === parenMatch[1].toLowerCase()
+    ) || 'Ibu Kandung';
+    return { relation: matchedRel, name: parenMatch[2].trim() };
+  }
+
+  const dashMatch = val.match(/^(Ibu Kandung|Ayah Kandung|Wali)\s*[-:]\s*(.+)$/i);
+  if (dashMatch) {
+    const matchedRel = ANGGOTA_KELUARGA_OPTIONS.find(
+      opt => opt.toLowerCase() === dashMatch[1].toLowerCase()
+    ) || 'Ibu Kandung';
+    return { relation: matchedRel, name: dashMatch[2].trim() };
+  }
+
+  const lower = val.toLowerCase();
+  if (lower === 'ibu kandung' || lower === 'ibu') return { relation: 'Ibu Kandung', name: '' };
+  if (lower === 'ayah kandung' || lower === 'ayah') return { relation: 'Ayah Kandung', name: '' };
+  if (lower === 'wali') return { relation: 'Wali', name: '' };
+  if (lower.includes('ayah')) return { relation: 'Ayah Kandung', name: val };
+  if (lower.includes('wali')) return { relation: 'Wali', name: val };
+  return { relation: 'Ibu Kandung', name: lower.includes('ibu') ? '' : val };
+};
+
 export default function BKHomeVisit({ user }: { user?: any }) {
   const [visits, setVisits] = useState<HomeVisitBK[]>([]);
   const [siswaList, setSiswaList] = useState<any[]>([]);
@@ -19,6 +56,13 @@ export default function BKHomeVisit({ user }: { user?: any }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [printItem, setPrintItem] = useState<HomeVisitBK | null>(null);
+  const [isAnggotaPopupOpen, setIsAnggotaPopupOpen] = useState(false);
+  const [anggotaRelation, setAnggotaRelation] = useState<AnggotaKeluargaRelation>('Ibu Kandung');
+  const [anggotaNama, setAnggotaNama] = useState('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
+  const namaAnggotaInputRef = useRef<HTMLInputElement | null>(null);
+  const fotoInputRef = useRef<HTMLInputElement | null>(null);
 
   const defaultDate = new Date().toISOString().split('T')[0];
 
@@ -125,6 +169,115 @@ export default function BKHomeVisit({ user }: { user?: any }) {
     return normalizeKelasKey(s.kelas) === normalizeKelasKey(formData.kelas);
   }).sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
 
+  const formatAnggotaValue = (relation: AnggotaKeluargaRelation, nama: string) => {
+    const cleanName = nama.trim();
+    return cleanName ? `${relation} (${cleanName})` : relation;
+  };
+
+  const handleSelectAnggotaRelation = (relation: AnggotaKeluargaRelation) => {
+    setAnggotaRelation(relation);
+    setFormData(prev => ({
+      ...prev,
+      anggota_keluarga: formatAnggotaValue(relation, anggotaNama)
+    }));
+  };
+
+  const handleAnggotaNamaChange = (val: string) => {
+    setAnggotaNama(val);
+    setFormData(prev => ({
+      ...prev,
+      anggota_keluarga: formatAnggotaValue(anggotaRelation, val)
+    }));
+  };
+
+  const compressImageFile = (file: File, maxDim = 960, quality = 0.8): Promise<{ blob: Blob; dataUrl: string }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
+      reader.onload = () => {
+        const rawDataUrl = String(reader.result || '');
+        const img = new Image();
+        img.onerror = () => reject(new Error('Format gambar tidak valid.'));
+        img.onload = () => {
+          let w = img.naturalWidth || img.width;
+          let h = img.naturalHeight || img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w >= h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve({ blob: file, dataUrl: rawDataUrl });
+            return;
+          }
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          canvas.toBlob(
+            blob => resolve({ blob: blob || file, dataUrl }),
+            'image/jpeg',
+            quality
+          );
+        };
+        img.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showNotification('error', 'Hanya file gambar (JPG/PNG/WEBP) yang diperbolehkan!');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      showNotification('error', 'Ukuran foto maksimal 10 MB!');
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+      const { blob, dataUrl } = await compressImageFile(file);
+
+      let uploadedUrl = '';
+      if (supabase) {
+        try {
+          const path = `home_visit/hv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+          const { error: upErr } = await supabase.storage
+            .from('bukti_fisik')
+            .upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+          if (!upErr) {
+            const { data: pub } = supabase.storage.from('bukti_fisik').getPublicUrl(path);
+            if (pub?.publicUrl) {
+              uploadedUrl = pub.publicUrl;
+            }
+          }
+        } catch {
+          // fallback to dataUrl
+        }
+      }
+
+      setFormData(prev => ({ ...prev, foto_url: uploadedUrl || dataUrl }));
+      showNotification('success', 'Foto kegiatan home visit berhasil ditambahkan!');
+    } catch (err: any) {
+      showNotification('error', err?.message || 'Gagal memproses foto.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nama_siswa.trim()) {
@@ -135,6 +288,7 @@ export default function BKHomeVisit({ user }: { user?: any }) {
     const record: HomeVisitBK = {
       id: editingId || `hv-${Date.now()}`,
       ...formData,
+      anggota_keluarga: formatAnggotaValue(anggotaRelation, anggotaNama),
       created_at: new Date().toISOString()
     };
 
@@ -150,6 +304,9 @@ export default function BKHomeVisit({ user }: { user?: any }) {
 
   const resetForm = () => {
     setEditingId(null);
+    setAnggotaRelation('Ibu Kandung');
+    setAnggotaNama('');
+    setIsAnggotaPopupOpen(false);
     setFormData({
       siswa_id: '',
       nama_siswa: '',
@@ -166,7 +323,10 @@ export default function BKHomeVisit({ user }: { user?: any }) {
   };
 
   const handleEdit = (item: HomeVisitBK) => {
+    const parsed = parseAnggotaKeluarga(item.anggota_keluarga);
     setEditingId(item.id);
+    setAnggotaRelation(parsed.relation);
+    setAnggotaNama(parsed.name);
     setFormData({
       siswa_id: item.siswa_id || '',
       nama_siswa: item.nama_siswa,
@@ -349,18 +509,117 @@ export default function BKHomeVisit({ user }: { user?: any }) {
                 required
               />
             </div>
-            <div>
+            <div className="relative">
               <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
                 ANGGOTA KELUARGA DITEMUI
               </label>
-              <input 
-                type="text"
-                placeholder="Ibu Kandung / Ayah / Wali..."
-                value={formData.anggota_keluarga}
-                onChange={e => setFormData({ ...formData, anggota_keluarga: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-amber-500 focus:ring-4 focus:ring-amber-100 outline-none font-bold text-slate-800 transition-all text-sm"
-                required
-              />
+              <button
+                type="button"
+                onClick={() => setIsAnggotaPopupOpen(true)}
+                className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 hover:border-amber-400 focus:border-amber-500 focus:ring-4 focus:ring-amber-100 outline-none font-bold text-slate-800 transition-all text-sm bg-white flex items-center justify-between gap-2 text-left cursor-pointer"
+              >
+                <span className="truncate">
+                  {anggotaNama.trim() ? `${anggotaRelation} — ${anggotaNama.trim()}` : anggotaRelation}
+                </span>
+                <ChevronDown size={18} className="text-slate-500 shrink-0" />
+              </button>
+
+              <div className="mt-2.5">
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                  Nama {anggotaRelation}
+                </label>
+                <input
+                  ref={namaAnggotaInputRef}
+                  type="text"
+                  placeholder={`Masukkan nama ${anggotaRelation}...`}
+                  value={anggotaNama}
+                  onChange={e => handleAnggotaNamaChange(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none font-semibold text-slate-800 text-sm bg-white transition-all"
+                  required
+                />
+              </div>
+
+              {isAnggotaPopupOpen && (
+                <div className="fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+                  <div
+                    className="absolute inset-0"
+                    onClick={() => setIsAnggotaPopupOpen(false)}
+                  />
+                  <div className="relative bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-150">
+                    <div className="bg-gradient-to-r from-amber-600 to-orange-600 px-5 py-4 text-white flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 rounded-xl bg-white/20">
+                          <Users size={18} />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black leading-tight">Anggota Keluarga Ditemui</h4>
+                          <p className="text-[11px] text-white/85">Pilih hubungan keluarga & isi nama</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsAnggotaPopupOpen(false)}
+                        className="p-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white transition-colors cursor-pointer"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+
+                    <div className="p-5 space-y-4">
+                      <div className="space-y-2">
+                        {ANGGOTA_KELUARGA_OPTIONS.map((option, idx) => {
+                          const isSelected = anggotaRelation === option;
+                          return (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => handleSelectAnggotaRelation(option)}
+                              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border text-left font-bold text-sm transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-200'
+                                  : 'bg-slate-50 hover:bg-amber-50/70 text-slate-700 border-slate-200'
+                              }`}
+                            >
+                              <span>{idx + 1}. {option}</span>
+                              {isSelected && (
+                                <span className="p-1 rounded-full bg-white/20">
+                                  <Check size={14} className="stroke-[3]" />
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100">
+                        <label className="block text-xs font-black text-slate-700 mb-1.5">
+                          Nama {anggotaRelation} <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder={`Ketik nama ${anggotaRelation}...`}
+                          value={anggotaNama}
+                          onChange={e => handleAnggotaNamaChange(e.target.value)}
+                          className="w-full px-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-amber-500 focus:ring-4 focus:ring-amber-100 outline-none font-bold text-slate-800 text-sm transition-all"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAnggotaPopupOpen(false);
+                            setTimeout(() => namaAnggotaInputRef.current?.focus(), 50);
+                          }}
+                          className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black shadow-md shadow-amber-200 transition-all cursor-pointer"
+                        >
+                          Selesai Pilih
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -412,6 +671,87 @@ export default function BKHomeVisit({ user }: { user?: any }) {
               className="w-full p-4 rounded-2xl border-2 border-slate-200 focus:border-amber-500 focus:ring-4 focus:ring-amber-100 outline-none font-medium text-slate-800 transition-all text-sm"
               required
             />
+          </div>
+
+          {/* FOTO KEGIATAN HOME VISIT */}
+          <div>
+            <label className="flex items-center gap-2 text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
+              <ImageIcon size={15} className="text-amber-600" />
+              <span>FOTO KEGIATAN HOME VISIT</span>
+            </label>
+            <div className="p-4 sm:p-5 rounded-2xl border-2 border-slate-200 bg-slate-50/70 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Masukkan link foto (URL) atau unggah foto kegiatan..."
+                  value={formData.foto_url}
+                  onChange={e => setFormData({ ...formData, foto_url: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none text-xs sm:text-sm text-slate-800"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="file"
+                    ref={fotoInputRef}
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFotoUpload}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fotoInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Upload size={14} />
+                    <span>{uploadingPhoto ? 'Mengunggah...' : 'Upload Foto Kegiatan'}</span>
+                  </button>
+                  {formData.foto_url && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, foto_url: '' })}
+                      className="px-3 py-2 text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                    >
+                      Hapus Foto
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="h-32 rounded-xl border-2 border-dashed border-slate-300 bg-white flex items-center justify-center relative overflow-hidden group shadow-xs">
+                {formData.foto_url ? (
+                  <div className="relative w-full h-full">
+                    <img
+                      src={formData.foto_url}
+                      alt="Foto Kegiatan Home Visit"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setViewPhotoUrl(formData.foto_url)}
+                        className="p-1.5 bg-white/90 text-slate-800 rounded-lg text-xs font-bold hover:bg-white cursor-pointer"
+                        title="Lihat Penuh"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, foto_url: '' })}
+                        className="p-1.5 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700 cursor-pointer"
+                        title="Hapus"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center px-3">
+                    <ImageIcon size={22} className="text-slate-300 mx-auto mb-1" />
+                    <span className="text-xs text-slate-400 italic block">Belum ada foto kegiatan</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
@@ -481,8 +821,22 @@ export default function BKHomeVisit({ user }: { user?: any }) {
                 filteredVisits.map(item => (
                   <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="font-black text-slate-800 text-xs uppercase">{item.nama_siswa}</div>
-                      <div className="text-[10px] font-bold text-amber-700 uppercase">Kelas {item.kelas}</div>
+                      <div className="flex items-center gap-2.5">
+                        {item.foto_url && (
+                          <button
+                            type="button"
+                            onClick={() => setViewPhotoUrl(item.foto_url || null)}
+                            className="w-9 h-9 rounded-lg overflow-hidden border border-slate-200 shrink-0 hover:ring-2 hover:ring-amber-400 transition-all cursor-pointer"
+                            title="Lihat Foto Kegiatan"
+                          >
+                            <img src={item.foto_url} alt="Foto" className="w-full h-full object-cover" />
+                          </button>
+                        )}
+                        <div>
+                          <div className="font-black text-slate-800 text-xs uppercase">{item.nama_siswa}</div>
+                          <div className="text-[10px] font-bold text-amber-700 uppercase">Kelas {item.kelas}</div>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-xs">
                       <div className="font-bold text-slate-700">{item.tanggal}</div>
@@ -541,26 +895,44 @@ export default function BKHomeVisit({ user }: { user?: any }) {
             />
 
             <div className="space-y-4 text-xs text-slate-800">
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                <div className="grid grid-cols-3">
-                  <span className="font-bold text-slate-600">Nama Siswa:</span>
-                  <span className="col-span-2 font-black text-slate-900 uppercase">{printItem.nama_siswa} (Kelas {printItem.kelas})</span>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-stretch justify-between gap-4">
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-bold text-slate-600">Nama Siswa:</span>
+                    <span className="col-span-2 font-black text-slate-900 uppercase">{printItem.nama_siswa} (Kelas {printItem.kelas})</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-bold text-slate-600">Alamat Rumah:</span>
+                    <span className="col-span-2 text-slate-800">{printItem.alamat}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-bold text-slate-600">Hari / Tanggal:</span>
+                    <span className="col-span-2 text-slate-800">{printItem.tanggal} ({printItem.waktu})</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-bold text-slate-600">Ditemui Oleh:</span>
+                    <span className="col-span-2 text-slate-800">{printItem.anggota_keluarga}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-bold text-slate-600">Petugas Kunjungan:</span>
+                    <span className="col-span-2 font-bold text-slate-800">{printItem.petugas}</span>
+                  </div>
                 </div>
-                <div className="grid grid-cols-3">
-                  <span className="font-bold text-slate-600">Alamat Rumah:</span>
-                  <span className="col-span-2 text-slate-800">{printItem.alamat}</span>
-                </div>
-                <div className="grid grid-cols-3">
-                  <span className="font-bold text-slate-600">Hari / Tanggal:</span>
-                  <span className="col-span-2 text-slate-800">{printItem.tanggal} ({printItem.waktu})</span>
-                </div>
-                <div className="grid grid-cols-3">
-                  <span className="font-bold text-slate-600">Ditemui Oleh:</span>
-                  <span className="col-span-2 text-slate-800">{printItem.anggota_keluarga}</span>
-                </div>
-                <div className="grid grid-cols-3">
-                  <span className="font-bold text-slate-600">Petugas Kunjungan:</span>
-                  <span className="col-span-2 font-bold text-slate-800">{printItem.petugas}</span>
+
+                {/* Foto Kegiatan di sisi kanan kotak identitas */}
+                <div className="w-36 sm:w-44 shrink-0 rounded-xl border border-slate-300 bg-white overflow-hidden flex items-center justify-center p-1">
+                  {printItem.foto_url ? (
+                    <img
+                      src={printItem.foto_url}
+                      alt="Foto Kegiatan Home Visit"
+                      className="w-full h-28 object-cover rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-full h-28 rounded-lg border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 text-[10px] text-center px-2">
+                      <ImageIcon size={18} className="mb-1 opacity-60" />
+                      <span>Foto Kegiatan</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -573,19 +945,6 @@ export default function BKHomeVisit({ user }: { user?: any }) {
                 <h4 className="font-black text-slate-800 uppercase mb-1">B. Fakta & Hasil Kunjungan</h4>
                 <p className="p-3 bg-slate-50 rounded-xl border border-slate-100 leading-relaxed">{printItem.hasil}</p>
               </div>
-
-              {printItem.foto_url && (
-                <div>
-                  <h4 className="font-black text-slate-800 uppercase mb-1">C. Dokumentasi Kunjungan</h4>
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex justify-center">
-                    <img
-                      src={printItem.foto_url}
-                      alt="Dokumentasi Home Visit"
-                      className="max-h-48 w-auto object-contain rounded-lg border border-slate-200"
-                    />
-                  </div>
-                </div>
-              )}
 
               <div className="grid grid-cols-2 pt-8 text-center text-xs">
                 <div>
@@ -650,6 +1009,31 @@ export default function BKHomeVisit({ user }: { user?: any }) {
                 Ya, Hapus
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Lightbox View Photo */}
+      {viewPhotoUrl && (
+        <div
+          className="fixed inset-0 z-[60] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setViewPhotoUrl(null)}
+        >
+          <div
+            className="relative max-w-3xl w-full bg-white rounded-3xl p-3 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setViewPhotoUrl(null)}
+              className="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-lg hover:bg-rose-700 cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+            <img
+              src={viewPhotoUrl}
+              alt="Pratinjau Foto Kegiatan Home Visit"
+              className="w-full max-h-[80vh] object-contain rounded-2xl"
+            />
           </div>
         </div>
       )}
