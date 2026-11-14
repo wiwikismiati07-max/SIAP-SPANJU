@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Siswa } from '../../types/izinsiswa';
 import { MasterKasus, TransaksiKasus, TindakLanjutKasus } from '../../types/bkpedulisiswa';
-import { Save, Search, User, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, CheckCircle2, Trash2, Edit2, X, ClipboardList, Plus, Paperclip, FileText as FileIcon, Upload, Download, RotateCw } from 'lucide-react';
+import { Save, Search, User, AlertCircle, Clock, Calendar, BookOpen, ShieldAlert, CheckCircle2, Trash2, Edit2, X, ClipboardList, Plus, Paperclip, FileText as FileIcon, Upload, Download, RotateCw, Printer } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import BKKopSurat, { printBKReport } from './BKKopSurat';
 
 export default function BKTransaksiKasus({ user }: { user?: any }) {
   const isAdmin = user?.role === 'full';
@@ -27,6 +28,7 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
   const [showOtherKasus, setShowOtherKasus] = useState(false);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [printItem, setPrintItem] = useState<TransaksiKasus | null>(null);
   const [uploadResult, setUploadResult] = useState<{
     show: boolean;
     type: 'success' | 'error' | 'warning';
@@ -335,6 +337,41 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
     XLSX.writeFile(wb, 'Template_Upload_Kasus_Lama.xlsx');
   };
 
+  const handleSaveCaseExcel = (item: TransaksiKasus) => {
+    const namaSiswa = item.siswa?.nama || '-';
+    const kelas = item.siswa?.kelas || item.kelas || '-';
+    const namaKasus = item.kasus?.nama_kasus || '-';
+    const kategoriKasus = item.kasus_kategori || item.kasus?.kategori || '-';
+    const tlSummary = (item.tindak_lanjuts || [])
+      .map((tl, idx) => `${idx + 1}. [${tl.tanggal || '-'}] ${tl.tindak_lanjut || '-'}${tl.keterangan ? `: ${tl.keterangan}` : ''}`)
+      .join('\n') || '-';
+
+    const rows = [
+      { Keterangan: 'Nama Siswa', Detail: namaSiswa },
+      { Keterangan: 'NIS', Detail: (item.siswa as any)?.nis || '-' },
+      { Keterangan: 'Kelas', Detail: kelas },
+      { Keterangan: 'Tanggal Kejadian', Detail: item.tanggal || '-' },
+      { Keterangan: 'Jam', Detail: item.jam || '-' },
+      { Keterangan: 'Jenis Kasus', Detail: namaKasus },
+      { Keterangan: 'Kategori Kasus', Detail: kategoriKasus },
+      { Keterangan: 'Status Kasus', Detail: item.status || '-' },
+      { Keterangan: 'Kronologi Kejadian', Detail: item.kronologi || '-' },
+      { Keterangan: 'Penanganan', Detail: item.penanganan || '-' },
+      { Keterangan: 'Konsekuensi', Detail: item.konsekuensi || '-' },
+      { Keterangan: 'Catatan Penanganan', Detail: item.catatan || '-' },
+      { Keterangan: 'Tindak Lanjut', Detail: tlSummary },
+      { Keterangan: 'Guru BK / Penindak', Detail: item.guru_bk || '-' },
+      { Keterangan: 'Wali Kelas', Detail: item.wali_kelas || '-' },
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{ wch: 24 }, { wch: 65 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Laporan_Kasus');
+    const safeName = namaSiswa.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'Siswa';
+    XLSX.writeFile(wb, `Laporan_Kasus_${safeName}_${item.tanggal || 'BK'}.xlsx`);
+  };
+
   const handleUploadOldData = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -519,7 +556,7 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
           <ShieldAlert size={24} />
         </div>
         <div>
-          <h2 className="text-2xl font-black text-slate-800">Input Kasus & Konseling (SABDA BK)</h2>
+          <h2 className="text-2xl font-black text-slate-800">Input Kasus & Konseling</h2>
           <p className="text-sm font-medium text-slate-500">Pencatatan kasus, penanganan, dan tindak lanjut konseling siswa • SMPN 7 Pasuruan</p>
         </div>
       </div>
@@ -1010,10 +1047,19 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
                       <p className="text-sm text-slate-600">{t.tanggal}</p>
                       <p className="text-[10px] text-slate-400">{t.jam}</p>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2">
+                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setPrintItem(t)}
+                          className="p-2 text-pink-600 hover:bg-pink-50 rounded-lg transition-colors"
+                          title="Cetak / Simpan Laporan Kasus"
+                        >
+                          <Printer size={16} />
+                        </button>
                         {canEdit && (
                           <button 
+                            type="button"
                             onClick={() => handleEdit(t)}
                             className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
                             title="Edit"
@@ -1023,6 +1069,7 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
                         )}
                         {isAdmin && (
                           <button 
+                            type="button"
                             onClick={() => setDeleteConfirmItem(t)}
                             className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                             title="Hapus"
@@ -1113,6 +1160,166 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
                 className="px-6 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-medium transition-colors"
               >
                 Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Print / Save Modal for Case Record */}
+      {printItem && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div id="bk-kasus-print-area" className="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
+            <BKKopSurat
+              subtitle="LAPORAN REKAM PERMASALAHAN & KONSELING SISWA"
+              subtitleClassName="text-pink-700"
+            />
+
+            <div className="space-y-4 text-xs text-slate-800">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="font-bold text-slate-600">Nama Siswa:</span>
+                  <span className="col-span-2 font-black text-slate-900 uppercase">
+                    {printItem.siswa?.nama || '-'} (Kelas {printItem.siswa?.kelas || printItem.kelas || '-'})
+                    {(printItem.siswa as any)?.nis ? ` • NIS ${(printItem.siswa as any).nis}` : ''}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="font-bold text-slate-600">Tanggal / Jam:</span>
+                  <span className="col-span-2 text-slate-800">
+                    {printItem.tanggal || '-'} {printItem.jam ? `(${printItem.jam} WIB)` : ''}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="font-bold text-slate-600">Jenis Kasus:</span>
+                  <span className="col-span-2 font-bold text-slate-900">
+                    {printItem.kasus?.nama_kasus || '-'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="font-bold text-slate-600">Kategori / Status:</span>
+                  <span className="col-span-2 text-slate-800">
+                    {printItem.kasus_kategori || printItem.kasus?.kategori || '-'} • Status:{' '}
+                    <span className="font-black uppercase">{printItem.status || 'Proses'}</span>
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="font-bold text-slate-600">Guru BK / Penindak:</span>
+                  <span className="col-span-2 font-bold text-slate-800">{printItem.guru_bk || 'WIWIK ISMIATI, S.Pd'}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="font-bold text-slate-600">Wali Kelas:</span>
+                  <span className="col-span-2 text-slate-800">{printItem.wali_kelas || '-'}</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-black text-slate-800 uppercase mb-1">A. Kronologi Kejadian</h4>
+                <p className="p-3 bg-slate-50 rounded-xl border border-slate-100 leading-relaxed whitespace-pre-line">
+                  {printItem.kronologi || '-'}
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-black text-slate-800 uppercase mb-1">B. Penanganan & Konsekuensi</h4>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1.5">
+                  <div>
+                    <span className="font-bold text-slate-600">Penanganan: </span>
+                    <span className="text-slate-800">{printItem.penanganan || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-600">Konsekuensi: </span>
+                    <span className="text-slate-800">{printItem.konsekuensi || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-600">Catatan Penanganan: </span>
+                    <span className="text-slate-800 whitespace-pre-line">{printItem.catatan || '-'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-black text-slate-800 uppercase mb-1">C. Tindak Lanjut Konseling</h4>
+                {printItem.tindak_lanjuts && printItem.tindak_lanjuts.length > 0 ? (
+                  <div className="overflow-hidden rounded-xl border border-slate-200">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-700 font-bold">
+                          <th className="px-3 py-2 border-b border-slate-200">No</th>
+                          <th className="px-3 py-2 border-b border-slate-200">Tanggal</th>
+                          <th className="px-3 py-2 border-b border-slate-200">Tindak Lanjut</th>
+                          <th className="px-3 py-2 border-b border-slate-200">Keterangan / Hasil</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {printItem.tindak_lanjuts.map((tl, idx) => (
+                          <tr key={tl.id || idx}>
+                            <td className="px-3 py-2">{idx + 1}</td>
+                            <td className="px-3 py-2 whitespace-nowrap">{tl.tanggal || '-'}</td>
+                            <td className="px-3 py-2 font-semibold">{tl.tindak_lanjut || '-'}</td>
+                            <td className="px-3 py-2">{tl.keterangan || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-slate-500 italic">
+                    Belum ada catatan tindak lanjut.
+                  </p>
+                )}
+              </div>
+
+              {printItem.bukti_fisik && printItem.bukti_fisik.length > 0 && (
+                <div className="page-break-inside-avoid">
+                  <h4 className="font-black text-slate-800 uppercase mb-1">D. Bukti Fisik</h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {printItem.bukti_fisik.map((url, idx) => (
+                      <div key={idx} className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50 p-1">
+                        <img src={url} alt={`Bukti ${idx + 1}`} className="w-full h-24 object-cover rounded-lg" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 pt-8 text-center text-xs page-break-inside-avoid">
+                <div />
+                <div>
+                  <p>Guru BK / Penindak,</p>
+                  <div className="h-16" />
+                  <p className="font-black underline uppercase">
+                    {printItem.guru_bk || 'WIWIK ISMIATI, S.Pd'}
+                  </p>
+                  {(!printItem.guru_bk || printItem.guru_bk.toLowerCase().includes('wiwik')) && (
+                    <p className="text-[10px] text-slate-500">NIP. 19831116 200904 2 003</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2.5 mt-8 pt-4 border-t border-slate-100 print:hidden">
+              <button
+                type="button"
+                onClick={() => setPrintItem(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveCaseExcel(printItem)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 shadow-md shadow-emerald-200"
+              >
+                <Download size={16} />
+                <span>Simpan Excel</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => printBKReport('bk-kasus-print-area', `Laporan Kasus Siswa - ${printItem.siswa?.nama || 'Siswa'}`)}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-pink-600 text-white text-xs font-black hover:bg-pink-700 shadow-md shadow-pink-200"
+              >
+                <Printer size={16} />
+                <span>Cetak / Simpan PDF</span>
               </button>
             </div>
           </div>
