@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { User, Plus, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateCcw, Sparkles, BookOpen, Clock, Calendar } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { User, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateCcw, ChevronDown, Check, X, AlertCircle, Compass, Wrench, Image as ImageIcon, Upload, Eye } from 'lucide-react';
 import { sabdaService, KonselingIndividualBK, GURU_BK_OPTIONS, getDefaultGuruBK } from '../../lib/sabdaBkService';
 import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
 import BKKopSurat, { printBKReport } from './BKKopSurat';
@@ -10,6 +10,41 @@ const CLASSES = [
   '9A', '9B', '9C', '9D', '9E', '9F', '9G', '9H'
 ];
 
+const PERMASALAHAN_SISWA_OPTIONS = [
+  'Siswa kurang percaya diri',
+  'Siswa sering terlambat',
+  'Siswa suka menunda tugas',
+  'Siswa mengalami konflik teman',
+  'Siswa melakukan perundungan',
+  'Siswa mengalami kecemasan akademik',
+  'Siswa kurang disiplin',
+  'Siswa bingung menentukan cita-cita',
+] as const;
+
+const PENDEKATAN_OPTIONS = [
+  'Person Centered',
+  'Behavioristik',
+  'Kognitif dan REBT',
+  'Person Centered dan Realitas',
+  'Realitas dan Behavioristik',
+  'Person Centered dan Kognitif',
+  'Realitas',
+  'Solution Focused',
+] as const;
+
+const TEKNIK_KONSELING_OPTIONS = [
+  'Empati, refleksi perasaan, penguatan',
+  'Kontrak perilaku, reinforcement',
+  'Identifikasi pikiran, restrukturisasi kognitif',
+  'Active listening, problem solving',
+  'Konfrontasi konstruktif, tanggung jawab, kontrak perilaku',
+  'Relaksasi, refleksi perasaan, restrukturisasi kognitif',
+  'Evaluasi perilaku, perencanaan tindakan',
+  'Eksplorasi potensi, goal setting',
+] as const;
+
+type PopupFieldType = 'permasalahan' | 'pendekatan' | 'teknik' | null;
+
 export default function BKKonselingIndividual({ user }: { user?: any }) {
   const [konselings, setKonselings] = useState<KonselingIndividualBK[]>([]);
   const [siswaList, setSiswaList] = useState<any[]>([]);
@@ -19,6 +54,10 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [printItem, setPrintItem] = useState<KonselingIndividualBK | null>(null);
+  const [activePopup, setActivePopup] = useState<PopupFieldType>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
+  const fotoInputRef = useRef<HTMLInputElement>(null);
 
   const defaultDate = new Date().toISOString().split('T')[0];
 
@@ -29,12 +68,16 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
     tanggal: defaultDate,
     jam: '09:00 WIB',
     bidang: 'Belajar' as const,
+    permasalahan_siswa: '',
     gejala_masalah: '',
-    pendekatan_teknik: 'Cognitive Behavioral Therapy / Restrukturisasi Kognitif',
+    pendekatan: '',
+    teknik_konseling: '',
+    pendekatan_teknik: '',
     proses_konseling: '',
     rencana_tindak_lanjut: '',
     guru_bk: getDefaultGuruBK(user),
-    status: 'Proses' as const
+    status: 'Proses' as const,
+    foto_url: ''
   });
 
   useEffect(() => {
@@ -122,16 +165,119 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
     return normalizeKelasKey(s.kelas) === normalizeKelasKey(formData.kelas);
   }).sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
 
+  const compressImageFile = (file: File, maxDim = 960, quality = 0.8): Promise<{ blob: Blob; dataUrl: string }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
+      reader.onload = () => {
+        const rawDataUrl = String(reader.result || '');
+        const img = new Image();
+        img.onerror = () => reject(new Error('Format gambar tidak valid.'));
+        img.onload = () => {
+          let w = img.naturalWidth || img.width;
+          let h = img.naturalHeight || img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w >= h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve({ blob: file, dataUrl: rawDataUrl });
+            return;
+          }
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          canvas.toBlob(
+            blob => resolve({ blob: blob || file, dataUrl }),
+            'image/jpeg',
+            quality
+          );
+        };
+        img.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showNotification('error', 'Hanya file gambar (JPG/PNG/WEBP) yang diperbolehkan!');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      showNotification('error', 'Ukuran foto maksimal 10 MB!');
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+      const { blob, dataUrl } = await compressImageFile(file);
+
+      let uploadedUrl = '';
+      if (supabase) {
+        try {
+          const path = `konseling_individual/ki_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+          const { error: upErr } = await supabase.storage
+            .from('bukti_fisik')
+            .upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+          if (!upErr) {
+            const { data: pub } = supabase.storage.from('bukti_fisik').getPublicUrl(path);
+            if (pub?.publicUrl) {
+              uploadedUrl = pub.publicUrl;
+            }
+          }
+        } catch {
+          // fallback to dataUrl
+        }
+      }
+
+      setFormData(prev => ({ ...prev, foto_url: uploadedUrl || dataUrl }));
+      showNotification('success', 'Foto kegiatan konseling berhasil ditambahkan!');
+    } catch (err: any) {
+      showNotification('error', err?.message || 'Gagal memproses foto.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nama_siswa.trim()) {
       showNotification('error', 'Mohon pilih siswa terlebih dahulu.');
       return;
     }
+    if (!formData.permasalahan_siswa.trim()) {
+      showNotification('error', 'Mohon pilih Permasalahan Siswa terlebih dahulu.');
+      return;
+    }
+    if (!formData.pendekatan.trim()) {
+      showNotification('error', 'Mohon pilih Pendekatan yang digunakan terlebih dahulu.');
+      return;
+    }
+    if (!formData.teknik_konseling.trim()) {
+      showNotification('error', 'Mohon pilih Teknik konseling yang digunakan terlebih dahulu.');
+      return;
+    }
+
+    const combinedPendekatanTeknik = `${formData.pendekatan} / ${formData.teknik_konseling}`;
 
     const record: KonselingIndividualBK = {
       id: editingId || `ki-${Date.now()}`,
       ...formData,
+      pendekatan_teknik: combinedPendekatanTeknik,
       created_at: new Date().toISOString()
     };
 
@@ -154,17 +300,24 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
       tanggal: defaultDate,
       jam: '09:00 WIB',
       bidang: 'Belajar',
+      permasalahan_siswa: '',
       gejala_masalah: '',
-      pendekatan_teknik: 'Cognitive Behavioral Therapy / Restrukturisasi Kognitif',
+      pendekatan: '',
+      teknik_konseling: '',
+      pendekatan_teknik: '',
       proses_konseling: '',
       rencana_tindak_lanjut: '',
       guru_bk: getDefaultGuruBK(user),
-      status: 'Proses'
+      status: 'Proses',
+      foto_url: ''
     });
   };
 
   const handleEdit = (item: KonselingIndividualBK) => {
     setEditingId(item.id);
+    const parts = (item.pendekatan_teknik || '').split(' / ').map(p => p.trim());
+    const parsedPendekatan = item.pendekatan || parts[0] || '';
+    const parsedTeknik = item.teknik_konseling || (parts.length > 1 ? parts.slice(1).join(' / ') : '');
     setFormData({
       siswa_id: item.siswa_id || '',
       nama_siswa: item.nama_siswa,
@@ -172,12 +325,16 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
       tanggal: item.tanggal,
       jam: item.jam,
       bidang: item.bidang,
+      permasalahan_siswa: item.permasalahan_siswa || '',
       gejala_masalah: item.gejala_masalah,
-      pendekatan_teknik: item.pendekatan_teknik,
+      pendekatan: parsedPendekatan,
+      teknik_konseling: parsedTeknik,
+      pendekatan_teknik: item.pendekatan_teknik || '',
       proses_konseling: item.proses_konseling,
       rencana_tindak_lanjut: item.rencana_tindak_lanjut,
       guru_bk: item.guru_bk,
-      status: item.status
+      status: item.status,
+      foto_url: item.foto_url || ''
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -196,6 +353,9 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
   const filtered = konselings.filter(k =>
     k.nama_siswa.toLowerCase().includes(searchTerm.toLowerCase()) ||
     k.kelas.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (k.permasalahan_siswa || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (k.pendekatan || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (k.teknik_konseling || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     k.gejala_masalah.toLowerCase().includes(searchTerm.toLowerCase()) ||
     k.bidang.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -354,16 +514,58 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
 
           <div>
             <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
-              PENDEKATAN / TEKNIK KONSELING YANG DIGUNAKAN
+              PERMASALAHAN SISWA
             </label>
-            <input 
-              type="text"
-              placeholder="Contoh: Rational Emotive Behavior Therapy (REBT), Client-Centered, Behavioral..."
-              value={formData.pendekatan_teknik}
-              onChange={e => setFormData({ ...formData, pendekatan_teknik: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none font-bold text-slate-800 transition-all text-sm"
-              required
-            />
+            <button
+              type="button"
+              onClick={() => setActivePopup('permasalahan')}
+              className={`w-full px-4 py-3 rounded-2xl border-2 border-slate-200 hover:border-sky-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none font-bold transition-all text-sm bg-white flex items-center justify-between gap-2 text-left cursor-pointer ${
+                formData.permasalahan_siswa ? 'text-slate-800' : 'text-slate-400'
+              }`}
+            >
+              <span className="truncate">
+                {formData.permasalahan_siswa || '-- Pilih Permasalahan Siswa --'}
+              </span>
+              <ChevronDown size={18} className="text-slate-500 shrink-0" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
+                PENDEKATAN YANG DIGUNAKAN
+              </label>
+              <button
+                type="button"
+                onClick={() => setActivePopup('pendekatan')}
+                className={`w-full px-4 py-3 rounded-2xl border-2 border-slate-200 hover:border-sky-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none font-bold transition-all text-sm bg-white flex items-center justify-between gap-2 text-left cursor-pointer ${
+                  formData.pendekatan ? 'text-slate-800' : 'text-slate-400'
+                }`}
+              >
+                <span className="truncate">
+                  {formData.pendekatan || '-- Pilih Pendekatan Konseling --'}
+                </span>
+                <ChevronDown size={18} className="text-slate-500 shrink-0" />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
+                TEKNIK KONSELING YANG DIGUNAKAN
+              </label>
+              <button
+                type="button"
+                onClick={() => setActivePopup('teknik')}
+                className={`w-full px-4 py-3 rounded-2xl border-2 border-slate-200 hover:border-sky-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-100 outline-none font-bold transition-all text-sm bg-white flex items-center justify-between gap-2 text-left cursor-pointer ${
+                  formData.teknik_konseling ? 'text-slate-800' : 'text-slate-400'
+                }`}
+              >
+                <span className="truncate">
+                  {formData.teknik_konseling || '-- Pilih Teknik Konseling --'}
+                </span>
+                <ChevronDown size={18} className="text-slate-500 shrink-0" />
+              </button>
+            </div>
           </div>
 
           <div>
@@ -438,6 +640,86 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
             </div>
           </div>
 
+          <div>
+            <label className="flex items-center gap-2 text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
+              <ImageIcon size={15} className="text-sky-600" />
+              <span>FOTO KEGIATAN KONSELING</span>
+            </label>
+            <div className="p-4 sm:p-5 rounded-2xl border-2 border-slate-200 bg-slate-50/70 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Masukkan link foto (URL) atau unggah foto kegiatan..."
+                  value={formData.foto_url}
+                  onChange={e => setFormData({ ...formData, foto_url: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none text-xs sm:text-sm text-slate-800"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="file"
+                    ref={fotoInputRef}
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFotoUpload}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fotoInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Upload size={14} />
+                    <span>{uploadingPhoto ? 'Mengunggah...' : 'Upload Foto Kegiatan'}</span>
+                  </button>
+                  {formData.foto_url && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, foto_url: '' })}
+                      className="px-3 py-2 text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                    >
+                      Hapus Foto
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="h-32 rounded-xl border-2 border-dashed border-slate-300 bg-white flex items-center justify-center relative overflow-hidden group shadow-xs">
+                {formData.foto_url ? (
+                  <div className="relative w-full h-full">
+                    <img
+                      src={formData.foto_url}
+                      alt="Foto Kegiatan Konseling Individual"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setViewPhotoUrl(formData.foto_url)}
+                        className="p-1.5 bg-white/90 text-slate-800 rounded-lg text-xs font-bold hover:bg-white cursor-pointer"
+                        title="Lihat Penuh"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, foto_url: '' })}
+                        className="p-1.5 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700 cursor-pointer"
+                        title="Hapus"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center px-3">
+                    <ImageIcon size={22} className="text-slate-300 mx-auto mb-1" />
+                    <span className="text-xs text-slate-400 italic block">Belum ada foto kegiatan</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
             {editingId && (
               <button
@@ -505,8 +787,22 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
                 filtered.map(item => (
                   <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="font-black text-slate-800 text-xs uppercase">{item.nama_siswa}</div>
-                      <div className="text-[10px] font-bold text-sky-700 uppercase">Kelas {item.kelas}</div>
+                      <div className="flex items-center gap-2.5">
+                        {item.foto_url && (
+                          <button
+                            type="button"
+                            onClick={() => setViewPhotoUrl(item.foto_url || null)}
+                            className="w-9 h-9 rounded-lg overflow-hidden border border-slate-200 shrink-0 hover:ring-2 hover:ring-sky-400 transition-all cursor-pointer"
+                            title="Lihat Foto Kegiatan"
+                          >
+                            <img src={item.foto_url} alt="Foto" className="w-full h-full object-cover" />
+                          </button>
+                        )}
+                        <div>
+                          <div className="font-black text-slate-800 text-xs uppercase">{item.nama_siswa}</div>
+                          <div className="text-[10px] font-bold text-sky-700 uppercase">Kelas {item.kelas}</div>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-xs">
                       <div className="font-bold text-slate-700">{item.tanggal}</div>
@@ -517,8 +813,11 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
                         {item.bidang}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-xs text-slate-600 max-w-xs truncate">
-                      {item.gejala_masalah}
+                    <td className="px-6 py-4 text-xs text-slate-600 max-w-xs">
+                      {item.permasalahan_siswa && (
+                        <div className="font-bold text-slate-800 truncate">{item.permasalahan_siswa}</div>
+                      )}
+                      <div className="truncate text-slate-500">{item.gejala_masalah}</div>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
@@ -571,22 +870,54 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
             />
 
             <div className="space-y-4 text-xs text-slate-800">
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                <div className="grid grid-cols-3">
-                  <span className="font-bold text-slate-600">Nama Konseli:</span>
-                  <span className="col-span-2 font-black text-slate-900 uppercase">{printItem.nama_siswa} (Kelas {printItem.kelas})</span>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-stretch justify-between gap-4">
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-bold text-slate-600">Nama Konseli:</span>
+                    <span className="col-span-2 font-black text-slate-900 uppercase">{printItem.nama_siswa} (Kelas {printItem.kelas})</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-bold text-slate-600">Tanggal / Waktu:</span>
+                    <span className="col-span-2 text-slate-800">{printItem.tanggal} ({printItem.jam})</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-bold text-slate-600">Bidang Bimbingan:</span>
+                    <span className="col-span-2 font-bold text-sky-800">{printItem.bidang}</span>
+                  </div>
+                  {printItem.permasalahan_siswa && (
+                    <div className="grid grid-cols-3 gap-2">
+                      <span className="font-bold text-slate-600">Permasalahan Siswa:</span>
+                      <span className="col-span-2 font-bold text-slate-900">{printItem.permasalahan_siswa}</span>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-bold text-slate-600">Pendekatan Konseling:</span>
+                    <span className="col-span-2 font-bold text-slate-800">
+                      {printItem.pendekatan || printItem.pendekatan_teknik?.split(' / ')[0] || '-'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <span className="font-bold text-slate-600">Teknik Konseling:</span>
+                    <span className="col-span-2 font-bold text-slate-800">
+                      {printItem.teknik_konseling || (printItem.pendekatan_teknik?.includes(' / ') ? printItem.pendekatan_teknik.split(' / ').slice(1).join(' / ') : '-')}
+                    </span>
+                  </div>
                 </div>
-                <div className="grid grid-cols-3">
-                  <span className="font-bold text-slate-600">Tanggal / Waktu:</span>
-                  <span className="col-span-2 text-slate-800">{printItem.tanggal} ({printItem.jam})</span>
-                </div>
-                <div className="grid grid-cols-3">
-                  <span className="font-bold text-slate-600">Bidang Bimbingan:</span>
-                  <span className="col-span-2 font-bold text-sky-800">{printItem.bidang}</span>
-                </div>
-                <div className="grid grid-cols-3">
-                  <span className="font-bold text-slate-600">Teknik / Pendekatan:</span>
-                  <span className="col-span-2 font-bold text-slate-800">{printItem.pendekatan_teknik}</span>
+
+                {/* Foto Kegiatan di sisi kanan kotak identitas */}
+                <div className="w-36 sm:w-44 shrink-0 rounded-xl border border-slate-300 bg-white overflow-hidden flex items-center justify-center p-1">
+                  {printItem.foto_url ? (
+                    <img
+                      src={printItem.foto_url}
+                      alt="Foto Kegiatan Konseling Individual"
+                      className="w-full h-28 object-cover rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-full h-28 rounded-lg border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 text-[10px] text-center px-2">
+                      <ImageIcon size={18} className="mb-1 opacity-60" />
+                      <span>Foto Kegiatan</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -606,11 +937,7 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
               </div>
 
               <div className="grid grid-cols-2 pt-8 text-center text-xs">
-                <div>
-                  <p>Konseli / Siswa,</p>
-                  <div className="h-16" />
-                  <p className="font-black underline uppercase">{printItem.nama_siswa}</p>
-                </div>
+                <div />
                 <div>
                   <p>Guru Pembimbing BK,</p>
                   <div className="h-16" />
@@ -668,6 +995,112 @@ export default function BKKonselingIndividual({ user }: { user?: any }) {
                 Ya, Hapus
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Popup Selector Modal */}
+      {activePopup && (
+        <div className="fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div
+            className="absolute inset-0"
+            onClick={() => setActivePopup(null)}
+          />
+          <div className="relative bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="bg-gradient-to-r from-sky-600 to-blue-600 px-5 py-4 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-white/20">
+                  {activePopup === 'permasalahan' && <AlertCircle size={18} />}
+                  {activePopup === 'pendekatan' && <Compass size={18} />}
+                  {activePopup === 'teknik' && <Wrench size={18} />}
+                </div>
+                <div>
+                  <h4 className="text-sm font-black leading-tight">
+                    {activePopup === 'permasalahan' && 'Pilih Permasalahan Siswa'}
+                    {activePopup === 'pendekatan' && 'Pilih Pendekatan yang Digunakan'}
+                    {activePopup === 'teknik' && 'Pilih Teknik Konseling yang Digunakan'}
+                  </h4>
+                  <p className="text-[11px] text-white/85">Klik salah satu pilihan di bawah ini</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActivePopup(null)}
+                className="p-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-5 max-h-[70vh] overflow-y-auto space-y-2">
+              {(activePopup === 'permasalahan'
+                ? PERMASALAHAN_SISWA_OPTIONS
+                : activePopup === 'pendekatan'
+                  ? PENDEKATAN_OPTIONS
+                  : TEKNIK_KONSELING_OPTIONS
+              ).map((option, idx) => {
+                const currentVal =
+                  activePopup === 'permasalahan'
+                    ? formData.permasalahan_siswa
+                    : activePopup === 'pendekatan'
+                      ? formData.pendekatan
+                      : formData.teknik_konseling;
+                const isSelected = currentVal === option;
+
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => {
+                      if (activePopup === 'permasalahan') {
+                        setFormData(prev => ({ ...prev, permasalahan_siswa: option }));
+                      } else if (activePopup === 'pendekatan') {
+                        setFormData(prev => ({ ...prev, pendekatan: option }));
+                      } else {
+                        setFormData(prev => ({ ...prev, teknik_konseling: option }));
+                      }
+                      setActivePopup(null);
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border text-left font-bold text-sm transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-sky-600 text-white border-sky-600 shadow-md shadow-sky-200'
+                        : 'bg-slate-50 hover:bg-sky-50/70 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <span>{idx + 1}. {option}</span>
+                    {isSelected && (
+                      <span className="p-1 rounded-full bg-white/20 shrink-0 ml-2">
+                        <Check size={14} className="stroke-[3]" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Lightbox View Photo */}
+      {viewPhotoUrl && (
+        <div
+          className="fixed inset-0 z-[60] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setViewPhotoUrl(null)}
+        >
+          <div
+            className="relative max-w-3xl w-full bg-white rounded-3xl p-3 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setViewPhotoUrl(null)}
+              className="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-lg hover:bg-rose-700 cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+            <img
+              src={viewPhotoUrl}
+              alt="Pratinjau Foto Kegiatan Konseling Individual"
+              className="w-full max-h-[80vh] object-contain rounded-2xl"
+            />
           </div>
         </div>
       )}

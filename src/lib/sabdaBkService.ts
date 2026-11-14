@@ -65,12 +65,16 @@ export interface KonselingIndividualBK {
   tanggal: string;
   jam: string;
   bidang: 'Pribadi' | 'Sosial' | 'Belajar' | 'Karir';
+  permasalahan_siswa?: string;
   gejala_masalah: string;
+  pendekatan?: string;
+  teknik_konseling?: string;
   pendekatan_teknik: string;
   proses_konseling: string;
   rencana_tindak_lanjut: string;
   guru_bk: string;
   status: 'Proses' | 'Selesai';
+  foto_url?: string;
   created_at?: string;
 }
 
@@ -87,6 +91,7 @@ export interface KonselingKelompokBK {
   kesepakatan: string;
   evaluasi: string;
   guru_bk: string;
+  foto_url?: string;
   created_at?: string;
 }
 
@@ -783,7 +788,10 @@ export const getSabdaData = async <T>(tableName: string, storageKey: string, ini
   (sqlData || []).forEach(item => {
     if (item && (item as any).id) {
       const id = String((item as any).id);
-      if (!allDeletedSet.has(id)) cloudMap.set(id, item);
+      if (!allDeletedSet.has(id)) {
+        const existingSnapshot = cloudMap.get(id) || {};
+        cloudMap.set(id, { ...existingSnapshot, ...item });
+      }
     }
   });
 
