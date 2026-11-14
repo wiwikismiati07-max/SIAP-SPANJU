@@ -15,7 +15,9 @@ import {
   X, 
   Filter, 
   UserCheck,
-  Eye
+  Eye,
+  Check,
+  CheckSquare
 } from 'lucide-react';
 import { sabdaService, AgendaKerjaBK, GURU_BK_OPTIONS, getDefaultGuruBK, safeSetLocalStorage } from '../../lib/sabdaBkService';
 import { supabase, fetchAllSiswa } from '../../lib/supabase';
@@ -66,10 +68,12 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
   const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
-  // Student search modal state
+  // Student search modal state (Multi Siswa)
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [modalSearchTerm, setModalSearchTerm] = useState('');
   const [selectedClassFilter, setSelectedClassFilter] = useState('Semua');
+  const [selectedStudents, setSelectedStudents] = useState<SiswaItem[]>([]);
+  const [tempSelectedMap, setTempSelectedMap] = useState<Map<string, SiswaItem>>(new Map());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const defaultDate = new Date().toISOString().split('T')[0];
@@ -240,17 +244,111 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
     }
   };
 
-  // Select student from modal
-  const handleSelectStudent = (siswa: SiswaItem) => {
-    const targetLabel = `${siswa.nama} (${siswa.kelas})`;
+  // Multi-Student modal handlers
+  const openStudentModal = () => {
+    const nextMap = new Map<string, SiswaItem>();
+    selectedStudents.forEach(s => nextMap.set(String(s.id), s));
+    setTempSelectedMap(nextMap);
+    setModalSearchTerm('');
+    setSelectedClassFilter('Semua');
+    setIsStudentModalOpen(true);
+  };
+
+  const toggleTempStudent = (student: SiswaItem) => {
+    const sid = String(student.id);
+    setTempSelectedMap(prev => {
+      const next = new Map(prev);
+      if (next.has(sid)) {
+        next.delete(sid);
+      } else {
+        next.set(sid, student);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAllFiltered = () => {
+    setTempSelectedMap(prev => {
+      const next = new Map(prev);
+      const allCurrentSelected = filteredStudents.length > 0 && filteredStudents.every(s => next.has(String(s.id)));
+      if (allCurrentSelected) {
+        filteredStudents.forEach(s => next.delete(String(s.id)));
+      } else {
+        filteredStudents.forEach(s => next.set(String(s.id), s));
+      }
+      return next;
+    });
+  };
+
+  const applySelectedStudents = () => {
+    const list = (Array.from(tempSelectedMap.values()) as SiswaItem[]).sort((a: SiswaItem, b: SiswaItem) => {
+      const kDiff = (a.kelas || '').localeCompare(b.kelas || '', undefined, { numeric: true });
+      if (kDiff !== 0) return kDiff;
+      return (a.nama || '').localeCompare(b.nama || '');
+    });
+
+    setSelectedStudents(list);
+
+    if (list.length > 0) {
+      const uniqueClasses = Array.from(new Set(list.map((s: SiswaItem) => s.kelas))).filter(Boolean);
+      let targetDropdown = 'Lainnya';
+      if (uniqueClasses.length === 1) {
+        targetDropdown = `Siswa Kelas ${uniqueClasses[0]}`;
+      } else if (uniqueClasses.length > 1) {
+        targetDropdown = 'Seluruh Siswa SMPN 7';
+      }
+
+      const customText = list.map((s: SiswaItem) => `${s.nama} (${s.kelas})`).join(', ');
+
+      setFormData(prev => ({
+        ...prev,
+        sasaran: targetDropdown,
+        sasaranCustom: customText,
+        siswa_id: list.map((s: SiswaItem) => s.id).join(',')
+      }));
+
+      showNotification('success', `${list.length} siswa berhasil dipilih sebagai sasaran agenda.`);
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        siswa_id: ''
+      }));
+    }
+    setIsStudentModalOpen(false);
+  };
+
+  const removeSelectedStudent = (sid: string) => {
+    const nextList = selectedStudents.filter(s => String(s.id) !== sid);
+    setSelectedStudents(nextList);
+    if (nextList.length > 0) {
+      const uniqueClasses = Array.from(new Set(nextList.map(s => s.kelas))).filter(Boolean);
+      let targetDropdown = 'Lainnya';
+      if (uniqueClasses.length === 1) {
+        targetDropdown = `Siswa Kelas ${uniqueClasses[0]}`;
+      }
+      const customText = nextList.map(s => `${s.nama} (${s.kelas})`).join(', ');
+      setFormData(prev => ({
+        ...prev,
+        sasaran: targetDropdown,
+        sasaranCustom: customText,
+        siswa_id: nextList.map(s => s.id).join(',')
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        sasaranCustom: '',
+        siswa_id: ''
+      }));
+    }
+  };
+
+  const clearAllSelectedStudents = () => {
+    setSelectedStudents([]);
     setFormData(prev => ({
       ...prev,
-      sasaran: `Siswa Kelas ${siswa.kelas}`,
-      sasaranCustom: targetLabel,
-      siswa_id: siswa.id
+      sasaranCustom: '',
+      siswa_id: ''
     }));
-    setIsStudentModalOpen(false);
-    showNotification('success', `Sasaran terpilih: ${targetLabel}`);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -295,6 +393,7 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
 
   const resetForm = () => {
     setEditingId(null);
+    setSelectedStudents([]);
     setFormData({
       tanggal: defaultDate,
       waktu: '07.15-07.55 WIB',
@@ -326,6 +425,18 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
       guru_bk: normalizedGuru,
       siswa_id: item.siswa_id || ''
     });
+
+    // Match students in siswaList
+    let matched: SiswaItem[] = [];
+    if (item.siswa_id) {
+      const ids = item.siswa_id.split(',').map(id => id.trim());
+      matched = siswaList.filter(s => ids.includes(String(s.id)));
+    }
+    if (matched.length === 0 && item.sasaran) {
+      const found = siswaList.filter(s => item.sasaran.toUpperCase().includes(s.nama.toUpperCase()));
+      if (found.length > 0) matched = found;
+    }
+    setSelectedStudents(matched);
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -383,6 +494,10 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
       return matchSearch && s.kelas === selectedClassFilter;
     });
   }, [siswaList, modalSearchTerm, selectedClassFilter]);
+
+  const allFilteredSelected = useMemo(() => {
+    return filteredStudents.length > 0 && filteredStudents.every(s => tempSelectedMap.has(String(s.id)));
+  }, [filteredStudents, tempSelectedMap]);
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -532,11 +647,23 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
             </div>
           </div>
 
-          {/* SASARAN KEGIATAN: Dropdown + Custom Input + "Cari Siswa" Button */}
-          <div>
-            <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
-              SASARAN KEGIATAN
-            </label>
+          {/* SASARAN KEGIATAN: Dropdown + Multi-Student Display / Custom Input + "Cari Siswa" Button */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="block text-xs font-black uppercase text-slate-700 tracking-wider">
+                SASARAN KEGIATAN
+              </label>
+              {selectedStudents.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAllSelectedStudents}
+                  className="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                >
+                  Kosongkan Siswa ({selectedStudents.length})
+                </button>
+              )}
+            </div>
+
             <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
               {/* Dropdown Options */}
               <select
@@ -555,6 +682,7 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
                       sasaran: val,
                       sasaranCustom: val
                     }));
+                    setSelectedStudents([]);
                   }
                 }}
                 className="w-full sm:w-60 px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none font-bold text-slate-800 transition-all text-sm appearance-none bg-white shrink-0 cursor-pointer"
@@ -585,27 +713,84 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
                 </optgroup>
               </select>
 
-              {/* Editable Input */}
-              <input 
-                type="text"
-                placeholder={formData.sasaran === 'Lainnya' ? "Ketik sasaran manual di sini (contoh: Pengurus OSIS, Guru Wali, dll)..." : "Sasaran kegiatan atau nama siswa..."}
-                value={formData.sasaranCustom}
-                onChange={e => setFormData({ ...formData, sasaranCustom: e.target.value })}
-                className="flex-1 px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none font-bold text-slate-800 transition-all text-sm bg-white"
-                required
-              />
+              {/* Editable Multi-Student Input or Chips Box */}
+              <div className="flex-1 min-w-0">
+                {selectedStudents.length === 0 ? (
+                  <input 
+                    type="text"
+                    placeholder={formData.sasaran === 'Lainnya' ? "Ketik sasaran manual di sini (contoh: Pengurus OSIS, Guru Wali, dll)..." : "Ketik sasaran kegiatan atau klik 'Cari Siswa' untuk pilih multi siswa..."}
+                    value={formData.sasaranCustom}
+                    onChange={e => setFormData({ ...formData, sasaranCustom: e.target.value })}
+                    className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none font-bold text-slate-800 transition-all text-sm bg-white"
+                    required
+                  />
+                ) : (
+                  <div 
+                    onClick={openStudentModal}
+                    className="w-full min-h-[48px] p-2 bg-blue-50/40 hover:bg-blue-50/70 border-2 border-blue-200 rounded-2xl transition-all cursor-pointer flex flex-wrap items-center gap-1.5"
+                    title="Klik untuk menambah atau mengubah siswa terpilih"
+                  >
+                    {selectedStudents.map(s => (
+                      <span
+                        key={s.id}
+                        className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-xl bg-white border border-blue-200 shadow-2xs text-xs font-bold text-slate-800"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <span className="px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700 text-[10px] font-black">
+                          {s.kelas}
+                        </span>
+                        <span className="uppercase">{s.nama}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeSelectedStudent(String(s.id));
+                          }}
+                          className="p-0.5 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors cursor-pointer"
+                          title="Hapus siswa ini"
+                        >
+                          <X size={13} />
+                        </button>
+                      </span>
+                    ))}
+                    <span className="text-[11px] font-bold text-blue-600 ml-1 py-1">
+                      + Tambah / Ubah
+                    </span>
+                  </div>
+                )}
+              </div>
 
               {/* "Cari Siswa" Button */}
               <button
                 type="button"
-                onClick={() => setIsStudentModalOpen(true)}
-                className="px-4 py-3 rounded-2xl bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shrink-0 active:scale-95 shadow-xs"
-                title="Pilih nama siswa dari database"
+                onClick={openStudentModal}
+                className={`px-4 py-3 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shrink-0 active:scale-95 cursor-pointer ${
+                  selectedStudents.length > 0
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-200'
+                    : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 shadow-xs'
+                }`}
+                title="Pilih satu atau banyak siswa dari database"
               >
                 <Users size={16} />
-                <span>Cari Siswa</span>
+                <span>
+                  {selectedStudents.length > 0 ? `Siswa (${selectedStudents.length})` : 'Cari Siswa'}
+                </span>
               </button>
             </div>
+            {selectedStudents.length > 0 && (
+              <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-0.5">
+                <span>
+                  Terpilih: <strong className="text-slate-800">{selectedStudents.length} siswa</strong> ({Array.from(new Set(selectedStudents.map(s => s.kelas))).join(', ')})
+                </span>
+                <button
+                  type="button"
+                  onClick={openStudentModal}
+                  className="text-blue-600 hover:underline font-bold cursor-pointer"
+                >
+                  Ubah / Tambah Siswa
+                </button>
+              </div>
+            )}
           </div>
 
           {/* URAIAN KEGIATAN */}
@@ -873,40 +1058,52 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
         </div>
       </div>
 
-      {/* STUDENT SELECTION MODAL - Exactly matching the screenshot */}
+      {/* STUDENT SELECTION MODAL - Multi Siswa Picker */}
       {isStudentModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl border border-slate-200 relative my-8 animate-in fade-in zoom-in-95">
+        <div 
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
+          onClick={() => setIsStudentModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-7 shadow-2xl border border-slate-200 relative my-8 animate-in fade-in zoom-in-95 flex flex-col max-h-[90vh]"
+            onClick={e => e.stopPropagation()}
+          >
             {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
-                  <Users size={20} />
+                <div className="p-2.5 rounded-2xl bg-blue-50 text-blue-600">
+                  <Users size={22} />
                 </div>
-                <h3 className="font-extrabold text-slate-900 text-base sm:text-lg">
-                  Pilih Nama Siswa dari Database
-                </h3>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base sm:text-lg">
+                    Pilih Siswa (Multi Siswa)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Pilih satu atau banyak siswa lintas kelas sebagai sasaran agenda kerja BK
+                  </p>
+                </div>
               </div>
               <button
+                type="button"
                 onClick={() => setIsStudentModalOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <X size={20} />
               </button>
             </div>
 
             {/* Class Pill Filters */}
-            <div className="space-y-3 mb-5">
+            <div className="space-y-2 mb-4 shrink-0">
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
                 <Filter size={14} />
-                <span>Kelas:</span>
+                <span>Filter Kelas:</span>
               </div>
 
-              <div className="flex items-center gap-1.5 flex-wrap max-h-32 overflow-y-auto pr-1">
+              <div className="flex items-center gap-1.5 flex-wrap max-h-24 overflow-y-auto pr-1">
                 <button
                   type="button"
                   onClick={() => setSelectedClassFilter('Semua')}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                     selectedClassFilter === 'Semua'
                       ? 'bg-blue-600 text-white shadow-sm'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -923,7 +1120,7 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
                       key={k}
                       type="button"
                       onClick={() => setSelectedClassFilter(k)}
-                      className={`px-2.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+                      className={`px-2.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                         isSelected
                           ? 'bg-blue-600 text-white shadow-sm'
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -936,66 +1133,116 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
               </div>
             </div>
 
-            {/* Search Input */}
-            <div className="relative mb-5">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                value={modalSearchTerm}
-                onChange={e => setModalSearchTerm(e.target.value)}
-                placeholder="Ketik nama siswa atau NIS..."
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:bg-white focus:border-blue-500 transition-all"
-                autoFocus
-              />
+            {/* Search Input & Select All Toolbar */}
+            <div className="space-y-3 mb-4 shrink-0">
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={modalSearchTerm}
+                  onChange={e => setModalSearchTerm(e.target.value)}
+                  placeholder="Cari nama siswa, NIS, atau kelas..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:bg-white focus:border-blue-500 transition-all"
+                  autoFocus
+                />
+              </div>
+
+              {/* Status bar & Toggle All */}
+              <div className="flex items-center justify-between gap-3 p-3 bg-blue-50/70 rounded-2xl border border-blue-100 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block" />
+                  <span className="font-bold text-blue-900">{tempSelectedMap.size} Siswa Terpilih</span>
+                  <span className="text-slate-500 hidden sm:inline">(Klik kartu untuk memilih/membatalkan)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleSelectAllFiltered}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white border border-blue-200 text-blue-700 hover:bg-blue-100 transition-all cursor-pointer shadow-2xs"
+                >
+                  <CheckSquare size={14} />
+                  <span>{allFilteredSelected ? 'Batal Pilih Semua' : 'Pilih Semua'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Student List */}
-            <div className="max-h-72 overflow-y-auto space-y-2.5 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[160px] max-h-72">
               {filteredStudents.length === 0 ? (
-                <div className="text-center py-8 text-slate-400 text-xs">
+                <div className="text-center py-10 text-slate-400 text-xs italic">
                   Tidak ada data siswa ditemukan untuk kriteria pencarian ini.
                 </div>
               ) : (
-                filteredStudents.map(siswa => (
-                  <div
-                    key={siswa.id}
-                    className="p-3.5 rounded-2xl border border-slate-200/90 hover:border-blue-300 hover:bg-blue-50/30 transition-all flex items-center justify-between gap-3"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-slate-900 text-sm uppercase">
-                          {siswa.nama}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold border border-slate-200">
-                          {siswa.kelas}
-                        </span>
-                      </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        NIS: {siswa.nis || siswa.nisn || '-'} • {siswa.jenis_kelamin || 'Siswa'}
-                      </div>
-                    </div>
-
+                filteredStudents.map(siswa => {
+                  const isChecked = tempSelectedMap.has(String(siswa.id));
+                  return (
                     <button
+                      key={siswa.id}
                       type="button"
-                      onClick={() => handleSelectStudent(siswa)}
-                      className="px-4 py-1.5 bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white rounded-xl text-xs font-bold transition-colors shadow-xs shrink-0"
+                      onClick={() => toggleTempStudent(siswa)}
+                      className={`w-full text-left p-3 sm:p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 cursor-pointer ${
+                        isChecked
+                          ? 'bg-blue-50/80 border-blue-400 shadow-xs'
+                          : 'bg-white border-slate-200 hover:border-blue-300 hover:bg-slate-50/80'
+                      }`}
                     >
-                      Pilih
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                            isChecked
+                              ? 'bg-blue-600 border-blue-600 text-white'
+                              : 'bg-white border-slate-300'
+                          }`}
+                        >
+                          {isChecked && <Check size={13} strokeWidth={3} />}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-extrabold text-slate-900 text-sm uppercase truncate">
+                              {siswa.nama}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[10px] font-black">
+                              {siswa.kelas}
+                            </span>
+                          </div>
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            NIS: {siswa.nis || siswa.nisn || '-'} • {siswa.jenis_kelamin || 'Siswa'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-lg shrink-0 transition-colors ${
+                        isChecked ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {isChecked ? 'Terpilih' : 'Pilih'}
+                      </span>
                     </button>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
             {/* Modal Footer */}
-            <div className="pt-5 mt-5 border-t border-slate-100 flex items-center justify-end">
-              <button
-                type="button"
-                onClick={() => setIsStudentModalOpen(false)}
-                className="px-5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
-              >
-                Tutup
-              </button>
+            <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+              <div className="text-xs text-slate-500">
+                <span className="font-extrabold text-blue-900">{tempSelectedMap.size}</span> siswa terpilih
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsStudentModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={applySelectedStudents}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-200 transition-all active:scale-95 cursor-pointer"
+                >
+                  <Check size={15} />
+                  <span>Gunakan {tempSelectedMap.size > 0 ? `${tempSelectedMap.size} Siswa Terpilih` : 'Pilihan'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
