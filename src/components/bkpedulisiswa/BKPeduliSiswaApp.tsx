@@ -32,8 +32,6 @@ import BKSuratPernyataan from './BKSuratPernyataan';
 import BKKonferensiKasus from './BKKonferensiKasus';
 import BKSiswaATS from './BKSiswaATS';
 import BKManagementSiswa from './BKManagementSiswa';
-import BKDashboard from './BKDashboard';
-import BKLaporan from './BKLaporan';
 import BKMasterKasus from './BKMasterKasus';
 import BKSupabaseModal from './BKSupabaseModal';
 import { sabdaService } from '../../lib/sabdaBkService';
@@ -49,8 +47,6 @@ type TabKey =
   | 'form_g'
   | 'form_h'
   | 'form_i'
-  | 'dashboard' 
-  | 'laporan' 
   | 'master_siswa'
   | 'master';
 
@@ -238,18 +234,6 @@ export default function BKPeduliSiswaApp({ onBack, onOpenSidebar, user }: { onBa
       badge: 'FORM I',
       countKey: 'ats',
       icon: UserX,
-      section: 'ADMINISTRASI TAMBAHAN'
-    },
-    {
-      id: 'dashboard',
-      label: 'Dashboard Monitoring BK',
-      icon: LayoutDashboard,
-      section: 'ADMINISTRASI TAMBAHAN'
-    },
-    {
-      id: 'laporan',
-      label: 'Laporan & Rekapitulasi',
-      icon: FileText,
       section: 'ADMINISTRASI TAMBAHAN'
     },
     // DATA MASTER
@@ -528,8 +512,6 @@ export default function BKPeduliSiswaApp({ onBack, onOpenSidebar, user }: { onBa
             {activeTab === 'form_g' && <BKSuratPernyataan user={user} />}
             {activeTab === 'form_h' && <BKKonferensiKasus user={user} />}
             {activeTab === 'form_i' && <BKSiswaATS user={user} />}
-            {activeTab === 'dashboard' && <BKDashboard />}
-            {activeTab === 'laporan' && <BKLaporan user={user} />}
             {activeTab === 'master_siswa' && <BKManagementSiswa user={user} />}
             {activeTab === 'master' && <BKMasterKasus />}
           </div>

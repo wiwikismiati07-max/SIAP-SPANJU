@@ -889,6 +889,24 @@ export default function BKSiswaATS({ user }: { user?: any }) {
                 </div>
               </div>
             </div>
+
+            <div className="flex items-center justify-end gap-3 mt-8 pt-4 border-t border-slate-100 print:hidden">
+              <button
+                type="button"
+                onClick={() => setPrintItem(null)}
+                className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                onClick={() => printBKReport('bk-print-area', `Berkas Siswa ATS - ${printItem.nama_siswa}`)}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-amber-600 text-white text-xs font-black hover:bg-amber-700 shadow-md shadow-amber-200 cursor-pointer"
+              >
+                <Printer size={16} />
+                <span>Cetak Berita Acara</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
