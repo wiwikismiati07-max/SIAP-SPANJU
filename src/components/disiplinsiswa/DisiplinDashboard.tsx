@@ -1,12 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getSupabase } from '../../lib/supabase';
+import { getSupabase, normalizeKelasKey } from '../../lib/supabase';
 import { 
-  Users, AlertCircle, TrendingUp, BarChart3, UserX, CheckCircle2, 
-  Clock, PieChart as PieChartIcon, Trophy, Star, ChevronDown, RefreshCw,
-  Database, ShieldAlert, Sparkles
+  AlertCircle, BarChart3, UserX, CheckCircle2, 
+  Clock, Trophy, RefreshCw, Database, ShieldAlert
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import { SupabaseConfigModal } from '../common/SupabaseConfigModal';
+
+const normalizePeriode = (p: any): string => {
+  const raw = String(p || '2026').replace(/^Periode\s*/i, '').trim();
+  return raw || '2026';
+};
+
+const getLocalDateString = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
 
 export default function DisiplinDashboard() {
   const [loading, setLoading] = useState(true);
@@ -67,35 +76,74 @@ export default function DisiplinDashboard() {
       return;
     }
 
-    // Safety timeout promise (8s) to prevent hanging
+    // Safety timeout promise (12s) to prevent hanging
     const timeoutPromise = new Promise<{ isTimeout: true }>((resolve) => {
-      setTimeout(() => resolve({ isTimeout: true }), 8000);
+      setTimeout(() => resolve({ isTimeout: true }), 12000);
     });
 
     try {
-      const loadLogic = async () => {
-        const today = new Date().toISOString().split('T')[0];
+      const fetchAllPaginated = async (
+        table: string,
+        selectCols: string,
+        extraHeaders?: Record<string, string>
+      ) => {
+        const rows: any[] = [];
+        const pageSize = 1000;
+        let page = 0;
 
-        // Fetch students and violations in parallel
-        const [siswaRes, kasusRes, jenisRes] = await Promise.allSettled([
-          client.from('master_siswa').select('id, nama, kelas, periode'),
-          client.from('transaksi_pelanggaran').select('id, siswa_id, pelanggaran_id, tanggal, status, keterangan, tindakan, poin'),
-          client.from('master_pelanggaran').select('id, nama_pelanggaran, kategori, poin')
+        while (page < 20) {
+          let req = client
+            .from(table)
+            .select(selectCols)
+            .range(page * pageSize, (page + 1) * pageSize - 1);
+
+          if (extraHeaders) {
+            Object.entries(extraHeaders).forEach(([k, v]) => {
+              req = req.setHeader(k, v);
+            });
+          }
+
+          const { data, error } = await req;
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+
+          rows.push(...data);
+          if (data.length < pageSize) break;
+          page++;
+        }
+
+        return rows;
+      };
+
+      const loadLogic = async () => {
+        const today = getLocalDateString();
+
+        // Fetch all students (bypass 1000-row cap & dedup so all siswa_id keys resolve),
+        // all violations using select('*') to match live table schema, and all violation types.
+        const [allSiswa, rawKasus, jenisRes] = await Promise.all([
+          fetchAllPaginated('master_siswa', 'id, nama, kelas, periode', { 'x-raw-master-siswa': 'true' }),
+          fetchAllPaginated('transaksi_pelanggaran', '*'),
+          client.from('master_pelanggaran').select('*')
         ]);
 
-        const allSiswa: any[] = siswaRes.status === 'fulfilled' && siswaRes.value.data ? siswaRes.value.data : [];
-        const rawKasus: any[] = kasusRes.status === 'fulfilled' && kasusRes.value.data ? kasusRes.value.data : [];
-        const allJenis: any[] = jenisRes.status === 'fulfilled' && jenisRes.value.data ? jenisRes.value.data : [];
+        if (jenisRes.error) throw jenisRes.error;
+        const allJenis: any[] = jenisRes.data || [];
 
         // Distinct periodes
         const distinctPeriodes = Array.from(
-          new Set(['2026', '2025', ...allSiswa.map(s => s.periode || '2026')])
+          new Set(['2026', '2025', ...allSiswa.map(s => normalizePeriode(s.periode))])
         ).filter(Boolean).sort((a, b) => b.localeCompare(a));
 
         // Maps for in-memory joining
         const siswaMap = new Map<string, any>();
         allSiswa.forEach(s => {
-          if (s.id) siswaMap.set(String(s.id), s);
+          if (s.id) {
+            siswaMap.set(String(s.id), {
+              ...s,
+              kelas: normalizeKelasKey(s.kelas || ''),
+              periode: normalizePeriode(s.periode)
+            });
+          }
         });
 
         const jenisMap = new Map<string, any>();
@@ -117,13 +165,19 @@ export default function DisiplinDashboard() {
         // Filter by selected periode
         let safeKasus = joinedKasus;
         if (selectedPeriode !== 'ALL') {
-          safeKasus = safeKasus.filter(k => (k.siswa?.periode || '2026') === selectedPeriode);
+          safeKasus = safeKasus.filter(k => normalizePeriode(k.siswa?.periode) === selectedPeriode);
         }
 
         const totalKasus = safeKasus.length;
-        const kasusBaru = safeKasus.filter(k => k.tanggal === today).length;
-        const kasusProses = safeKasus.filter(k => k.status === 'Proses').length;
-        const kasusSelesai = safeKasus.filter(k => k.status === 'Selesai').length;
+        const kasusBaru = safeKasus.filter(k => String(k.tanggal || '').slice(0, 10) === today).length;
+        const kasusProses = safeKasus.filter(k => {
+          const st = String(k.status || 'Proses').trim().toLowerCase();
+          return st === 'proses' || st === 'dalam proses' || st === 'diproses';
+        }).length;
+        const kasusSelesai = safeKasus.filter(k => {
+          const st = String(k.status || '').trim().toLowerCase();
+          return st === 'selesai' || st === 'terselesaikan';
+        }).length;
 
         const newStats = {
           totalKasus,
@@ -134,15 +188,25 @@ export default function DisiplinDashboard() {
         };
 
         // Perfect Classes Today
-        const violatingSiswaIdsToday = new Set(safeKasus.filter(k => k.tanggal === today).map(k => String(k.siswa_id)));
+        const violatingClassesToday = new Set(
+          safeKasus
+            .filter(k => String(k.tanggal || '').slice(0, 10) === today)
+            .map(k => normalizeKelasKey(k.siswa?.kelas || ''))
+            .filter(Boolean)
+        );
+        const activeClasses = new Set(
+          allSiswa
+            .filter(s => selectedPeriode === 'ALL' || normalizePeriode(s.periode) === selectedPeriode)
+            .map(s => normalizeKelasKey(s.kelas || ''))
+        );
         const newPerfectClasses = KELAS_OPTIONS.filter(kelas => {
-          const siswaInClass = allSiswa.filter(s => s.kelas === kelas);
-          return siswaInClass.length > 0 && !siswaInClass.some(s => violatingSiswaIdsToday.has(String(s.id)));
+          const hasStudents = activeClasses.size === 0 || activeClasses.has(kelas);
+          return hasStudents && !violatingClassesToday.has(kelas);
         });
 
         // Chart Data per Kelas
         const perKelas = KELAS_OPTIONS.map(kelas => {
-          const count = safeKasus.filter(p => p.siswa?.kelas === kelas).length;
+          const count = safeKasus.filter(p => normalizeKelasKey(p.siswa?.kelas || '') === kelas).length;
           return {
             name: kelas,
             value: count,
