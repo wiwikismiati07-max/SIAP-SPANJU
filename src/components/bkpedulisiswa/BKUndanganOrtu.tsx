@@ -522,10 +522,7 @@ export default function BKUndanganOrtu({ user }: { user?: any }) {
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div id="bk-print-area" className="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
             {/* Kop Surat */}
-            <BKKopSurat
-              subtitle="LAYANAN BIMBINGAN DAN KONSELING (SABDA BK SPANJU)"
-              subtitleClassName="text-blue-800"
-            />
+            <BKKopSurat />
 
             <div className="space-y-4 text-sm text-slate-800">
               <div className="flex justify-between text-xs">
