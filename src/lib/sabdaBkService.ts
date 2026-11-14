@@ -621,10 +621,56 @@ const readLocalDeletedIds = (storageKey: string): string[] => {
   }
 };
 
-const writeLocalDeletedIds = (storageKey: string, ids: string[]) => {
+export const safeSetLocalStorage = (key: string, value: any): boolean => {
+  if (typeof window === 'undefined') return false;
   try {
-    localStorage.setItem(getDeletedStorageKey(storageKey), JSON.stringify(Array.from(new Set(ids.map(String)))));
-  } catch {}
+    const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+    localStorage.setItem(key, serialized);
+    return true;
+  } catch (e: any) {
+    console.warn(`[Storage Quota] localStorage.setItem failed on mobile/browser for key "${key}":`, e);
+    // QuotaExceededError recovery strategy for mobile devices:
+    try {
+      // 1. If storing a list with large inline base64 images, strip image fields for local cache
+      if (Array.isArray(value)) {
+        const lightweight = value.slice(0, 40).map((item: any) => {
+          if (!item || typeof item !== 'object') return item;
+          const copy = { ...item };
+          if (typeof copy.foto_url === 'string' && copy.foto_url.startsWith('data:')) {
+            copy.foto_url = '';
+          }
+          if (typeof copy.foto_kegiatan === 'string' && copy.foto_kegiatan.startsWith('data:')) {
+            copy.foto_kegiatan = '';
+          }
+          if (Array.isArray(copy.foto_kegiatan)) {
+            copy.foto_kegiatan = copy.foto_kegiatan.filter((p: any) => typeof p === 'string' && !p.startsWith('data:'));
+          }
+          if (Array.isArray(copy.bukti_fisik)) {
+            copy.bukti_fisik = copy.bukti_fisik.filter((p: any) => typeof p === 'string' && !p.startsWith('data:'));
+          }
+          return copy;
+        });
+        localStorage.setItem(key, JSON.stringify(lightweight));
+        return true;
+      }
+    } catch (_) {}
+
+    // 2. Try removing redundant duplicate student caches to free space
+    try {
+      localStorage.removeItem('master_siswa');
+      localStorage.removeItem('disp_foto_kegiatan_map');
+      const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+      localStorage.setItem(key, serialized);
+      return true;
+    } catch (_) {}
+
+    // 3. Fallback: safely ignore error so Supabase cloud save proceeds without crashing
+    return false;
+  }
+};
+
+const writeLocalDeletedIds = (storageKey: string, ids: string[]) => {
+  safeSetLocalStorage(getDeletedStorageKey(storageKey), Array.from(new Set(ids.map(String))));
 };
 
 const emitSabdaUpdated = (tableName: string) => {
@@ -697,14 +743,16 @@ const upsertSqlRecord = async <T extends Record<string, any>>(tableName: string,
   if (!supabase) return false;
   let payload: Record<string, any> = { ...record };
 
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 12; attempt++) {
     try {
       const { error } = await supabase.from(tableName).upsert([payload]);
       if (!error) return true;
 
-      // If a column doesn't exist yet in Supabase SQL schema (PGRST204), strip it and retry
+      // If a column doesn't exist yet in Supabase SQL schema (PGRST204 or 42703), strip it and retry
       const msg = error.message || '';
-      const colMatch = msg.match(/Could not find the '([^']+)' column/i);
+      const colMatch = msg.match(/Could not find the '([^']+)' column/i) ||
+                       msg.match(/column "([^"]+)" of relation "[^"]+" does not exist/i) ||
+                       msg.match(/column "([^"]+)" does not exist/i);
       if (colMatch && colMatch[1] && colMatch[1] in payload) {
         const missingCol = colMatch[1];
         const nextPayload = { ...payload };
@@ -713,6 +761,20 @@ const upsertSqlRecord = async <T extends Record<string, any>>(tableName: string,
         continue;
       }
 
+      // If error is code 42703 or PGRST204 and mentions unknown column
+      if (error.code === '42703' || error.code === 'PGRST204') {
+        const possibleExtraCols = ['foto_url', 'permasalahan_siswa', 'pendekatan', 'teknik_konseling', 'pendekatan_teknik', 'bukti_fisik', 'foto_kegiatan', 'anggota_siswa'];
+        let stripped = false;
+        for (const col of possibleExtraCols) {
+          if (col in payload && msg.toLowerCase().includes(col.toLowerCase())) {
+            delete payload[col];
+            stripped = true;
+          }
+        }
+        if (stripped) continue;
+      }
+
+      console.warn(`[SABDA BK] SQL upsert non-recoverable error on ${tableName}:`, error.message);
       return false;
     } catch {
       return false;
@@ -847,10 +909,8 @@ export const getSabdaData = async <T>(tableName: string, storageKey: string, ini
 
   const merged = sortRecordsDesc(Array.from(mergedMap.values()));
 
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(merged));
-    writeLocalDeletedIds(storageKey, Array.from(allDeletedSet));
-  } catch {}
+  safeSetLocalStorage(storageKey, merged);
+  writeLocalDeletedIds(storageKey, Array.from(allDeletedSet));
 
   // Push any unsynced local records or deletions to Cloud automatically
   if (needsCloudPush && supabase) {
@@ -896,7 +956,7 @@ export const saveSabdaRecord = async <T extends { id: string }>(
     updatedList = [record, ...existing];
   }
   updatedList = sortRecordsDesc(updatedList);
-  localStorage.setItem(storageKey, JSON.stringify(updatedList));
+  safeSetLocalStorage(storageKey, updatedList);
 
   let sqlOk = false;
   let storageOk = false;
@@ -934,7 +994,7 @@ export const saveSabdaRecord = async <T extends { id: string }>(
       updatedList.forEach(item => localMap.set(String(item.id), item));
       snapshotRecords.forEach(item => localMap.set(String(item.id), item));
       updatedList = sortRecordsDesc(Array.from(localMap.values()).filter(item => !mergedDeleted.includes(String(item.id))));
-      localStorage.setItem(storageKey, JSON.stringify(updatedList));
+      safeSetLocalStorage(storageKey, updatedList);
       writeLocalDeletedIds(storageKey, mergedDeleted);
     }
   } catch (e: any) {
@@ -965,7 +1025,7 @@ export const deleteSabdaRecord = async <T extends { id: string }>(
   }
 
   const updatedList = existing.filter(item => String(item.id) !== String(id));
-  localStorage.setItem(storageKey, JSON.stringify(updatedList));
+  safeSetLocalStorage(storageKey, updatedList);
 
   const updatedDeletedIds = Array.from(new Set([...readLocalDeletedIds(storageKey), String(id)]));
   writeLocalDeletedIds(storageKey, updatedDeletedIds);

@@ -218,7 +218,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('dashboard_links', JSON.stringify(userLinks));
+    try {
+      localStorage.setItem('dashboard_links', JSON.stringify(userLinks));
+    } catch (e) {
+      console.warn('Gagal menyimpan cache dashboard_links:', e);
+    }
   }, [userLinks]);
 
   // Loading simulation for iframe

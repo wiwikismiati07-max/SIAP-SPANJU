@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { safeUUID } from '../../lib/safeUuid';
 import { KalenderBelajar as KalenderType } from '../../types/izinsiswa';
 import { Calendar, Plus, Trash2, ChevronLeft, ChevronRight, X, Info, Pencil } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOfWeek, endOfWeek, addMonths, subMonths, isSameMonth } from 'date-fns';
@@ -76,7 +77,7 @@ export default function KalenderBelajar({ user }: { user?: any }) {
         }
       } else {
         const newRecord = {
-          id: crypto.randomUUID(),
+          id: safeUUID(),
           ...formData
         };
 

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, fetchAllSiswa } from '../../lib/supabase';
+import { safeUUID } from '../../lib/safeUuid';
 import { Siswa } from '../../types/sitelat';
-import { CheckCircle2, ArrowLeft, Database } from 'lucide-react';
+import { CheckCircle2, ArrowLeft, Database, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
 const ALASAN_OPTIONS = [
@@ -23,6 +24,7 @@ export default function Pencatatan() {
   const [siswaList, setSiswaList] = useState<Siswa[]>([]);
   const [loading, setLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
   // Selection State
   const [selectedPeriode, setSelectedPeriode] = useState('2026');
@@ -71,18 +73,23 @@ export default function Pencatatan() {
   const handleSubmit = async () => {
     if (!selectedSiswa || !selectedAlasan) return;
     
-    const finalAlasan = selectedAlasan === 'Lainnya' ? alasanLainnya : selectedAlasan;
-    if (selectedAlasan === 'Lainnya' && !alasanLainnya) {
-      alert('Mohon ketik alasan lainnya');
+    const finalAlasan = selectedAlasan === 'Lainnya' ? alasanLainnya.trim() : selectedAlasan;
+    if (selectedAlasan === 'Lainnya' && !finalAlasan) {
+      setStatusMsg({ type: 'error', text: 'Mohon ketik alasan lainnya sebelum menyimpan!' });
       return;
     }
 
     setLoading(true);
+    setStatusMsg(null);
+    const newRecordId = safeUUID();
+    const nowJam = format(new Date(), 'HH:mm:ss');
+    const nowTgl = format(new Date(), 'yyyy-MM-dd');
+
     const newRecord = {
-      id: crypto.randomUUID(),
+      id: newRecordId,
       siswa_id: selectedSiswa.id,
-      tanggal: format(new Date(), 'yyyy-MM-dd'),
-      jam: format(new Date(), 'HH:mm:ss'), // Use HH:mm:ss for Supabase time column
+      tanggal: nowTgl,
+      jam: nowJam,
       alasan: finalAlasan
     };
 
@@ -91,27 +98,35 @@ export default function Pencatatan() {
         const { error } = await supabase.from('transaksi_terlambat').insert([{
           id: newRecord.id,
           siswa_id: selectedSiswa.id,
-          tanggal: format(new Date(), 'yyyy-MM-dd'),
-          jam: format(new Date(), 'HH:mm:ss'), // Use HH:mm:ss for Supabase time column
+          tanggal: nowTgl,
+          jam: nowJam,
           alasan: finalAlasan
         }]);
         if (error) {
           console.error("Supabase insert error:", error);
-          alert(`Gagal menyimpan data: ${error.message}`);
+          setStatusMsg({ type: 'error', text: `Gagal menyimpan data: ${error.message || 'Kesalahan database'}` });
           setLoading(false);
           return;
         }
       } else {
-        const localTrans = JSON.parse(localStorage.getItem('sitelat_transaksi') || '[]');
-        localTrans.push(newRecord);
-        localStorage.setItem('sitelat_transaksi', JSON.stringify(localTrans));
+        try {
+          const localTrans = JSON.parse(localStorage.getItem('sitelat_transaksi') || '[]');
+          localTrans.push(newRecord);
+          // Keep at most 200 items in local fallback to protect mobile memory
+          if (localTrans.length > 200) {
+            localTrans.splice(0, localTrans.length - 200);
+          }
+          localStorage.setItem('sitelat_transaksi', JSON.stringify(localTrans));
+        } catch (storageErr) {
+          console.warn('Gagal menyimpan cache offline sitelat:', storageErr);
+        }
       }
       
-      alert('Data keterlambatan berhasil dicatat!');
+      setStatusMsg({ type: 'success', text: `Data keterlambatan untuk ${selectedSiswa.nama} berhasil dicatat!` });
       resetForm();
     } catch (error: any) {
       console.error('Error saving:', error);
-      alert(`Terjadi kesalahan sistem: ${error.message || 'Gagal menyimpan data'}`);
+      setStatusMsg({ type: 'error', text: `Terjadi kesalahan: ${error.message || 'Gagal menyimpan data'}` });
     } finally {
       setLoading(false);
     }
@@ -122,6 +137,7 @@ export default function Pencatatan() {
     setSelectedKelas('');
     setSelectedSiswa(null);
     setSelectedAlasan('');
+    setAlasanLainnya('');
     setAlasanLainnya('');
   };
 
@@ -159,6 +175,28 @@ export default function Pencatatan() {
             </React.Fragment>
           ))}
         </div>
+
+        {statusMsg && (
+          <div className={`mt-4 p-4 rounded-2xl flex items-center gap-3 text-sm font-bold animate-in fade-in ${
+            statusMsg.type === 'success' 
+              ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
+              : 'bg-rose-50 border border-rose-200 text-rose-800'
+          }`}>
+            {statusMsg.type === 'success' ? (
+              <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle size={18} className="text-rose-600 shrink-0" />
+            )}
+            <span className="flex-1 text-left">{statusMsg.text}</span>
+            <button 
+              type="button" 
+              onClick={() => setStatusMsg(null)}
+              className="text-xs opacity-60 hover:opacity-100 font-normal underline"
+            >
+              Tutup
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="p-8 md:p-12 flex-1 flex flex-col">

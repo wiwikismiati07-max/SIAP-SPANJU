@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, User, Users, Activity, Save, X, Trash2, Search, Check, Plus, UserCheck, AlertCircle, UserPlus, Printer, FileSpreadsheet } from 'lucide-react';
 import { supabase, filterLatestStudents, normalizeKelasKey } from '../../lib/supabase';
+import { safeUUID } from '../../lib/safeUuid';
 import { AgamaProgram } from '../../types/keagamaan';
 import { fetchGuruList, addMasterGuru, deduplicateGuruList, isExcludedGuru, isValidUUID } from '../../lib/jurnalService';
 import { format, parseISO } from 'date-fns';
@@ -343,7 +344,7 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = () => {
       }
 
       if (targetName) {
-        const newUuid = crypto.randomUUID();
+        const newUuid = safeUUID();
         const { error: insErr } = await supabase
           .from('master_guru')
           .insert([{ id: newUuid, nama_guru: targetName }]);

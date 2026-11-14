@@ -35,9 +35,16 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
     details?: string[];
   }>({ show: false, type: 'success', message: '' });
 
+  const getNowTimeHHMM = () => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const initialFormData = {
     tanggal: (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')),
-    jam: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }),
+    jam: getNowTimeHHMM(),
     siswa_id: '',
     pelanggaran_id: '',
     alasan: '',
@@ -162,16 +169,25 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     if (selectedSiswas.length === 0 || !formData.pelanggaran_id) {
-      alert('Pilih minimal 1 siswa terlibat dan jenis pelanggaran!');
+      setErrorMsg('Pilih minimal 1 siswa terlibat dan jenis pelanggaran!');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
     setLoading(true);
     try {
       if (supabase) {
+        // Sanitize jam to ensure strict HH:mm:ss format
+        let cleanJam = (formData.jam || getNowTimeHHMM()).replace(/\./g, ':').trim();
+        if (cleanJam.split(':').length === 2) {
+          cleanJam = `${cleanJam}:00`;
+        }
+
         const buildRow = (s: Siswa) => ({
           ...formData,
+          jam: cleanJam,
           siswa_id: s.id
         });
 
@@ -202,11 +218,13 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
         setSelectedSiswas([]);
         setEditingId(null);
         fetchTransaksi();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         
         setTimeout(() => setSuccessMsg(null), 3000);
       }
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      setErrorMsg('Gagal menyimpan: ' + (error.message || 'Terjadi kesalahan sistem'));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }
@@ -560,6 +578,18 @@ export default function DisiplinTransaksi({ user }: { user?: any }) {
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
           <CheckCircle2 size={20} className="text-emerald-500" />
           <p className="font-medium">{successMsg}</p>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={20} className="text-rose-500 shrink-0" />
+            <p className="font-medium text-sm">{errorMsg}</p>
+          </div>
+          <button type="button" onClick={() => setErrorMsg(null)} className="p-1 text-rose-400 hover:text-rose-600">
+            <X size={16} />
+          </button>
         </div>
       )}
 

@@ -17,8 +17,18 @@ import {
   UserCheck,
   Eye
 } from 'lucide-react';
-import { sabdaService, AgendaKerjaBK, GURU_BK_OPTIONS, getDefaultGuruBK } from '../../lib/sabdaBkService';
+import { sabdaService, AgendaKerjaBK, GURU_BK_OPTIONS, getDefaultGuruBK, safeSetLocalStorage } from '../../lib/sabdaBkService';
 import { supabase, fetchAllSiswa } from '../../lib/supabase';
+
+const PREDEFINED_SASARAN_OPTIONS = [
+  'Seluruh Siswa SMPN 7',
+  'Seluruh Siswa Kelas 7',
+  'Seluruh Siswa Kelas 8',
+  'Seluruh Siswa Kelas 9',
+  'Siswa Kelas 7-A', 'Siswa Kelas 7-B', 'Siswa Kelas 7-C', 'Siswa Kelas 7-D', 'Siswa Kelas 7-E', 'Siswa Kelas 7-F', 'Siswa Kelas 7-G', 'Siswa Kelas 7-H',
+  'Siswa Kelas 8-A', 'Siswa Kelas 8-B', 'Siswa Kelas 8-C', 'Siswa Kelas 8-D', 'Siswa Kelas 8-E', 'Siswa Kelas 8-F', 'Siswa Kelas 8-G', 'Siswa Kelas 8-H',
+  'Siswa Kelas 9-A', 'Siswa Kelas 9-B', 'Siswa Kelas 9-C', 'Siswa Kelas 9-D', 'Siswa Kelas 9-E', 'Siswa Kelas 9-F', 'Siswa Kelas 9-G', 'Siswa Kelas 9-H'
+];
 
 const NAMA_HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 const NAMA_BULAN = [
@@ -167,30 +177,67 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
     };
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const dateInfo = getDateInfo(formData.tanggal);
 
-  // File upload handler
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Compress image helper for mobile photos
+  const compressImageFile = (file: File, maxDim = 960, quality = 0.8): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Gagal membaca file foto.'));
+      reader.onload = () => {
+        const raw = String(reader.result || '');
+        const img = new Image();
+        img.onerror = () => reject(new Error('Format foto tidak valid.'));
+        img.onload = () => {
+          let w = img.naturalWidth || img.width;
+          let h = img.naturalHeight || img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w >= h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(raw);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = raw;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // File upload handler supporting mobile camera shots
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (fileInputRef.current) fileInputRef.current.value = '';
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
+    const isImage = file.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|heic|bmp)$/i.test(file.name);
+    if (!isImage) {
       showNotification('error', 'Hanya file gambar (JPG/PNG/WEBP) yang diperbolehkan!');
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      showNotification('error', 'Ukuran foto maksimal 5 MB!');
-      return;
+    try {
+      showNotification('success', 'Sedang memproses dan mengompresi foto...');
+      const compressedBase64 = await compressImageFile(file);
+      setFormData(prev => ({ ...prev, foto_url: compressedBase64 }));
+      showNotification('success', 'Foto dokumentasi berhasil ditambahkan!');
+    } catch (err: any) {
+      showNotification('error', err?.message || 'Gagal memproses foto.');
     }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setFormData(prev => ({ ...prev, foto_url: base64 }));
-      showNotification('success', 'Foto dokumentasi berhasil diunggah!');
-    };
-    reader.readAsDataURL(file);
   };
 
   // Select student from modal
@@ -213,7 +260,7 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
       return;
     }
 
-    const finalSasaran = formData.sasaranCustom.trim() || formData.sasaran;
+    const finalSasaran = formData.sasaranCustom.trim() || (formData.sasaran !== 'Lainnya' ? formData.sasaran : '') || 'Lainnya';
 
     const record: AgendaKerjaBK = {
       id: editingId || `ag-${Date.now()}`,
@@ -228,6 +275,7 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
       created_at: new Date().toISOString()
     };
 
+    setIsSubmitting(true);
     try {
       const updated = await sabdaService.saveAgenda(record);
       setAgendas(updated);
@@ -239,7 +287,9 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
       }
       resetForm();
     } catch (err: any) {
-      showNotification('error', 'Gagal menyimpan agenda: ' + err.message);
+      showNotification('error', 'Gagal menyimpan agenda: ' + (err.message || 'Periksa koneksi jaringan'));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -264,10 +314,11 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
       !item.guru_bk || item.guru_bk.toLowerCase().includes('administrator')
         ? getDefaultGuruBK(user)
         : item.guru_bk;
+    const isPredefined = PREDEFINED_SASARAN_OPTIONS.includes(item.sasaran);
     setFormData({
       tanggal: item.tanggal,
       waktu: item.waktu || '07.15-07.55 WIB',
-      sasaran: item.sasaran.includes('Kelas') ? item.sasaran : 'Siswa Kelas 7-A',
+      sasaran: isPredefined ? item.sasaran : 'Lainnya',
       sasaranCustom: item.sasaran,
       uraian_kegiatan: item.uraian_kegiatan,
       foto_url: item.foto_url || '',
@@ -489,16 +540,24 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
             <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
               {/* Dropdown Options */}
               <select
-                value={formData.sasaran}
+                value={PREDEFINED_SASARAN_OPTIONS.includes(formData.sasaran) ? formData.sasaran : 'Lainnya'}
                 onChange={e => {
                   const val = e.target.value;
-                  setFormData({
-                    ...formData,
-                    sasaran: val,
-                    sasaranCustom: val
-                  });
+                  if (val === 'Lainnya') {
+                    setFormData(prev => ({
+                      ...prev,
+                      sasaran: 'Lainnya',
+                      sasaranCustom: PREDEFINED_SASARAN_OPTIONS.includes(prev.sasaranCustom) ? '' : prev.sasaranCustom
+                    }));
+                  } else {
+                    setFormData(prev => ({
+                      ...prev,
+                      sasaran: val,
+                      sasaranCustom: val
+                    }));
+                  }
                 }}
-                className="w-full sm:w-56 px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none font-bold text-slate-800 transition-all text-sm appearance-none bg-white shrink-0"
+                className="w-full sm:w-60 px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none font-bold text-slate-800 transition-all text-sm appearance-none bg-white shrink-0 cursor-pointer"
               >
                 <optgroup label="Tingkat Sekolah">
                   <option value="Seluruh Siswa SMPN 7">Seluruh Siswa SMPN 7</option>
@@ -521,12 +580,15 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
                     <option key={k} value={`Siswa Kelas ${k}`}>Siswa Kelas {k}</option>
                   ))}
                 </optgroup>
+                <optgroup label="Lainnya">
+                  <option value="Lainnya">Lainnya (Isi Manual)</option>
+                </optgroup>
               </select>
 
               {/* Editable Input */}
               <input 
                 type="text"
-                placeholder="Sasaran kegiatan atau nama siswa..."
+                placeholder={formData.sasaran === 'Lainnya' ? "Ketik sasaran manual di sini (contoh: Pengurus OSIS, Guru Wali, dll)..." : "Sasaran kegiatan atau nama siswa..."}
                 value={formData.sasaranCustom}
                 onChange={e => setFormData({ ...formData, sasaranCustom: e.target.value })}
                 className="flex-1 px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none font-bold text-slate-800 transition-all text-sm bg-white"
@@ -687,10 +749,15 @@ export default function BKAgendaKerja({ user }: { user?: any }) {
             )}
             <button
               type="submit"
-              className="flex items-center gap-2 px-7 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm shadow-lg shadow-blue-200 active:scale-95 transition-all"
+              disabled={isSubmitting}
+              className="flex items-center gap-2 px-7 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm shadow-lg shadow-blue-200 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
             >
-              <Save size={18} />
-              <span>{editingId ? 'Simpan Perubahan' : 'Simpan Agenda Kerja'}</span>
+              {isSubmitting ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Save size={18} />
+              )}
+              <span>{isSubmitting ? 'Menyimpan...' : editingId ? 'Simpan Perubahan' : 'Simpan Agenda Kerja'}</span>
             </button>
           </div>
         </form>

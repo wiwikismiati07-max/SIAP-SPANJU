@@ -37,7 +37,9 @@ export default function GlobalLogin({ onLoginSuccess, onShowKelulusan, onShowTra
           nama_lengkap: 'Wali Murid / Tamu',
           keterangan: 'Akses Wali Murid & Orang Tua Siswa SMP Negeri 7 Pasuruan'
         };
-        localStorage.setItem('app_user', JSON.stringify(tamuUser));
+        try {
+          localStorage.setItem('app_user', JSON.stringify(tamuUser));
+        } catch (_) {}
         onLoginSuccess(tamuUser);
         return;
       }
@@ -50,7 +52,9 @@ export default function GlobalLogin({ onLoginSuccess, onShowKelulusan, onShowTra
           role: 'full', 
           nama_lengkap: 'Administrator SPANJU' 
         };
-        localStorage.setItem('app_user', JSON.stringify(mockAdmin));
+        try {
+          localStorage.setItem('app_user', JSON.stringify(mockAdmin));
+        } catch (_) {}
         onLoginSuccess(mockAdmin);
         return;
       }
@@ -71,7 +75,9 @@ export default function GlobalLogin({ onLoginSuccess, onShowKelulusan, onShowTra
         throw new Error('Username atau Password salah. (Wali Murid dapat login dengan Username: Tamu & Password: Tamu)');
       }
 
-      localStorage.setItem('app_user', JSON.stringify(data));
+      try {
+        localStorage.setItem('app_user', JSON.stringify(data));
+      } catch (_) {}
       onLoginSuccess(data);
     } catch (err: any) {
       setError(err.message);

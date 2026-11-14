@@ -1293,7 +1293,7 @@ const fetchSiswaBySingleKelas = async (
           const key = `${targetNormKelas}_${(s.nama || '').toLowerCase().trim()}`;
           if (!mapSitelat.has(key)) {
             mapSitelat.set(key, {
-              id: s.id || s.siswa_id || crypto.randomUUID(),
+              id: s.id || s.siswa_id || generateUUID(),
               nama: (s.nama || '').trim(),
               kelas: targetNormKelas,
               periode: s.periode || activePeriode,
@@ -1443,7 +1443,7 @@ export const restoreMasterData = async (): Promise<{
           const key = `${kls}_${s.nama.toLowerCase().trim()}`;
           if (!siswaMap.has(key)) {
             siswaMap.set(key, {
-              id: s.siswa_id || crypto.randomUUID(),
+              id: s.siswa_id || generateUUID(),
               nama: s.nama.trim(),
               kelas: kls,
               nis: s.nis || '',

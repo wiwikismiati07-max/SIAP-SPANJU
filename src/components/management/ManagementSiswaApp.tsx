@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, fetchAllSiswa } from '../../lib/supabase';
+import { safeUUID } from '../../lib/safeUuid';
 import { 
   Users, Search, Plus, Upload, Download, Trash2, Edit, Save, X, 
   FileSpreadsheet, Filter, Calendar, RefreshCw, CheckCircle, AlertCircle,
@@ -118,7 +119,7 @@ export default function ManagementSiswaApp() {
           const parsed = JSON.parse(saved);
           localData = parsed
             .map((s: any) => ({
-              id: s.id || crypto.randomUUID(),
+              id: s.id || safeUUID(),
               nama: (s.nama || '').trim(),
               kelas: normalizeKelas(s.kelas || '7A'),
               periode: (s.periode || '2026').toString().trim(),
@@ -283,7 +284,7 @@ export default function ManagementSiswaApp() {
         const parsed = JSON.parse(saved);
         const normalized = parsed
           .map((s: any) => ({
-            id: s.id || crypto.randomUUID(),
+            id: s.id || safeUUID(),
             nama: (s.nama || '').trim(),
             kelas: normalizeKelas(s.kelas || '7A'),
             periode: (s.periode || '2026').toString().trim(),
@@ -368,7 +369,7 @@ export default function ManagementSiswaApp() {
     }
 
     const newStudent: SiswaData = {
-      id: crypto.randomUUID(),
+      id: safeUUID(),
       nama: formData.nama.trim(),
       kelas: formData.kelas || '7A',
       periode: formData.periode?.trim() || '2026',
@@ -618,7 +619,7 @@ export default function ManagementSiswaApp() {
 
     try {
       const recordsToInsert = uploadPreview.map(item => ({
-        id: crypto.randomUUID(),
+        id: safeUUID(),
         nama: item.nama,
         kelas: item.kelas,
         periode: item.periode || defaultUploadPeriode,

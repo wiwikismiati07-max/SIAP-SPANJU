@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, fetchAllSiswa } from '../../lib/supabase';
+import { safeUUID } from '../../lib/safeUuid';
 import { IzinWithSiswa, Siswa, Guru } from '../../types/izinsiswa';
 import { Check, X, Clock, Plus, Search, Calendar, User, BookOpen, Upload, FileDown, AlertCircle, AlertTriangle, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
@@ -177,7 +178,7 @@ export default function FormOperatorIzin() {
           );
 
           return {
-            id: existing ? existing.id : crypto.randomUUID(),
+            id: existing ? existing.id : safeUUID(),
             siswa_id: d.siswa_id,
             guru_id: d.guru_id,
             tanggal_mulai: d.tanggal_mulai,
@@ -207,7 +208,7 @@ export default function FormOperatorIzin() {
           );
 
           const newRecord = {
-            id: existingIdx >= 0 ? updated[existingIdx].id : crypto.randomUUID(),
+            id: existingIdx >= 0 ? updated[existingIdx].id : safeUUID(),
             siswa_id: d.siswa_id,
             guru_id: d.guru_id,
             tanggal_mulai: d.tanggal_mulai,
@@ -483,7 +484,7 @@ export default function FormOperatorIzin() {
       }
 
       const newRecord = {
-        id: crypto.randomUUID(),
+        id: safeUUID(),
         siswa_id: selectedSiswa.id,
         guru_id: selectedGuru,
         tanggal_mulai: tanggalMulai,

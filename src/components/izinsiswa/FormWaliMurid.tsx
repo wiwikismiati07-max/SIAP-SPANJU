@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase, fetchAllSiswa } from '../../lib/supabase';
+import { safeUUID } from '../../lib/safeUuid';
 import { Siswa } from '../../types/izinsiswa';
 import { format } from 'date-fns';
 import { 
@@ -346,7 +347,7 @@ export default function FormWaliMurid() {
       }
 
       const newRecord = {
-        id: crypto.randomUUID(),
+        id: safeUUID(),
         siswa_id: selectedSiswa.id,
         nama_wali: namaWali,
         no_telp_wali: noTelpWali,

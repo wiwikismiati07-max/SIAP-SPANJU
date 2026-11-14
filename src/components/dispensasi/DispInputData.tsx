@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Plus, Edit2, Trash2, Search, Calendar, Clock, Users, FileText, Check, CheckSquare, X, Camera, Upload, Eye, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Calendar, Clock, Users, FileText, Check, CheckSquare, X, Camera, Upload, Eye, Image as ImageIcon, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
 import { MasterJenisDispensasi, TransaksiDispensasi } from '../../types/dispensasi';
 import { format } from 'date-fns';
@@ -20,9 +20,17 @@ const saveLocalFoto = (id: string, url: string) => {
   try {
     const map = getLocalFotoMap();
     if (url) {
+      // Do not store large base64 data URLs in localStorage to prevent mobile QuotaExceededError
+      if (url.startsWith('data:') && url.length > 40000) {
+        return;
+      }
       map[id] = url;
     } else {
       delete map[id];
+    }
+    const keys = Object.keys(map);
+    if (keys.length > 25) {
+      keys.slice(0, keys.length - 25).forEach(k => delete map[k]);
     }
     localStorage.setItem(LOCAL_DISP_FOTO_KEY, JSON.stringify(map));
   } catch (e) {
@@ -83,6 +91,7 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
   const canDelete = user?.role === 'full';
   const canEdit = user?.role === 'entry' || user?.role === 'full';
   const [loading, setLoading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [jenisList, setJenisList] = useState<MasterJenisDispensasi[]>([]);
   const [allSiswa, setAllSiswa] = useState<any[]>([]);
@@ -246,26 +255,28 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      alert('Hanya file gambar (JPG, PNG, WEBP) yang diperbolehkan.');
+    const isImg = (file.type && file.type.startsWith('image/')) || /\.(jpe?g|png|webp|heic|bmp)$/i.test(file.name);
+    if (!isImg) {
+      setStatusMsg({ type: 'error', text: 'Hanya file gambar (JPG, PNG, WEBP) yang diperbolehkan.' });
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Ukuran file foto maksimal 10 MB.');
+    if (file.size > 15 * 1024 * 1024) {
+      setStatusMsg({ type: 'error', text: 'Ukuran file foto maksimal 15 MB.' });
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
     setIsProcessingPhoto(true);
+    setStatusMsg(null);
     try {
       const compressedDataUrl = await compressImageToDataUrl(file);
       setPhotoFile(file);
       setFormData(prev => ({ ...prev, foto_kegiatan: compressedDataUrl }));
     } catch (err) {
       console.error('Error processing photo:', err);
-      alert('Gagal memproses file foto. Silakan coba lagi.');
+      setStatusMsg({ type: 'error', text: 'Gagal memproses file foto. Silakan coba file lain.' });
     } finally {
       setIsProcessingPhoto(false);
     }
@@ -345,11 +356,12 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedStudents.length === 0 || !formData.jenis_id) {
-      alert('Pilih minimal 1 siswa dan jenis dispensasi!');
+      setStatusMsg({ type: 'error', text: 'Pilih minimal 1 siswa dan jenis dispensasi!' });
       return;
     }
 
     setLoading(true);
+    setStatusMsg(null);
     try {
       let finalPhotoUrl = formData.foto_kegiatan.trim();
       if (photoFile && finalPhotoUrl.startsWith('data:')) {
@@ -359,9 +371,12 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
         }
       }
 
+      // Sanitize jam to HH:mm (guarantee colons, remove dot separators)
+      const cleanJam = (formData.jam || '07:00').replace(/\./g, ':').trim();
+
       const buildRow = (s: any) => ({
         tanggal: formData.tanggal,
-        jam: formData.jam,
+        jam: cleanJam,
         kelas: normalizeKelasKey(s.kelas || ''),
         siswa_id: s.id,
         jenis_id: formData.jenis_id,
@@ -387,11 +402,12 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
         saveLocalFoto(id, finalPhotoUrl);
       });
 
-      alert(
-        editingId
-          ? 'Data berhasil diperbarui'
-          : `Berhasil menyimpan ${selectedStudents.length} data dispensasi siswa`
-      );
+      setStatusMsg({
+        type: 'success',
+        text: editingId
+          ? 'Data dispensasi berhasil diperbarui!'
+          : `Berhasil menyimpan ${selectedStudents.length} data dispensasi siswa!`
+      });
 
       setFormData({
         tanggal: format(new Date(), 'yyyy-MM-dd'),
@@ -406,9 +422,9 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
       if (fileInputRef.current) fileInputRef.current.value = '';
       setEditingId(null);
       fetchRecentData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving data:', error);
-      alert('Gagal menyimpan data');
+      setStatusMsg({ type: 'error', text: `Gagal menyimpan data: ${error?.message || 'Periksa koneksi database'}` });
     } finally {
       setLoading(false);
     }
@@ -480,6 +496,28 @@ const DispInputData: React.FC<{ user?: any }> = ({ user }) => {
           </button>
         )}
       </div>
+
+      {statusMsg && (
+        <div className={`p-4 rounded-2xl flex items-center gap-3 text-sm font-bold shadow-sm animate-in fade-in ${
+          statusMsg.type === 'success' 
+            ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
+            : 'bg-rose-50 border border-rose-200 text-rose-800'
+        }`}>
+          {statusMsg.type === 'success' ? (
+            <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+          ) : (
+            <AlertCircle size={18} className="text-rose-600 shrink-0" />
+          )}
+          <span className="flex-1">{statusMsg.text}</span>
+          <button 
+            type="button" 
+            onClick={() => setStatusMsg(null)}
+            className="text-xs opacity-60 hover:opacity-100 font-normal underline"
+          >
+            Tutup
+          </button>
+        </div>
+      )}
 
       {/* Form Section */}
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden">

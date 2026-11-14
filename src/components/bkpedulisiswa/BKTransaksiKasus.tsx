@@ -36,9 +36,16 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
     details?: string[];
   }>({ show: false, type: 'success', message: '' });
 
+  const getNowTimeHHMM = () => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const initialFormData = {
     tanggal: (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0')),
-    jam: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }),
+    jam: getNowTimeHHMM(),
     kelas: '',
     siswa_id: '',
     kasus_id: '',
@@ -191,51 +198,100 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
     setTindakLanjuts(updated);
   };
 
+  const compressImageFile = (file: File, maxDim = 960, quality = 0.8): Promise<{ blob: Blob; dataUrl: string }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Gagal membaca file foto.'));
+      reader.onload = () => {
+        const raw = String(reader.result || '');
+        const img = new Image();
+        img.onerror = () => reject(new Error('Format foto tidak valid.'));
+        img.onload = () => {
+          let w = img.naturalWidth || img.width;
+          let h = img.naturalHeight || img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w >= h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve({ blob: file, dataUrl: raw });
+            return;
+          }
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          canvas.toBlob(
+            blob => resolve({ blob: blob || file, dataUrl }),
+            'image/jpeg',
+            quality
+          );
+        };
+        img.src = raw;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files) return;
+    if (!files || files.length === 0) return;
 
     setLoading(true);
+    setErrorMsg(null);
     try {
       const newUrls: string[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `bukti_fisik/${fileName}`;
+        const isImage = file.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|heic|bmp)$/i.test(file.name);
+        if (!isImage) continue;
+
+        const { blob, dataUrl } = await compressImageFile(file);
+        let publicUrl = '';
 
         if (supabase) {
-          // Using 'bukti_fisik' bucket
-          const { error: uploadError } = await supabase.storage
-            .from('bukti_fisik')
-            .upload(filePath, file);
+          try {
+            const fileName = `bukti_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.jpg`;
+            const filePath = `bukti_fisik/${fileName}`;
 
-          if (uploadError) {
-            if (uploadError.message.includes('Bucket not found')) {
-              throw new Error('Bucket storage "bukti_fisik" belum dibuat di Supabase. Silakan buat bucket bernama "bukti_fisik" dan set ke Public.');
+            const { error: uploadError } = await supabase.storage
+              .from('bukti_fisik')
+              .upload(filePath, blob, { contentType: 'image/jpeg', upsert: true });
+
+            if (!uploadError) {
+              const { data } = supabase.storage.from('bukti_fisik').getPublicUrl(filePath);
+              if (data?.publicUrl) publicUrl = data.publicUrl;
             }
-            throw uploadError;
+          } catch {
+            // fallback to dataUrl
           }
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('bukti_fisik')
-            .getPublicUrl(filePath);
-          
-          newUrls.push(publicUrl);
         }
+        newUrls.push(publicUrl || dataUrl);
       }
       setFormData(prev => ({ ...prev, bukti_fisik: [...prev.bukti_fisik, ...newUrls] }));
+      setSuccessMsg('Bukti fisik berhasil ditambahkan!');
+      setTimeout(() => setSuccessMsg(null), 3000);
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      setErrorMsg('Gagal memproses foto: ' + error.message);
     } finally {
       setLoading(false);
+      if (e.target) e.target.value = '';
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
     if (!formData.siswa_id || !formData.kasus_id) {
-      alert('Pilih siswa dan jenis kasus!');
+      setErrorMsg('Mohon pilih siswa dan jenis kasus terlebih dahulu!');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -246,6 +302,13 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
         if (formData.kasus_kategori === 'Lain-Lain') {
           dataToSave.kasus_kategori = kasus_kategori_lain as any;
         }
+
+        // Sanitize jam to ensure strict HH:mm:ss format without dots
+        let cleanJam = (formData.jam || getNowTimeHHMM()).replace(/\./g, ':').trim();
+        if (cleanJam.split(':').length === 2) {
+          cleanJam = `${cleanJam}:00`;
+        }
+        dataToSave.jam = cleanJam;
 
         let transaksiId = editingId;
 
@@ -283,11 +346,13 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
         setSelectedSiswa(null);
         setSearchTerm('');
         fetchTransaksi();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         
-        setTimeout(() => setSuccessMsg(null), 3000);
+        setTimeout(() => setSuccessMsg(null), 3500);
       }
     } catch (error: any) {
-      alert('Error: ' + error.message);
+      setErrorMsg('Error: ' + (error.message || 'Gagal menyimpan data'));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }
@@ -565,6 +630,18 @@ export default function BKTransaksiKasus({ user }: { user?: any }) {
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
           <CheckCircle2 size={20} />
           <p className="font-bold">{successMsg}</p>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-2xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <AlertCircle size={20} className="shrink-0" />
+            <p className="font-bold text-sm">{errorMsg}</p>
+          </div>
+          <button type="button" onClick={() => setErrorMsg(null)} className="p-1 text-rose-500 hover:text-rose-700">
+            <X size={16} />
+          </button>
         </div>
       )}
 

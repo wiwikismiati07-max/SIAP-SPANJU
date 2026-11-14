@@ -2,6 +2,7 @@ import { addExcelHeaderAndLogos, applyColorfulTableStyle } from '../../lib/excel
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
+import { safeUUID } from '../../lib/safeUuid';
 import { TransaksiWithSiswa, Siswa } from '../../types/sitelat';
 import { Search, Trash2, Edit2, Save, X, Download, Upload, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
@@ -274,7 +275,7 @@ export default function Laporan({ user }: { user?: any }) {
 
           if (!siswa_id) {
             // Create new student
-            const newId = crypto.randomUUID();
+            const newId = safeUUID();
             const { data: newSiswa, error: insertError } = await supabase
               .from('master_siswa')
               .insert([{ id: newId, nama: t.nama, kelas: t.kelas }])
@@ -293,7 +294,7 @@ export default function Laporan({ user }: { user?: any }) {
 
           // Insert transaction
           const { error: txError } = await supabase.from('transaksi_terlambat').insert([{
-            id: crypto.randomUUID(),
+            id: safeUUID(),
             siswa_id,
             tanggal: t.tanggal,
             jam: t.jam,
@@ -313,12 +314,12 @@ export default function Laporan({ user }: { user?: any }) {
         for (const t of newTransactions) {
           let siswa = localSiswa.find((s: any) => s.nama === t.nama && s.kelas === t.kelas);
           if (!siswa) {
-            siswa = { id: crypto.randomUUID(), nama: t.nama, kelas: t.kelas };
+            siswa = { id: safeUUID(), nama: t.nama, kelas: t.kelas };
             localSiswa.push(siswa);
           }
           
           localTrans.push({
-            id: crypto.randomUUID(),
+            id: safeUUID(),
             siswa_id: siswa.id,
             tanggal: t.tanggal,
             jam: t.jam,

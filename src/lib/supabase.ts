@@ -1,4 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { safeUUID } from './safeUuid';
+
 
 // Default Supabase project credentials for SMPN7APL
 const DEFAULT_SUPABASE_URL = 'https://ltfwkunozemldjivnqfq.supabase.co';
@@ -206,7 +208,7 @@ export const initSupabaseClient = (): SupabaseClient | null => {
                           const existing = map.get(key);
                           if (!existing) {
                             map.set(key, {
-                              id: g.id || crypto.randomUUID(),
+                              id: g.id || safeUUID(),
                               nama_guru: nama,
                               nip: nipVal,
                               NIP: nipVal
