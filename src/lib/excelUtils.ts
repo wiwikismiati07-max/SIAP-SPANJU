@@ -8,31 +8,44 @@ export const addExcelHeaderAndLogos = async (worksheet: ExcelJS.Worksheet, workb
   const logoLeftUrl = 'https://i.ibb.co/677QPVHY/logo.png'; // Direct link for Pasuruan Logo
   const logoRightUrl = 'https://iili.io/KDFk4fI.png'; // School Logo
   
-  const fetchLogo = async (url: string) => {
-    const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(url)}&output=png`;
+  const fetchLogo = async (localPath: string, remoteUrl: string) => {
+    try {
+      const localRes = await fetch(localPath);
+      if (localRes.ok) {
+        const blob = await localRes.blob();
+        if (blob.type.startsWith('image/')) {
+          const buffer = await blob.arrayBuffer();
+          return workbook.addImage({ buffer, extension: 'png' });
+        }
+      }
+    } catch {
+      // fallback to remote
+    }
+
+    const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(remoteUrl)}&output=png`;
     try {
       const res = await fetch(proxyUrl);
-      if (!res.ok) throw new Error(`Proxy fetch failed`);
+      if (!res.ok) throw new Error('Proxy fetch failed');
       const blob = await res.blob();
       const buffer = await blob.arrayBuffer();
       return workbook.addImage({ buffer, extension: 'png' });
-    } catch (e) {
+    } catch {
       try {
-        const resDirect = await fetch(url);
+        const resDirect = await fetch(remoteUrl);
         if (resDirect.ok) {
           const blobDirect = await resDirect.blob();
           const bufferDirect = await blobDirect.arrayBuffer();
           return workbook.addImage({ buffer: bufferDirect, extension: 'png' });
         }
       } catch (de) {
-        console.error('Failed to fetch logo:', url, de);
+        console.error('Failed to fetch logo:', remoteUrl, de);
       }
     }
     return undefined;
   };
 
-  logoLeftId = await fetchLogo(logoLeftUrl);
-  logoRightId = await fetchLogo(logoRightUrl);
+  logoLeftId = await fetchLogo('/assets/logo-pemkot-pasuruan.png', logoLeftUrl);
+  logoRightId = await fetchLogo('/assets/logo-smpn7.png', logoRightUrl);
 
   // Add Left Logo (Top Left)
   if (logoLeftId !== undefined) {

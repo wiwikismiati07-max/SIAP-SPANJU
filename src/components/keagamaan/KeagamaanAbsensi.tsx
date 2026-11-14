@@ -628,11 +628,38 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = () => {
     return { recapRows, totals, detailRows };
   };
 
+  const loadLogoDataUrl = async (localPath: string, fallbackUrl: string): Promise<string> => {
+    const absLocal = `${window.location.origin}${localPath}`;
+    for (const url of [absLocal, fallbackUrl]) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        if (!blob.type.startsWith('image/')) continue;
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(String(reader.result || ''));
+          reader.onerror = () => reject(new Error('FileReader error'));
+          reader.readAsDataURL(blob);
+        });
+        if (dataUrl) return dataUrl;
+      } catch {
+        // try next fallback
+      }
+    }
+    return absLocal;
+  };
+
   const handlePrintForm = async () => {
     if (siswaList.length === 0) {
       alert('Daftar siswa kosong. Silakan pilih kelas atau tambahkan siswa terlebih dahulu.');
       return;
     }
+
+    const [leftLogoSrc, rightLogoSrc] = await Promise.all([
+      loadLogoDataUrl('/assets/logo-pemkot-pasuruan.png', 'https://i.ibb.co/677QPVHY/logo.png'),
+      loadLogoDataUrl('/assets/logo-smpn7.png', 'https://iili.io/KDFk4fI.png')
+    ]);
 
     const { start, end, isRangeExport } = getExportDateRange();
     const { kegiatanName, guruName, formattedDate, periodeLabel, kelasLabel } = getSelectedMeta();
@@ -933,14 +960,14 @@ const KeagamaanAbsensi: React.FC<{ user?: any }> = () => {
   </head>
   <body>
     <div class="kop">
-      <img src="https://i.ibb.co/677QPVHY/logo.png" alt="Logo Pemkot Pasuruan" />
+      <img src="${leftLogoSrc}" alt="Logo Pemkot Pasuruan" referrerpolicy="no-referrer" />
       <div class="kop-text">
         <h1>PEMERINTAH KOTA PASURUAN</h1>
         <h2>SMP NEGERI 7 PASURUAN</h2>
         <p>Jalan Simpang Slamet Riadi Nomor 2, Kota Pasuruan, Jawa Timur, 67139</p>
         <p>Telepon (0343) 426845 · Pos-el smp7pas@yahoo.co.id · Laman www.smpn7pasuruan.sch.id</p>
       </div>
-      <img src="https://iili.io/KDFk4fI.png" alt="Logo SMPN 7 Pasuruan" />
+      <img src="${rightLogoSrc}" alt="Logo SMPN 7 Pasuruan" referrerpolicy="no-referrer" />
     </div>
 
     <div class="doc-title">${docHeading}</div>
