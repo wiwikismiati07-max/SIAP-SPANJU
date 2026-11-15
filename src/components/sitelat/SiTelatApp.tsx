@@ -5,17 +5,25 @@ import Dashboard from './Dashboard';
 import MasterData from './MasterData';
 import Pencatatan from './Pencatatan';
 import Laporan from './Laporan';
-import { LayoutDashboard, Users, Clock, Settings, Menu, X, FileText, MoreVertical } from 'lucide-react';
+import { LayoutDashboard, Users, Clock, Settings, Menu, X, FileText, MoreVertical, Lock } from 'lucide-react';
+
+const checkIsTamuUser = (u: any) =>
+  (u?.username || '').toLowerCase().trim() === 'tamu' ||
+  (u?.role || '').toLowerCase().trim() === 'tamu' ||
+  u?.id === 'user_tamu_walimurid' ||
+  (u?.nama_lengkap || '').toLowerCase().includes('wali murid') ||
+  (u?.nama_lengkap || '').toLowerCase().includes('tamu');
 
 export default function SiTelatApp({ onBack, onOpenSidebar, user }: { onBack?: () => void, onOpenSidebar?: () => void, user?: any }) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'pencatatan' | 'master' | 'laporan'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [lockNotice, setLockNotice] = useState<string | null>(null);
 
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
-  const isAdmin = user?.role === 'full';
-  const canEdit = user?.role === 'entry' || user?.role === 'full';
-
-  const isViewer = user?.role === 'view';
+  const isTamu = checkIsTamuUser(user);
+  const isAdmin = !isTamu && user?.role === 'full';
+  const canEdit = !isTamu && (user?.role === 'entry' || user?.role === 'full');
+  const isViewer = !isTamu && user?.role === 'view';
 
   const menuItems = [
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
@@ -27,15 +35,28 @@ export default function SiTelatApp({ onBack, onOpenSidebar, user }: { onBack?: (
     menuItems.push({ id: 'master', label: 'Operator / Master', icon: Users });
   }
 
-  // If viewer and trying to access pencatatan, or not admin and trying to access master
+  // If tamu/viewer/non-admin trying to access restricted tab
   useEffect(() => {
+    if (isTamu && activeTab !== 'dashboard') {
+      setActiveTab('dashboard');
+      return;
+    }
     if (activeTab === 'master' && !isAdmin) {
       setActiveTab('dashboard');
     }
     if (activeTab === 'pencatatan' && isViewer) {
       setActiveTab('dashboard');
     }
-  }, [activeTab, isAdmin, isViewer]);
+  }, [activeTab, isAdmin, isViewer, isTamu]);
+
+  const handleTabSelect = (tabId: string, label: string) => {
+    if (isTamu && tabId !== 'dashboard') {
+      setLockNotice(`Menu "${label}" terkunci. Hanya Operator yang dapat membuka menu ini. Akun Tamu hanya dapat melihat Beranda/Dashboard.`);
+      return;
+    }
+    setLockNotice(null);
+    setActiveTab(tabId as any);
+  };
 
   return (
     <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">
@@ -71,20 +92,26 @@ export default function SiTelatApp({ onBack, onOpenSidebar, user }: { onBack?: (
 
             {/* Desktop Menu */}
             <nav className="hidden md:flex items-center space-x-1">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as any)}
-                  className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 font-semibold text-sm ${
-                    activeTab === item.id 
-                      ? 'bg-blue-600 text-white shadow-md' 
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <item.icon size={18} />
-                  <span>{item.label}</span>
-                </button>
-              ))}
+              {menuItems.map((item) => {
+                const locked = isTamu && item.id !== 'dashboard';
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleTabSelect(item.id, item.label)}
+                    className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 font-semibold text-sm ${
+                      locked
+                        ? 'text-slate-400 bg-slate-100/80 cursor-not-allowed'
+                        : activeTab === item.id 
+                          ? 'bg-blue-600 text-white shadow-md' 
+                          : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <item.icon size={18} />
+                    <span>{item.label}</span>
+                    {locked && <Lock size={13} className="text-amber-500" />}
+                  </button>
+                );
+              })}
             </nav>
 
             {/* Mobile Menu Toggle */}
@@ -142,23 +169,31 @@ export default function SiTelatApp({ onBack, onOpenSidebar, user }: { onBack?: (
             </div>
 
             <nav className="space-y-2">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id as any);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-semibold ${
-                    activeTab === item.id 
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
-                      : 'text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <item.icon size={20} />
-                  <span>{item.label}</span>
-                </button>
-              ))}
+              {menuItems.map((item) => {
+                const locked = isTamu && item.id !== 'dashboard';
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      handleTabSelect(item.id, item.label);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all font-semibold ${
+                      locked
+                        ? 'bg-slate-100/80 text-slate-400 cursor-not-allowed'
+                        : activeTab === item.id 
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+                          : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-4">
+                      <item.icon size={20} />
+                      <span>{item.label}</span>
+                    </div>
+                    {locked && <Lock size={15} className="text-amber-500 shrink-0" />}
+                  </button>
+                );
+              })}
             </nav>
           </div>
         </div>
@@ -167,10 +202,31 @@ export default function SiTelatApp({ onBack, onOpenSidebar, user }: { onBack?: (
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-7xl mx-auto pb-12">
-          {activeTab === 'dashboard' && <Dashboard user={user} />}
-          {activeTab === 'pencatatan' && <Pencatatan user={user} />}
-          {activeTab === 'master' && <MasterData user={user} />}
-          {activeTab === 'laporan' && <Laporan user={user} />}
+          {lockNotice && (
+            <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <Lock size={16} className="text-amber-600 shrink-0" />
+                <span>{lockNotice}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLockNotice(null)}
+                className="p-1 hover:bg-amber-100 rounded-lg text-amber-700"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+          {isTamu ? (
+            <Dashboard user={user} />
+          ) : (
+            <>
+              {activeTab === 'dashboard' && <Dashboard user={user} />}
+              {activeTab === 'pencatatan' && <Pencatatan user={user} />}
+              {activeTab === 'master' && <MasterData user={user} />}
+              {activeTab === 'laporan' && <Laporan user={user} />}
+            </>
+          )}
         </div>
       </div>
     </div>

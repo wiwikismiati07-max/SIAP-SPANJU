@@ -41,6 +41,7 @@ interface JurnalDashboardProps {
   onViewDetail: (jurnal: JurnalPembelajaran) => void;
   onRefresh?: () => void;
   isLoading?: boolean;
+  isTamu?: boolean;
 }
 
 export const JurnalDashboard: React.FC<JurnalDashboardProps> = ({ 
@@ -48,7 +49,8 @@ export const JurnalDashboard: React.FC<JurnalDashboardProps> = ({
   onNavigateTab,
   onViewDetail,
   onRefresh,
-  isLoading = false
+  isLoading = false,
+  isTamu = false
 }) => {
   const [showSqlModal, setShowSqlModal] = useState(false);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
@@ -685,12 +687,14 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
                 <span>{isLoading ? "Menyinkronkan..." : "Segarkan Data"}</span>
               </button>
             )}
-            <button
-              onClick={handleSqlButtonClick}
-              className="px-4 py-2.5 bg-black/30 hover:bg-black/40 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-white/20 shadow-sm"
-            >
-              <Database size={15} /> Skrip SQL Tabel
-            </button>
+            {!isTamu && (
+              <button
+                onClick={handleSqlButtonClick}
+                className="px-4 py-2.5 bg-black/30 hover:bg-black/40 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-white/20 shadow-sm"
+              >
+                <Database size={15} /> Skrip SQL Tabel
+              </button>
+            )}
           </div>
         </div>
 
@@ -1999,7 +2003,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
       )}
 
       {/* MODAL SKRIP SQL DATABASE */}
-      {showSqlModal && (
+      {!isTamu && showSqlModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
             {/* Header */}
@@ -2060,7 +2064,7 @@ CREATE INDEX IF NOT EXISTS idx_jurnal_mapel ON public.jurnal_pembelajaran (nama_
         </div>
       )}
       {/* PASSWORD PROMPT MODAL */}
-      {showPasswordPrompt && (
+      {!isTamu && showPasswordPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col border border-slate-100">
             <div className="p-6">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Users, FileText, Calendar, Menu, X, UserCheck, AlertTriangle, Database, LogOut, ShieldCheck, MoreVertical } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Calendar, Menu, X, UserCheck, AlertTriangle, Database, LogOut, ShieldCheck, MoreVertical, Lock } from 'lucide-react';
 import DashboardIzin from './DashboardIzin';
 import MasterIzin from './MasterIzin';
 import FormWaliMurid from './FormWaliMurid';
@@ -9,12 +9,20 @@ import LaporanPanggilan from './LaporanPanggilan';
 import KalenderBelajar from './KalenderBelajar';
 import { supabase } from '../../lib/supabase';
 
+const checkIsTamuUser = (u: any) =>
+  (u?.username || '').toLowerCase().trim() === 'tamu' ||
+  (u?.role || '').toLowerCase().trim() === 'tamu' ||
+  u?.id === 'user_tamu_walimurid' ||
+  (u?.nama_lengkap || '').toLowerCase().includes('wali murid') ||
+  (u?.nama_lengkap || '').toLowerCase().includes('tamu');
+
 export default function IzinSiswaApp({ onBack, onOpenSidebar, user: globalUser }: { onBack?: () => void, onOpenSidebar?: () => void, user?: any }) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'wali' | 'operator' | 'laporan' | 'panggilan' | 'kalender' | 'users'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(!!globalUser);
   const [user, setUser] = useState<any>(globalUser);
   const [isPublicMode, setIsPublicMode] = useState(!globalUser); // Default public mode for Dashboard & Wali Murid
+  const [lockNotice, setLockNotice] = useState<string | null>(null);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
   useEffect(() => {
@@ -22,8 +30,13 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar, user: globalUser }
       setUser(globalUser);
       setIsLoggedIn(true);
       setIsPublicMode(false);
+      if (checkIsTamuUser(globalUser)) {
+        setActiveTab((prev) => (prev === 'wali' ? 'wali' : 'dashboard'));
+      }
     }
-    
+  }, [globalUser]);
+
+  useEffect(() => {
     const handlePublicForm = () => {
       setIsPublicMode(true);
       setActiveTab('wali');
@@ -46,8 +59,9 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar, user: globalUser }
   };
 
   // Logic for role-based access
-  const canEdit = user?.role === 'entry' || user?.role === 'full';
-  const isAdmin = user?.role === 'full';
+  const isTamu = checkIsTamuUser(user);
+  const canEdit = !isTamu && (user?.role === 'entry' || user?.role === 'full');
+  const isAdmin = !isTamu && user?.role === 'full';
   const isViewer = user?.role === 'view';
 
   // If not logged in and trying to access restricted tabs, show dashboard (or we could show a message)
@@ -58,6 +72,17 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar, user: globalUser }
     setActiveTab('dashboard');
   }
 
+  const isTamuAllowedTab = (tabId: string) => tabId === 'dashboard' || tabId === 'wali';
+
+  const handleTabSelect = (tabId: string, label: string) => {
+    if (isTamu && !isTamuAllowedTab(tabId)) {
+      setLockNotice(`Menu "${label}" terkunci. Hanya Operator yang dapat membuka menu ini. Akun Tamu hanya dapat membuka Beranda dan Form Wali Murid.`);
+      return;
+    }
+    setLockNotice(null);
+    setActiveTab(tabId as any);
+  };
+
   const menuItems: { id: string, label: string, icon: any, staff?: boolean }[] = [
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
     { id: 'wali', label: 'Form Wali Murid', icon: Users },
@@ -65,7 +90,7 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar, user: globalUser }
   ];
 
   if (isLoggedIn && (user?.role === 'entry' || user?.role === 'full' || user?.role === 'view')) {
-    if (user?.role !== 'view') {
+    if (user?.role !== 'view' || isTamu) {
       menuItems.push(
         { id: 'operator', label: 'Absensi Siswa', icon: UserCheck, staff: true }
       );
@@ -116,20 +141,26 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar, user: globalUser }
 
             {/* Desktop Menu */}
             <nav className="hidden xl:flex items-center space-x-1">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as any)}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-xl transition-all duration-300 font-semibold text-xs ${
-                    activeTab === item.id 
-                      ? 'bg-emerald-600 text-white shadow-md' 
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <item.icon size={16} />
-                  <span>{item.label}</span>
-                </button>
-              ))}
+              {menuItems.map((item) => {
+                const locked = isTamu && !isTamuAllowedTab(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleTabSelect(item.id, item.label)}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-xl transition-all duration-300 font-semibold text-xs ${
+                      locked
+                        ? 'text-slate-400 bg-slate-100/80 cursor-not-allowed'
+                        : activeTab === item.id 
+                          ? 'bg-emerald-600 text-white shadow-md' 
+                          : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <item.icon size={16} />
+                    <span>{item.label}</span>
+                    {locked && <Lock size={12} className="text-amber-500" />}
+                  </button>
+                );
+              })}
             </nav>
 
             {/* Mobile Menu Toggle & Actions */}
@@ -205,23 +236,31 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar, user: globalUser }
             </div>
 
             <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id as any);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-semibold ${
-                    activeTab === item.id 
-                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' 
-                      : 'text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <item.icon size={20} />
-                  <span>{item.label}</span>
-                </button>
-              ))}
+              {menuItems.map((item) => {
+                const locked = isTamu && !isTamuAllowedTab(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      handleTabSelect(item.id, item.label);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all font-semibold ${
+                      locked
+                        ? 'bg-slate-100/80 text-slate-400 cursor-not-allowed'
+                        : activeTab === item.id 
+                          ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' 
+                          : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-4">
+                      <item.icon size={20} />
+                      <span>{item.label}</span>
+                    </div>
+                    {locked && <Lock size={15} className="text-amber-500 shrink-0" />}
+                  </button>
+                );
+              })}
             </nav>
 
             {isLoggedIn && (
@@ -242,13 +281,34 @@ export default function IzinSiswaApp({ onBack, onOpenSidebar, user: globalUser }
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-7xl mx-auto pb-12">
-          {activeTab === 'dashboard' && <DashboardIzin />}
-          {activeTab === 'wali' && <FormWaliMurid />}
-          {activeTab === 'operator' && <FormOperatorIzin user={user} />}
-          {activeTab === 'kalender' && <KalenderBelajar user={user} />}
-          {activeTab === 'laporan' && <LaporanIzin user={user} />}
-          {activeTab === 'panggilan' && <LaporanPanggilan user={user} />}
-          {activeTab === 'master' && <MasterIzin user={user} />}
+          {lockNotice && (
+            <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <Lock size={16} className="text-amber-600 shrink-0" />
+                <span>{lockNotice}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLockNotice(null)}
+                className="p-1 hover:bg-amber-100 rounded-lg text-amber-700"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+          {isTamu ? (
+            activeTab === 'wali' ? <FormWaliMurid /> : <DashboardIzin />
+          ) : (
+            <>
+              {activeTab === 'dashboard' && <DashboardIzin />}
+              {activeTab === 'wali' && <FormWaliMurid />}
+              {activeTab === 'operator' && <FormOperatorIzin user={user} />}
+              {activeTab === 'kalender' && <KalenderBelajar user={user} />}
+              {activeTab === 'laporan' && <LaporanIzin user={user} />}
+              {activeTab === 'panggilan' && <LaporanPanggilan user={user} />}
+              {activeTab === 'master' && <MasterIzin user={user} />}
+            </>
+          )}
         </div>
       </div>
     </div>

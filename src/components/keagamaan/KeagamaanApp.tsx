@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { LayoutDashboard, Database, ClipboardList, FileText, ChevronLeft, Menu, X, MoreVertical, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LayoutDashboard, Database, ClipboardList, FileText, ChevronLeft, Menu, X, MoreVertical, Calendar, Lock } from 'lucide-react';
 import KeagamaanDashboard from './KeagamaanDashboard';
 import KeagamaanMaster from './KeagamaanMaster';
 import KeagamaanAbsensi from './KeagamaanAbsensi';
@@ -11,13 +11,37 @@ interface KeagamaanAppProps {
   onOpenSidebar?: () => void;
 }
 
+const checkIsTamuUser = (u: any) =>
+  (u?.username || '').toLowerCase().trim() === 'tamu' ||
+  (u?.role || '').toLowerCase().trim() === 'tamu' ||
+  u?.id === 'user_tamu_walimurid' ||
+  (u?.nama_lengkap || '').toLowerCase().includes('wali murid') ||
+  (u?.nama_lengkap || '').toLowerCase().includes('tamu');
+
 const KeagamaanApp: React.FC<KeagamaanAppProps & { user?: any }> = ({ onBack, onOpenSidebar, user }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'absensi' | 'laporan' | 'jadwal'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [lockNotice, setLockNotice] = useState<string | null>(null);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
-  const isAdmin = user?.role === 'full';
-  const isViewer = user?.role === 'view';
+  const isTamu = checkIsTamuUser(user);
+  const isAdmin = !isTamu && user?.role === 'full';
+  const isViewer = !isTamu && user?.role === 'view';
+
+  useEffect(() => {
+    if (isTamu && activeTab !== 'dashboard') {
+      setActiveTab('dashboard');
+    }
+  }, [isTamu, activeTab]);
+
+  const handleTabSelect = (tabId: string, label: string) => {
+    if (isTamu && tabId !== 'dashboard') {
+      setLockNotice(`Menu "${label}" terkunci. Hanya Operator yang dapat membuka menu ini. Akun Tamu hanya dapat melihat Dashboard.`);
+      return;
+    }
+    setLockNotice(null);
+    setActiveTab(tabId as any);
+  };
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -66,20 +90,26 @@ const KeagamaanApp: React.FC<KeagamaanAppProps & { user?: any }> = ({ onBack, on
 
             {/* Desktop Menu */}
             <nav className="hidden md:flex items-center space-x-1">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as any)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm ${
-                    activeTab === item.id 
-                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' 
-                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  <item.icon size={18} />
-                  {item.label}
-                </button>
-              ))}
+              {menuItems.map((item) => {
+                const locked = isTamu && item.id !== 'dashboard';
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleTabSelect(item.id, item.label)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm ${
+                      locked
+                        ? 'text-slate-500 bg-white/5 cursor-not-allowed'
+                        : activeTab === item.id 
+                          ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' 
+                          : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    <item.icon size={18} />
+                    {item.label}
+                    {locked && <Lock size={13} className="text-amber-400" />}
+                  </button>
+                );
+              })}
             </nav>
 
             {/* Mobile Menu Toggle */}
@@ -132,23 +162,31 @@ const KeagamaanApp: React.FC<KeagamaanAppProps & { user?: any }> = ({ onBack, on
             </div>
 
             <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id as any);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-bold ${
-                    activeTab === item.id 
-                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' 
-                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  <item.icon size={20} />
-                  <span>{item.label}</span>
-                </button>
-              ))}
+              {menuItems.map((item) => {
+                const locked = isTamu && item.id !== 'dashboard';
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      handleTabSelect(item.id, item.label);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all font-bold ${
+                      locked
+                        ? 'bg-white/5 text-slate-500 cursor-not-allowed'
+                        : activeTab === item.id 
+                          ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' 
+                          : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-4">
+                      <item.icon size={20} />
+                      <span>{item.label}</span>
+                    </div>
+                    {locked && <Lock size={15} className="text-amber-400 shrink-0" />}
+                  </button>
+                );
+              })}
             </nav>
           </div>
         </div>
@@ -157,17 +195,38 @@ const KeagamaanApp: React.FC<KeagamaanAppProps & { user?: any }> = ({ onBack, on
       {/* Content Area */}
       <main className="flex-1 overflow-y-auto p-4 md:p-12 custom-scrollbar">
         <div className="max-w-7xl mx-auto">
+          {lockNotice && (
+            <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <Lock size={16} className="text-amber-600 shrink-0" />
+                <span>{lockNotice}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLockNotice(null)}
+                className="p-1 hover:bg-amber-100 rounded-lg text-amber-700"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
           <div className="mb-8 hidden md:block">
             <h2 className="text-3xl font-black text-slate-800 tracking-tight">
-              {menuItems.find(i => i.id === activeTab)?.label}
+              {isTamu ? 'Dashboard' : menuItems.find(i => i.id === activeTab)?.label}
             </h2>
             <p className="text-sm text-slate-400 font-medium mt-1">Sistem Informasi Monitoring Kegiatan Keagamaan</p>
           </div>
-          {activeTab === 'dashboard' && <KeagamaanDashboard />}
-          {activeTab === 'master' && <KeagamaanMaster user={user} />}
-          {activeTab === 'absensi' && <KeagamaanAbsensi user={user} />}
-          {activeTab === 'jadwal' && <KeagamaanJadwal user={user} />}
-          {activeTab === 'laporan' && <KeagamaanLaporan user={user} />}
+          {isTamu ? (
+            <KeagamaanDashboard />
+          ) : (
+            <>
+              {activeTab === 'dashboard' && <KeagamaanDashboard />}
+              {activeTab === 'master' && <KeagamaanMaster user={user} />}
+              {activeTab === 'absensi' && <KeagamaanAbsensi user={user} />}
+              {activeTab === 'jadwal' && <KeagamaanJadwal user={user} />}
+              {activeTab === 'laporan' && <KeagamaanLaporan user={user} />}
+            </>
+          )}
         </div>
       </main>
     </div>

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { LayoutDashboard, Database, PlusCircle, FileBarChart, ArrowLeft, Menu, X, MoreVertical } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LayoutDashboard, Database, PlusCircle, FileBarChart, ArrowLeft, Menu, X, MoreVertical, Lock } from 'lucide-react';
 import DispDashboard from './DispDashboard';
 import DispMasterData from './DispMasterData';
 import DispInputData from './DispInputData';
@@ -10,13 +10,37 @@ interface DispensasiAppProps {
   onOpenSidebar?: () => void;
 }
 
+const checkIsTamuUser = (u: any) =>
+  (u?.username || '').toLowerCase().trim() === 'tamu' ||
+  (u?.role || '').toLowerCase().trim() === 'tamu' ||
+  u?.id === 'user_tamu_walimurid' ||
+  (u?.nama_lengkap || '').toLowerCase().includes('wali murid') ||
+  (u?.nama_lengkap || '').toLowerCase().includes('tamu');
+
 const DispensasiApp: React.FC<DispensasiAppProps & { user?: any }> = ({ onBack, onOpenSidebar, user }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'input' | 'laporan'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [lockNotice, setLockNotice] = useState<string | null>(null);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
-  const isAdmin = user?.role === 'full';
-  const isViewer = user?.role === 'view';
+  const isTamu = checkIsTamuUser(user);
+  const isAdmin = !isTamu && user?.role === 'full';
+  const isViewer = !isTamu && user?.role === 'view';
+
+  useEffect(() => {
+    if (isTamu && activeTab !== 'dashboard') {
+      setActiveTab('dashboard');
+    }
+  }, [isTamu, activeTab]);
+
+  const handleTabSelect = (tabId: string, label: string) => {
+    if (isTamu && tabId !== 'dashboard') {
+      setLockNotice(`Menu "${label}" terkunci. Hanya Operator yang dapat membuka menu ini. Akun Tamu hanya dapat melihat Dashboard.`);
+      return;
+    }
+    setLockNotice(null);
+    setActiveTab(tabId as any);
+  };
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -62,20 +86,26 @@ const DispensasiApp: React.FC<DispensasiAppProps & { user?: any }> = ({ onBack, 
 
             {/* Desktop Menu */}
             <nav className="hidden md:flex items-center space-x-2">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as any)}
-                  className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 ${
-                    activeTab === item.id 
-                      ? `${item.bg} ${item.color} shadow-sm ring-1 ring-slate-100` 
-                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
-                  }`}
-                >
-                  <item.icon size={18} />
-                  <span className="text-sm font-bold">{item.label}</span>
-                </button>
-              ))}
+              {menuItems.map((item) => {
+                const locked = isTamu && item.id !== 'dashboard';
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleTabSelect(item.id, item.label)}
+                    className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 ${
+                      locked
+                        ? 'text-slate-400 bg-slate-100/80 cursor-not-allowed'
+                        : activeTab === item.id 
+                          ? `${item.bg} ${item.color} shadow-sm ring-1 ring-slate-100` 
+                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                    }`}
+                  >
+                    <item.icon size={18} />
+                    <span className="text-sm font-bold">{item.label}</span>
+                    {locked && <Lock size={13} className="text-amber-500" />}
+                  </button>
+                );
+              })}
             </nav>
 
             {/* Mobile Menu Toggle */}
@@ -128,23 +158,31 @@ const DispensasiApp: React.FC<DispensasiAppProps & { user?: any }> = ({ onBack, 
             </div>
 
             <nav className="space-y-2">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id as any);
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-bold ${
-                    activeTab === item.id 
-                      ? `${item.bg} ${item.color} shadow-sm` 
-                      : 'text-slate-500 hover:bg-slate-50'
-                  }`}
-                >
-                  <item.icon size={20} />
-                  <span className="text-sm">{item.label}</span>
-                </button>
-              ))}
+              {menuItems.map((item) => {
+                const locked = isTamu && item.id !== 'dashboard';
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      handleTabSelect(item.id, item.label);
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all font-bold ${
+                      locked
+                        ? 'bg-slate-100/80 text-slate-400 cursor-not-allowed'
+                        : activeTab === item.id 
+                          ? `${item.bg} ${item.color} shadow-sm` 
+                          : 'text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-4">
+                      <item.icon size={20} />
+                      <span className="text-sm">{item.label}</span>
+                    </div>
+                    {locked && <Lock size={15} className="text-amber-500 shrink-0" />}
+                  </button>
+                );
+              })}
             </nav>
           </div>
         </div>
@@ -153,10 +191,31 @@ const DispensasiApp: React.FC<DispensasiAppProps & { user?: any }> = ({ onBack, 
       {/* Main Content */}
       <div className="flex-1 p-4 md:p-8 overflow-y-auto">
         <div className="max-w-7xl mx-auto pb-12">
-          {activeTab === 'dashboard' && <DispDashboard />}
-          {activeTab === 'master' && <DispMasterData user={user} />}
-          {activeTab === 'input' && <DispInputData user={user} />}
-          {activeTab === 'laporan' && <DispLaporan user={user} />}
+          {lockNotice && (
+            <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <Lock size={16} className="text-amber-600 shrink-0" />
+                <span>{lockNotice}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLockNotice(null)}
+                className="p-1 hover:bg-amber-100 rounded-lg text-amber-700"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+          {isTamu ? (
+            <DispDashboard />
+          ) : (
+            <>
+              {activeTab === 'dashboard' && <DispDashboard />}
+              {activeTab === 'master' && <DispMasterData user={user} />}
+              {activeTab === 'input' && <DispInputData user={user} />}
+              {activeTab === 'laporan' && <DispLaporan user={user} />}
+            </>
+          )}
         </div>
       </div>
     </div>

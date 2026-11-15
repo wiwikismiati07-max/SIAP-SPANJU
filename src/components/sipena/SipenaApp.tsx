@@ -39,7 +39,8 @@ import {
   CalendarCheck,
   Flame,
   BookMarked,
-  UserCheck
+  UserCheck,
+  Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase, fetchAllSiswa, filterLatestStudents } from '../../lib/supabase';
@@ -80,6 +81,13 @@ interface SipenaAppProps {
 
 type SipenaSection = 'dashboard' | 'master' | 'kunjungan_siswa' | 'kunjungan_warta' | 'peminjaman' | 'pengembalian' | 'laporan';
 
+const checkIsTamuUser = (u: any) =>
+  (u?.username || '').toLowerCase().trim() === 'tamu' ||
+  (u?.role || '').toLowerCase().trim() === 'tamu' ||
+  u?.id === 'user_tamu_walimurid' ||
+  (u?.nama_lengkap || '').toLowerCase().includes('wali murid') ||
+  (u?.nama_lengkap || '').toLowerCase().includes('tamu');
+
 const SipenaApp: React.FC<SipenaAppProps & { user?: any }> = ({ onBack, onOpenSidebar, user }) => {
   const [activeSection, setActiveSection] = useState<SipenaSection>('dashboard');
   const [loading, setLoading] = useState(false);
@@ -87,9 +95,27 @@ const SipenaApp: React.FC<SipenaAppProps & { user?: any }> = ({ onBack, onOpenSi
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
-  const isAdmin = user?.role === 'full';
-  const isEditor = user?.role === 'entry';
-  const isViewer = user?.role === 'view';
+  const isTamu = checkIsTamuUser(user);
+  const isAdmin = !isTamu && user?.role === 'full';
+  const isEditor = !isTamu && user?.role === 'entry';
+  const isViewer = !isTamu && user?.role === 'view';
+
+  useEffect(() => {
+    if (isTamu && activeSection !== 'dashboard') {
+      setActiveSection('dashboard');
+    }
+  }, [isTamu, activeSection]);
+
+  const handleSectionSelect = (sectionId: SipenaSection, title: string) => {
+    if (isTamu && sectionId !== 'dashboard') {
+      setMessage({
+        type: 'error',
+        text: `Menu "${title}" terkunci. Hanya Operator yang dapat membuka menu ini. Akun Tamu hanya dapat melihat Dashboard.`
+      });
+      return;
+    }
+    setActiveSection(sectionId);
+  };
 
   // --- Dashboard Stats ---
   const [stats, setStats] = useState({
@@ -149,20 +175,26 @@ const SipenaApp: React.FC<SipenaAppProps & { user?: any }> = ({ onBack, onOpenSi
 
             {/* Desktop Menu */}
             <nav className="hidden xl:flex items-center space-x-1">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveSection(item.id as SipenaSection)}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${
-                    activeSection === item.id 
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                      : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                  }`}
-                >
-                  <item.icon size={14} />
-                  {item.title}
-                </button>
-              ))}
+              {menuItems.map((item) => {
+                const locked = isTamu && item.id !== 'dashboard';
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleSectionSelect(item.id as SipenaSection, item.title)}
+                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-2 ${
+                      locked
+                        ? 'text-slate-400 bg-slate-100/80 cursor-not-allowed'
+                        : activeSection === item.id 
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                          : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                    }`}
+                  >
+                    <item.icon size={14} />
+                    {item.title}
+                    {locked && <Lock size={12} className="text-amber-500" />}
+                  </button>
+                );
+              })}
             </nav>
 
             {/* Mobile Menu Toggle */}
@@ -215,23 +247,31 @@ const SipenaApp: React.FC<SipenaAppProps & { user?: any }> = ({ onBack, onOpenSi
             </div>
 
             <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveSection(item.id as SipenaSection);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
-                    activeSection === item.id 
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' 
-                      : 'text-slate-500 hover:bg-slate-50'
-                  }`}
-                >
-                  <item.icon size={18} />
-                  <span>{item.title}</span>
-                </button>
-              ))}
+              {menuItems.map((item) => {
+                const locked = isTamu && item.id !== 'dashboard';
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      handleSectionSelect(item.id as SipenaSection, item.title);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
+                      locked
+                        ? 'bg-slate-100/80 text-slate-400 cursor-not-allowed'
+                        : activeSection === item.id 
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' 
+                          : 'text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-4">
+                      <item.icon size={18} />
+                      <span>{item.title}</span>
+                    </div>
+                    {locked && <Lock size={14} className="text-amber-500 shrink-0" />}
+                  </button>
+                );
+              })}
             </nav>
           </div>
         </div>
@@ -241,13 +281,19 @@ const SipenaApp: React.FC<SipenaAppProps & { user?: any }> = ({ onBack, onOpenSi
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
         <div className="max-w-[1600px] mx-auto">
       <AnimatePresence mode="wait">
-        {activeSection === 'dashboard' && <SipenaDashboard key="dashboard" />}
-        {activeSection === 'master' && <SipenaMaster key="master" user={user} setMessage={setMessage} />}
-        {activeSection === 'kunjungan_siswa' && <SipenaKunjunganSiswa key="kunjungan_siswa" user={user} setMessage={setMessage} />}
-        {activeSection === 'kunjungan_warta' && <SipenaKunjunganWarta key="kunjungan_warta" user={user} setMessage={setMessage} />}
-        {activeSection === 'peminjaman' && <SipenaPeminjaman key="peminjaman" user={user} setMessage={setMessage} />}
-        {activeSection === 'pengembalian' && <SipenaPengembalian key="pengembalian" user={user} setMessage={setMessage} />}
-        {activeSection === 'laporan' && <SipenaLaporan key="laporan" user={user} setMessage={setMessage} />}
+        {isTamu ? (
+          <SipenaDashboard key="dashboard" />
+        ) : (
+          <>
+            {activeSection === 'dashboard' && <SipenaDashboard key="dashboard" />}
+            {activeSection === 'master' && <SipenaMaster key="master" user={user} setMessage={setMessage} />}
+            {activeSection === 'kunjungan_siswa' && <SipenaKunjunganSiswa key="kunjungan_siswa" user={user} setMessage={setMessage} />}
+            {activeSection === 'kunjungan_warta' && <SipenaKunjunganWarta key="kunjungan_warta" user={user} setMessage={setMessage} />}
+            {activeSection === 'peminjaman' && <SipenaPeminjaman key="peminjaman" user={user} setMessage={setMessage} />}
+            {activeSection === 'pengembalian' && <SipenaPengembalian key="pengembalian" user={user} setMessage={setMessage} />}
+            {activeSection === 'laporan' && <SipenaLaporan key="laporan" user={user} setMessage={setMessage} />}
+          </>
+        )}
       </AnimatePresence>
         </div>
       </div>

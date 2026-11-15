@@ -44,7 +44,8 @@ import {
   Youtube,
   Instagram,
   Database,
-  BarChart3
+  BarChart3,
+  Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from './lib/supabase';
@@ -140,6 +141,7 @@ export default function App() {
   const [showKelulusanPublic, setShowKelulusanPublic] = useState(false);
   const [showTracingPublic, setShowTracingPublic] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
+  const [lockedMenuNotice, setLockedMenuNotice] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
 
   // Responsive handling & restore session
@@ -300,10 +302,49 @@ export default function App() {
     { id: 'analisis_keberhasilan', title: 'ANALISIS KEBERHASILAN', subtitle: 'SIAP SPANJU · SRA × PRIME', icon: Award, color: 'from-indigo-600 to-violet-700', shadow: 'shadow-indigo-200', roles: ['view', 'entry', 'full'] },
   ];
 
-  // Filter menu yang dapat diakses: akun Tamu / Wali Murid tidak diizinkan mengakses Jurnal Pembelajaran
+  // Menu yang diizinkan untuk login Tamu: Menu Aplikasi, Dashboard/Beranda pada aplikasi SIAP SPANJU (kecuali Jurnal Pembelajaran), Form Wali Murid (Izin Siswa), Form Pengaduan Wali Murid, serta layanan umum (Tutorial, Hotline, Cek Kelulusan, Tracking Alumni, Arsip Digital)
+  const TAMU_ALLOWED_SECTIONS = new Set([
+    'menu_aplikasi',
+    'tutorial_aplikasi',
+    'hotline',
+    'kelulusan',
+    'tracing_alumni',
+    'program',
+    'analisis_keberhasilan',
+    'sitelat',
+    'izinsiswa',
+    'sipena',
+    'pengaduan',
+    'dispensasi',
+    'prestasi',
+    'keagamaan',
+    'uks',
+    'disiplinsiswa',
+    'survey',
+  ]);
+  const TAMU_PUBLIC_SECTIONS = new Set([
+    'menu_aplikasi',
+    'tutorial_aplikasi',
+    'hotline',
+    'kelulusan',
+    'tracing_alumni',
+    'program',
+  ]);
+  const isSectionLockedForTamu = (sectionId: string) => isTamu && !TAMU_ALLOWED_SECTIONS.has(sectionId);
+  const openLockedNotice = (menuTitle?: string) => {
+    const isJurnal = menuTitle?.toUpperCase().includes('JURNAL');
+    setLockedMenuNotice(
+      isJurnal
+        ? `Menu "${menuTitle}" terkunci. Form Jurnal Pembelajaran hanya diperuntukkan bagi Guru dan Operator / Admin.`
+        : menuTitle
+          ? `Menu "${menuTitle}" terkunci. Hanya Operator / Admin yang dapat membuka menu ini. Akun Tamu dapat melihat Beranda/Dashboard pada aplikasi SIAP SPANJU (kecuali Jurnal Pembelajaran), mengisi Form Wali Murid (Izin Siswa) & Form Pengaduan Wali Murid, serta mengakses Tutorial, Hotline, Cek Kelulusan, Tracking Alumni, Buku Manual, dan Arsip Digital.`
+          : 'Menu ini terkunci. Hanya Operator / Admin yang dapat membukanya.'
+    );
+  };
+
+  // Filter menu berdasarkan role user (untuk Tamu tetap ditampilkan dalam kondisi terkunci kecuali yang diizinkan)
   const visibleSidebarItems = sidebarItems.filter(item => {
     if (!item.roles.includes(currentUserRole)) return false;
-    if (isTamu && item.id === 'jurnal_pembelajaran') return false;
     return true;
   });
 
@@ -395,10 +436,10 @@ export default function App() {
                 setIsDashboard(true);
                 setActiveSection('hotline');
               }}
-              className="group px-8 py-4 md:px-12 md:py-5 bg-white text-slate-800 rounded-full font-bold text-lg md:text-xl shadow-xl border border-white/50 flex items-center gap-3 transition-all hover:bg-slate-50"
+              className="group px-8 py-4 md:px-12 md:py-5 bg-white text-slate-800 hover:bg-slate-50 rounded-full font-bold text-lg md:text-xl shadow-xl border border-white/50 flex items-center gap-3 transition-all"
             >
               <Phone className="w-6 h-6 text-amber-500 group-hover:rotate-12 transition-transform" />
-              Hotline Bantuan
+              <span>Hotline Bantuan</span>
             </motion.button>
 
             <motion.button
@@ -408,13 +449,32 @@ export default function App() {
                 setIsDashboard(true);
                 setActiveSection('tutorial_aplikasi');
               }}
-              className="group px-8 py-4 md:px-12 md:py-5 bg-white text-slate-800 rounded-full font-bold text-lg md:text-xl shadow-xl border border-white/50 flex items-center gap-3 transition-all hover:bg-slate-50"
+              className="group px-8 py-4 md:px-12 md:py-5 bg-white text-slate-800 hover:bg-slate-50 rounded-full font-bold text-lg md:text-xl shadow-xl border border-white/50 flex items-center gap-3 transition-all"
             >
               <Instagram className="w-6 h-6 text-pink-600 group-hover:scale-110 transition-transform" />
-              Tutorial Aplikasi
+              <span>Tutorial Aplikasi</span>
             </motion.button>
           </div>
         </motion.div>
+
+        {lockedMenuNotice && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 md:p-8 text-center border border-slate-200">
+              <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-600 mx-auto flex items-center justify-center mb-4">
+                <Lock size={28} />
+              </div>
+              <h3 className="text-lg font-black text-slate-900 mb-2">Menu Terkunci</h3>
+              <p className="text-sm text-slate-600 leading-relaxed mb-6">{lockedMenuNotice}</p>
+              <button
+                type="button"
+                onClick={() => setLockedMenuNotice(null)}
+                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs uppercase tracking-widest transition-all"
+              >
+                Mengerti
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -476,37 +536,62 @@ export default function App() {
           <InstallPWA variant="sidebar" className="mb-3" />
 
           {/* Static Sections */}
-          {visibleSidebarItems.map((section) => (
-            <button
-              key={section.id}
-              onClick={() => {
-                if (section.id === 'jurnal_pembelajaran' && isTamu) {
-                  alert('Akses Ditolak: Akun Tamu (Wali Murid) tidak diizinkan membuka Jurnal Pembelajaran Guru.');
-                  return;
-                }
-                setActiveSection(section.id as any);
-                setSelectedLinkId(null);
-                if (isMobile) setIsSidebarOpen(false);
-              }}
-              className={`w-full text-left p-4 mb-3 rounded-[1.5rem] flex items-center gap-4 transition-all duration-300 group relative border-b-[6px] border-r-[2px] ${
-                activeSection === section.id 
-                  ? 'bg-white border-slate-200 shadow-[0_5px_15px_rgba(0,0,0,0.05)] translate-y-[4px]' 
-                  : 'bg-white/80 border-slate-100 hover:bg-white hover:border-slate-200 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-1'
-              }`}
-            >
-              <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${section.color} flex items-center justify-center text-white shadow-lg ${section.shadow} shrink-0 transition-all duration-500 group-hover:scale-110`}>
-                <section.icon size={24} />
-              </div>
-              <div className="flex-1 min-w-0 relative">
-                <p className={`font-black tracking-tight truncate uppercase leading-tight ${section.extraLarge ? 'text-[20px]' : 'text-[16px]'} ${activeSection === section.id ? 'text-slate-900' : 'text-slate-700 group-hover:text-slate-900'}`}>
-                  {section.title}
-                </p>
-                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">{section.subtitle}</p>
-                
-                <div className={`h-1.5 bg-red-600 rounded-full mt-2 transition-all duration-500 ${activeSection === section.id ? 'w-3/4' : 'w-12 group-hover:w-3/4'}`} />
-              </div>
-            </button>
-          ))}
+          {visibleSidebarItems.map((section) => {
+            const locked = isSectionLockedForTamu(section.id);
+            const subtitleText = isTamu && section.id === 'izinsiswa'
+              ? 'BERANDA & FORM WALI MURID'
+              : isTamu && section.id === 'pengaduan'
+                ? 'FORM PENGADUAN WALI MURID'
+                : isTamu && !locked && !TAMU_PUBLIC_SECTIONS.has(section.id)
+                  ? 'HANYA BERANDA / DASHBOARD'
+                  : section.subtitle;
+            const lockedLabel = section.id === 'jurnal_pembelajaran'
+              ? 'TERKUNCI • GURU & OPERATOR'
+              : 'TERKUNCI • KHUSUS OPERATOR';
+
+            return (
+              <button
+                key={section.id}
+                onClick={() => {
+                  if (locked) {
+                    openLockedNotice(section.title);
+                    return;
+                  }
+                  setActiveSection(section.id as any);
+                  setSelectedLinkId(null);
+                  if (isMobile) setIsSidebarOpen(false);
+                }}
+                className={`w-full text-left p-4 mb-3 rounded-[1.5rem] flex items-center gap-4 transition-all duration-300 group relative border-b-[6px] border-r-[2px] ${
+                  locked
+                    ? 'bg-slate-100/80 border-slate-200 opacity-75 cursor-not-allowed'
+                    : activeSection === section.id 
+                      ? 'bg-white border-slate-200 shadow-[0_5px_15px_rgba(0,0,0,0.05)] translate-y-[4px]' 
+                      : 'bg-white/80 border-slate-100 hover:bg-white hover:border-slate-200 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-1'
+                }`}
+              >
+                <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${locked ? 'from-slate-400 to-slate-500 shadow-slate-200' : `${section.color} ${section.shadow}`} flex items-center justify-center text-white shadow-lg shrink-0 transition-all duration-500 ${locked ? '' : 'group-hover:scale-110'} relative`}>
+                  <section.icon size={24} />
+                  {locked && (
+                    <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center shadow border-2 border-white">
+                      <Lock size={12} />
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0 relative">
+                  <div className="flex items-center justify-between gap-1">
+                    <p className={`font-black tracking-tight truncate uppercase leading-tight ${section.extraLarge ? 'text-[20px]' : 'text-[16px]'} ${locked ? 'text-slate-500' : activeSection === section.id ? 'text-slate-900' : 'text-slate-700 group-hover:text-slate-900'}`}>
+                      {section.title}
+                    </p>
+                  </div>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                    {locked ? lockedLabel : subtitleText}
+                  </p>
+                  
+                  <div className={`h-1.5 rounded-full mt-2 transition-all duration-500 ${locked ? 'bg-slate-300 w-10' : `bg-red-600 ${activeSection === section.id ? 'w-3/4' : 'w-12 group-hover:w-3/4'}`}`} />
+                </div>
+              </button>
+            );
+          })}
 
           <div className="h-px bg-black/5 mx-2 my-4" />
           
@@ -546,20 +631,35 @@ export default function App() {
                   return (
                     <div key={link.id} className="relative group mb-3">
                       <button
-                        onClick={() => handleAppSelect(link)}
+                        onClick={() => {
+                          if (isTamu) {
+                            openLockedNotice(link.title);
+                            return;
+                          }
+                          handleAppSelect(link);
+                        }}
                         className={`w-full text-left p-4 rounded-[1.5rem] flex items-center gap-4 transition-all duration-300 border-b-[6px] border-r-[2px] ${
-                          selectedLinkId === link.id 
-                            ? 'bg-white border-slate-200 shadow-[0_5px_15px_rgba(0,0,0,0.05)] translate-y-[4px]' 
-                            : 'bg-white/80 border-slate-100 hover:bg-white hover:border-slate-200 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-1'
+                          isTamu
+                            ? 'bg-slate-100/80 border-slate-200 opacity-75 cursor-not-allowed'
+                            : selectedLinkId === link.id 
+                              ? 'bg-white border-slate-200 shadow-[0_5px_15px_rgba(0,0,0,0.05)] translate-y-[4px]' 
+                              : 'bg-white/80 border-slate-100 hover:bg-white hover:border-slate-200 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] hover:-translate-y-1'
                         }`}
                       >
-                        <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${link.color} flex items-center justify-center text-white shadow-lg shrink-0 transition-all duration-500 group-hover:scale-110`}>
+                        <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${isTamu ? 'from-slate-400 to-slate-500' : link.color} flex items-center justify-center text-white shadow-lg shrink-0 transition-all duration-500 ${isTamu ? '' : 'group-hover:scale-110'} relative`}>
                           <Icon size={24} />
+                          {isTamu && (
+                            <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center shadow border-2 border-white">
+                              <Lock size={10} />
+                            </span>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`font-black tracking-tight truncate text-[14px] uppercase ${selectedLinkId === link.id ? 'text-slate-900' : 'text-slate-700 group-hover:text-slate-900'}`}>{link.title}</p>
-                          <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">{link.displayMode === 'iframe' ? 'DASHBOARD' : 'NEW TAB'}</p>
-                          <div className={`h-1.5 bg-indigo-500 rounded-full mt-2 transition-all duration-500 ${selectedLinkId === link.id ? 'w-3/4' : 'w-8 group-hover:w-1/2'}`} />
+                          <p className={`font-black tracking-tight truncate text-[14px] uppercase ${isTamu ? 'text-slate-500' : selectedLinkId === link.id ? 'text-slate-900' : 'text-slate-700 group-hover:text-slate-900'}`}>{link.title}</p>
+                          <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                            {isTamu ? 'TERKUNCI • KHUSUS OPERATOR' : (link.displayMode === 'iframe' ? 'DASHBOARD' : 'NEW TAB')}
+                          </p>
+                          <div className={`h-1.5 rounded-full mt-2 transition-all duration-500 ${isTamu ? 'bg-slate-300 w-10' : `bg-indigo-500 ${selectedLinkId === link.id ? 'w-3/4' : 'w-8 group-hover:w-1/2'}`}`} />
                         </div>
                       </button>
                     </div>
@@ -569,14 +669,16 @@ export default function App() {
           )}
         </div>
         <div className="p-4 border-t border-white/50 min-w-[280px] space-y-2">
-          <button 
-            onClick={() => setIsSupabaseModalOpen(true)}
-            className="w-full flex items-center gap-3 p-3.5 rounded-2xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all font-black uppercase tracking-wider text-xs border border-emerald-200/60"
-            title="Pengaturan Koneksi Database Supabase"
-          >
-            <Database size={16} className="text-emerald-600" />
-            <span>Koneksi Supabase</span>
-          </button>
+          {!isTamu && (
+            <button 
+              onClick={() => setIsSupabaseModalOpen(true)}
+              className="w-full flex items-center gap-3 p-3.5 rounded-2xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all font-black uppercase tracking-wider text-xs border border-emerald-200/60"
+              title="Pengaturan Koneksi Database Supabase"
+            >
+              <Database size={16} className="text-emerald-600" />
+              <span>Koneksi Supabase</span>
+            </button>
+          )}
           <button 
             onClick={handleLogout}
             className="w-full flex items-center gap-3 p-3.5 rounded-2xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-all font-black uppercase tracking-widest text-xs"
@@ -605,6 +707,34 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 min-h-0 min-w-0 flex flex-col relative p-1.5 md:p-3 md:pl-0">
+        {isTamu && activeSection && !TAMU_ALLOWED_SECTIONS.has(activeSection) ? (
+          <div className="flex-1 flex items-center justify-center p-6 bg-white/70 backdrop-blur-2xl rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            <div className="bg-white p-8 md:p-10 rounded-3xl shadow-xl max-w-md w-full text-center border border-slate-200/80">
+              <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-600 mx-auto flex items-center justify-center mb-5 shadow-inner">
+                <Lock size={32} />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 mb-2">Menu Terkunci</h3>
+              <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+                {activeSection === 'jurnal_pembelajaran' ? (
+                  <>
+                    Menu <span className="font-bold text-slate-800">Jurnal Pembelajaran</span> khusus diperuntukkan bagi <span className="font-bold text-slate-800">Guru dan Operator / Admin</span>.
+                  </>
+                ) : (
+                  <>
+                    Akun <span className="font-bold text-slate-800">Tamu / Umum</span> dapat melihat <span className="font-bold text-slate-800">Beranda / Dashboard</span> pada aplikasi SIAP SPANJU (kecuali Jurnal Pembelajaran), mengisi <span className="font-bold text-slate-800">Form Wali Murid</span> & <span className="font-bold text-slate-800">Form Pengaduan Wali Murid</span>, serta mengakses Tutorial, Hotline, Cek Kelulusan, Tracking Alumni, Buku Manual, dan Arsip Digital.
+                  </>
+                )}
+              </p>
+              <button
+                onClick={() => setActiveSection('menu_aplikasi')}
+                className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all shadow-md shadow-slate-200 active:scale-95 text-sm uppercase tracking-wider"
+              >
+                Kembali ke Beranda
+              </button>
+            </div>
+          </div>
+        ) : (
+        <>
         <Suspense fallback={<ModuleLoaderFallback />}>
         {activeSection === 'management_login' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
@@ -662,33 +792,13 @@ export default function App() {
           </div>
         )}
         {activeSection === 'jurnal_pembelajaran' && (
-          isTamu ? (
-            <div className="absolute inset-0 z-10 bg-slate-50 flex items-center justify-center p-6 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-              <div className="bg-white p-8 md:p-10 rounded-3xl shadow-xl max-w-md w-full text-center border border-slate-200/80">
-                <div className="w-16 h-16 rounded-2xl bg-rose-100 text-rose-600 mx-auto flex items-center justify-center mb-5 shadow-inner">
-                  <Shield size={32} />
-                </div>
-                <h3 className="text-xl font-black text-slate-900 mb-2">Akses Terbatas</h3>
-                <p className="text-sm text-slate-600 mb-6 leading-relaxed">
-                  Akun <span className="font-bold text-slate-800">Tamu (Wali Murid)</span> tidak diizinkan membuka <span className="font-bold text-slate-800">Jurnal Pembelajaran</span>. Fitur ini khusus diperuntukkan bagi Bapak/Ibu Guru dan Tenaga Kependidikan SMPN 7 Pasuruan.
-                </p>
-                <button
-                  onClick={() => setActiveSection('menu_aplikasi')}
-                  className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all shadow-md shadow-slate-200 active:scale-95 text-sm uppercase tracking-wider"
-                >
-                  Kembali ke Menu Utama
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-              <JurnalPembelajaranApp 
-                onBack={() => setActiveSection('menu_aplikasi')} 
-                onOpenSidebar={() => setIsSidebarOpen(true)}
-                user={user}
-              />
-            </div>
-          )
+          <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
+            <JurnalPembelajaranApp 
+              onBack={() => setActiveSection('menu_aplikasi')} 
+              onOpenSidebar={() => setIsSidebarOpen(true)}
+              user={user}
+            />
+          </div>
         )}
         {activeSection === 'prestasi' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-hidden rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
@@ -737,7 +847,7 @@ export default function App() {
         )}
         {activeSection === 'kelulusan' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-y-auto rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-            {user?.role === 'full' ? (
+            {!isTamu && user?.role === 'full' ? (
               <KelulusanAdmin />
             ) : (
               <KelulusanApp onBack={() => setActiveSection('menu_aplikasi')} />
@@ -746,7 +856,7 @@ export default function App() {
         )}
         {activeSection === 'tracing_alumni' && (
           <div className="absolute inset-0 z-10 bg-slate-50 overflow-y-auto rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
-            {user?.role === 'full' ? (
+            {!isTamu && user?.role === 'full' ? (
               <AlumniTracingAdmin />
             ) : (
               <AlumniTracingApp onBack={() => setActiveSection('menu_aplikasi')} />
@@ -999,7 +1109,13 @@ export default function App() {
                   </button>
                 </div>
                 <Suspense fallback={<ModuleLoaderFallback />}>
-                  <SraPrimeAnalysis onNavigate={(appId) => setActiveSection(appId as any)} />
+                  <SraPrimeAnalysis onNavigate={(appId) => {
+                    if (isSectionLockedForTamu(appId)) {
+                      openLockedNotice(sidebarItems.find(s => s.id === appId)?.title || appId);
+                      return;
+                    }
+                    setActiveSection(appId as any);
+                  }} />
                 </Suspense>
               </div>
             </motion.div>
@@ -1019,7 +1135,17 @@ export default function App() {
                     <img src={LOGO_URL} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                   </div>
                   <h2 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight font-display">Menu Aplikasi</h2>
-                  <p className="text-sm font-medium text-slate-500">Silakan pilih aplikasi yang ingin Anda buka dari daftar di bawah ini.</p>
+                  <p className="text-sm font-medium text-slate-500">
+                    {isTamu
+                      ? 'Mode Tamu / Umum: Anda dapat membuka Tutorial, Hotline, Cek Kelulusan, Tracking Alumni, Buku Manual, Arsip Digital, Beranda/Dashboard aplikasi SIAP SPANJU, serta Form Wali Murid & Pengaduan.'
+                      : 'Silakan pilih aplikasi yang ingin Anda buka dari daftar di bawah ini.'}
+                  </p>
+                  {isTamu && (
+                    <div className="max-w-3xl mx-auto bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-center gap-2.5 text-amber-800 text-xs font-bold">
+                      <Lock size={16} className="shrink-0 text-amber-600" />
+                      <span>Form Jurnal Pembelajaran khusus untuk Guru & Operator. Untuk menu aplikasi SIAP SPANJU lainnya hanya terbuka Beranda/Dashboard, kecuali Form Wali Murid, Form Pengaduan, Tutorial, Hotline, Cek Kelulusan, Tracking Alumni, Buku Manual & Arsip Digital yang terbuka untuk Umum.</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Install PWA Banner */}
@@ -1031,7 +1157,11 @@ export default function App() {
                   <div className="relative z-10 flex-1 space-y-4 text-center md:text-left">
                     <span className="inline-block px-4 py-1.5 bg-purple-100 text-purple-600 rounded-full text-[10px] font-black uppercase tracking-widest mb-2">PENTING</span>
                     <h3 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600 tracking-tight">Survey Kepuasan Layanan</h3>
-                    <p className="text-slate-600 font-medium max-w-xl mx-auto md:mx-0 text-sm md:text-base">Suara Anda sangat berarti! Bantu kami meningkatkan kualitas layanan dengan mengisi survey singkat ini.</p>
+                    <p className="text-slate-600 font-medium max-w-xl mx-auto md:mx-0 text-sm md:text-base">
+                      {isTamu
+                        ? 'Lihat ringkasan hasil & dashboard kepuasan pengguna layanan SIAP SPANJU SMPN 7 Pasuruan.'
+                        : 'Suara Anda sangat berarti! Bantu kami meningkatkan kualitas layanan dengan mengisi survey singkat ini.'}
+                    </p>
                   </div>
                   <div className="relative z-10 shrink-0 flex flex-col items-center gap-6">
                     <div className="w-28 h-28 rounded-full bg-white shadow-lg flex items-center justify-center text-purple-500 border-[6px] border-purple-100 group-hover:scale-110 transition-transform duration-500">
@@ -1041,7 +1171,7 @@ export default function App() {
                       onClick={() => setActiveSection('survey')}
                       className="px-8 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl font-black shadow-lg shadow-purple-200 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-2 text-sm uppercase tracking-widest"
                     >
-                      Mulai Survey <ExternalLink size={16} />
+                      {isTamu ? 'Lihat Dashboard Survey' : 'Mulai Survey'} <ExternalLink size={16} />
                     </button>
                   </div>
                 </div>
@@ -1057,34 +1187,80 @@ export default function App() {
                       <Award size={isMobile ? 20 : 32} />
                     </div>
                     <h4 className="text-xs md:text-lg font-black text-slate-800 uppercase tracking-tight mb-1 md:mb-2 line-clamp-1">ANALISIS KEBERHASILAN</h4>
-                    <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-6 hidden sm:block">SIAP SPANJU · SRA × KARAKTER PRIME</p>
-                    <div className="px-3 md:px-6 py-1.5 md:py-2.5 bg-slate-50 text-slate-600 rounded-lg md:rounded-xl text-[8px] md:text-xs font-bold flex items-center gap-2 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors border border-slate-100">
-                      <ExternalLink size={isMobile ? 10 : 14} /> <span className="hidden sm:inline">Buka Aplikasi</span><span className="sm:hidden">BUKA</span>
+                    <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-6 hidden sm:block">
+                      {isTamu ? 'HANYA BERANDA / DASHBOARD' : 'SIAP SPANJU · SRA × KARAKTER PRIME'}
+                    </p>
+                    <div className={`px-3 md:px-6 py-1.5 md:py-2.5 rounded-lg md:rounded-xl text-[8px] md:text-xs font-bold flex items-center gap-2 transition-colors border ${
+                      isTamu
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 group-hover:bg-emerald-100'
+                        : 'bg-slate-50 text-slate-600 group-hover:bg-indigo-50 group-hover:text-indigo-600 border-slate-100'
+                    }`}>
+                      <ExternalLink size={isMobile ? 10 : 14} /> <span className="hidden sm:inline">{isTamu ? 'Buka Dashboard' : 'Buka Aplikasi'}</span><span className="sm:hidden">BUKA</span>
                     </div>
                   </button>
 
-                  {visibleSidebarItems.filter(item => !['kilas', 'program', 'spip', 'korelasi_program', 'korelasi_sra', 'analisis_keberhasilan', 'survey', 'menu_aplikasi'].includes(item.id)).map(app => (
-                    <button
-                      key={app.id}
-                      onClick={() => {
-                        if (app.id === 'jurnal_pembelajaran' && isTamu) {
-                          alert('Akses Ditolak: Akun Tamu (Wali Murid) tidak diizinkan membuka Jurnal Pembelajaran Guru.');
-                          return;
-                        }
-                        setActiveSection(app.id as any);
-                      }}
-                      className="bg-white p-4 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-md hover:shadow-xl hover:-translate-y-2 transition-all duration-300 flex flex-col items-center text-center group"
-                    >
-                      <div className={`w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-[1.5rem] bg-gradient-to-br ${app.color} flex items-center justify-center text-white shadow-lg mb-3 md:mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500`}>
-                        <app.icon size={isMobile ? 20 : 32} />
-                      </div>
-                      <h4 className="text-xs md:text-lg font-black text-slate-800 uppercase tracking-tight mb-1 md:mb-2 line-clamp-1">{app.title}</h4>
-                      <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-6 hidden sm:block">{app.subtitle}</p>
-                      <div className="px-3 md:px-6 py-1.5 md:py-2.5 bg-slate-50 text-slate-600 rounded-lg md:rounded-xl text-[8px] md:text-xs font-bold flex items-center gap-2 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors border border-slate-100">
-                        <ExternalLink size={isMobile ? 10 : 14} /> <span className="hidden sm:inline">Buka Aplikasi</span><span className="sm:hidden">BUKA</span>
-                      </div>
-                    </button>
-                  ))}
+                  {visibleSidebarItems.filter(item => !['kilas', 'program', 'spip', 'korelasi_program', 'korelasi_sra', 'analisis_keberhasilan', 'survey', 'menu_aplikasi'].includes(item.id)).map(app => {
+                    const locked = isSectionLockedForTamu(app.id);
+                    const isPublicApp = TAMU_PUBLIC_SECTIONS.has(app.id);
+                    const subtitleText = isTamu && app.id === 'izinsiswa'
+                      ? 'BERANDA & FORM WALI MURID'
+                      : isTamu && app.id === 'pengaduan'
+                        ? 'FORM PENGADUAN WALI MURID'
+                        : isTamu && !locked && !isPublicApp
+                          ? 'HANYA BERANDA / DASHBOARD'
+                          : app.subtitle;
+                    const buttonLabel = isTamu
+                      ? (isPublicApp ? 'Buka Aplikasi' : app.id === 'pengaduan' ? 'Buka Form' : app.id === 'izinsiswa' ? 'Beranda & Form' : 'Buka Dashboard')
+                      : 'Buka Aplikasi';
+                    const lockedGridLabel = app.id === 'jurnal_pembelajaran'
+                      ? 'Khusus Guru & Operator'
+                      : 'Terkunci (Operator)';
+                    return (
+                      <button
+                        key={app.id}
+                        onClick={() => {
+                          if (locked) {
+                            openLockedNotice(app.title);
+                            return;
+                          }
+                          setActiveSection(app.id as any);
+                        }}
+                        className={`p-4 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border shadow-md transition-all duration-300 flex flex-col items-center text-center group relative ${
+                          locked
+                            ? 'bg-slate-100/90 border-slate-200 opacity-80 cursor-not-allowed'
+                            : 'bg-white border-slate-100 hover:shadow-xl hover:-translate-y-2'
+                        }`}
+                      >
+                        <div className={`w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-[1.5rem] bg-gradient-to-br ${locked ? 'from-slate-400 to-slate-500' : `${app.color} group-hover:scale-110 group-hover:rotate-3`} flex items-center justify-center text-white shadow-lg mb-3 md:mb-6 transition-all duration-500 relative`}>
+                          <app.icon size={isMobile ? 20 : 32} />
+                          {locked && (
+                            <span className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center shadow border-2 border-white">
+                              <Lock size={12} />
+                            </span>
+                          )}
+                        </div>
+                        <h4 className={`text-xs md:text-lg font-black uppercase tracking-tight mb-1 md:mb-2 line-clamp-1 ${locked ? 'text-slate-500' : 'text-slate-800'}`}>{app.title}</h4>
+                        <p className="text-[8px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-6 hidden sm:block">{subtitleText}</p>
+                        <div className={`px-3 md:px-6 py-1.5 md:py-2.5 rounded-lg md:rounded-xl text-[8px] md:text-xs font-bold flex items-center gap-2 transition-colors border ${
+                          locked
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : isTamu && !isPublicApp
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 group-hover:bg-emerald-100'
+                              : 'bg-slate-50 text-slate-600 border-slate-100 group-hover:bg-blue-50 group-hover:text-blue-600'
+                        }`}>
+                          {locked ? (
+                            <>
+                              <Lock size={isMobile ? 10 : 14} /> <span className="hidden sm:inline">{lockedGridLabel}</span><span className="sm:hidden">TERKUNCI</span>
+                            </>
+                          ) : (
+                            <>
+                              <ExternalLink size={isMobile ? 10 : 14} /> <span className="hidden sm:inline">{buttonLabel}</span><span className="sm:hidden">BUKA</span>
+                            </>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                   
                   {EXTERNAL_APPS.map(app => {
                     const Icon = ICON_MAP[app.icon] || Globe;
@@ -1196,10 +1372,31 @@ export default function App() {
             </div>
           )}
         </AnimatePresence>
+        </>
+        )}
       </main>
 
+      {lockedMenuNotice && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 md:p-8 text-center border border-slate-200">
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-600 mx-auto flex items-center justify-center mb-4">
+              <Lock size={28} />
+            </div>
+            <h3 className="text-lg font-black text-slate-900 mb-2">Menu Terkunci</h3>
+            <p className="text-sm text-slate-600 leading-relaxed mb-6">{lockedMenuNotice}</p>
+            <button
+              type="button"
+              onClick={() => setLockedMenuNotice(null)}
+              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs uppercase tracking-widest transition-all"
+            >
+              Mengerti
+            </button>
+          </div>
+        </div>
+      )}
+
       <SupabaseConfigModal 
-        isOpen={isSupabaseModalOpen} 
+        isOpen={!isTamu && isSupabaseModalOpen} 
         onClose={() => setIsSupabaseModalOpen(false)} 
       />
 

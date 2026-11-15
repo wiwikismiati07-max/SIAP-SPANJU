@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import { 
   ClipboardList, LayoutDashboard, Send, User, MessageSquare, CheckCircle2, AlertCircle, ChevronLeft,
-  Star, Users, Activity, MoreVertical, Menu, X, Download, Trash2, Edit, Save, ListFilter, TrendingUp
+  Star, Users, Activity, MoreVertical, Menu, X, Download, Trash2, Edit, Save, ListFilter, TrendingUp, Lock
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -38,14 +38,32 @@ const QUESTIONS = [
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
+const checkIsTamuUser = (u: any) =>
+  (u?.username || '').toLowerCase().trim() === 'tamu' ||
+  (u?.role || '').toLowerCase().trim() === 'tamu' ||
+  u?.id === 'user_tamu_walimurid' ||
+  (u?.nama_lengkap || '').toLowerCase().includes('wali murid') ||
+  (u?.nama_lengkap || '').toLowerCase().includes('tamu');
+
 export default function SurveyApp({ onBack, onOpenSidebar, user }: SurveyAppProps) {
-  const [activeTab, setActiveTab] = useState<'form' | 'dashboard' | 'list'>('form');
+  const isTamu = checkIsTamuUser(user);
+  const [activeTab, setActiveTab] = useState<'form' | 'dashboard' | 'list'>(() => (checkIsTamuUser(user) ? 'dashboard' : 'form'));
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [lockNotice, setLockNotice] = useState<string | null>(null);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
-  const isAdmin = user?.role === 'full';
-  const isEditor = user?.role === 'entry';
+  const isAdmin = !isTamu && user?.role === 'full';
+  const isEditor = !isTamu && user?.role === 'entry';
   const canManage = isAdmin || isEditor;
+
+  const handleTabSelect = (tabId: 'form' | 'dashboard' | 'list', label: string) => {
+    if (isTamu && tabId !== 'dashboard') {
+      setLockNotice(`Menu "${label}" terkunci. Hanya Operator yang dapat membuka menu ini. Akun Tamu hanya dapat melihat Dashboard.`);
+      return;
+    }
+    setLockNotice(null);
+    setActiveTab(tabId);
+  };
   
   // Form State
   const [namaLengkap, setNamaLengkap] = useState('');
@@ -69,10 +87,14 @@ export default function SurveyApp({ onBack, onOpenSidebar, user }: SurveyAppProp
   const [responseToDeleteId, setResponseToDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isTamu && activeTab !== 'dashboard') {
+      setActiveTab('dashboard');
+      return;
+    }
     if (activeTab === 'dashboard' || activeTab === 'list') {
       fetchResponses();
     }
-  }, [activeTab]);
+  }, [activeTab, isTamu]);
 
   const fetchResponses = async () => {
     setIsLoading(true);
@@ -437,19 +459,22 @@ export default function SurveyApp({ onBack, onOpenSidebar, user }: SurveyAppProp
             </div>
 
             {/* Desktop Menu */}
-            <div className="hidden md:flex bg-slate-100 p-1 rounded-xl">
+            <div className="hidden md:flex bg-slate-100 p-1 rounded-xl gap-1">
               <button
-                onClick={() => setActiveTab('form')}
-                className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
-                  activeTab === 'form' 
-                    ? 'bg-white text-slate-800 shadow-sm' 
-                    : 'text-slate-500 hover:text-slate-700'
+                onClick={() => handleTabSelect('form', 'Isi Survey')}
+                className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                  isTamu
+                    ? 'text-slate-400 bg-slate-200/70 cursor-not-allowed'
+                    : activeTab === 'form' 
+                      ? 'bg-white text-slate-800 shadow-sm' 
+                      : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                Isi Survey
+                <span>Isi Survey</span>
+                {isTamu && <Lock size={12} className="text-amber-500" />}
               </button>
               <button
-                onClick={() => setActiveTab('dashboard')}
+                onClick={() => handleTabSelect('dashboard', 'Dashboard')}
                 className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
                   activeTab === 'dashboard' 
                     ? 'bg-white text-slate-800 shadow-sm' 
@@ -461,7 +486,7 @@ export default function SurveyApp({ onBack, onOpenSidebar, user }: SurveyAppProp
               </button>
               {canManage && (
                 <button
-                  onClick={() => setActiveTab('list')}
+                  onClick={() => handleTabSelect('list', 'Hasil Detail')}
                   className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
                     activeTab === 'list' 
                       ? 'bg-white text-slate-800 shadow-sm' 
@@ -525,16 +550,21 @@ export default function SurveyApp({ onBack, onOpenSidebar, user }: SurveyAppProp
 
             <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
               <button
-                onClick={() => { setActiveTab('form'); setIsMobileMenuOpen(false); }}
-                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
-                  activeTab === 'form' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-500 hover:bg-slate-50'
+                onClick={() => { handleTabSelect('form', 'Isi Survey'); setIsMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
+                  isTamu
+                    ? 'bg-slate-100/80 text-slate-400 cursor-not-allowed'
+                    : activeTab === 'form' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-500 hover:bg-slate-50'
                 }`}
               >
-                <Send size={20} />
-                <span>Isi Survey</span>
+                <div className="flex items-center space-x-4">
+                  <Send size={20} />
+                  <span>Isi Survey</span>
+                </div>
+                {isTamu && <Lock size={14} className="text-amber-500 shrink-0" />}
               </button>
               <button
-                onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }}
+                onClick={() => { handleTabSelect('dashboard', 'Dashboard'); setIsMobileMenuOpen(false); }}
                 className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
                   activeTab === 'dashboard' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-500 hover:bg-slate-50'
                 }`}
@@ -544,7 +574,7 @@ export default function SurveyApp({ onBack, onOpenSidebar, user }: SurveyAppProp
               </button>
               {canManage && (
                 <button
-                  onClick={() => { setActiveTab('list'); setIsMobileMenuOpen(false); }}
+                  onClick={() => { handleTabSelect('list', 'Hasil Detail'); setIsMobileMenuOpen(false); }}
                   className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
                     activeTab === 'list' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'text-slate-500 hover:bg-slate-50'
                   }`}
@@ -560,10 +590,25 @@ export default function SurveyApp({ onBack, onOpenSidebar, user }: SurveyAppProp
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
-        <div className={`${activeTab === 'form' ? 'max-w-5xl' : 'max-w-6xl'} mx-auto`}>
+        <div className={`${activeTab === 'form' && !isTamu ? 'max-w-5xl' : 'max-w-6xl'} mx-auto`}>
+          {lockNotice && (
+            <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <Lock size={16} className="text-amber-600 shrink-0" />
+                <span>{lockNotice}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLockNotice(null)}
+                className="p-1 hover:bg-amber-100 rounded-lg text-amber-700"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
           
           <AnimatePresence mode="wait">
-            {activeTab === 'form' && (
+            {!isTamu && activeTab === 'form' && (
               <motion.div
                 key="form"
                 initial={{ opacity: 0, y: 20 }}
@@ -915,7 +960,7 @@ export default function SurveyApp({ onBack, onOpenSidebar, user }: SurveyAppProp
               </motion.div>
             )}
 
-            {activeTab === 'list' && (
+            {!isTamu && activeTab === 'list' && (
               <motion.div
                 key="list"
                 initial={{ opacity: 0, y: 20 }}

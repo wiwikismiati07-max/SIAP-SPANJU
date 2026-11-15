@@ -25,7 +25,8 @@ import {
   ClipboardList,
   MoreVertical,
   Menu,
-  X
+  X,
+  Lock
 } from 'lucide-react';
 import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
 import { format } from 'date-fns';
@@ -41,9 +42,15 @@ interface PengaduanWaliAppProps {
 }
 
 const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ onBack, onOpenSidebar, user }) => {
-  const isAdmin = user?.role === 'full';
-  const isEditor = user?.role === 'entry';
-  const isViewer = user?.role === 'view';
+  const isTamu =
+    (user?.username || '').toLowerCase().trim() === 'tamu' ||
+    (user?.role || '').toLowerCase().trim() === 'tamu' ||
+    user?.id === 'user_tamu_walimurid' ||
+    (user?.nama_lengkap || '').toLowerCase().includes('wali murid') ||
+    (user?.nama_lengkap || '').toLowerCase().includes('tamu');
+  const isAdmin = !isTamu && user?.role === 'full';
+  const isEditor = !isTamu && user?.role === 'entry';
+  const isViewer = !isTamu && user?.role === 'view';
   const [view, setView] = useState<'form' | 'list' | 'pivot'>('form');
   const [siswa, setSiswa] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -81,11 +88,15 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
   const jenisOptions = ['Bullying/Perundungan', 'Disiplin', 'Akademik', 'Sosial/Pergaulan', 'Pelanggaran Tatatertib', 'Masalah dengan Guru', 'Lainnya'];
 
   useEffect(() => {
+    if (isTamu && view !== 'form') {
+      setView('form');
+      return;
+    }
     fetchSiswa();
-    if (view === 'list' || view === 'pivot') {
+    if (!isTamu && (view === 'list' || view === 'pivot')) {
       fetchPengaduan();
     }
-  }, [view]);
+  }, [view, isTamu]);
 
   const fetchSiswa = async () => {
     // 1. Instantly populate from local cache if available
@@ -530,29 +541,47 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
               <button
                 onClick={() => setView('form')}
                 className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                  view === 'form' ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  view === 'form' || isTamu ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                 }`}
               >
                 Form Laporan
               </button>
-              {(isAdmin || isEditor || isViewer) && (
+              {(isAdmin || isEditor || isViewer || isTamu) && (
                 <button
-                  onClick={() => setView('pivot')}
-                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                    view === 'pivot' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  onClick={() => {
+                    if (isTamu) {
+                      setMessage({ type: 'error', text: 'Menu terkunci: Hanya Operator yang dapat membuka Pivot View.' });
+                      return;
+                    }
+                    setView('pivot');
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${
+                    isTamu
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      : view === 'pivot' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                   }`}
                 >
-                  Pivot View
+                  {isTamu && <Lock size={13} className="text-amber-500" />}
+                  <span>Pivot View</span>
                 </button>
               )}
-              {(isAdmin || isEditor || isViewer) && (
+              {(isAdmin || isEditor || isViewer || isTamu) && (
                 <button
-                  onClick={() => setView('list')}
-                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                    view === 'list' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  onClick={() => {
+                    if (isTamu) {
+                      setMessage({ type: 'error', text: 'Menu terkunci: Hanya Operator yang dapat membuka List Pengaduan.' });
+                      return;
+                    }
+                    setView('list');
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${
+                    isTamu
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      : view === 'list' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                   }`}
                 >
-                  List Pengaduan {isViewer ? '' : '(Admin)'}
+                  {isTamu && <Lock size={13} className="text-amber-500" />}
+                  <span>List Pengaduan {isViewer || isTamu ? '' : '(Admin)'}</span>
                 </button>
               )}
             </div>
@@ -610,32 +639,58 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
               <button
                 onClick={() => { setView('form'); setIsMobileMenuOpen(false); }}
                 className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
-                  view === 'form' ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'text-slate-500 hover:bg-slate-50'
+                  view === 'form' || isTamu ? 'bg-pink-600 text-white shadow-lg shadow-pink-200' : 'text-slate-500 hover:bg-slate-50'
                 }`}
               >
                 <Plus size={20} />
                 <span>Form Laporan</span>
               </button>
-              {(isAdmin || isEditor || isViewer) && (
+              {(isAdmin || isEditor || isViewer || isTamu) && (
                 <button
-                  onClick={() => { setView('pivot'); setIsMobileMenuOpen(false); }}
-                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
-                    view === 'pivot' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : 'text-slate-500 hover:bg-slate-50'
+                  onClick={() => {
+                    if (isTamu) {
+                      setMessage({ type: 'error', text: 'Menu terkunci: Hanya Operator yang dapat membuka Pivot Laporan.' });
+                      setIsMobileMenuOpen(false);
+                      return;
+                    }
+                    setView('pivot');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
+                    isTamu
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      : view === 'pivot' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : 'text-slate-500 hover:bg-slate-50'
                   }`}
                 >
-                  <LayoutTemplate size={20} />
-                  <span>Pivot Laporan</span>
+                  <div className="flex items-center space-x-4">
+                    <LayoutTemplate size={20} />
+                    <span>Pivot Laporan</span>
+                  </div>
+                  {isTamu && <Lock size={15} className="text-amber-500 shrink-0" />}
                 </button>
               )}
-              {(isAdmin || isEditor || isViewer) && (
+              {(isAdmin || isEditor || isViewer || isTamu) && (
                 <button
-                  onClick={() => { setView('list'); setIsMobileMenuOpen(false); }}
-                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
-                    view === 'list' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-500 hover:bg-slate-50'
+                  onClick={() => {
+                    if (isTamu) {
+                      setMessage({ type: 'error', text: 'Menu terkunci: Hanya Operator yang dapat membuka List Pengaduan.' });
+                      setIsMobileMenuOpen(false);
+                      return;
+                    }
+                    setView('list');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
+                    isTamu
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      : view === 'list' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-500 hover:bg-slate-50'
                   }`}
                 >
-                  <ClipboardList size={20} />
-                  <span>List Pengaduan</span>
+                  <div className="flex items-center space-x-4">
+                    <ClipboardList size={20} />
+                    <span>List Pengaduan</span>
+                  </div>
+                  {isTamu && <Lock size={15} className="text-amber-500 shrink-0" />}
                 </button>
               )}
             </nav>
@@ -645,7 +700,7 @@ const PengaduanWaliApp: React.FC<PengaduanWaliAppProps & { user?: any }> = ({ on
 
       <div className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar">
         <div className="max-w-5xl mx-auto">
-          {view === 'form' ? (
+          {isTamu || view === 'form' ? (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100">
                 <div className="flex items-center gap-4 mb-10">

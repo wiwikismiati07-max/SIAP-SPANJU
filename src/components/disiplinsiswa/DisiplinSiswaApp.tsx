@@ -1,20 +1,44 @@
-import React, { useState } from 'react';
-import { LayoutDashboard, Users, FileText, Database, Menu, X, ClipboardList, PlusCircle, MoreVertical } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LayoutDashboard, Users, FileText, Database, Menu, X, ClipboardList, PlusCircle, MoreVertical, Lock } from 'lucide-react';
 import DisiplinDashboard from './DisiplinDashboard';
 import DisiplinMaster from './DisiplinMaster';
 import DisiplinTransaksi from './DisiplinTransaksi';
 import DisiplinLaporan from './DisiplinLaporan';
 import { SupabaseConfigModal } from '../common/SupabaseConfigModal';
 
+const checkIsTamuUser = (u: any) =>
+  (u?.username || '').toLowerCase().trim() === 'tamu' ||
+  (u?.role || '').toLowerCase().trim() === 'tamu' ||
+  u?.id === 'user_tamu_walimurid' ||
+  (u?.nama_lengkap || '').toLowerCase().includes('wali murid') ||
+  (u?.nama_lengkap || '').toLowerCase().includes('tamu');
+
 export default function DisiplinSiswaApp({ onBack, onOpenSidebar, user }: { onBack?: () => void, onOpenSidebar?: () => void, user?: any }) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'master' | 'transaksi' | 'laporan'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDbModalOpen, setIsDbModalOpen] = useState(false);
+  const [lockNotice, setLockNotice] = useState<string | null>(null);
   const LOGO_URL = "https://iili.io/KDFk4fI.png";
 
-  const isAdmin = user?.role === 'full';
-  const canEdit = user?.role === 'entry' || user?.role === 'full';
-  const isViewer = user?.role === 'view';
+  const isTamu = checkIsTamuUser(user);
+  const isAdmin = !isTamu && user?.role === 'full';
+  const canEdit = !isTamu && (user?.role === 'entry' || user?.role === 'full');
+  const isViewer = !isTamu && user?.role === 'view';
+
+  useEffect(() => {
+    if (isTamu && activeTab !== 'dashboard') {
+      setActiveTab('dashboard');
+    }
+  }, [isTamu, activeTab]);
+
+  const handleTabSelect = (tabId: string, label: string) => {
+    if (isTamu && tabId !== 'dashboard') {
+      setLockNotice(`Menu "${label}" terkunci. Hanya Operator yang dapat membuka menu ini. Akun Tamu hanya dapat melihat Beranda/Dashboard.`);
+      return;
+    }
+    setLockNotice(null);
+    setActiveTab(tabId as any);
+  };
 
   const menuItems = [
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
@@ -62,30 +86,38 @@ export default function DisiplinSiswaApp({ onBack, onOpenSidebar, user }: { onBa
 
             {/* Desktop Menu */}
             <nav className="hidden md:flex items-center space-x-1">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as any)}
-                  className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 font-semibold text-sm ${
-                    activeTab === item.id 
-                      ? 'bg-blue-600 text-white shadow-md' 
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <item.icon size={18} />
-                  <span>{item.label}</span>
-                </button>
-              ))}
+              {menuItems.map((item) => {
+                const locked = isTamu && item.id !== 'dashboard';
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleTabSelect(item.id, item.label)}
+                    className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl transition-all duration-300 font-semibold text-sm ${
+                      locked
+                        ? 'text-slate-400 bg-slate-100/80 cursor-not-allowed'
+                        : activeTab === item.id 
+                          ? 'bg-blue-600 text-white shadow-md' 
+                          : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <item.icon size={18} />
+                    <span>{item.label}</span>
+                    {locked && <Lock size={13} className="text-amber-500" />}
+                  </button>
+                );
+              })}
             </nav>
 
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsDbModalOpen(true)}
-                className="p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition-colors"
-                title="Koneksi Database Supabase"
-              >
-                <Database size={20} />
-              </button>
+              {!isTamu && (
+                <button
+                  onClick={() => setIsDbModalOpen(true)}
+                  className="p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition-colors"
+                  title="Koneksi Database Supabase"
+                >
+                  <Database size={20} />
+                </button>
+              )}
 
               {/* Hamburger Menu for Sidebar */}
               <button 
@@ -135,23 +167,31 @@ export default function DisiplinSiswaApp({ onBack, onOpenSidebar, user }: { onBa
             </div>
 
             <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id as any);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-2xl transition-all font-semibold ${
-                    activeTab === item.id 
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
-                      : 'text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <item.icon size={20} />
-                  <span>{item.label}</span>
-                </button>
-              ))}
+              {menuItems.map((item) => {
+                const locked = isTamu && item.id !== 'dashboard';
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      handleTabSelect(item.id, item.label);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all font-semibold ${
+                      locked
+                        ? 'bg-slate-100/80 text-slate-400 cursor-not-allowed'
+                        : activeTab === item.id 
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+                          : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-4">
+                      <item.icon size={20} />
+                      <span>{item.label}</span>
+                    </div>
+                    {locked && <Lock size={15} className="text-amber-500 shrink-0" />}
+                  </button>
+                );
+              })}
             </nav>
           </div>
         </div>
@@ -160,15 +200,36 @@ export default function DisiplinSiswaApp({ onBack, onOpenSidebar, user }: { onBa
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-7xl mx-auto pb-12">
-          {activeTab === 'dashboard' && <DisiplinDashboard />}
-          {activeTab === 'transaksi' && <DisiplinTransaksi user={user} />}
-          {activeTab === 'laporan' && <DisiplinLaporan user={user} />}
-          {activeTab === 'master' && <DisiplinMaster />}
+          {lockNotice && (
+            <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <Lock size={16} className="text-amber-600 shrink-0" />
+                <span>{lockNotice}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLockNotice(null)}
+                className="p-1 hover:bg-amber-100 rounded-lg text-amber-700"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+          {isTamu ? (
+            <DisiplinDashboard />
+          ) : (
+            <>
+              {activeTab === 'dashboard' && <DisiplinDashboard />}
+              {activeTab === 'transaksi' && <DisiplinTransaksi user={user} />}
+              {activeTab === 'laporan' && <DisiplinLaporan user={user} />}
+              {activeTab === 'master' && <DisiplinMaster />}
+            </>
+          )}
         </div>
       </div>
 
       <SupabaseConfigModal 
-        isOpen={isDbModalOpen} 
+        isOpen={!isTamu && isDbModalOpen} 
         onClose={() => setIsDbModalOpen(false)} 
       />
     </div>
