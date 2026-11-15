@@ -111,6 +111,15 @@ const TUTORIAL_VIDEOS: TutorialVideo[] = [
     url: 'https://youtube.com/shorts/YwtdCSp7Drk?si=CEkeCirD0uMyOWDM',
     platform: 'youtube',
     color: 'from-red-600 to-pink-600'
+  },
+  {
+    id: '12',
+    title: 'Video Tutorial Aplikasi SIAP SPANJU',
+    category: 'SIAP SPANJU',
+    description: 'Panduan video penggunaan aplikasi SIAP SPANJU SMP Negeri 7 Pasuruan.',
+    url: 'https://youtu.be/_1oiGogh60Y',
+    platform: 'youtube',
+    color: 'from-red-600 to-orange-600'
   }
 ];
 
@@ -297,7 +306,7 @@ export default function TutorialSection({ onBack }: TutorialSectionProps) {
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              <Youtube size={14} /> YouTube Shorts ({TUTORIAL_VIDEOS.filter(v => v.platform === 'youtube').length})
+              <Youtube size={14} /> YouTube ({TUTORIAL_VIDEOS.filter(v => v.platform === 'youtube').length})
             </button>
           </div>
         </div>
@@ -321,7 +330,7 @@ export default function TutorialSection({ onBack }: TutorialSectionProps) {
                     </span>
                     <span className="px-2.5 py-0.5 bg-black/20 backdrop-blur-md rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
                       {video.platform === 'instagram' ? <Instagram size={12} /> : <Youtube size={12} />}
-                      {video.platform === 'instagram' ? 'Reel' : 'Short'}
+                      {video.platform === 'instagram' ? 'Reel' : video.url.includes('/shorts/') ? 'Short' : 'YouTube'}
                     </span>
                   </div>
                   <h3 className="text-base md:text-lg font-black tracking-tight leading-snug line-clamp-2">
