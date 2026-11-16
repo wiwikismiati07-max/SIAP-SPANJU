@@ -66,13 +66,18 @@ export interface KonselingIndividualBK {
   jam: string;
   bidang: 'Pribadi' | 'Sosial' | 'Belajar' | 'Karir';
   permasalahan_siswa?: string;
+  media_diperlukan?: string;
   gejala_masalah: string;
   pendekatan?: string;
   teknik_konseling?: string;
+  fokus_konseling?: string;
+  kasus_efektif?: string;
   pendekatan_teknik: string;
   proses_konseling: string;
-  rencana_tindak_lanjut: string;
+  rencana_tindak_lanjut?: string;
+  keterangan?: string;
   guru_bk: string;
+  guru_bk_nip?: string;
   status: 'Proses' | 'Selesai';
   foto_url?: string;
   created_at?: string;
@@ -81,16 +86,23 @@ export interface KonselingIndividualBK {
 export interface KonselingKelompokBK {
   id: string;
   topik: string;
-  anggota_siswa: string; // Comma separated or string list
+  anggota_siswa: string; // Multi-line numbered list or string list
   kelas: string;
   tanggal: string;
   jam: string;
-  tempat: string;
-  tujuan: string;
+  tempat?: string;
+  tujuan?: string;
+  media_diperlukan?: string;
   dinamika_kelompok: string;
+  pendekatan?: string;
+  teknik_konseling?: string;
+  fokus_utama?: string;
+  kasus_efektif?: string;
   kesepakatan: string;
-  evaluasi: string;
+  evaluasi?: string;
+  keterangan?: string;
   guru_bk: string;
+  guru_bk_nip?: string;
   foto_url?: string;
   created_at?: string;
 }
@@ -256,11 +268,19 @@ const INITIAL_INDIVIDUAL: KonselingIndividualBK[] = [
     tanggal: '2026-11-10',
     jam: '09:15 WIB',
     bidang: 'Belajar',
+    permasalahan_siswa: 'Siswa merasa cemas dan kurang percaya diri menghadapi ujian',
+    media_diperlukan: 'Buku catatan konseling & jadwal belajar siswa',
     gejala_masalah: 'Konseli merasa cemas dan kurang percaya diri menghadapi ujian kelulusan.',
+    pendekatan: 'Cognitive Behavioral Therapy',
+    teknik_konseling: 'Restrukturisasi Kognitif, Relaksasi, Afirmasi Positif',
+    fokus_konseling: 'Mengubah pola pikir negatif menjadi keyakinan diri yang realistis.',
+    kasus_efektif: 'Kecemasan akademik, kurang percaya diri, ketakutan gagal ujian.',
     pendekatan_teknik: 'Cognitive Behavioral Therapy (Restrukturisasi Kognitif)',
     proses_konseling: 'Membimbing konseli mengidentifikasi pikiran negatif irasional dan menggantinya dengan afirmasi positif.',
     rencana_tindak_lanjut: 'Latihan manajemen stres belajar dan evaluasi berkala minggu depan.',
-    guru_bk: 'Wiwik Ismiati, S.Pd',
+    keterangan: 'Rencana Pelaksanaan Konseling Individu',
+    guru_bk: 'WIWIK ISMIATI, S.Pd',
+    guru_bk_nip: '19831116 200904 2 003',
     status: 'Proses',
     created_at: '2026-11-10T09:15:00.000Z'
   }
@@ -270,16 +290,23 @@ const INITIAL_KELOMPOK: KonselingKelompokBK[] = [
   {
     id: 'kk-1',
     topik: 'Manajemen Emosi dan Resolusi Konflik Sebaya',
-    anggota_siswa: 'Rian (8A), Fajar (8A), Dimas (8A), Reza (8A)',
+    anggota_siswa: '1. RIAN PRATAMA\n2. FAJAR NUGROHO\n3. DIMAS SAPUTRA\n4. REZA KURNIAWAN',
     kelas: '8A',
     tanggal: '2026-11-07',
     jam: '10:30 WIB',
     tempat: 'Ruang Konseling Kelompok BK',
     tujuan: 'Membangun komunikasi asertif dan saling memaafkan antar teman sekelas.',
-    dinamika_kelompok: 'Anggota kelompok terbuka mengutarakan uneg-uneg dan sepakat berdamai tanpa dendam.',
-    kesepakatan: 'Menjaga kerukunan kelas dan saling mendukung dalam belajar kelompok.',
+    media_diperlukan: '-',
+    dinamika_kelompok: 'Anggota kelompok terbuka mengutarakan uneg-uneg terkait kesalahpahaman komunikasi dan berdiskusi mencari jalan damai.',
+    pendekatan: 'Reality Therapy (Kelompok WDEP)',
+    teknik_konseling: 'Group WDEP (Wants, Direction, Evaluation, Plan), Kontrak Perilaku Kelompok',
+    fokus_utama: 'Mendorong setiap anggota kelompok untuk mengevaluasi tindakan mereka dan berkomitmen pada perubahan nyata.',
+    kasus_efektif: 'Kenakalan remaja, masalah kepatuhan tata tertib sekolah, rendahnya motivasi belajar kelompok.',
+    kesepakatan: 'Setelah diadakan konseling kelompok, anggota kelompok berkomitmen menjaga kerukunan kelas, saling memaafkan, dan saling mendukung dalam belajar.',
     evaluasi: 'Hubungan pertemanan kembali harmonis.',
-    guru_bk: 'Wiwik Ismiati, S.Pd',
+    keterangan: 'Rencana Pelaksanaan Konseling Kelompok',
+    guru_bk: 'WIWIK ISMIATI, S.Pd',
+    guru_bk_nip: '19831116 200904 2 003',
     created_at: '2026-11-07T10:30:00.000Z'
   }
 ];
@@ -432,12 +459,21 @@ CREATE TABLE IF NOT EXISTS public.bk_konseling_individual (
     tanggal DATE NOT NULL,
     jam TEXT NOT NULL,
     bidang TEXT NOT NULL DEFAULT 'Pribadi',
+    permasalahan_siswa TEXT,
+    media_diperlukan TEXT,
     gejala_masalah TEXT NOT NULL,
+    pendekatan TEXT,
+    teknik_konseling TEXT,
+    fokus_konseling TEXT,
+    kasus_efektif TEXT,
     pendekatan_teknik TEXT NOT NULL,
     proses_konseling TEXT NOT NULL,
-    rencana_tindak_lanjut TEXT NOT NULL,
-    guru_bk TEXT DEFAULT 'Wiwik Ismiati, S.Pd',
+    rencana_tindak_lanjut TEXT DEFAULT '',
+    keterangan TEXT DEFAULT 'Rencana Pelaksanaan Konseling Individu',
+    guru_bk TEXT DEFAULT 'WIWIK ISMIATI, S.Pd',
+    guru_bk_nip TEXT DEFAULT '19831116 200904 2 003',
     status TEXT DEFAULT 'Proses',
+    foto_url TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -450,11 +486,19 @@ CREATE TABLE IF NOT EXISTS public.bk_konseling_kelompok (
     tanggal DATE NOT NULL,
     jam TEXT NOT NULL,
     tempat TEXT DEFAULT 'Ruang Konseling Kelompok BK',
-    tujuan TEXT NOT NULL,
+    tujuan TEXT,
+    media_diperlukan TEXT DEFAULT '-',
     dinamika_kelompok TEXT,
+    pendekatan TEXT,
+    teknik_konseling TEXT,
+    fokus_utama TEXT,
+    kasus_efektif TEXT,
     kesepakatan TEXT NOT NULL,
     evaluasi TEXT,
-    guru_bk TEXT DEFAULT 'Wiwik Ismiati, S.Pd',
+    keterangan TEXT DEFAULT 'Rencana Pelaksanaan Konseling Kelompok',
+    guru_bk TEXT DEFAULT 'WIWIK ISMIATI, S.Pd',
+    guru_bk_nip TEXT DEFAULT '19831116 200904 2 003',
+    foto_url TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -796,7 +840,22 @@ const upsertSqlRecord = async <T extends Record<string, any>>(tableName: string,
 
       // If error is code 42703 or PGRST204 and mentions unknown column
       if (error.code === '42703' || error.code === 'PGRST204') {
-        const possibleExtraCols = ['foto_url', 'permasalahan_siswa', 'pendekatan', 'teknik_konseling', 'pendekatan_teknik', 'bukti_fisik', 'foto_kegiatan', 'anggota_siswa'];
+        const possibleExtraCols = [
+          'foto_url',
+          'permasalahan_siswa',
+          'media_diperlukan',
+          'pendekatan',
+          'teknik_konseling',
+          'fokus_konseling',
+          'fokus_utama',
+          'kasus_efektif',
+          'pendekatan_teknik',
+          'keterangan',
+          'guru_bk_nip',
+          'bukti_fisik',
+          'foto_kegiatan',
+          'anggota_siswa',
+        ];
         let stripped = false;
         for (const col of possibleExtraCols) {
           if (col in payload && msg.toLowerCase().includes(col.toLowerCase())) {

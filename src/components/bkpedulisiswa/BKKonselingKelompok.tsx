@@ -1,14 +1,158 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Users, Save, Trash2, Edit2, Search, Printer, CheckCircle2, RotateCcw, Check, CheckSquare, X, Image as ImageIcon, Upload, Eye } from 'lucide-react';
+import {
+  Users,
+  Save,
+  Trash2,
+  Edit2,
+  Search,
+  Printer,
+  CheckCircle2,
+  RotateCcw,
+  Check,
+  CheckSquare,
+  X,
+  Image as ImageIcon,
+  Upload,
+  Eye,
+  ChevronDown,
+  AlertCircle,
+  Compass,
+  Wrench,
+} from 'lucide-react';
 import { sabdaService, KonselingKelompokBK, GURU_BK_OPTIONS, getDefaultGuruBK } from '../../lib/sabdaBkService';
 import { supabase, fetchAllSiswa, normalizeKelasKey } from '../../lib/supabase';
-import BKKopSurat, { printBKReport } from './BKKopSurat';
+import { printBKReport } from './BKKopSurat';
 
 const CLASSES = [
   '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
   '8A', '8B', '8C', '8D', '8E', '8F', '8G', '8H',
-  '9A', '9B', '9C', '9D', '9E', '9F', '9G', '9H'
+  '9A', '9B', '9C', '9D', '9E', '9F', '9G', '9H',
 ];
+
+const TOPIK_PERMASALAHAN_OPTIONS = [
+  'Salah paham atau miss komunikasi antar teman',
+  'Konflik atau perselisihan antar teman sekelas',
+  'Kurangnya kepatuhan terhadap tata tertib sekolah',
+  'Rendahnya motivasi belajar kelompok',
+  'Perundungan / ejekan verbal antar teman',
+  'Manajemen emosi dan komunikasi asertif kelompok',
+] as const;
+
+interface PendekatanKelompokPreset {
+  pendekatan: string;
+  teknik_utama: string;
+  fokus_utama: string;
+  kasus_efektif: string;
+}
+
+const PENDEKATAN_KELOMPOK_PRESETS: readonly PendekatanKelompokPreset[] = [
+  {
+    pendekatan: 'Reality Therapy (Kelompok WDEP)',
+    teknik_utama: 'Group WDEP (Wants, Direction, Evaluation, Plan), Kontrak Perilaku Kelompok',
+    fokus_utama: 'Mendorong setiap anggota kelompok untuk mengevaluasi tindakan mereka dan berkomitmen pada perubahan nyata.',
+    kasus_efektif: 'Kenakalan remaja, masalah kepatuhan tata tertib sekolah, rendahnya motivasi belajar kelompok.',
+  },
+  {
+    pendekatan: 'Person-Centered (Kelompok Empati)',
+    teknik_utama: 'Active Listening, Refleksi Perasaan Kelompok, Penguatan Empati Sebaya',
+    fokus_utama: 'Membangun suasana kelompok yang saling menerima, terbuka, dan aman untuk mengekspresikan perasaan.',
+    kasus_efektif: 'Salah paham antar teman, masalah penyesuaian diri, kurang percaya diri dalam kelompok.',
+  },
+  {
+    pendekatan: 'Behavioristik (Kelompok Kontrak Perilaku)',
+    teknik_utama: 'Kontrak Perilaku Kelompok, Reinforcement Sosial, Peer Modeling',
+    fokus_utama: 'Membentuk kebiasaan perilaku positif bersama melalui kesepakatan aturan dan pemantauan kelompok.',
+    kasus_efektif: 'Keterlambatan bersama, pelanggaran tata tertib, kebiasaan menunda tugas.',
+  },
+  {
+    pendekatan: 'Cognitive Behavioral Group Therapy (CBGT)',
+    teknik_utama: 'Restrukturisasi Kognitif Kelompok, Latihan Asertif, Problem Solving',
+    fokus_utama: 'Mengubah cara pandang negatif antar anggota menjadi pola pikir kolaboratif dan solusi konstruktif.',
+    kasus_efektif: 'Konflik sebaya berulang, kecemasan ujian kelompok, prasangka antar siswa.',
+  },
+  {
+    pendekatan: 'Solution-Focused Brief Group Therapy (SFBGT)',
+    teknik_utama: 'Miracle Question, Scaling Question, Eksplorasi Kekuatan Kelompok',
+    fokus_utama: 'Memfokuskan diskusi kelompok pada langkah solusi praktis yang dapat segera diterapkan bersama.',
+    kasus_efektif: 'Penurunan semangat belajar, kebingungan kerja sama tim, konflik komunikasi ringan.',
+  },
+];
+
+const TEKNIK_KELOMPOK_OPTIONS = [
+  'Group WDEP (Wants, Direction, Evaluation, Plan), Kontrak Perilaku Kelompok',
+  'Active Listening, Refleksi Perasaan Kelompok, Penguatan Empati',
+  'Restrukturisasi Kognitif Kelompok, Latihan Asertif, Problem Solving',
+  'Kontrak Perilaku Kelompok, Peer Modeling, Reinforcement Sosial',
+  'Miracle Question, Scaling Question, Kesepakatan Tindakan Nyata',
+] as const;
+
+const MEDIA_QUICK_OPTIONS = [
+  '-',
+  'daftar presensi kelas',
+  'kartu komitmen kelompok',
+  'buku catatan konseling BK',
+] as const;
+
+const GURU_BK_NIP_MAP: Record<string, string> = {
+  'WIWIK ISMIATI, S.Pd': '19831116 200904 2 003',
+  'Wiwik Ismiati, S.Pd': '19831116 200904 2 003',
+  'EKI FEBRIANI, S.Pd': '19940214 202221 2 014',
+  'Eki Febriani, S.Pd': '19940214 202221 2 014',
+};
+
+const getGuruBkNip = (nama?: string): string => {
+  if (!nama) return '19831116 200904 2 003';
+  const trimmed = nama.trim();
+  if (GURU_BK_NIP_MAP[trimmed]) return GURU_BK_NIP_MAP[trimmed];
+  const upper = trimmed.toUpperCase();
+  if (upper.includes('EKI')) return '19940214 202221 2 014';
+  if (upper.includes('WIWIK')) return '19831116 200904 2 003';
+  return '-';
+};
+
+const HARI_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+const BULAN_ID = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+];
+
+const parseLocalDate = (dateStr?: string): Date | null => {
+  if (!dateStr) return null;
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) return null;
+  const [y, m, d] = parts;
+  return new Date(y, m - 1, d);
+};
+
+const formatTanggalIndo = (dateStr?: string): string => {
+  const dt = parseLocalDate(dateStr);
+  if (!dt) return dateStr || '-';
+  return `${dt.getDate()} ${BULAN_ID[dt.getMonth()]} ${dt.getFullYear()}`;
+};
+
+const formatHariTanggalIndo = (dateStr?: string): string => {
+  const dt = parseLocalDate(dateStr);
+  if (!dt) return dateStr || '-';
+  return `${HARI_ID[dt.getDay()]}, ${dt.getDate()} ${BULAN_ID[dt.getMonth()]} ${dt.getFullYear()}`;
+};
+
+const formatKelasDisplay = (kelas?: string): string => {
+  const clean = (kelas || '').trim().replace(/^kelas\s+/i, '');
+  if (!clean) return '-';
+  const formattedParts = clean
+    .split(',')
+    .map(part => {
+      const p = part.trim().replace(/^kelas\s+/i, '');
+      const match = p.match(/^([789])\s*-?\s*([A-Za-z]+)$/);
+      if (match) return `${match[1]}-${match[2].toUpperCase()}`;
+      return p;
+    })
+    .filter(Boolean);
+  if (formattedParts.length === 0) return '-';
+  return `Kelas ${formattedParts.join(', ')}`;
+};
+
+type PopupFieldType = 'topik' | 'pendekatan' | 'teknik' | null;
 
 export default function BKKonselingKelompok({ user }: { user?: any }) {
   const [kelompoks, setKelompoks] = useState<KonselingKelompokBK[]>([]);
@@ -24,25 +168,34 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [printItem, setPrintItem] = useState<KonselingKelompokBK | null>(null);
+  const [activePopup, setActivePopup] = useState<PopupFieldType>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
   const fotoInputRef = useRef<HTMLInputElement>(null);
 
   const defaultDate = new Date().toISOString().split('T')[0];
+  const initialGuruBk = getDefaultGuruBK(user);
 
   const [formData, setFormData] = useState({
     topik: '',
     anggota_siswa: '',
-    kelas: '8A',
+    kelas: '',
     tanggal: defaultDate,
-    jam: '10:00 WIB',
-    tempat: 'Ruang Bimbingan Kelompok BK',
-    tujuan: 'Membangun komunikasi asertif, rasa percaya diri, dan resolusi konflik sebaya',
+    jam: '10:30 WIB',
+    tempat: 'Ruang Konseling Kelompok BK',
+    tujuan: '',
+    media_diperlukan: '-',
     dinamika_kelompok: '',
+    pendekatan: PENDEKATAN_KELOMPOK_PRESETS[0].pendekatan,
+    teknik_konseling: PENDEKATAN_KELOMPOK_PRESETS[0].teknik_utama,
+    fokus_utama: PENDEKATAN_KELOMPOK_PRESETS[0].fokus_utama,
+    kasus_efektif: PENDEKATAN_KELOMPOK_PRESETS[0].kasus_efektif,
     kesepakatan: '',
-    evaluasi: 'Anggota kelompok aktif memberikan masukan dan saling berkomitmen rukun.',
-    guru_bk: getDefaultGuruBK(user),
-    foto_url: ''
+    evaluasi: '',
+    keterangan: 'Rencana Pelaksanaan Konseling Kelompok',
+    guru_bk: initialGuruBk,
+    guru_bk_nip: getGuruBkNip(initialGuruBk),
+    foto_url: '',
   });
 
   useEffect(() => {
@@ -100,7 +253,7 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
       .filter((s: any) => !String(s.id || '').startsWith('pad-'))
       .map((s: any) => ({
         ...s,
-        kelas: normalizeKelasKey(s.kelas || '') || s.kelas || '-'
+        kelas: normalizeKelasKey(s.kelas || '') || s.kelas || '-',
       }))
       .sort((a: any, b: any) => {
         const kDiff = (a.kelas || '').localeCompare(b.kelas || '', undefined, { numeric: true });
@@ -132,14 +285,19 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
       new Set(students.map(s => normalizeKelasKey(s.kelas || '') || s.kelas).filter(Boolean))
     ).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
 
+    const isMultiClass = uniqueClasses.length > 1;
     const textFormatted = students
-      .map((item, idx) => `${idx + 1}. ${item.nama} (${item.kelas})`)
+      .map((item, idx) =>
+        isMultiClass
+          ? `${idx + 1}. ${String(item.nama || '').toUpperCase()} (${item.kelas})`
+          : `${idx + 1}. ${String(item.nama || '').toUpperCase()}`
+      )
       .join('\n');
 
     setFormData(prev => ({
       ...prev,
       kelas: uniqueClasses.length > 0 ? uniqueClasses.join(', ') : prev.kelas,
-      anggota_siswa: textFormatted
+      anggota_siswa: textFormatted,
     }));
   };
 
@@ -287,10 +445,20 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
     }
   };
 
+  const handleSelectPendekatanPreset = (preset: PendekatanKelompokPreset) => {
+    setFormData(prev => ({
+      ...prev,
+      pendekatan: preset.pendekatan,
+      teknik_konseling: preset.teknik_utama,
+      fokus_utama: preset.fokus_utama,
+      kasus_efektif: preset.kasus_efektif,
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.topik.trim() || !formData.anggota_siswa.trim()) {
-      showNotification('error', 'Mohon lengkapi topik dan anggota kelompok siswa.');
+      showNotification('error', 'Mohon lengkapi Topik Permasalahan dan Nama Siswa / Anggota Kelompok.');
       return;
     }
 
@@ -305,13 +473,21 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
       id: editingId || `kk-${Date.now()}`,
       ...formData,
       kelas: derivedKelas,
-      created_at: new Date().toISOString()
+      media_diperlukan: formData.media_diperlukan.trim() || '-',
+      tujuan: formData.tujuan.trim() || formData.topik.trim(),
+      evaluasi: formData.evaluasi.trim() || formData.kesepakatan.trim(),
+      keterangan: formData.keterangan.trim() || 'Rencana Pelaksanaan Konseling Kelompok',
+      guru_bk_nip: formData.guru_bk_nip.trim() || getGuruBkNip(formData.guru_bk),
+      created_at: new Date().toISOString(),
     };
 
     try {
       const updated = await sabdaService.saveKonselingKelompok(record);
       setKelompoks(updated);
-      showNotification('success', editingId ? 'Rencana konseling kelompok berhasil diperbarui!' : 'Rencana konseling kelompok berhasil disimpan!');
+      showNotification(
+        'success',
+        editingId ? 'Rencana konseling kelompok berhasil diperbarui!' : 'Rencana konseling kelompok berhasil disimpan!'
+      );
       resetForm();
     } catch (err: any) {
       showNotification('error', 'Gagal menyimpan: ' + err.message);
@@ -319,6 +495,7 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
   };
 
   const resetForm = () => {
+    const gBk = getDefaultGuruBK(user);
     setEditingId(null);
     setSelectedStudents([]);
     setPickerSearch('');
@@ -327,32 +504,52 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
       anggota_siswa: '',
       kelas: '',
       tanggal: defaultDate,
-      jam: '10:00 WIB',
-      tempat: 'Ruang Bimbingan Kelompok BK',
-      tujuan: 'Membangun komunikasi asertif, rasa percaya diri, dan resolusi konflik sebaya',
+      jam: '10:30 WIB',
+      tempat: 'Ruang Konseling Kelompok BK',
+      tujuan: '',
+      media_diperlukan: '-',
       dinamika_kelompok: '',
+      pendekatan: PENDEKATAN_KELOMPOK_PRESETS[0].pendekatan,
+      teknik_konseling: PENDEKATAN_KELOMPOK_PRESETS[0].teknik_utama,
+      fokus_utama: PENDEKATAN_KELOMPOK_PRESETS[0].fokus_utama,
+      kasus_efektif: PENDEKATAN_KELOMPOK_PRESETS[0].kasus_efektif,
       kesepakatan: '',
-      evaluasi: 'Anggota kelompok aktif memberikan masukan dan saling berkomitmen rukun.',
-      guru_bk: getDefaultGuruBK(user),
-      foto_url: ''
+      evaluasi: '',
+      keterangan: 'Rencana Pelaksanaan Konseling Kelompok',
+      guru_bk: gBk,
+      guru_bk_nip: getGuruBkNip(gBk),
+      foto_url: '',
     });
   };
 
   const handleEdit = (item: KonselingKelompokBK) => {
     setEditingId(item.id);
+    const matchedPreset = PENDEKATAN_KELOMPOK_PRESETS.find(
+      p => item.pendekatan && p.pendekatan.toLowerCase() === item.pendekatan.toLowerCase()
+    );
+    const resolvedGuruBk =
+      item.guru_bk && !item.guru_bk.toLowerCase().includes('administrator') ? item.guru_bk : getDefaultGuruBK(user);
+
     setFormData({
       topik: item.topik,
       anggota_siswa: item.anggota_siswa,
       kelas: item.kelas,
       tanggal: item.tanggal,
       jam: item.jam,
-      tempat: item.tempat,
-      tujuan: item.tujuan,
-      dinamika_kelompok: item.dinamika_kelompok,
-      kesepakatan: item.kesepakatan,
-      evaluasi: item.evaluasi,
-      guru_bk: item.guru_bk && !item.guru_bk.toLowerCase().includes('administrator') ? item.guru_bk : getDefaultGuruBK(user),
-      foto_url: item.foto_url || ''
+      tempat: item.tempat || 'Ruang Konseling Kelompok BK',
+      tujuan: item.tujuan || '',
+      media_diperlukan: item.media_diperlukan || '-',
+      dinamika_kelompok: item.dinamika_kelompok || '',
+      pendekatan: item.pendekatan || PENDEKATAN_KELOMPOK_PRESETS[0].pendekatan,
+      teknik_konseling: item.teknik_konseling || PENDEKATAN_KELOMPOK_PRESETS[0].teknik_utama,
+      fokus_utama: item.fokus_utama || matchedPreset?.fokus_utama || PENDEKATAN_KELOMPOK_PRESETS[0].fokus_utama,
+      kasus_efektif: item.kasus_efektif || matchedPreset?.kasus_efektif || PENDEKATAN_KELOMPOK_PRESETS[0].kasus_efektif,
+      kesepakatan: item.kesepakatan || '',
+      evaluasi: item.evaluasi || '',
+      keterangan: item.keterangan || 'Rencana Pelaksanaan Konseling Kelompok',
+      guru_bk: resolvedGuruBk,
+      guru_bk_nip: item.guru_bk_nip || getGuruBkNip(resolvedGuruBk),
+      foto_url: item.foto_url || '',
     });
     const names = (item.anggota_siswa || '').toLowerCase();
     const matched = sortedSiswa.filter(s => names.includes((s.nama || '').toLowerCase()));
@@ -374,8 +571,20 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
   const filtered = kelompoks.filter(k =>
     k.topik.toLowerCase().includes(searchTerm.toLowerCase()) ||
     k.anggota_siswa.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    k.kelas.toLowerCase().includes(searchTerm.toLowerCase())
+    k.kelas.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (k.pendekatan || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const getPrintPendekatanDetails = (item: KonselingKelompokBK) => {
+    const pendekatan = item.pendekatan || PENDEKATAN_KELOMPOK_PRESETS[0].pendekatan;
+    const matchedPreset = PENDEKATAN_KELOMPOK_PRESETS.find(
+      p => p.pendekatan.toLowerCase() === pendekatan.toLowerCase()
+    );
+    const teknik = item.teknik_konseling || matchedPreset?.teknik_utama || '-';
+    const fokusUtama = item.fokus_utama || matchedPreset?.fokus_utama || '';
+    const kasusEfektif = item.kasus_efektif || matchedPreset?.kasus_efektif || '';
+    return { pendekatan, teknik, fokusUtama, kasusEfektif };
+  };
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -387,26 +596,32 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
           </span>
           <div>
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Rencana Konseling Kelompok</h2>
-            <p className="text-xs sm:text-sm text-slate-500 font-medium">Layanan konseling dan dinamika kelompok siswa SMPN 7 Pasuruan</p>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium">
+              Bimbingan dan Konseling UPT SMP Negeri 7 Pasuruan
+            </p>
           </div>
         </div>
       </div>
 
       {statusMsg && (
-        <div className={`p-4 rounded-2xl flex items-center justify-between gap-3 text-sm font-bold border animate-in fade-in ${
-          statusMsg.type === 'success' 
-            ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-            : 'bg-rose-50 text-rose-800 border-rose-200'
-        }`}>
+        <div
+          className={`p-4 rounded-2xl flex items-center justify-between gap-3 text-sm font-bold border animate-in fade-in ${
+            statusMsg.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+              : 'bg-rose-50 text-rose-800 border-rose-200'
+          }`}
+        >
           <div className="flex items-center gap-2">
             <CheckCircle2 size={18} className={statusMsg.type === 'success' ? 'text-emerald-600' : 'text-rose-600'} />
             <span>{statusMsg.text}</span>
           </div>
-          <button onClick={() => setStatusMsg(null)} className="text-xs opacity-60 hover:opacity-100">✕</button>
+          <button onClick={() => setStatusMsg(null)} className="text-xs opacity-60 hover:opacity-100">
+            ✕
+          </button>
         </div>
       )}
 
-      {/* Main Input Card */}
+      {/* Main Input Card matching 10-point structure */}
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 sm:p-8">
         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
           <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 border border-purple-100 flex items-center justify-center">
@@ -414,33 +629,66 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
           </div>
           <div>
             <h3 className="text-lg font-black text-slate-800">
-              {editingId ? 'Edit Konseling Kelompok' : 'Form Rencana Konseling Kelompok'}
+              {editingId ? 'Edit Rencana Konseling Kelompok' : 'Formulir Rencana Konseling Kelompok'}
             </h3>
-            <p className="text-xs text-slate-500 font-medium">Layanan penanganan masalah bersama dan dinamika interaksi kelompok</p>
+            <p className="text-xs text-slate-500 font-medium">
+              Lengkapi 10 komponen rencana pelaksanaan konseling kelompok sesuai format resmi BK
+            </p>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
-              TOPIK / TEMA PERMASALAHAN KELOMPOK *
-            </label>
-            <input 
-              type="text"
-              placeholder="Contoh: Manajemen Emosi, Solidaritas Kelas, Motivasi Belajar Ujian..."
-              value={formData.topik}
-              onChange={e => setFormData({ ...formData, topik: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none font-bold text-slate-800 transition-all text-sm"
-              required
-            />
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* 1. Hari / Tanggal / Waktu */}
+          <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-black uppercase text-slate-700 tracking-wider">
+                1. Hari / Tanggal / Waktu
+              </span>
+              <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200">
+                Format Cetak: {formatHariTanggalIndo(formData.tanggal)} ({formData.jam || '10:30 WIB'})
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">Tanggal *</label>
+                <input
+                  type="date"
+                  value={formData.tanggal}
+                  onChange={e => setFormData({ ...formData, tanggal: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 text-sm bg-white outline-none focus:border-purple-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">Waktu (WIB) *</label>
+                <input
+                  type="text"
+                  placeholder="cth: 10:30 WIB"
+                  value={formData.jam}
+                  onChange={e => setFormData({ ...formData, jam: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 text-sm bg-white outline-none focus:border-purple-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">Tempat (Opsional)</label>
+                <input
+                  type="text"
+                  placeholder="Ruang Konseling Kelompok BK"
+                  value={formData.tempat}
+                  onChange={e => setFormData({ ...formData, tempat: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-medium text-slate-800 text-sm bg-white outline-none focus:border-purple-500"
+                />
+              </div>
+            </div>
           </div>
 
-          {/* Multi-Select Kelas & Siswa Anggota Kelompok */}
+          {/* 2 & 3. Kelas & Nama Siswa / Anggota Kelompok */}
           <div className="p-4 sm:p-5 bg-purple-50/40 rounded-2xl border-2 border-purple-100 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-2">
                 <Users size={15} className="text-purple-600" />
-                <span>PILIH KELAS & NAMA ANGGOTA KELOMPOK (MULTI KELAS & SISWA) *</span>
+                <span>2 &amp; 3. Kelas dan Nama Siswa / Anggota Kelompok *</span>
               </label>
               <div className="flex items-center gap-2">
                 {selectedStudents.length > 0 && (
@@ -467,118 +715,145 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
               </div>
             </div>
 
-            <div
-              onClick={openPickerModal}
-              className="w-full min-h-[64px] p-4 bg-white hover:bg-purple-50/30 border border-purple-200 rounded-2xl transition-colors cursor-pointer"
-            >
-              {selectedStudents.length === 0 ? (
-                <div className="flex items-center justify-between text-slate-400 text-sm">
-                  <span>Klik untuk memilih satu atau banyak siswa lintas kelas...</span>
-                  <span className="px-3 py-1 rounded-xl bg-purple-50 text-purple-700 text-xs font-bold shrink-0 ml-2">
-                    Multi Pilih
-                  </span>
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-2" onClick={e => e.stopPropagation()}>
-                  {selectedStudents.map(s => (
-                    <span
-                      key={s.id}
-                      className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-xl bg-purple-50/60 border border-purple-200 shadow-xs text-xs font-bold text-slate-800"
-                    >
-                      <span className="px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-800 text-[10px] font-black">
-                        {s.kelas}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">2. Kelas *</label>
+                <input
+                  type="text"
+                  placeholder="cth: 7A atau 7A, 7B"
+                  value={formData.kelas}
+                  onChange={e => setFormData({ ...formData, kelas: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-purple-200 bg-white font-bold text-slate-800 text-sm outline-none focus:border-purple-500"
+                  required
+                />
+                {formData.kelas && (
+                  <p className="text-[10px] font-bold text-purple-700 mt-1">
+                    Tampilan Cetak: {formatKelasDisplay(formData.kelas)}
+                  </p>
+                )}
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  Pilihan Cepat Anggota Kelompok (Klik untuk Multi Pilih):
+                </label>
+                <div
+                  onClick={openPickerModal}
+                  className="w-full min-h-[46px] p-3 bg-white hover:bg-purple-50/30 border border-purple-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  {selectedStudents.length === 0 ? (
+                    <div className="flex items-center justify-between text-slate-400 text-xs sm:text-sm">
+                      <span>Klik untuk memilih anggota kelompok lintas kelas...</span>
+                      <span className="px-2.5 py-0.5 rounded-lg bg-purple-50 text-purple-700 text-[11px] font-bold shrink-0 ml-2">
+                        Multi Pilih
                       </span>
-                      <span className="uppercase">{s.nama}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeSelectedStudent(String(s.id))}
-                        className="p-0.5 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition-colors cursor-pointer"
-                        title="Hapus siswa"
-                      >
-                        <X size={13} />
-                      </button>
-                    </span>
-                  ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5" onClick={e => e.stopPropagation()}>
+                      {selectedStudents.map(s => (
+                        <span
+                          key={s.id}
+                          className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-xs font-bold text-slate-800"
+                        >
+                          <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-black">
+                            {s.kelas}
+                          </span>
+                          <span className="uppercase">{s.nama}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeSelectedStudent(String(s.id))}
+                            className="p-0.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                            title="Hapus siswa"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
 
             <div>
               <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                Daftar Nama Siswa Kelompok (Tersinkronisasi Otomatis):
+                3. Nama Siswa / Anggota Kelompok (Format Daftar Bernomor):
               </label>
               <textarea
-                rows={2}
-                placeholder="Daftar nama siswa akan otomatis tersusun saat siswa dipilih..."
+                rows={3}
+                placeholder={'cth:\n1. DEVANDRA ALVARO HIMAWAN\n2. RAMADHAN EKA PUTRA'}
                 value={formData.anggota_siswa}
                 onChange={e => setFormData({ ...formData, anggota_siswa: e.target.value })}
-                className="w-full p-3 bg-white rounded-xl border border-purple-200 text-xs font-medium text-slate-800 outline-none focus:border-purple-500"
+                className="w-full p-3 bg-white rounded-xl border border-purple-200 text-xs sm:text-sm font-bold uppercase text-slate-800 outline-none focus:border-purple-500"
                 required
               />
             </div>
           </div>
 
-          {/* Schedule & Location */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* 4 & 5. Topik Permasalahan & Media yang Diperlukan */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
-                TANGGAL PELAKSANAAN
-              </label>
-              <input 
-                type="date"
-                value={formData.tanggal}
-                onChange={e => setFormData({ ...formData, tanggal: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none font-bold text-slate-800 transition-all text-sm"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
-                JAM / WAKTU
-              </label>
-              <input 
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-black uppercase text-slate-700 tracking-wider">
+                  4. Topik Permasalahan *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setActivePopup('topik')}
+                  className="text-[11px] font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Pilih Contoh</span>
+                  <ChevronDown size={14} />
+                </button>
+              </div>
+              <input
                 type="text"
-                value={formData.jam}
-                onChange={e => setFormData({ ...formData, jam: e.target.value })}
+                placeholder="cth: Salah paham atau miss komunikasi antar teman"
+                value={formData.topik}
+                onChange={e => setFormData({ ...formData, topik: e.target.value })}
                 className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none font-bold text-slate-800 transition-all text-sm"
                 required
               />
             </div>
+
             <div>
-              <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
-                TEMPAT PERTEMUAN
+              <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-1.5">
+                5. Media yang Diperlukan
               </label>
-              <input 
+              <input
                 type="text"
-                value={formData.tempat}
-                onChange={e => setFormData({ ...formData, tempat: e.target.value })}
-                className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none font-bold text-slate-800 transition-all text-sm"
-                required
+                placeholder="cth: - atau daftar presensi kelas"
+                value={formData.media_diperlukan}
+                onChange={e => setFormData({ ...formData, media_diperlukan: e.target.value })}
+                className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none font-medium text-slate-800 transition-all text-sm"
               />
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {MEDIA_QUICK_OPTIONS.map(m => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, media_diperlukan: m }))}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
+                      formData.media_diperlukan === m
+                        ? 'bg-purple-600 text-white border-purple-600'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-purple-50'
+                    }`}
+                  >
+                    {m === '-' ? 'Tidak ada (-)' : m}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
+          {/* 6. Ringkasan Uraian Permasalahan Siswa */}
           <div>
-            <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
-              TUJUAN LAYANAN KELOMPOK
-            </label>
-            <input 
-              type="text"
-              placeholder="Tujuan yang diharapkan dicapai melalui dinamika kelompok..."
-              value={formData.tujuan}
-              onChange={e => setFormData({ ...formData, tujuan: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none font-medium text-slate-800 transition-all text-sm"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
-              DINAMIKA KELOMPOK & PROSES DISKUSI
+            <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-1.5">
+              6. Ringkasan Uraian Permasalahan Siswa *
             </label>
             <textarea
-              rows={3}
-              placeholder="Bagaimana interaksi antar anggota, keterbukaan anggota dalam mengemukakan pendapat, dan jalannya dinamika kelompok..."
+              rows={4}
+              placeholder="Jelaskan kronologi / uraian permasalahan yang dialami anggota kelompok..."
               value={formData.dinamika_kelompok}
               onChange={e => setFormData({ ...formData, dinamika_kelompok: e.target.value })}
               className="w-full p-4 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none font-medium text-slate-800 transition-all text-sm"
@@ -586,57 +861,102 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
-                KESEPAKATAN / KOMITMEN KELOMPOK
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Kesepakatan bersama antar anggota kelompok..."
-                value={formData.kesepakatan}
-                onChange={e => setFormData({ ...formData, kesepakatan: e.target.value })}
-                className="w-full p-3 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none font-medium text-slate-800 transition-all text-sm"
-                required
-              />
+          {/* 7. Pendekatan dan Teknik Konseling */}
+          <div className="p-4 sm:p-5 bg-purple-50/40 rounded-2xl border border-purple-200/80 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-black uppercase text-slate-800 tracking-wider">
+                7. Pendekatan dan Teknik Konseling
+              </span>
+              <button
+                type="button"
+                onClick={() => setActivePopup('pendekatan')}
+                className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Compass size={13} />
+                <span>Pilih Preset Pendekatan</span>
+                <ChevronDown size={13} />
+              </button>
             </div>
-            <div>
-              <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
-                EVALUASI HASIL
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Evaluasi ketercapaian tujuan konseling kelompok..."
-                value={formData.evaluasi}
-                onChange={e => setFormData({ ...formData, evaluasi: e.target.value })}
-                className="w-full p-3 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none font-medium text-slate-800 transition-all text-sm"
-                required
-              />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Pendekatan *</label>
+                <input
+                  type="text"
+                  placeholder="cth: Reality Therapy (Kelompok WDEP)"
+                  value={formData.pendekatan}
+                  onChange={e => setFormData({ ...formData, pendekatan: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white font-bold text-slate-800 text-sm outline-none focus:border-purple-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold text-slate-600">Teknik Utama *</label>
+                  <button
+                    type="button"
+                    onClick={() => setActivePopup('teknik')}
+                    className="text-[11px] font-bold text-purple-600 hover:text-purple-700 flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <span>Template Teknik</span>
+                    <ChevronDown size={13} />
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  placeholder="cth: Group WDEP (Wants, Direction, Evaluation, Plan), Kontrak Perilaku Kelompok"
+                  value={formData.teknik_konseling}
+                  onChange={e => setFormData({ ...formData, teknik_konseling: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-800 text-sm outline-none focus:border-purple-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Fokus Utama</label>
+                <textarea
+                  rows={2}
+                  placeholder="cth: Mendorong setiap anggota kelompok untuk mengevaluasi tindakan mereka dan berkomitmen pada perubahan nyata."
+                  value={formData.fokus_utama}
+                  onChange={e => setFormData({ ...formData, fokus_utama: e.target.value })}
+                  className="w-full p-3 rounded-xl border border-slate-300 bg-white font-medium text-slate-800 text-xs sm:text-sm outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Kasus Efektif</label>
+                <textarea
+                  rows={2}
+                  placeholder="cth: Kenakalan remaja, masalah kepatuhan tata tertib sekolah, rendahnya motivasi belajar kelompok."
+                  value={formData.kasus_efektif}
+                  onChange={e => setFormData({ ...formData, kasus_efektif: e.target.value })}
+                  className="w-full p-3 rounded-xl border border-slate-300 bg-white font-medium text-slate-800 text-xs sm:text-sm outline-none focus:border-purple-500"
+                />
+              </div>
             </div>
           </div>
 
+          {/* 8. Hasil yang Dicapai */}
           <div>
-            <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
-              GURU BK PEMBIMBING *
+            <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-1.5">
+              8. Hasil yang Dicapai *
             </label>
-            <select
-              value={formData.guru_bk}
-              onChange={e => setFormData({ ...formData, guru_bk: e.target.value })}
-              className="w-full sm:w-80 px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none font-bold text-slate-800 transition-all text-sm bg-white"
-            >
-              {GURU_BK_OPTIONS.map((nama, idx) => (
-                <option key={nama} value={nama}>{idx + 1}. {nama}</option>
-              ))}
-              {!GURU_BK_OPTIONS.includes(formData.guru_bk as any) && formData.guru_bk && !formData.guru_bk.toLowerCase().includes('administrator') && (
-                <option value={formData.guru_bk}>{formData.guru_bk}</option>
-              )}
-            </select>
+            <textarea
+              rows={3}
+              placeholder="cth: Setelah diadakan konseling kelompok dan identifikasi permasalahan, keduanya berkomitmen dan sepakat untuk tidak mengulangi kembali kesalahannya, dibuktikan berdamai saling memaafkan."
+              value={formData.kesepakatan}
+              onChange={e => setFormData({ ...formData, kesepakatan: e.target.value })}
+              className="w-full p-4 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none font-medium text-slate-800 transition-all text-sm"
+              required
+            />
           </div>
 
+          {/* 9. Dokumentasi / Foto Kegiatan */}
           <div>
             <label className="flex items-center gap-2 text-xs font-black uppercase text-slate-700 tracking-wider mb-2">
               <ImageIcon size={15} className="text-purple-600" />
-              <span>DOKUMENTASI FOTO KEGIATAN</span>
+              <span>9. Dokumentasi / Foto Kegiatan</span>
             </label>
             <div className="p-4 sm:p-5 rounded-2xl border-2 border-slate-200 bg-slate-50/70 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
               <div className="space-y-3">
@@ -676,7 +996,7 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
                 </div>
               </div>
 
-              <div className="h-32 rounded-xl border-2 border-dashed border-slate-300 bg-white flex items-center justify-center relative overflow-hidden group shadow-xs">
+              <div className="h-36 rounded-xl border-2 border-dashed border-slate-300 bg-white flex items-center justify-center relative overflow-hidden group shadow-xs">
                 {formData.foto_url ? (
                   <div className="relative w-full h-full">
                     <img
@@ -713,12 +1033,70 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
             </div>
           </div>
 
+          {/* 10. Keterangan & Guru BK Penandatangan */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-1.5">
+                10. Keterangan
+              </label>
+              <input
+                type="text"
+                placeholder="Rencana Pelaksanaan Konseling Kelompok"
+                value={formData.keterangan}
+                onChange={e => setFormData({ ...formData, keterangan: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-medium text-slate-800 text-sm bg-white outline-none focus:border-purple-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-1.5">
+                Guru Bimbingan dan Konseling
+              </label>
+              <select
+                value={formData.guru_bk}
+                onChange={e => {
+                  const nama = e.target.value;
+                  setFormData(prev => ({
+                    ...prev,
+                    guru_bk: nama,
+                    guru_bk_nip: getGuruBkNip(nama),
+                  }));
+                }}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 text-sm bg-white outline-none focus:border-purple-500"
+              >
+                {GURU_BK_OPTIONS.map((nama, idx) => (
+                  <option key={nama} value={nama}>
+                    {idx + 1}. {nama}
+                  </option>
+                ))}
+                {!GURU_BK_OPTIONS.includes(formData.guru_bk as any) &&
+                  formData.guru_bk &&
+                  !formData.guru_bk.toLowerCase().includes('administrator') && (
+                    <option value={formData.guru_bk}>{formData.guru_bk}</option>
+                  )}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-black uppercase text-slate-700 tracking-wider mb-1.5">
+                NIP Guru BK
+              </label>
+              <input
+                type="text"
+                placeholder="19831116 200904 2 003"
+                value={formData.guru_bk_nip}
+                onChange={e => setFormData({ ...formData, guru_bk_nip: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-medium text-slate-800 text-sm bg-white outline-none focus:border-purple-500"
+              />
+            </div>
+          </div>
+
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
             {editingId && (
               <button
                 type="button"
                 onClick={resetForm}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold text-sm transition-all"
+                className="flex items-center gap-2 px-5 py-3 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold text-sm transition-all cursor-pointer"
               >
                 <RotateCcw size={16} />
                 <span>Batal</span>
@@ -726,7 +1104,7 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
             )}
             <button
               type="submit"
-              className="flex items-center gap-2 px-7 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-sm shadow-lg shadow-purple-200 active:scale-95 transition-all"
+              className="flex items-center gap-2 px-7 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-sm shadow-lg shadow-purple-200 active:scale-95 transition-all cursor-pointer"
             >
               <Save size={18} />
               <span>{editingId ? 'Simpan Perubahan' : 'Simpan Rencana Kelompok'}</span>
@@ -740,12 +1118,12 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
         <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h3 className="text-lg font-black text-slate-800">Daftar Rekam Konseling Kelompok</h3>
-            <p className="text-xs text-slate-500 font-medium">Rekapitulasi pelaksanaan konseling kelompok peserta didik</p>
+            <p className="text-xs text-slate-500 font-medium">Rekapitulasi rencana konseling kelompok peserta didik</p>
           </div>
 
           <div className="relative">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
+            <input
               type="text"
               placeholder="Cari topik atau nama anggota..."
               value={searchTerm}
@@ -759,21 +1137,25 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/80 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                <th className="px-6 py-4">Topik & Kelas</th>
-                <th className="px-6 py-4">Tanggal & Waktu</th>
-                <th className="px-6 py-4">Anggota Siswa</th>
-                <th className="px-6 py-4">Kesepakatan Bersama</th>
+                <th className="px-6 py-4">Topik &amp; Kelas</th>
+                <th className="px-6 py-4">Hari / Tanggal / Waktu</th>
+                <th className="px-6 py-4">Anggota Kelompok</th>
+                <th className="px-6 py-4">Hasil yang Dicapai</th>
                 <th className="px-6 py-4 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Memuat data konseling kelompok...</td>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">
+                    Memuat data konseling kelompok...
+                  </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Belum ada rekam konseling kelompok.</td>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">
+                    Belum ada rekam konseling kelompok.
+                  </td>
                 </tr>
               ) : (
                 filtered.map(item => (
@@ -792,15 +1174,17 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
                         )}
                         <div>
                           <div className="font-black text-slate-800 text-xs">{item.topik}</div>
-                          <div className="text-[10px] font-bold text-purple-700 uppercase">Kelas {item.kelas} • {item.tempat}</div>
+                          <div className="text-[10px] font-bold text-purple-700 uppercase">
+                            {formatKelasDisplay(item.kelas)}
+                          </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-xs">
-                      <div className="font-bold text-slate-700">{item.tanggal}</div>
+                      <div className="font-bold text-slate-700">{formatHariTanggalIndo(item.tanggal)}</div>
                       <div className="text-[10px] text-slate-400 font-bold">{item.jam}</div>
                     </td>
-                    <td className="px-6 py-4 text-xs font-medium text-slate-700 max-w-xs truncate">
+                    <td className="px-6 py-4 text-xs font-medium text-slate-700 max-w-xs whitespace-pre-line line-clamp-3">
                       {item.anggota_siswa}
                     </td>
                     <td className="px-6 py-4 text-xs text-slate-600 max-w-xs truncate">
@@ -810,21 +1194,21 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => setPrintItem(item)}
-                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                          title="Cetak Lembar Konseling Kelompok"
+                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
+                          title="Cetak Rencana Konseling Kelompok"
                         >
                           <Printer size={16} />
                         </button>
                         <button
                           onClick={() => handleEdit(item)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                           title="Edit"
                         >
                           <Edit2 size={16} />
                         </button>
                         <button
                           onClick={() => setDeleteConfirmId(item.id)}
-                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                           title="Hapus"
                         >
                           <Trash2 size={16} />
@@ -839,102 +1223,157 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
         </div>
       </div>
 
-      {/* Print Modal for Group Counseling */}
+      {/* Print Modal - Exact 10-Row Official Table Format */}
       {printItem && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div id="bk-print-area" className="bg-white rounded-3xl max-w-2xl w-full p-8 shadow-2xl border border-slate-200 animate-in fade-in my-8 print:m-0 print:p-0 print:shadow-none print:border-none">
-            {/* Kop Surat */}
-            <BKKopSurat
-              subtitle="LEMBAR LAPORAN LAYANAN KONSELING KELOMPOK (FORM F)"
-              subtitleClassName="text-purple-700"
-            />
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
+          <div
+            id="bk-print-area"
+            className="bg-white rounded-3xl max-w-3xl w-full p-8 sm:p-10 shadow-2xl border border-slate-200 animate-in fade-in my-6 print:m-0 print:p-0 print:shadow-none print:border-none font-serif text-black"
+          >
+            {/* Title Header matching attached image */}
+            <div className="text-center mb-5">
+              <h2 className="text-base sm:text-lg font-bold uppercase tracking-wide text-black">
+                RENCANA KONSELING KELOMPOK
+              </h2>
+              <p className="text-xs sm:text-sm font-bold uppercase text-black mt-0.5">
+                BIMBINGAN DAN KONSELING UPT SMP NEGERI 7 PASURUAN
+              </p>
+            </div>
 
-            <div className="space-y-4 text-xs text-slate-800">
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-stretch justify-between gap-4">
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="grid grid-cols-3 gap-2">
-                    <span className="font-bold text-slate-600">Topik Layanan:</span>
-                    <span className="col-span-2 font-black text-slate-900 uppercase">{printItem.topik}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <span className="font-bold text-slate-600">Kelas / Tempat:</span>
-                    <span className="col-span-2 text-slate-800">Kelas {printItem.kelas} • {printItem.tempat}</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <span className="font-bold text-slate-600">Hari / Tanggal:</span>
-                    <span className="col-span-2 text-slate-800">{printItem.tanggal} ({printItem.jam})</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <span className="font-bold text-slate-600">Tujuan Layanan:</span>
-                    <span className="col-span-2 text-slate-800">{printItem.tujuan}</span>
-                  </div>
-                </div>
+            {(() => {
+              const { pendekatan, teknik, fokusUtama, kasusEfektif } = getPrintPendekatanDetails(printItem);
+              return (
+                <table className="w-full border-collapse border border-black text-[12px] leading-snug text-black">
+                  <tbody>
+                    <tr>
+                      <td className="border border-black px-2 py-2 text-center font-bold w-9 align-top">1</td>
+                      <td className="border border-black px-2.5 py-2 font-bold w-[31%] align-top">
+                        Hari / Tanggal / Waktu
+                      </td>
+                      <td className="border border-black px-2.5 py-2 font-bold align-top">
+                        {formatHariTanggalIndo(printItem.tanggal)} ({printItem.jam})
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-2 py-2 text-center font-bold align-top">2</td>
+                      <td className="border border-black px-2.5 py-2 font-bold align-top">Kelas</td>
+                      <td className="border border-black px-2.5 py-2 font-bold align-top">
+                        {formatKelasDisplay(printItem.kelas)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-2 py-2 text-center font-bold align-top">3</td>
+                      <td className="border border-black px-2.5 py-2 font-bold align-top">
+                        Nama Siswa / Anggota Kelompok
+                      </td>
+                      <td className="border border-black px-2.5 py-2 font-bold uppercase whitespace-pre-line align-top">
+                        {printItem.anggota_siswa}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-2 py-2 text-center font-bold align-top">4</td>
+                      <td className="border border-black px-2.5 py-2 font-bold align-top">Topik Permasalahan</td>
+                      <td className="border border-black px-2.5 py-2 font-bold align-top">
+                        {printItem.topik}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-2 py-2 text-center font-bold align-top">5</td>
+                      <td className="border border-black px-2.5 py-2 font-bold align-top">Media yang Diperlukan</td>
+                      <td className="border border-black px-2.5 py-2 align-top">
+                        {printItem.media_diperlukan || '-'}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-2 py-2 text-center font-bold align-top">6</td>
+                      <td className="border border-black px-2.5 py-2 font-bold align-top">
+                        Ringkasan Uraian Permasalahan Siswa
+                      </td>
+                      <td className="border border-black px-2.5 py-2 whitespace-pre-line align-top">
+                        {printItem.dinamika_kelompok || '-'}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-2 py-2 text-center font-bold align-top">7</td>
+                      <td className="border border-black px-2.5 py-2 font-bold align-top">
+                        Pendekatan dan Teknik Konseling
+                      </td>
+                      <td className="border border-black px-2.5 py-2 space-y-0.5 align-top">
+                        <div>Pendekatan: {pendekatan}</div>
+                        <div>Teknik Utama: {teknik}</div>
+                        {fokusUtama && <div>Fokus Utama: {fokusUtama}</div>}
+                        {kasusEfektif && <div>Kasus Efektif: {kasusEfektif}</div>}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-2 py-2 text-center font-bold align-top">8</td>
+                      <td className="border border-black px-2.5 py-2 font-bold align-top">Hasil yang Dicapai</td>
+                      <td className="border border-black px-2.5 py-2 whitespace-pre-line align-top">
+                        {printItem.kesepakatan || printItem.evaluasi || '-'}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-2 py-2 text-center font-bold align-top">9</td>
+                      <td className="border border-black px-2.5 py-2 font-bold align-top">
+                        Dokumentasi / Foto Kegiatan
+                      </td>
+                      <td className="border border-black px-2.5 py-2.5 align-top">
+                        {printItem.foto_url ? (
+                          <img
+                            src={printItem.foto_url}
+                            alt="Dokumentasi Foto Kegiatan Konseling Kelompok"
+                            className="w-60 h-44 object-cover rounded-lg border border-slate-300"
+                          />
+                        ) : (
+                          <span className="italic text-slate-500">Belum ada foto dokumentasi</span>
+                        )}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border border-black px-2 py-2 text-center font-bold align-top">10</td>
+                      <td className="border border-black px-2.5 py-2 font-bold align-top">Keterangan</td>
+                      <td className="border border-black px-2.5 py-2 align-top">
+                        {printItem.keterangan || 'Rencana Pelaksanaan Konseling Kelompok'}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              );
+            })()}
 
-                {/* Dokumentasi Foto Kegiatan di sisi kanan kotak identitas */}
-                <div className="w-36 sm:w-44 shrink-0 rounded-xl border border-slate-300 bg-white overflow-hidden flex items-center justify-center p-1">
-                  {printItem.foto_url ? (
-                    <img
-                      src={printItem.foto_url}
-                      alt="Dokumentasi Foto Kegiatan Konseling Kelompok"
-                      className="w-full h-28 object-cover rounded-lg"
-                    />
-                  ) : (
-                    <div className="w-full h-28 rounded-lg border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 text-[10px] text-center px-2">
-                      <ImageIcon size={18} className="mb-1 opacity-60" />
-                      <span>Foto Kegiatan</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
+            {/* Dual Signature Block matching attached image */}
+            <div className="avoid-break grid grid-cols-2 gap-8 mt-8 text-center text-[12px] text-black leading-snug">
               <div>
-                <h4 className="font-black text-slate-800 uppercase mb-1">A. Anggota Kelompok Siswa</h4>
-                <p className="p-3 bg-slate-50 rounded-xl border border-slate-100 font-medium whitespace-pre-line">{printItem.anggota_siswa}</p>
+                <p>Mengetahui,</p>
+                <p>Kepala SMP Negeri 7 Pasuruan</p>
+                <div className="h-16" />
+                <p className="font-bold underline uppercase">NUR FADILAH, S.Pd., M.Pd</p>
+                <p>NIP. 19860410 201001 2 030</p>
               </div>
-
               <div>
-                <h4 className="font-black text-slate-800 uppercase mb-1">B. Ringkasan Dinamika Kelompok</h4>
-                <p className="p-3 bg-slate-50 rounded-xl border border-slate-100 leading-relaxed">{printItem.dinamika_kelompok}</p>
-              </div>
-
-              <div>
-                <h4 className="font-black text-slate-800 uppercase mb-1">C. Kesepakatan Bersama</h4>
-                <p className="p-3 bg-slate-50 rounded-xl border border-slate-100 leading-relaxed">{printItem.kesepakatan}</p>
-              </div>
-
-              <div className="grid grid-cols-2 pt-8 text-center text-xs">
-                <div>
-                  <p>Mengetahui,</p>
-                  <p>Kepala UPT SMPN 7 Pasuruan</p>
-                  <div className="h-16" />
-                  <p className="font-black underline uppercase">NUR FADILAH, S.Pd</p>
-                  <p className="text-[10px] text-slate-500">NIP. 19860410 201001 2 030</p>
-                </div>
-                <div>
-                  <p>Guru Pembimbing BK,</p>
-                  <p>UPT SMPN 7 Pasuruan</p>
-                  <div className="h-16" />
-                  <p className="font-black underline uppercase">{printItem.guru_bk}</p>
-                  <p className="text-[10px] text-slate-500">NIP. 19831116 200904 2 003</p>
-                </div>
+                <p>Pasuruan, {formatTanggalIndo(printItem.tanggal)}</p>
+                <p>Guru Bimbingan dan Konseling</p>
+                <div className="h-16" />
+                <p className="font-bold underline uppercase">{printItem.guru_bk || 'WIWIK ISMIATI, S.Pd'}</p>
+                <p>NIP. {printItem.guru_bk_nip || getGuruBkNip(printItem.guru_bk)}</p>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 mt-8 pt-4 border-t border-slate-100 print:hidden">
+            <div className="flex items-center justify-end gap-3 mt-8 pt-4 border-t border-slate-200 print:hidden font-sans">
               <button
                 type="button"
                 onClick={() => setPrintItem(null)}
-                className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
                 Tutup
               </button>
               <button
                 type="button"
-                onClick={() => printBKReport('bk-print-area', `Konseling Kelompok - ${printItem.topik}`)}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-black hover:bg-purple-700 shadow-md shadow-purple-200"
+                onClick={() => printBKReport('bk-print-area', `Rencana Konseling Kelompok - ${printItem.topik}`)}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-black hover:bg-purple-700 shadow-md shadow-purple-200 cursor-pointer"
               >
                 <Printer size={16} />
-                <span>Cetak Lembar Laporan</span>
+                <span>Cetak / Simpan PDF</span>
               </button>
             </div>
           </div>
@@ -948,7 +1387,7 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
             <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4">
               <Trash2 size={24} />
             </div>
-            <h3 className="text-lg font-bold text-slate-800 text-center mb-1">Hapus Konseling Kelompok?</h3>
+            <h3 className="text-lg font-bold text-slate-800 text-center mb-1">Hapus Rencana Konseling?</h3>
             <p className="text-xs text-slate-500 text-center mb-6">
               Data rekam konseling kelompok ini akan dihapus permanen.
             </p>
@@ -956,14 +1395,14 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
               <button
                 type="button"
                 onClick={() => setDeleteConfirmId(null)}
-                className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
               >
                 Batal
               </button>
               <button
                 type="button"
                 onClick={() => executeDelete(deleteConfirmId)}
-                className="px-5 py-2.5 text-xs font-black text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md shadow-rose-200"
+                className="px-5 py-2.5 text-xs font-black text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md shadow-rose-200 cursor-pointer"
               >
                 Ya, Hapus
               </button>
@@ -971,6 +1410,7 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
           </div>
         </div>
       )}
+
       {/* Multi-Student & Multi-Class Picker Modal */}
       {isPickerOpen && (
         <div
@@ -1069,9 +1509,7 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
                         {isChecked && <Check size={14} strokeWidth={3} />}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-extrabold text-slate-800 text-sm uppercase truncate">
-                          {s.nama}
-                        </p>
+                        <p className="font-extrabold text-slate-800 text-sm uppercase truncate">{s.nama}</p>
                         <div className="flex flex-wrap items-center gap-2 mt-1">
                           <span className="px-2 py-0.5 rounded-md bg-emerald-100/80 text-emerald-800 text-[11px] font-bold">
                             Kelas {s.kelas}
@@ -1090,7 +1528,8 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
             {/* Modal Footer */}
             <div className="p-4 sm:p-5 bg-white border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <p className="text-xs text-slate-600">
-                Total <span className="font-bold text-slate-900">{tempSelectedMap.size} anggota</span> siap dimasukkan ke Konseling Kelompok.
+                Total <span className="font-bold text-slate-900">{tempSelectedMap.size} anggota</span> siap dimasukkan
+                ke Konseling Kelompok.
               </p>
               <div className="flex items-center justify-end gap-2.5">
                 <button
@@ -1113,6 +1552,115 @@ export default function BKKonselingKelompok({ user }: { user?: any }) {
           </div>
         </div>
       )}
+
+      {/* Popup Selector Modal for Topik / Pendekatan / Teknik */}
+      {activePopup && (
+        <div className="fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="absolute inset-0" onClick={() => setActivePopup(null)} />
+          <div className="relative bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-4 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-white/20">
+                  {activePopup === 'topik' && <AlertCircle size={18} />}
+                  {activePopup === 'pendekatan' && <Compass size={18} />}
+                  {activePopup === 'teknik' && <Wrench size={18} />}
+                </div>
+                <div>
+                  <h4 className="text-sm font-black leading-tight">
+                    {activePopup === 'topik' && 'Pilih Contoh Topik Permasalahan'}
+                    {activePopup === 'pendekatan' && 'Pilih Preset Pendekatan Kelompok'}
+                    {activePopup === 'teknik' && 'Pilih Template Teknik Konseling'}
+                  </h4>
+                  <p className="text-[11px] text-white/85">
+                    {activePopup === 'pendekatan'
+                      ? 'Mengisi Pendekatan, Teknik Utama, Fokus Utama & Kasus Efektif secara otomatis'
+                      : 'Klik salah satu pilihan di bawah (dapat diedit manual setelah dipilih)'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActivePopup(null)}
+                className="p-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-5 max-h-[70vh] overflow-y-auto space-y-2">
+              {activePopup === 'pendekatan'
+                ? PENDEKATAN_KELOMPOK_PRESETS.map((preset, idx) => {
+                    const isSelected = formData.pendekatan === preset.pendekatan;
+                    return (
+                      <button
+                        key={preset.pendekatan}
+                        type="button"
+                        onClick={() => {
+                          handleSelectPendekatanPreset(preset);
+                          setActivePopup(null);
+                        }}
+                        className={`w-full flex flex-col gap-1 px-4 py-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-200'
+                            : 'bg-slate-50 hover:bg-purple-50/70 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between font-black text-sm">
+                          <span>
+                            {idx + 1}. {preset.pendekatan}
+                          </span>
+                          {isSelected && (
+                            <span className="p-1 rounded-full bg-white/20 shrink-0 ml-2">
+                              <Check size={14} className="stroke-[3]" />
+                            </span>
+                          )}
+                        </div>
+                        <div className={`text-[11px] ${isSelected ? 'text-white/90' : 'text-slate-500'}`}>
+                          Teknik: {preset.teknik_utama}
+                        </div>
+                      </button>
+                    );
+                  })
+                : (activePopup === 'topik' ? TOPIK_PERMASALAHAN_OPTIONS : TEKNIK_KELOMPOK_OPTIONS).map(
+                    (option, idx) => {
+                      const currentVal = activePopup === 'topik' ? formData.topik : formData.teknik_konseling;
+                      const isSelected = currentVal === option;
+
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => {
+                            if (activePopup === 'topik') {
+                              setFormData(prev => ({ ...prev, topik: option }));
+                            } else {
+                              setFormData(prev => ({ ...prev, teknik_konseling: option }));
+                            }
+                            setActivePopup(null);
+                          }}
+                          className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border text-left font-bold text-sm transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-200'
+                              : 'bg-slate-50 hover:bg-purple-50/70 text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          <span>
+                            {idx + 1}. {option}
+                          </span>
+                          {isSelected && (
+                            <span className="p-1 rounded-full bg-white/20 shrink-0 ml-2">
+                              <Check size={14} className="stroke-[3]" />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    }
+                  )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Lightbox View Photo */}
       {viewPhotoUrl && (
         <div
