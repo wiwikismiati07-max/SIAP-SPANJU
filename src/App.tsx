@@ -706,7 +706,7 @@ export default function App() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 min-h-0 min-w-0 flex flex-col relative p-1.5 md:p-3 md:pl-0">
+      <main className="flex-1 min-h-0 min-w-0 flex flex-col relative p-1.5 md:p-3 md:pl-0 print:p-0 print:overflow-visible">
         {isTamu && activeSection && !TAMU_ALLOWED_SECTIONS.has(activeSection) ? (
           <div className="flex-1 flex items-center justify-center p-6 bg-white/70 backdrop-blur-2xl rounded-[2rem] md:rounded-[2.5rem] shadow-2xl border border-white/50">
             <div className="bg-white p-8 md:p-10 rounded-3xl shadow-xl max-w-md w-full text-center border border-slate-200/80">
@@ -1095,10 +1095,10 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
-              className="flex-1 min-h-0 flex flex-col bg-slate-50/80 backdrop-blur-3xl rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto shadow-2xl border border-white/50 p-4 md:p-10"
+              className="flex-1 min-h-0 flex flex-col bg-slate-50/80 backdrop-blur-3xl rounded-[2rem] md:rounded-[2.5rem] overflow-y-auto shadow-2xl border border-white/50 p-4 md:p-10 print:static print:overflow-visible print:h-auto print:rounded-none print:shadow-none print:border-none print:bg-white print:p-0"
             >
               <div className="max-w-6xl mx-auto w-full space-y-6">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 no-print print:hidden">
                   <button
                     type="button"
                     onClick={() => setActiveSection('menu_aplikasi')}
