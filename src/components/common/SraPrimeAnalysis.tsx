@@ -773,7 +773,11 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
         { Keterangan: 'Hasil Perhitungan', Nilai: formulaValues },
         { Keterangan: 'Sinkronisasi Terakhir', Nilai: lastUpdated || '-' },
         { Keterangan: 'Tanggal Ekspor', Nilai: printedAt },
-        { Keterangan: 'Kesimpulan & Rekomendasi', Nilai: conclusionPlainText }
+        { Keterangan: 'Kesimpulan & Rekomendasi', Nilai: conclusionPlainText },
+        { Keterangan: '', Nilai: '' },
+        { Keterangan: 'Mengetahui', Nilai: 'Kepala SMP Negeri 7 Pasuruan' },
+        { Keterangan: 'Nama Kepala Sekolah', Nilai: 'NUR FADILAH, S.Pd' },
+        { Keterangan: 'NIP', Nilai: '19860410 201001 2 030' }
       ];
 
       const moduleRows = modules.map((m, index) => ({
@@ -917,6 +921,7 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
       doc.setTextColor(15, 23, 42);
       doc.text(`${compositePercentage.toFixed(1)}%`, margin + 4, y + 14.5);
 
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
       doc.setTextColor(cr, cg, cb);
       const predLines = doc.splitTextToSize(predicate.label, 68);
@@ -939,16 +944,21 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
 
       doc.setFillColor(255, 255, 255);
       doc.setDrawColor(203, 213, 225);
-      doc.roundedRect(rightX, y + 12.5, rightW, 9.5, 1.2, 1.2, 'FD');
+      doc.roundedRect(rightX, y + 12.5, rightW, 10, 1.2, 1.2, 'FD');
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.5);
+      doc.setFontSize(6.2);
       doc.setTextColor(15, 23, 42);
-      doc.text('Rumus: ((% Survey + % Si-Telat + % Izin + % Keagamaan + % UKS + % Disiplin) / 600) × 100%', rightX + 2, y + 16.2);
+      const formulaHeaderLines = doc.splitTextToSize(
+        'Rumus: ((% Survey + % Si-Telat + % Izin + % Keagamaan + % UKS + % Disiplin) / 600) × 100%',
+        rightW - 4
+      );
+      doc.text(formulaHeaderLines[0], rightX + 2, y + 16);
       doc.setFont('helvetica', 'normal');
       const valLine = modules.length === 6
         ? `(${modules.map((m) => `${m.percentage.toFixed(1)}%`).join(' + ')}) / 600 × 100% = ${compositePercentage.toFixed(1)}%`
         : `${compositePercentage.toFixed(1)}%`;
-      doc.text(valLine, rightX + 2, y + 20);
+      const valLines = doc.splitTextToSize(valLine, rightW - 4);
+      doc.text(valLines[0], rightX + 2, y + 20);
 
       y += 30;
 
@@ -974,7 +984,7 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
       y += 7;
 
       modules.forEach((m, idx) => {
-        const rowH = 10.5;
+        const rowH = 11;
         doc.setFillColor(255, 255, 255);
         doc.setDrawColor(203, 213, 225);
         doc.rect(margin, y, contentW, rowH, 'FD');
@@ -983,18 +993,21 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(7.5);
         doc.setTextColor(15, 23, 42);
-        doc.text(String(idx + 1), rx + 4, y + 6, { align: 'center' });
+        doc.text(String(idx + 1), rx + 4, y + 6.2, { align: 'center' });
         doc.line(rx + cols[0], y, rx + cols[0], y + rowH);
         rx += cols[0];
 
-        doc.text(doc.splitTextToSize(m.name, cols[1] - 4)[0], rx + 2, y + 4.4);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.text(doc.splitTextToSize(m.name, cols[1] - 4)[0], rx + 2, y + 4.5);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(6.5);
         doc.setTextColor(100, 116, 139);
-        doc.text(doc.splitTextToSize(m.formulaNote, cols[1] - 4)[0], rx + 2, y + 8.4);
+        doc.text(doc.splitTextToSize(m.formulaNote, cols[1] - 4)[0], rx + 2, y + 8.6);
         doc.line(rx + cols[1], y, rx + cols[1], y + rowH);
         rx += cols[1];
 
+        doc.setFont('helvetica', 'normal');
         doc.setFontSize(7);
         doc.setTextColor(51, 65, 85);
         const pilarLines = doc.splitTextToSize(m.primePillar, cols[2] - 4);
@@ -1002,6 +1015,8 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
         doc.line(rx + cols[2], y, rx + cols[2], y + rowH);
         rx += cols[2];
 
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
         const dataLines = doc.splitTextToSize(m.numeratorLabel, cols[3] - 4);
         doc.text(dataLines.slice(0, 2), rx + 2, y + 4.8);
         doc.line(rx + cols[3], y, rx + cols[3], y + rowH);
@@ -1011,19 +1026,19 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8);
         doc.setTextColor(15, 23, 42);
-        doc.text(`${m.percentage.toFixed(1)}%`, rx + 2, y + 4.6);
+        doc.text(`${m.percentage.toFixed(1)}%`, rx + 2, y + 4.7);
         doc.setFillColor(226, 232, 240);
-        doc.roundedRect(rx + 2, y + 6.4, cols[4] - 5, 2.2, 1, 1, 'F');
+        doc.roundedRect(rx + 2, y + 6.6, cols[4] - 5, 2.2, 1, 1, 'F');
         const mw = Math.max(1.5, ((cols[4] - 5) * Math.min(100, Math.max(0, m.percentage))) / 100);
         doc.setFillColor(mr, mg, mb);
-        doc.roundedRect(rx + 2, y + 6.4, mw, 2.2, 1, 1, 'F');
+        doc.roundedRect(rx + 2, y + 6.6, mw, 2.2, 1, 1, 'F');
 
         y += rowH;
       });
       y += 6;
 
       // Section 2: 4 PRIME Pillars (2x2 grid)
-      if (y > 215) {
+      if (y > 205) {
         doc.addPage();
         y = 14;
       }
@@ -1091,12 +1106,16 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
         const descLines = doc.splitTextToSize(p.description, cardW - 6);
         doc.text(descLines.slice(0, 3), px + 3, py + 16.5);
       });
-      y += cardH * 2 + 10;
+      y += cardH * 2 + 8;
 
-      // Section 3: Conclusion
-      const concLines = doc.splitTextToSize(conclusionPlainText, contentW - 8);
-      const concH = Math.max(16, concLines.length * 4 + 8);
-      if (y + concH > 275) {
+      // Section 3: Conclusion (set font & size BEFORE splitTextToSize so text never overflows box!)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.2);
+      const concMaxW = contentW - 11;
+      const concLines = doc.splitTextToSize(conclusionPlainText, concMaxW);
+      const concLineH = 4.2;
+      const concH = Math.max(16, concLines.length * concLineH + 7);
+      if (y + concH + 40 > 285) {
         doc.addPage();
         y = 14;
       }
@@ -1109,21 +1128,54 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
 
       doc.setFillColor(248, 250, 252);
       doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.25);
       doc.roundedRect(margin, y, contentW, concH, 2, 2, 'FD');
       doc.setFillColor(cr, cg, cb);
-      doc.rect(margin, y, 1.5, concH, 'F');
+      doc.roundedRect(margin, y, 1.8, concH, 0.8, 0.8, 'F');
 
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
+      doc.setFontSize(8.2);
       doc.setTextColor(30, 41, 59);
-      doc.text(concLines, margin + 4.5, y + 6);
+      doc.text(concLines, margin + 5.5, y + 5.5);
       y += concH + 6;
 
-      // Footer
+      // Footer note & Kepala Sekolah Signature Block
+      if (y + 34 > 286) {
+        doc.addPage();
+        y = 16;
+      }
+
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.line(margin, y, pageW - margin, y);
+      y += 4;
+
+      doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(100, 116, 139);
-      doc.text('Dokumen dihasilkan otomatis dari Sistem SIAP SPANJU · UPT SMP Negeri 7 Pasuruan', margin, y);
-      doc.text(`Pasuruan, ${tanggalCetak}`, pageW - margin, y, { align: 'right' });
+      doc.text('Dokumen dihasilkan otomatis dari Sistem SIAP SPANJU · UPT SMP Negeri 7 Pasuruan', margin, y + 2);
+
+      const sigCenterX = pageW - margin - 34;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`Pasuruan, ${tanggalCetak}`, sigCenterX, y + 2, { align: 'center' });
+      doc.text('Mengetahui,', sigCenterX, y + 6.5, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.text('Kepala SMP Negeri 7 Pasuruan', sigCenterX, y + 10.8, { align: 'center' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.text('NUR FADILAH, S.Pd', sigCenterX, y + 27, { align: 'center' });
+      const nameW = doc.getTextWidth('NUR FADILAH, S.Pd');
+      doc.setDrawColor(15, 23, 42);
+      doc.setLineWidth(0.3);
+      doc.line(sigCenterX - nameW / 2, y + 27.8, sigCenterX + nameW / 2, y + 27.8);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.8);
+      doc.setTextColor(71, 85, 105);
+      doc.text('NIP. 19860410 201001 2 030', sigCenterX, y + 31.5, { align: 'center' });
 
       const safePeriode = selectedPeriode === 'ALL' ? 'Semua_Periode' : `Periode_${selectedPeriode}`;
       const dateStamp = format(new Date(), 'yyyyMMdd_HHmm');
@@ -1315,18 +1367,30 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
       </div>
 
       <div
-        className="border border-slate-300 rounded-lg p-3.5 bg-slate-50 avoid-break"
-        style={{ borderLeftWidth: '4px', borderLeftColor: compositeColorHex }}
+        className="border border-slate-300 rounded-xl p-4 bg-slate-50 avoid-break overflow-hidden"
+        style={{ borderLeftWidth: '5px', borderLeftColor: compositeColorHex }}
       >
-        <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+        <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
           3. Kesimpulan & Rekomendasi Otomatis
         </h4>
-        <p className="text-xs text-slate-800 leading-relaxed">{conclusionPlainText}</p>
+        <p className="text-xs text-slate-800 leading-relaxed break-words text-justify">
+          {conclusionPlainText}
+        </p>
       </div>
 
-      <div className="flex items-center justify-between text-[10px] text-slate-500 pt-2 border-t border-slate-200">
-        <span>Dokumen dihasilkan otomatis dari Sistem SIAP SPANJU · UPT SMP Negeri 7 Pasuruan</span>
-        <span>Pasuruan, {tanggalCetakText}</span>
+      <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-start justify-between gap-6 avoid-break">
+        <p className="text-[10px] text-slate-500">
+          Dokumen dihasilkan otomatis dari Sistem SIAP SPANJU · UPT SMP Negeri 7 Pasuruan
+        </p>
+
+        <div className="text-center text-xs text-slate-900 min-w-[220px] sm:ml-auto">
+          <p>Pasuruan, {tanggalCetakText}</p>
+          <p>Mengetahui,</p>
+          <p className="font-bold">Kepala SMP Negeri 7 Pasuruan</p>
+          <div className="h-16" />
+          <p className="font-bold underline">NUR FADILAH, S.Pd</p>
+          <p className="text-[11px] text-slate-600">NIP. 19860410 201001 2 030</p>
+        </div>
       </div>
     </div>
   );
