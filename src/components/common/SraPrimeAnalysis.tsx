@@ -2009,19 +2009,58 @@ export default function SraPrimeAnalysis({ onNavigate }: SraPrimeAnalysisProps) 
           </div>
 
           {/* Transparent Formula Box */}
-          <div className="text-xs text-slate-600 bg-white border border-slate-200 rounded-xl px-4 py-3 space-y-1.5">
+          <div className="text-xs text-slate-600 bg-white border border-slate-200 rounded-xl px-4 py-3.5 space-y-2.5">
             <p className="font-bold text-slate-800">
               Rumus Tolak Ukur Analisis (Otomatis dari 6 Layanan Utama):
             </p>
-            <p className="font-mono text-[11px] md:text-xs text-slate-700 leading-relaxed tabular-nums">
-              ((% Survey + % Si-Telat + % Izin Siswa + % Keagamaan + % UKS/Kesehatan + % Disiplin Siswa) ÷ 600) × 100%
-            </p>
+
+            {/* Formula 1: Notasi Pecahan Indeks Gabungan */}
+            <div className="overflow-x-auto pb-1">
+              <div className="inline-flex items-center gap-1.5 font-serif text-[12px] sm:text-[13px] text-slate-900 whitespace-nowrap min-w-max">
+                <span className="font-medium">Indeks Gabungan =</span>
+                <span className="text-3xl font-extralight text-slate-700 leading-none select-none">(</span>
+                <span className="inline-flex flex-col items-center px-1">
+                  <span className="border-b border-slate-800 px-1.5 pb-0.5 leading-tight">
+                    %Survey + %Si-Telat + %Izin + %Keagamaan + %UKS + %Disiplin
+                  </span>
+                  <span className="pt-0.5 leading-tight tabular-nums">600</span>
+                </span>
+                <span className="text-3xl font-extralight text-slate-700 leading-none select-none">)</span>
+                <span>× 100%</span>
+              </div>
+            </div>
+
             {modules.length === 6 && (
-              <p className="font-mono text-[11px] text-slate-900 bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-1.5 tabular-nums">
-                ({modules.map((m) => `${m.percentage.toFixed(1)}%`).join(' + ')}) ÷ 600 × 100% ={' '}
-                <span className="font-black">{compositePercentage.toFixed(1)}%</span>
-              </p>
+              <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-3 py-2.5 space-y-2">
+                <p className="text-[11px] font-medium text-slate-700">
+                  Dengan memasukkan nilai capaian konkret dari tiap modul:
+                </p>
+                <div className="overflow-x-auto pb-0.5">
+                  <div className="inline-flex items-center gap-1.5 font-serif text-[12px] sm:text-[13px] text-slate-900 whitespace-nowrap min-w-max tabular-nums">
+                    <span className="text-3xl font-extralight text-slate-700 leading-none select-none">(</span>
+                    <span className="inline-flex flex-col items-center px-1">
+                      <span className="border-b border-slate-800 px-1.5 pb-0.5 leading-tight">
+                        {modules.map((m) => `${m.percentage.toFixed(1)}%`).join(' + ')}
+                      </span>
+                      <span className="pt-0.5 leading-tight">600</span>
+                    </span>
+                    <span className="text-3xl font-extralight text-slate-700 leading-none select-none">)</span>
+                    <span>× 100% =</span>
+                    <span className="inline-flex flex-col items-center px-1">
+                      <span className="border-b border-slate-800 px-1.5 pb-0.5 leading-tight">
+                        {moduleSum.toFixed(1)}%
+                      </span>
+                      <span className="pt-0.5 leading-tight">600</span>
+                    </span>
+                    <span>× 100% =</span>
+                    <span className="font-sans font-black text-sm text-[#1e3a5f]">
+                      {compositePercentage.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
             )}
+
             <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5 text-[11px] text-slate-500">
               <span>
                 Ambang batas: ≥90% Sangat Berhasil · 75–89.9% Berhasil · 60–74.9% Cukup · &lt;60% Pembinaan
