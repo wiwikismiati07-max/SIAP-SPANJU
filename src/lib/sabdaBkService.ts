@@ -142,19 +142,41 @@ export interface KonferensiKasusBK {
 export interface SiswaATSBK {
   id: string;
   tanggal_identifikasi: string;
+  unit_jenis?: 'SD' | 'SMP' | 'KELURAHAN';
+  nama_wilayah?: string;
+  // I. Identitas Pelaksana
+  pelaksana_nama?: string;
+  pelaksana_nip?: string;
+  pelaksana_jabatan?: string;
+  pelaksana_hp?: string;
+  // II. Identitas Sasaran
   siswa_id?: string;
   nama_siswa: string;
+  usia?: string;
   nisn?: string;
   kelas: string;
   jenis_kelamin: 'L' | 'P';
   alamat: string;
+  // III. Bertemu Dengan
+  bertemu_nama?: string;
+  bertemu_status?: 'AYAH' | 'IBU' | 'WALI' | 'LAINNYA';
   nama_ortu: string;
   no_telp: string;
-  kategori_ats: 'Rentan Putus Sekolah' | 'Putus Sekolah (DO)' | 'Lulus Tidak Melanjutkan' | 'Belum Pernah Sekolah';
+  // IV. Pilihan Alasan (K_1 .. K_25, K_13)
+  alasan_kode?: string[];
+  alasan_lainnya?: string;
+  kategori_ats:
+    | 'Drop Out'
+    | 'Lulus Tidak Melanjutkan'
+    | 'Belum Pernah Sekolah'
+    | 'Beresiko Putus Sekolah'
+    | 'Rentan Putus Sekolah'
+    | 'Putus Sekolah (DO)';
   faktor_penyebab: string;
   lama_tidak_sekolah: string;
   upaya_penanganan: string;
   status_penanganan: 'Teridentifikasi' | 'Pendampingan' | 'Kembali Bersekolah' | 'Alih PKBM/Paket' | 'Pindah Sekolah';
+  // V. Catatan Hasil Kunjungan
   catatan_hasil: string;
   petugas_pendamping: string;
   created_at?: string;
@@ -486,21 +508,32 @@ CREATE TABLE IF NOT EXISTS public.bk_konferensi_kasus (
 CREATE TABLE IF NOT EXISTS public.bk_siswa_ats (
     id TEXT PRIMARY KEY,
     tanggal_identifikasi DATE NOT NULL,
+    unit_jenis TEXT DEFAULT 'SMP',
+    nama_wilayah TEXT DEFAULT 'GADINGREJO',
+    pelaksana_nama TEXT DEFAULT 'WIWIK ISMIATI, S.Pd',
+    pelaksana_nip TEXT DEFAULT '19831116 200904 2 003',
+    pelaksana_jabatan TEXT DEFAULT 'GURU BK',
+    pelaksana_hp TEXT DEFAULT '0851-6870-0953',
     siswa_id TEXT,
     nama_siswa TEXT NOT NULL,
+    usia TEXT,
     nisn TEXT,
-    kelas TEXT NOT NULL,
+    kelas TEXT DEFAULT '-',
     jenis_kelamin TEXT DEFAULT 'L',
     alamat TEXT,
+    bertemu_nama TEXT,
+    bertemu_status TEXT DEFAULT 'IBU',
     nama_ortu TEXT,
     no_telp TEXT,
-    kategori_ats TEXT NOT NULL DEFAULT 'Rentan Putus Sekolah',
+    alasan_kode JSONB DEFAULT '[]'::jsonb,
+    alasan_lainnya TEXT,
+    kategori_ats TEXT NOT NULL DEFAULT 'Drop Out',
     faktor_penyebab TEXT NOT NULL,
-    lama_tidak_sekolah TEXT NOT NULL,
-    upaya_penanganan TEXT NOT NULL,
+    lama_tidak_sekolah TEXT DEFAULT '-',
+    upaya_penanganan TEXT DEFAULT '-',
     status_penanganan TEXT DEFAULT 'Pendampingan',
     catatan_hasil TEXT,
-    petugas_pendamping TEXT DEFAULT 'Wiwik Ismiati, S.Pd & Tim Satgas ATS',
+    petugas_pendamping TEXT DEFAULT 'WIWIK ISMIATI, S.Pd',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
