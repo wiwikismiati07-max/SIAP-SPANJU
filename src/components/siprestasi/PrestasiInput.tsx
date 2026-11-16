@@ -36,7 +36,18 @@ const PrestasiInput: React.FC<{ user?: any }> = ({ user }) => {
   });
 
   const BK_GURU = ['WiwikIsmiati S.pd', 'Eki Febriani S.pd'];
-  const JUARA_OPTIONS = ['Juara 1', 'Juara 2', 'Juara 3', 'Harapan 1', 'Harapan 2', 'Harapan 3', 'Partisipasi'];
+  const JUARA_OPTIONS = [
+    'Juara 1',
+    'Juara 2',
+    'Juara 3',
+    'Harapan 1',
+    'Harapan 2',
+    'Harapan 3',
+    'Medali Emas',
+    'Medali Perak',
+    'Medali Perunggu',
+    'Partisipasi'
+  ];
   const TINGKAT_OPTIONS = ['Antar Sekolah', 'Kabupaten/Kota', 'Propinsi', 'Nasional'];
 
   useEffect(() => {
